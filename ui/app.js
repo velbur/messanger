@@ -1542,6 +1542,10 @@ const formatProgressLabel = (job) => {
   if (job.status === "running" && total === 0) {
     return "Подготовка проекта…";
   }
+  // Кадры отрисованы, идёт однопоточная склейка — показываем фазу, а не немые проценты
+  if (job.phase && total > 0 && rendered >= total) {
+    return `${percent}% · ${job.phase}`;
+  }
   return `${percent}%${framesPart}`;
 };
 
@@ -1632,6 +1636,11 @@ const pollJob = (jobId) => {
     clearInterval(pollTimer);
   }
 
+  // Временные сетевые сбои (особенно при удалённом рендере на этапе склейки)
+  // не должны ронять опрос — сдаёмся только после серии неудач подряд
+  let consecutiveErrors = 0;
+  const MAX_POLL_ERRORS = 12;
+
   const tick = async () => {
     try {
       const res = await fetch(`/api/jobs/${jobId}`);
@@ -1641,6 +1650,7 @@ const pollJob = (jobId) => {
         throw new Error(job.error ?? "Не удалось получить статус");
       }
 
+      consecutiveErrors = 0;
       showStatus(job);
 
       if (job.status === "done" || job.status === "error" || job.status === "cancelled") {
@@ -1653,17 +1663,26 @@ const pollJob = (jobId) => {
         }
       }
     } catch (err) {
-      statusText.className = "status-text status-text--error";
-      statusText.textContent = err instanceof Error ? err.message : String(err);
-      clearInterval(pollTimer);
-      pollTimer = null;
-      activeRenderJobId = null;
-      setBusy(false);
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= MAX_POLL_ERRORS) {
+        statusText.className = "status-text status-text--error";
+        statusText.textContent = `Связь с рендером потеряна: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
+        clearInterval(pollTimer);
+        pollTimer = null;
+        activeRenderJobId = null;
+        setBusy(false);
+      } else {
+        // не пугаем пользователя на разовых сбоях — продолжаем опрос
+        statusText.className = "status-text";
+        statusText.textContent = `Ожидание ответа от рендера… (попытка ${consecutiveErrors})`;
+      }
     }
   };
 
   tick();
-  pollTimer = setInterval(tick, 1000);
+  pollTimer = setInterval(tick, 2000);
 };
 
 btnStopRender?.addEventListener("click", async () => {

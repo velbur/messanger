@@ -98,6 +98,26 @@ let jobCounter = 0;
 let renderBusy = false;
 const renderQueue = [];
 
+/** fetch с таймаутом и повторами — воркер на муксинге может отвечать медленно */
+const fetchWithRetry = async (url, options = {}, {timeoutMs = 15000, retries = 2} = {}) => {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {...options, signal: controller.signal});
+    } catch (error) {
+      lastError = error;
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError;
+};
+
 /** Сколько завершённых задач храним в памяти (защита от роста heap) */
 const MAX_FINISHED_JOBS = 20;
 
@@ -170,10 +190,19 @@ const processQueue = async () => {
       onCompositionReady: (durationInFrames) => {
         job.totalFrames = durationInFrames;
       },
-      onProgress: ({progress, renderedFrames, encodedFrames}) => {
+      onProgress: ({progress, renderedFrames, encodedFrames, stitchStage}) => {
         job.progress = progress;
         job.renderedFrames = renderedFrames;
         job.encodedFrames = encodedFrames;
+        // Когда кадры отрисованы, остаётся однопоточная склейка — отмечаем фазу,
+        // чтобы UI не выглядел "зависшим" на 90%+
+        if (renderedFrames >= job.totalFrames && job.totalFrames > 0) {
+          const phase = stitchStage === "muxing" ? "Склейка видео и аудио…" : "Кодирование видео…";
+          if (job.phase !== phase) {
+            job.phase = phase;
+            job.logs.push(phase);
+          }
+        }
       },
       cancelSignal,
     });
@@ -932,7 +961,7 @@ app.post("/api/render", async (req, res) => {
       logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
 
-      const forwardResp = await fetch(`${REMOTE_RENDER_URL}/api/render`, {
+      const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -1000,6 +1029,7 @@ app.post("/api/render", async (req, res) => {
       renderedFrames: 0,
       encodedFrames: 0,
       totalFrames: 0,
+      phase: null,
       cancel: null,
       renderCommand,
       createdAt: Date.now(),
@@ -1040,7 +1070,7 @@ app.get("/api/jobs/:id", async (req, res) => {
 
   if (job.remote) {
     try {
-      const resp = await fetch(`${job.remoteUrl}/api/jobs/${job.remoteJobId}`);
+      const resp = await fetchWithRetry(`${job.remoteUrl}/api/jobs/${job.remoteJobId}`);
       const data = await resp.json();
       if (!resp.ok) {
         res.status(resp.status).json(data);
@@ -1084,6 +1114,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     renderedFrames: job.renderedFrames,
     encodedFrames: job.encodedFrames,
     totalFrames: job.totalFrames,
+    phase: job.phase ?? null,
     renderCommand: job.renderCommand,
     renderConcurrency: getRenderConcurrency(),
     queuePosition: job.status === "queued" ? renderQueue.indexOf(job.id) + 1 : 0,
@@ -1098,7 +1129,11 @@ app.get("/api/jobs/:id/download", async (req, res) => {
     return;
   }
   try {
-    const resp = await fetch(`${job.remoteUrl}/out/${job.outputFile}`);
+    const resp = await fetchWithRetry(
+      `${job.remoteUrl}/out/${job.outputFile}`,
+      {},
+      {timeoutMs: 600000, retries: 1},
+    );
     if (!resp.ok || !resp.body) {
       res.status(resp.status || 502).json({error: "Не удалось получить MP4 с воркера"});
       return;
@@ -1123,7 +1158,7 @@ app.post("/api/jobs/:id/cancel", async (req, res) => {
 
   if (job.remote) {
     try {
-      const resp = await fetch(`${job.remoteUrl}/api/jobs/${job.remoteJobId}/cancel`, {
+      const resp = await fetchWithRetry(`${job.remoteUrl}/api/jobs/${job.remoteJobId}/cancel`, {
         method: "POST",
       });
       const data = await resp.json().catch(() => ({}));
