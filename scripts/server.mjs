@@ -78,8 +78,20 @@ import {
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JSON_DIR = path.join(ROOT, "json");
 const OUT_DIR = path.join(ROOT, "out");
+const PUBLIC_DIR = path.join(ROOT, "public");
 const UI_DIR = path.join(ROOT, "ui");
 const PORT = Number(process.env.PORT ?? 3333);
+
+/** URL удалённого render-воркера (тот же server.mjs на мощной машине), напр. http://192.168.0.136:3333 */
+const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
+
+const getRenderTargets = () => {
+  const targets = [{id: "local", label: "Локально (эта машина)"}];
+  if (REMOTE_RENDER_URL) {
+    targets.push({id: "remote", label: `Мощная машина (${REMOTE_RENDER_URL})`, url: REMOTE_RENDER_URL});
+  }
+  return targets;
+};
 
 const jobs = new Map();
 let jobCounter = 0;
@@ -811,6 +823,40 @@ app.get("/api/example", async (_req, res) => {
   }
 });
 
+app.get("/api/render-targets", (_req, res) => {
+  res.json({targets: getRenderTargets(), defaultTarget: "local"});
+});
+
+/** Залить локальные картинки переписки на воркер (URL-ссылки пропускаем — они уже резолвятся локально) */
+const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
+  const seen = new Set();
+  for (const message of conversation.messages) {
+    const ref = String(message.image ?? "").trim();
+    if (!ref || /^https?:\/\//i.test(ref) || seen.has(ref)) {
+      continue;
+    }
+    seen.add(ref);
+    const abs = path.join(PUBLIC_DIR, ref.replace(/^\/+/, ""));
+    let buffer;
+    try {
+      buffer = await readFile(abs);
+    } catch {
+      logs.push(`Картинка не найдена локально, пропущена: ${ref}`);
+      continue;
+    }
+    const resp = await fetch(`${remoteUrl}/api/images/upload`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({targetRef: ref, contentBase64: buffer.toString("base64")}),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(`Не удалось отправить ${ref} на воркер: ${data.error ?? resp.status}`);
+    }
+    logs.push(`Картинка отправлена на воркер: ${ref}`);
+  }
+};
+
 app.post("/api/render", async (req, res) => {
   try {
     const {
@@ -819,7 +865,10 @@ app.post("/api/render", async (req, res) => {
       wallpaper: rawWallpaper,
       music: rawMusic,
       dialogueId,
+      target: rawTarget,
     } = req.body ?? {};
+
+    const target = rawTarget === "remote" && REMOTE_RENDER_URL ? "remote" : "local";
 
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -879,6 +928,59 @@ app.post("/api/render", async (req, res) => {
       outputRel,
     });
 
+    if (target === "remote") {
+      logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
+      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
+
+      const forwardResp = await fetch(`${REMOTE_RENDER_URL}/api/render`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          json: JSON.stringify(conversation),
+          name: fileName,
+          target: "local",
+        }),
+      });
+      const forwardData = await forwardResp.json().catch(() => ({}));
+      if (!forwardResp.ok) {
+        throw new Error(forwardData.error ?? `Воркер вернул ошибку (${forwardResp.status})`);
+      }
+
+      const jobId = String(++jobCounter);
+      const job = {
+        id: jobId,
+        status: "queued",
+        remote: true,
+        remoteUrl: REMOTE_RENDER_URL,
+        remoteJobId: forwardData.jobId,
+        fileName,
+        inputRel,
+        outputRel: forwardData.outputPath ?? outputRel,
+        outputFile: forwardData.outputFile ?? outputFile,
+        dialogueId: typeof dialogueId === "string" ? dialogueId : null,
+        downloadUrl: null,
+        error: null,
+        logs: [...logs],
+        renderCommand,
+        createdAt: Date.now(),
+      };
+      jobs.set(jobId, job);
+      pruneFinishedJobs();
+
+      res.json({
+        jobId,
+        fileName,
+        inputPath: inputRel,
+        outputPath: job.outputRel,
+        outputFile: job.outputFile,
+        dialogueId: job.dialogueId,
+        target: "remote",
+        renderCommand,
+        logs: job.logs,
+      });
+      return;
+    }
+
     const jobId = String(++jobCounter);
     const job = {
       id: jobId,
@@ -913,6 +1015,7 @@ app.post("/api/render", async (req, res) => {
       outputPath: outputRel,
       outputFile,
       dialogueId: job.dialogueId,
+      target: "local",
       renderCommand,
       renderConcurrency: getRenderConcurrency(),
       logs: job.logs,
@@ -928,10 +1031,42 @@ app.post("/api/render", async (req, res) => {
   }
 });
 
-app.get("/api/jobs/:id", (req, res) => {
+app.get("/api/jobs/:id", async (req, res) => {
   const job = jobs.get(req.params.id);
   if (!job) {
     res.status(404).json({error: "Задача не найдена"});
+    return;
+  }
+
+  if (job.remote) {
+    try {
+      const resp = await fetch(`${job.remoteUrl}/api/jobs/${job.remoteJobId}`);
+      const data = await resp.json();
+      if (!resp.ok) {
+        res.status(resp.status).json(data);
+        return;
+      }
+      if (data.status === "done") {
+        job.status = "done";
+        job.outputFile = data.outputFile ?? job.outputFile;
+        job.downloadUrl = `/api/jobs/${job.id}/download`;
+      } else {
+        job.status = data.status;
+      }
+      res.json({
+        ...data,
+        id: job.id,
+        target: "remote",
+        outputPath: job.outputRel,
+        downloadUrl: data.status === "done" ? `/api/jobs/${job.id}/download` : null,
+        renderCommand: job.renderCommand,
+        logs: [...job.logs, ...(data.logs ?? [])],
+      });
+    } catch (error) {
+      res.status(502).json({
+        error: `Воркер недоступен: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
     return;
   }
 
@@ -956,10 +1091,52 @@ app.get("/api/jobs/:id", (req, res) => {
   });
 });
 
-app.post("/api/jobs/:id/cancel", (req, res) => {
+app.get("/api/jobs/:id/download", async (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job || !job.remote) {
+    res.status(404).json({error: "Задача не найдена"});
+    return;
+  }
+  try {
+    const resp = await fetch(`${job.remoteUrl}/out/${job.outputFile}`);
+    if (!resp.ok || !resp.body) {
+      res.status(resp.status || 502).json({error: "Не удалось получить MP4 с воркера"});
+      return;
+    }
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="${job.outputFile}"`);
+    const {Readable} = await import("node:stream");
+    Readable.fromWeb(resp.body).pipe(res);
+  } catch (error) {
+    res.status(502).json({
+      error: `Воркер недоступен: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+});
+
+app.post("/api/jobs/:id/cancel", async (req, res) => {
   const job = jobs.get(req.params.id);
   if (!job) {
     res.status(404).json({error: "Задача не найдена"});
+    return;
+  }
+
+  if (job.remote) {
+    try {
+      const resp = await fetch(`${job.remoteUrl}/api/jobs/${job.remoteJobId}/cancel`, {
+        method: "POST",
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        res.status(resp.status).json(data);
+        return;
+      }
+      res.json(data);
+    } catch (error) {
+      res.status(502).json({
+        error: `Воркер недоступен: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
     return;
   }
 

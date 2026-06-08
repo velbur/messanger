@@ -205,6 +205,7 @@ cmd_ui() {
     -e "PORT=3333" \
     -e "NATIVE_PROJECT_ROOT=${ROOT}" \
     -e "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=4096}" \
+    -e "REMOTE_RENDER_URL=${REMOTE_RENDER_URL:-}" \
     -v "${ROOT}/json:/app/json" \
     -v "${ROOT}/out:/app/out" \
     -v "${ROOT}/public:/app/public" \

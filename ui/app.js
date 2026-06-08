@@ -17,6 +17,8 @@ const downloadLink = document.getElementById("downloadLink");
 const pathsHint = document.getElementById("pathsHint");
 const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const musicSelect = document.getElementById("musicSelect");
+const renderTargetRow = document.getElementById("renderTargetRow");
+const renderTargetSelect = document.getElementById("renderTargetSelect");
 const introEnabled = document.getElementById("introEnabled");
 const introTextInput = document.getElementById("introTextInput");
 const endCardEnabled = document.getElementById("endCardEnabled");
@@ -649,6 +651,39 @@ const loadMusicTracks = async () => {
     opt.value = "";
     opt.textContent = err instanceof Error ? err.message : "Ошибка загрузки";
     musicSelect.append(opt);
+  }
+};
+
+const getRenderTarget = () =>
+  renderTargetSelect && renderTargetSelect.value ? renderTargetSelect.value : "local";
+
+const loadRenderTargets = async () => {
+  if (!renderTargetSelect || !renderTargetRow) {
+    return;
+  }
+  try {
+    const res = await fetch("/api/render-targets");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить цели рендера");
+    }
+    const targets = data.targets ?? [];
+    // Селектор нужен, только если есть удалённый воркер (иначе всегда локально)
+    if (targets.length <= 1) {
+      renderTargetRow.hidden = true;
+      return;
+    }
+    renderTargetSelect.replaceChildren();
+    for (const target of targets) {
+      const opt = document.createElement("option");
+      opt.value = target.id;
+      opt.textContent = target.label;
+      renderTargetSelect.append(opt);
+    }
+    renderTargetSelect.value = data.defaultTarget ?? "local";
+    renderTargetRow.hidden = false;
+  } catch {
+    renderTargetRow.hidden = true;
   }
 };
 
@@ -1731,6 +1766,7 @@ btnRender.addEventListener("click", async () => {
         wallpaper: getWallpaper(),
         music: getMusicId(),
         dialogueId: currentDialogueId ?? undefined,
+        target: getRenderTarget(),
       }),
     });
 
@@ -1890,6 +1926,7 @@ const loadKlingStatus = async () => {
 };
 
 loadMusicTracks();
+loadRenderTargets();
 loadKlingStatus();
 loadGrokStatus();
 loadStylePrompt();

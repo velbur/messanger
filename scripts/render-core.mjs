@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import {mkdir} from "node:fs/promises";
 import {bundle} from "@remotion/bundler";
@@ -6,17 +7,21 @@ import {renderMedia, selectComposition} from "@remotion/renderer";
 const entryPoint = path.resolve("src/index.ts");
 const DEFAULT_CONCURRENCY = 5;
 
-/** @returns {number} 1–16, по умолчанию 5 (оптимально для ~16 GB RAM) */
+/** Число доступных ядер (Remotion не разрешает concurrency больше этого значения) */
+const getCpuCount = () => {
+  const available =
+    typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length;
+  return Math.max(1, available || 1);
+};
+
+/** @returns {number} 1..(число ядер), по умолчанию 5; всегда ограничено числом CPU */
 export const getRenderConcurrency = () => {
+  const maxCpus = getCpuCount();
   const raw = process.env.RENDER_CONCURRENCY;
-  if (raw === undefined || raw === "") {
-    return DEFAULT_CONCURRENCY;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed)) {
-    return DEFAULT_CONCURRENCY;
-  }
-  return Math.min(16, Math.max(1, parsed));
+  const requested =
+    raw === undefined || raw === "" ? DEFAULT_CONCURRENCY : Number.parseInt(raw, 10);
+  const safe = Number.isFinite(requested) ? requested : DEFAULT_CONCURRENCY;
+  return Math.min(maxCpus, Math.max(1, safe));
 };
 
 /**
