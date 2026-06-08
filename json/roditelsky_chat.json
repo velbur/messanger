@@ -1,0 +1,99 @@
+{
+  "contactName": "Воспитательница",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Родители, завтра дети приносят поделку",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "me",
+      "text": "Какую?",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "them",
+      "text": "На тему “осень”",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "Завтра же февраль",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "them",
+      "text": "Тем интереснее",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "И где взять осень в феврале?",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "Можно просто листик",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "me",
+      "text": "Где я в феврале возьму листик?",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "У кого-то же дома есть фикус",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "Это уже не поделка",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "Это похищение растения",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "them",
+      "text": "Не драматизируйте",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "me",
+      "text": "Я уже стою перед фикусом с ножницами 😐",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "them",
+      "text": "Главное, чтобы ребёнок участвовал",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "Он участвует",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "them",
+      "text": "Как?",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "Кричит “мама, не надо”",
+      "sentAt": "20:20"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  }
+}

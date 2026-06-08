@@ -1,0 +1,340 @@
+{
+  "contactName": "Макс",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ты не спишь?",
+      "sentAt": "02:13"
+    },
+    {
+      "author": "them",
+      "text": "Нет",
+      "sentAt": "02:13"
+    },
+    {
+      "author": "me",
+      "text": "У меня странная фигня",
+      "sentAt": "02:13"
+    },
+    {
+      "author": "them",
+      "text": "Какая?",
+      "sentAt": "02:14"
+    },
+    {
+      "author": "me",
+      "text": "Нашёл старый чат с тобой",
+      "sentAt": "02:14"
+    },
+    {
+      "author": "them",
+      "text": "И что?",
+      "sentAt": "02:14"
+    },
+    {
+      "author": "me",
+      "text": "Там сообщения за завтра",
+      "sentAt": "02:15"
+    },
+    {
+      "author": "them",
+      "text": "В смысле за завтра?",
+      "sentAt": "02:15"
+    },
+    {
+      "author": "me",
+      "text": "Дата стоит завтрашняя",
+      "sentAt": "02:15"
+    },
+    {
+      "author": "them",
+      "text": "Может, телефон глючит",
+      "sentAt": "02:16"
+    },
+    {
+      "author": "me",
+      "text": "Я тоже так подумал",
+      "sentAt": "02:16"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "02:16"
+    },
+    {
+      "author": "me",
+      "text": "Там написано всё, что мы сейчас пишем",
+      "sentAt": "02:17"
+    },
+    {
+      "author": "them",
+      "text": "Прям всё?",
+      "sentAt": "02:17"
+    },
+    {
+      "author": "me",
+      "text": "Да",
+      "sentAt": "02:17"
+    },
+    {
+      "author": "them",
+      "text": "Тогда что я сейчас напишу?",
+      "sentAt": "02:18"
+    },
+    {
+      "author": "me",
+      "text": "“Прям всё?”",
+      "sentAt": "02:18"
+    },
+    {
+      "author": "them",
+      "text": "😐",
+      "sentAt": "02:18"
+    },
+    {
+      "author": "them",
+      "text": "Ладно, неприятно",
+      "sentAt": "02:19"
+    },
+    {
+      "author": "me",
+      "text": "Дальше ещё хуже",
+      "sentAt": "02:19"
+    },
+    {
+      "author": "them",
+      "text": "Что дальше?",
+      "sentAt": "02:19"
+    },
+    {
+      "author": "me",
+      "text": "Я пишу тебе: “не открывай дверь”",
+      "sentAt": "02:20"
+    },
+    {
+      "author": "them",
+      "text": "Какую дверь?",
+      "sentAt": "02:20"
+    },
+    {
+      "author": "me",
+      "text": "Не знаю",
+      "sentAt": "02:20"
+    },
+    {
+      "author": "them",
+      "text": "Мне сейчас звонят",
+      "sentAt": "02:21"
+    },
+    {
+      "author": "me",
+      "text": "В дверь?",
+      "sentAt": "02:21"
+    },
+    {
+      "author": "them",
+      "text": "В домофон",
+      "sentAt": "02:21"
+    },
+    {
+      "author": "me",
+      "text": "Не открывай",
+      "sentAt": "02:22"
+    },
+    {
+      "author": "them",
+      "text": "Подожди",
+      "sentAt": "02:22"
+    },
+    {
+      "author": "me",
+      "text": "Что?",
+      "sentAt": "02:22"
+    },
+    {
+      "author": "them",
+      "text": "В старом чате ты дальше написал “я всё равно открыл”",
+      "sentAt": "02:23"
+    },
+    {
+      "author": "me",
+      "text": "Не открывай",
+      "sentAt": "02:23"
+    },
+    {
+      "author": "them",
+      "text": "Поздно",
+      "sentAt": "02:23"
+    },
+    {
+      "author": "me",
+      "text": "Кто там?",
+      "sentAt": "02:24"
+    },
+    {
+      "author": "them",
+      "text": "Курьер",
+      "sentAt": "02:24"
+    },
+    {
+      "author": "me",
+      "text": "Какой курьер ночью?",
+      "sentAt": "02:24"
+    },
+    {
+      "author": "them",
+      "text": "С пиццей",
+      "sentAt": "02:25"
+    },
+    {
+      "author": "me",
+      "text": "Ты заказывал?",
+      "sentAt": "02:25"
+    },
+    {
+      "author": "them",
+      "text": "Нет",
+      "sentAt": "02:25"
+    },
+    {
+      "author": "me",
+      "text": "Тогда не бери",
+      "sentAt": "02:26"
+    },
+    {
+      "author": "them",
+      "text": "Уже взял",
+      "sentAt": "02:26"
+    },
+    {
+      "author": "me",
+      "text": "Что на коробке?",
+      "sentAt": "02:26"
+    },
+    {
+      "author": "them",
+      "text": "Моё имя",
+      "sentAt": "02:27"
+    },
+    {
+      "author": "me",
+      "text": "И что внутри?",
+      "sentAt": "02:27"
+    },
+    {
+      "author": "them",
+      "text": "Телефон",
+      "sentAt": "02:27"
+    },
+    {
+      "author": "me",
+      "text": "Какой телефон?",
+      "sentAt": "02:28"
+    },
+    {
+      "author": "them",
+      "text": "Мой старый",
+      "sentAt": "02:28"
+    },
+    {
+      "author": "me",
+      "text": "Он же сломан",
+      "sentAt": "02:28"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "02:29"
+    },
+    {
+      "author": "them",
+      "text": "Он включён",
+      "sentAt": "02:29"
+    },
+    {
+      "author": "me",
+      "text": "Что на экране?",
+      "sentAt": "02:29"
+    },
+    {
+      "author": "them",
+      "text": "Наш чат",
+      "sentAt": "02:30"
+    },
+    {
+      "author": "me",
+      "text": "За завтра?",
+      "sentAt": "02:30"
+    },
+    {
+      "author": "them",
+      "text": "Нет",
+      "sentAt": "02:30"
+    },
+    {
+      "author": "them",
+      "text": "За сегодня",
+      "sentAt": "02:31"
+    },
+    {
+      "author": "me",
+      "text": "И что последнее?",
+      "sentAt": "02:31"
+    },
+    {
+      "author": "them",
+      "text": "“Теперь напиши ему первым”",
+      "sentAt": "02:31"
+    },
+    {
+      "author": "me",
+      "text": "Кому?",
+      "sentAt": "02:32"
+    },
+    {
+      "author": "them",
+      "text": "Себе",
+      "sentAt": "02:32"
+    },
+    {
+      "author": "me",
+      "text": "Подожди",
+      "sentAt": "02:33"
+    },
+    {
+      "author": "them",
+      "text": "Что?",
+      "sentAt": "02:33"
+    },
+    {
+      "author": "me",
+      "text": "Мне только что пришло сообщение",
+      "sentAt": "02:33"
+    },
+    {
+      "author": "them",
+      "text": "От кого?",
+      "sentAt": "02:34"
+    },
+    {
+      "author": "me",
+      "text": "От меня",
+      "sentAt": "02:34"
+    },
+    {
+      "author": "them",
+      "text": "Что там?",
+      "sentAt": "02:34"
+    },
+    {
+      "author": "me",
+      "text": "“Не заказывай пиццу”",
+      "sentAt": "02:35"
+    }
+  ]
+}

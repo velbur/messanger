@@ -1,0 +1,54 @@
+{
+  "contactName": "Сосед",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "dark",
+  "myName": "Я",
+  "intro": {
+    "enabled": true,
+    "text": "История началась:  Часть 1",
+    "durationMs": 2000
+  },
+  "endCard": {
+    "enabled": true,
+    "text": "Продолжение следует ...",
+    "durationMs": 2000
+  },
+  "music": {
+    "enabled": true,
+    "src": "music/kremlin.mp3"
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ты опять шумел ночью?",
+      "sentAt": "23:41"
+    },
+    {
+      "author": "them",
+      "text": "Извини, прогревал корабль 👽",
+      "sentAt": "23:41"
+    },
+    {
+      "author": "me",
+      "text": "Какой ещё корабль?",
+      "sentAt": "23:42"
+    },
+    {
+      "author": "them",
+      "text": "Межзвёздный\nМаленький",
+      "sentAt": "23:42"
+    },
+    {
+      "author": "me",
+      "text": "Ты точно из 84 квартиры?",
+      "sentAt": "23:43"
+    },
+    {
+      "author": "them",
+      "text": "Временно\nПока борщ не закончится 😌",
+      "sentAt": "23:43"
+    }
+  ]
+}

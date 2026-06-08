@@ -1,0 +1,119 @@
+{
+  "contactName": "Лена",
+  "contactStatus": "в сети",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты поел?",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "me",
+      "text": "Да 😎\nЯ сегодня сам готовил",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "them",
+      "text": "Ого\nЧто приготовил?",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "Пасту",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "them",
+      "text": "Серьёзно?\nМолодец",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "Спасибо\nБыло непросто",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "Что случилось?",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "me",
+      "text": "Макароны оказались хитрые",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "В смысле?",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "На пачке написано 8 минут",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "them",
+      "text": "Ну?",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "Я варил 40\nОни всё равно не стали как в ресторане",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "them",
+      "text": "Ты воду посолил?",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "me",
+      "text": "Конечно",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "them",
+      "text": "А воду налил?",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "…",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "them",
+      "text": "Макс",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "Я думал, они в соусе сами размягчатся",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "them",
+      "text": "Ты ел сухие макароны с кетчупом?",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "me",
+      "text": "Не сухие",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "them",
+      "text": "А какие?",
+      "sentAt": "20:21"
+    },
+    {
+      "author": "me",
+      "text": "Хрустящие 😌",
+      "sentAt": "20:21"
+    }
+  ]
+}

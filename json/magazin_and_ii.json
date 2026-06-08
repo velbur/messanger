@@ -1,0 +1,125 @@
+{
+  "contactName": "Друг",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты заказ оформил?",
+      "sentAt": "16:20"
+    },
+    {
+      "author": "me",
+      "text": "Пытаюсь",
+      "sentAt": "16:20"
+    },
+    {
+      "author": "them",
+      "text": "Что не так?",
+      "sentAt": "16:20"
+    },
+    {
+      "author": "me",
+      "text": "Магазин внедрил ИИ-помощника",
+      "sentAt": "16:21"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "16:21"
+    },
+    {
+      "author": "me",
+      "text": "Я написал “нужен кабель”",
+      "sentAt": "16:21"
+    },
+    {
+      "author": "me",
+      "text": "Он спросил, какой у меня жизненный путь",
+      "sentAt": "16:22"
+    },
+    {
+      "author": "them",
+      "text": "Что? 😂",
+      "sentAt": "16:22"
+    },
+    {
+      "author": "me",
+      "text": "Потом предложил “начать с себя”",
+      "sentAt": "16:22"
+    },
+    {
+      "author": "them",
+      "text": "Это точно магазин?",
+      "sentAt": "16:23"
+    },
+    {
+      "author": "me",
+      "text": "Да",
+      "sentAt": "16:23"
+    },
+    {
+      "author": "them",
+      "text": "И кабель нашёл?",
+      "sentAt": "16:23"
+    },
+    {
+      "author": "me",
+      "text": "Почти",
+      "sentAt": "16:24"
+    },
+    {
+      "author": "them",
+      "text": "Что значит почти?",
+      "sentAt": "16:24"
+    },
+    {
+      "author": "me",
+      "text": "Он подобрал мне курс по дисциплине",
+      "sentAt": "16:24"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "16:25"
+    },
+    {
+      "author": "me",
+      "text": "Чтобы я больше не терял кабели",
+      "sentAt": "16:25"
+    },
+    {
+      "author": "them",
+      "text": "Логично",
+      "sentAt": "16:25"
+    },
+    {
+      "author": "me",
+      "text": "Нет",
+      "sentAt": "16:26"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "16:26"
+    },
+    {
+      "author": "me",
+      "text": "Я купил курс",
+      "sentAt": "16:26"
+    },
+    {
+      "author": "them",
+      "text": "А кабель?",
+      "sentAt": "16:27"
+    },
+    {
+      "author": "me",
+      "text": "Забыл заказать 😐",
+      "sentAt": "16:27"
+    }
+  ]
+}

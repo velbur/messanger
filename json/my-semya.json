@@ -1,0 +1,75 @@
+{
+  "contactName": "Друг",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Как собеседование?",
+      "sentAt": "15:12"
+    },
+    {
+      "author": "me",
+      "text": "Странно",
+      "sentAt": "15:12"
+    },
+    {
+      "author": "them",
+      "text": "Что спросили?",
+      "sentAt": "15:13"
+    },
+    {
+      "author": "me",
+      "text": "Готов ли я стать частью семьи",
+      "sentAt": "15:13"
+    },
+    {
+      "author": "them",
+      "text": "🚩",
+      "sentAt": "15:13"
+    },
+    {
+      "author": "me",
+      "text": "Я тоже так подумал",
+      "sentAt": "15:14"
+    },
+    {
+      "author": "them",
+      "text": "И что ответил?",
+      "sentAt": "15:14"
+    },
+    {
+      "author": "me",
+      "text": "Спросил, платят ли в этой семье алименты",
+      "sentAt": "15:14"
+    },
+    {
+      "author": "them",
+      "text": "💀",
+      "sentAt": "15:15"
+    },
+    {
+      "author": "them",
+      "text": "Тебя взяли?",
+      "sentAt": "15:15"
+    },
+    {
+      "author": "me",
+      "text": "Пока молчат",
+      "sentAt": "15:15"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "15:16"
+    },
+    {
+      "author": "me",
+      "text": "Наверное, советуются с родственниками 😂",
+      "sentAt": "15:16"
+    }
+  ]
+}

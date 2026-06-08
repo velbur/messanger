@@ -1,0 +1,154 @@
+{
+  "contactName": "Лена",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Саша",
+  "messages": [
+    {
+      "author": "me",
+      "text": "Сегодня лягу в 23:00",
+      "sentAt": "22:58"
+    },
+    {
+      "author": "them",
+      "text": "Серьёзное заявление",
+      "sentAt": "22:58"
+    },
+    {
+      "author": "me",
+      "text": "Я всё продумал",
+      "sentAt": "22:59"
+    },
+    {
+      "author": "them",
+      "text": "И что уже сделал?",
+      "sentAt": "22:59"
+    },
+    {
+      "author": "me",
+      "text": "Почистил зубы",
+      "sentAt": "22:59"
+    },
+    {
+      "author": "them",
+      "text": "Молодец",
+      "sentAt": "23:00"
+    },
+    {
+      "author": "me",
+      "text": "Поставил телефон заряжаться",
+      "sentAt": "23:00"
+    },
+    {
+      "author": "them",
+      "text": "Опасный момент",
+      "sentAt": "23:00"
+    },
+    {
+      "author": "me",
+      "text": "Нет\nЯ просто проверю будильник",
+      "sentAt": "23:01"
+    },
+    {
+      "author": "them",
+      "text": "Саша",
+      "sentAt": "23:01"
+    },
+    {
+      "author": "me",
+      "text": "Всё под контролем",
+      "sentAt": "23:01"
+    },
+    {
+      "author": "them",
+      "text": "Сколько времени?",
+      "sentAt": "23:04"
+    },
+    {
+      "author": "me",
+      "text": "23:04",
+      "sentAt": "23:04"
+    },
+    {
+      "author": "them",
+      "text": "А сейчас?",
+      "sentAt": "23:37"
+    },
+    {
+      "author": "me",
+      "text": "23:37",
+      "sentAt": "23:37"
+    },
+    {
+      "author": "them",
+      "text": "Что ты проверял 33 минуты?",
+      "sentAt": "23:37"
+    },
+    {
+      "author": "me",
+      "text": "Будильник\nПогоду\nОдно видео\nИ почему пингвины ходят так уверенно",
+      "sentAt": "23:38"
+    },
+    {
+      "author": "them",
+      "text": "Ты уже не ляжешь пораньше",
+      "sentAt": "23:38"
+    },
+    {
+      "author": "me",
+      "text": "Лягу",
+      "sentAt": "23:38"
+    },
+    {
+      "author": "them",
+      "text": "Когда?",
+      "sentAt": "23:39"
+    },
+    {
+      "author": "me",
+      "text": "Сразу после статьи про пингвинов",
+      "sentAt": "23:39"
+    },
+    {
+      "author": "them",
+      "text": "Закрывай телефон",
+      "sentAt": "23:39"
+    },
+    {
+      "author": "me",
+      "text": "Не могу",
+      "sentAt": "23:40"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "23:40"
+    },
+    {
+      "author": "me",
+      "text": "Там написано: “вы удивитесь”",
+      "sentAt": "23:40"
+    },
+    {
+      "author": "them",
+      "text": "Я уже удивилась",
+      "sentAt": "23:41"
+    },
+    {
+      "author": "me",
+      "text": "Чему?",
+      "sentAt": "23:41"
+    },
+    {
+      "author": "them",
+      "text": "Что ты собирался спать, но случайно стал экспертом по походке пингвинов 😄",
+      "sentAt": "23:41"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

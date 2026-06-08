@@ -1,0 +1,38 @@
+{
+  "shortcodes": {
+    "smile": "😊",
+    "grin": "😁",
+    "laugh": "😂",
+    "rofl": "🤣",
+    "wink": "😉",
+    "heart": "❤️",
+    "heart_eyes": "😍",
+    "kiss": "😘",
+    "thumbsup": "👍",
+    "thumbsdown": "👎",
+    "clap": "👏",
+    "wave": "👋",
+    "ok": "👌",
+    "fire": "🔥",
+    "star": "⭐",
+    "party": "🎉",
+    "rocket": "🚀",
+    "check": "✅",
+    "cross": "❌",
+    "thinking": "🤔",
+    "cry": "😢",
+    "cool": "😎",
+    "movie": "🎬",
+    "eyes": "👀",
+    "hundred": "💯"
+  },
+  "textEquivalents": {
+    ":)": "🙂",
+    ":(": "🙁",
+    ":D": "😄",
+    ";)": "😉",
+    "<3": "❤️",
+    ":'(": "😢"
+  },
+  "usage": "В сообщении: «Привет :wave:» или «Круто :)». Можно писать emoji напрямую: «Привет 👋»"
+}

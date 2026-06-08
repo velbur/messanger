@@ -1,0 +1,134 @@
+{
+  "contactName": "Саня",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "У нас опять отключили горячую воду",
+      "sentAt": "19:31"
+    },
+    {
+      "author": "me",
+      "text": "На сколько?",
+      "sentAt": "19:31"
+    },
+    {
+      "author": "them",
+      "text": "На две недели",
+      "sentAt": "19:32"
+    },
+    {
+      "author": "me",
+      "text": "Зато живём в эпоху ИИ",
+      "sentAt": "19:32"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "19:32"
+    },
+    {
+      "author": "me",
+      "text": "Нейросети пишут музыку, рисуют картины",
+      "sentAt": "19:33"
+    },
+    {
+      "author": "them",
+      "text": "А я грею кастрюлю",
+      "sentAt": "19:33"
+    },
+    {
+      "author": "me",
+      "text": "Баланс технологий",
+      "sentAt": "19:33"
+    },
+    {
+      "author": "them",
+      "text": "Я спросил у умной колонки, когда дадут воду",
+      "sentAt": "19:34"
+    },
+    {
+      "author": "me",
+      "text": "И что она сказала?",
+      "sentAt": "19:34"
+    },
+    {
+      "author": "them",
+      "text": "“Я не могу управлять коммунальными службами”",
+      "sentAt": "19:34"
+    },
+    {
+      "author": "me",
+      "text": "Слабая нейросеть",
+      "sentAt": "19:35"
+    },
+    {
+      "author": "them",
+      "text": "Потом предложила включить расслабляющую музыку",
+      "sentAt": "19:35"
+    },
+    {
+      "author": "me",
+      "text": "Помогло?",
+      "sentAt": "19:35"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "19:36"
+    },
+    {
+      "author": "me",
+      "text": "Серьёзно?",
+      "sentAt": "19:36"
+    },
+    {
+      "author": "them",
+      "text": "Я теперь моюсь под lo-fi",
+      "sentAt": "19:36"
+    },
+    {
+      "author": "me",
+      "text": "Атмосферно",
+      "sentAt": "19:37"
+    },
+    {
+      "author": "them",
+      "text": "Не очень",
+      "sentAt": "19:37"
+    },
+    {
+      "author": "me",
+      "text": "Почему?",
+      "sentAt": "19:37"
+    },
+    {
+      "author": "them",
+      "text": "Ковшик остыл на припеве 😐",
+      "sentAt": "19:38"
+    },
+    {
+      "author": "me",
+      "text": "Ну зато будущее наступило",
+      "sentAt": "19:38"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "19:38"
+    },
+    {
+      "author": "them",
+      "text": "Просто горячая вода в него не вошла 🚿",
+      "sentAt": "19:39"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  }
+}

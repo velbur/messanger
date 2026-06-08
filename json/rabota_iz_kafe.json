@@ -1,0 +1,214 @@
+{
+  "contactName": "Марина",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Саша",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты сегодня из дома работаешь?",
+      "sentAt": "10:14"
+    },
+    {
+      "author": "me",
+      "text": "Нет\nРешил из кафе",
+      "sentAt": "10:14"
+    },
+    {
+      "author": "them",
+      "text": "О, продуктивность?",
+      "sentAt": "10:15"
+    },
+    {
+      "author": "me",
+      "text": "Я тоже так думал",
+      "sentAt": "10:15"
+    },
+    {
+      "author": "them",
+      "text": "Что пошло не так?",
+      "sentAt": "10:15"
+    },
+    {
+      "author": "me",
+      "text": "Сначала я 20 минут выбирал стол",
+      "sentAt": "10:16"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "10:16"
+    },
+    {
+      "author": "me",
+      "text": "Нужна розетка\nНо не рядом с дверью\nИ не под кондиционером",
+      "sentAt": "10:17"
+    },
+    {
+      "author": "them",
+      "text": "Нашёл?",
+      "sentAt": "10:17"
+    },
+    {
+      "author": "me",
+      "text": "Да\nИдеальное место",
+      "sentAt": "10:18"
+    },
+    {
+      "author": "them",
+      "text": "Ну вот",
+      "sentAt": "10:18"
+    },
+    {
+      "author": "me",
+      "text": "Потом рядом сел человек с ноутбуком",
+      "sentAt": "10:18"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "10:19"
+    },
+    {
+      "author": "me",
+      "text": "Он очень громко быть стартапером",
+      "sentAt": "10:19"
+    },
+    {
+      "author": "them",
+      "text": "Это как? 😄",
+      "sentAt": "10:19"
+    },
+    {
+      "author": "me",
+      "text": "Каждые две минуты говорит:\n«мы сейчас меняем рынок»",
+      "sentAt": "10:20"
+    },
+    {
+      "author": "them",
+      "text": "Может, меняет",
+      "sentAt": "10:20"
+    },
+    {
+      "author": "me",
+      "text": "Он продаёт коврики для мышки",
+      "sentAt": "10:21"
+    },
+    {
+      "author": "them",
+      "text": "Тоже рынок",
+      "sentAt": "10:21"
+    },
+    {
+      "author": "me",
+      "text": "Теперь бариста включает кофемолку ровно когда я говорю на созвоне",
+      "sentAt": "10:22"
+    },
+    {
+      "author": "them",
+      "text": "Тебя слышно?",
+      "sentAt": "10:22"
+    },
+    {
+      "author": "me",
+      "text": "Как человека, который работает внутри самолёта",
+      "sentAt": "10:23"
+    },
+    {
+      "author": "them",
+      "text": "Возвращайся домой",
+      "sentAt": "10:23"
+    },
+    {
+      "author": "me",
+      "text": "Не могу",
+      "sentAt": "10:23"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "10:24"
+    },
+    {
+      "author": "me",
+      "text": "Я купил второй кофе\nЧтобы оправдать место",
+      "sentAt": "10:24"
+    },
+    {
+      "author": "them",
+      "text": "Ты же кофе не хотел",
+      "sentAt": "10:24"
+    },
+    {
+      "author": "me",
+      "text": "Я хотел стабильный Wi-Fi",
+      "sentAt": "10:25"
+    },
+    {
+      "author": "them",
+      "text": "И как Wi-Fi?",
+      "sentAt": "10:25"
+    },
+    {
+      "author": "me",
+      "text": "Называется Guest\nНо чувствую себя незваным",
+      "sentAt": "10:26"
+    },
+    {
+      "author": "them",
+      "text": "Сколько ты уже там работаешь?",
+      "sentAt": "10:26"
+    },
+    {
+      "author": "me",
+      "text": "Час",
+      "sentAt": "10:27"
+    },
+    {
+      "author": "them",
+      "text": "И что сделал?",
+      "sentAt": "10:27"
+    },
+    {
+      "author": "me",
+      "text": "Выбрал стол\nКупил кофе\nПережил стартапера",
+      "sentAt": "10:28"
+    },
+    {
+      "author": "them",
+      "text": "То есть ничего? 😂",
+      "sentAt": "10:28"
+    },
+    {
+      "author": "me",
+      "text": "Неправда",
+      "sentAt": "10:29"
+    },
+    {
+      "author": "them",
+      "text": "А что?",
+      "sentAt": "10:29"
+    },
+    {
+      "author": "me",
+      "text": "Я понял, что дома у меня прекрасный офис",
+      "sentAt": "10:30"
+    },
+    {
+      "author": "them",
+      "text": "Поздравляю с удалёнкой",
+      "sentAt": "10:30"
+    },
+    {
+      "author": "me",
+      "text": "Спасибо\nЕду домой работать из кафе на кухне 😐",
+      "sentAt": "10:31"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

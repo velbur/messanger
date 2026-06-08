@@ -1,0 +1,34 @@
+{
+  "contactName": "Максим",
+  "contactStatus": "в сети",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Привет! Это тестовая переписка :wave:",
+      "sentAt": "18:02"
+    },
+    {
+      "author": "me",
+      "text": "Привет! Проверяю рендер из my-chat.json",
+      "sentAt": "18:02"
+    },
+    {
+      "author": "them",
+      "text": "Круто. Видно анимацию набора и звуки?",
+      "sentAt": "18:03"
+    },
+    {
+      "author": "me",
+      "text": "Да, всё работает :movie: :fire:\nФормат: 1080x1920, 60 fps, MP4",
+      "sentAt": "18:03"
+    },
+    {
+      "author": "them",
+      "text": "Отлично, спасибо!",
+      "sentAt": "18:04"
+    }
+  ]
+}

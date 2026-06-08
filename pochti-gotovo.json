@@ -1,0 +1,71 @@
+{
+"contactName": "Рабочий чат",
+"contactStatus": "в сети",
+"contactStatusTyping": "печатает…",
+"contactAvatar": "avatar.svg",
+"wallpaper": "default",
+"myName": "Я",
+"messages": [
+{
+"author": "them",
+"text": "Ты сделал задачу?",
+"sentAt": "14:21"
+},
+{
+"author": "me",
+"text": "Почти",
+"sentAt": "14:21"
+},
+{
+"author": "them",
+"text": "Что значит почти?",
+"sentAt": "14:22"
+},
+{
+"author": "me",
+"text": "Я понял, почему не сделал",
+"sentAt": "14:22"
+},
+{
+"author": "them",
+"text": "Это не почти",
+"sentAt": "14:22"
+},
+{
+"author": "me",
+"text": "Это духовно близко",
+"sentAt": "14:22"
+},
+{
+"author": "them",
+"text": "Когда будет готово?",
+"sentAt": "14:23"
+},
+{
+"author": "me",
+"text": "Когда техническое почти встретится с физическим почти",
+"sentAt": "14:23"
+},
+{
+"author": "them",
+"text": "То есть?",
+"sentAt": "14:23"
+},
+{
+"author": "me",
+"text": "Завтра",
+"sentAt": "14:23"
+},
+{
+"author": "them",
+"text": "Почему сразу не сказал “завтра”?",
+"sentAt": "14:24"
+},
+{
+"author": "me",
+"text": "Хотел показать прогресс",
+"sentAt": "14:24"
+}
+]
+}
+

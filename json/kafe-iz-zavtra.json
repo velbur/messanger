@@ -1,0 +1,311 @@
+{
+"contactName": "Аня",
+"contactStatus": "в сети",
+"contactStatusTyping": "печатает…",
+"contactAvatar": "avatar.svg",
+"wallpaper": "default",
+"myName": "Я",
+"messages": [
+{
+"author": "them",
+"text": "Ты где?",
+"sentAt": "18:41"
+},
+{
+"author": "me",
+"text": "В кафе",
+"sentAt": "18:41"
+},
+{
+"author": "them",
+"text": "Один?",
+"sentAt": "18:41"
+},
+{
+"author": "me",
+"text": "Да",
+"sentAt": "18:42"
+},
+{
+"author": "them",
+"text": "Почему тогда мне пришло сообщение “ваш столик готов”?",
+"sentAt": "18:42"
+},
+{
+"author": "me",
+"text": "Какой столик?",
+"sentAt": "18:42"
+},
+{
+"author": "them",
+"text": "На двоих",
+"sentAt": "18:43"
+},
+{
+"author": "me",
+"text": "Я ничего не бронировал",
+"sentAt": "18:43"
+},
+{
+"author": "them",
+"text": "Там твоё имя",
+"sentAt": "18:43"
+},
+{
+"author": "me",
+"text": "Может, ошибка",
+"sentAt": "18:44"
+},
+{
+"author": "them",
+"text": "И моё 😐",
+"sentAt": "18:44"
+},
+{
+"author": "me",
+"text": "Подожди",
+"sentAt": "18:44"
+},
+{
+"author": "them",
+"text": "Что?",
+"sentAt": "18:45"
+},
+{
+"author": "me",
+"text": "Ко мне подошла официантка",
+"sentAt": "18:45"
+},
+{
+"author": "them",
+"text": "И?",
+"sentAt": "18:45"
+},
+{
+"author": "me",
+"text": "Спросила, буду ли я ждать",
+"sentAt": "18:46"
+},
+{
+"author": "them",
+"text": "Кого?",
+"sentAt": "18:46"
+},
+{
+"author": "me",
+"text": "“Как обычно”",
+"sentAt": "18:46"
+},
+{
+"author": "them",
+"text": "Вы там уже были вместе?",
+"sentAt": "18:47"
+},
+{
+"author": "me",
+"text": "Нет",
+"sentAt": "18:47"
+},
+{
+"author": "them",
+"text": "Точно?",
+"sentAt": "18:47"
+},
+{
+"author": "me",
+"text": "Я бы запомнил",
+"sentAt": "18:48"
+},
+{
+"author": "them",
+"text": "Что она сказала?",
+"sentAt": "18:48"
+},
+{
+"author": "me",
+"text": "Что мы всегда садимся у окна",
+"sentAt": "18:48"
+},
+{
+"author": "them",
+"text": "Странно",
+"sentAt": "18:49"
+},
+{
+"author": "me",
+"text": "И что ты всегда заказываешь чай",
+"sentAt": "18:49"
+},
+{
+"author": "them",
+"text": "Я не пью чай",
+"sentAt": "18:49"
+},
+{
+"author": "me",
+"text": "А я?",
+"sentAt": "18:50"
+},
+{
+"author": "them",
+"text": "Она сказала, ты берёшь какао",
+"sentAt": "18:50"
+},
+{
+"author": "me",
+"text": "Я люблю какао ☕",
+"sentAt": "18:50"
+},
+{
+"author": "them",
+"text": "Это могло быть совпадение",
+"sentAt": "18:51"
+},
+{
+"author": "me",
+"text": "Она принесла какао",
+"sentAt": "18:51"
+},
+{
+"author": "them",
+"text": "Я ещё не пришла",
+"sentAt": "18:51"
+},
+{
+"author": "me",
+"text": "Знаю",
+"sentAt": "18:52"
+},
+{
+"author": "them",
+"text": "И что теперь?",
+"sentAt": "18:52"
+},
+{
+"author": "me",
+"text": "Сижу напротив твоей чашки",
+"sentAt": "18:52"
+},
+{
+"author": "them",
+"text": "Жутко?",
+"sentAt": "18:53"
+},
+{
+"author": "me",
+"text": "Нет",
+"sentAt": "18:53"
+},
+{
+"author": "them",
+"text": "А как?",
+"sentAt": "18:53"
+},
+{
+"author": "me",
+"text": "Как будто я опоздал в хороший момент своей жизни",
+"sentAt": "18:54"
+},
+{
+"author": "them",
+"text": "Мне приехать?",
+"sentAt": "18:54"
+},
+{
+"author": "me",
+"text": "Думаю, да",
+"sentAt": "18:54"
+},
+{
+"author": "them",
+"text": "Почему?",
+"sentAt": "18:55"
+},
+{
+"author": "me",
+"text": "Официантка сказала, что сегодня можно всё исправить",
+"sentAt": "18:55"
+},
+{
+"author": "them",
+"text": "Что исправить?",
+"sentAt": "18:55"
+},
+{
+"author": "me",
+"text": "Я спросил",
+"sentAt": "18:56"
+},
+{
+"author": "them",
+"text": "И?",
+"sentAt": "18:56"
+},
+{
+"author": "me",
+"text": "Она улыбнулась и сказала: “обычно вы уходите раньше, чем она приходит”",
+"sentAt": "18:56"
+},
+{
+"author": "them",
+"text": "Ты уйдёшь?",
+"sentAt": "18:57"
+},
+{
+"author": "me",
+"text": "Нет",
+"sentAt": "18:57"
+},
+{
+"author": "them",
+"text": "Почему?",
+"sentAt": "18:57"
+},
+{
+"author": "me",
+"text": "Потому что какао ещё горячее 🙂",
+"sentAt": "18:58"
+},
+{
+"author": "them",
+"text": "Я буду через 15 минут",
+"sentAt": "18:58"
+},
+{
+"author": "me",
+"text": "Я подожду",
+"sentAt": "18:58"
+},
+{
+"author": "them",
+"text": "Правда?",
+"sentAt": "18:59"
+},
+{
+"author": "me",
+"text": "Да",
+"sentAt": "18:59"
+},
+{
+"author": "them",
+"text": "Что делаешь?",
+"sentAt": "18:59"
+},
+{
+"author": "me",
+"text": "Заказал чай",
+"sentAt": "19:00"
+},
+{
+"author": "them",
+"text": "Ты же не пьёшь чай",
+"sentAt": "19:00"
+},
+{
+"author": "me",
+"text": "Видимо, начинаю привыкать к нашей версии у окна",
+"sentAt": "19:00"
+}
+]
+}
+

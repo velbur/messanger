@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Video Generator</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Chat Video Generator</h1>
+        <p class="subtitle">Редактор переписок, сохранение в локальную базу и сборка MP4 для Shorts</p>
+      </header>
+
+      <nav class="tabs" role="tablist" aria-label="Разделы редактора">
+        <button
+          type="button"
+          class="tabs__btn tabs__btn--active"
+          role="tab"
+          aria-selected="true"
+          data-tab="chat"
+          id="tabBtnChat"
+        >
+          Редактор
+        </button>
+        <button
+          type="button"
+          class="tabs__btn"
+          role="tab"
+          aria-selected="false"
+          data-tab="library"
+          id="tabBtnLibrary"
+        >
+          История
+        </button>
+        <button
+          type="button"
+          class="tabs__btn"
+          role="tab"
+          aria-selected="false"
+          data-tab="prompt"
+          id="tabBtnPrompt"
+        >
+          Промпт
+        </button>
+        <button
+          type="button"
+          class="tabs__btn"
+          role="tab"
+          aria-selected="false"
+          data-tab="api"
+          id="tabBtnApi"
+        >
+          API
+        </button>
+      </nav>
+
+      <section class="panel tab-panel tab-panel--active" id="tabPanelChat" role="tabpanel">
+        <div class="row editor-save-row">
+          <label class="label" for="dialogueTitleInput">Название</label>
+          <div class="editor-save-row__line">
+            <input
+              id="dialogueTitleInput"
+              class="input editor-save-row__input"
+              type="text"
+              placeholder="vagon"
+              autocomplete="off"
+            />
+            <div class="editor-save-row__actions">
+              <button type="button" id="btnSaveDialogue" class="btn btn-secondary">Сохранить</button>
+              <button type="button" id="btnNewDialogue" class="btn btn-secondary">Новый</button>
+            </div>
+          </div>
+          <p id="dialoguePathsHint" class="editor-paths-hint">
+            В базе и в файлах рендера: json/<имя>.json, out/<имя>.mp4
+          </p>
+        </div>
+        <p id="dialogueSaveStatus" class="editor-save-status" aria-live="polite"></p>
+
+        <div class="row">
+          <span class="label">Тема мессенджера</span>
+          <div class="theme-options" role="radiogroup" aria-label="Тема мессенджера">
+            <label class="theme-option">
+              <input type="radio" name="wallpaper" value="default" checked />
+              <span>Светлая</span>
+            </label>
+            <label class="theme-option">
+              <input type="radio" name="wallpaper" value="dark" />
+              <span>Тёмная</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="row dialogue-panel" id="dialoguePanel" hidden>
+          <div class="dialogue-panel__head">
+            <span class="label">Диалог</span>
+            <button type="button" id="btnRefreshDialogue" class="btn btn-secondary btn-small">
+              Обновить
+            </button>
+          </div>
+          <p class="dialogue-hint">
+            Сообщения как в видео. Там, где в JSON есть <code>image</code>, — блок фото: Kling или Grok у каждого
+            кадра, прикрепить, сгенерировать, промпт. Клик по превью — полный размер.
+          </p>
+          <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
+        </div>
+
+        <details class="json-panel row">
+          <summary class="json-panel__summary">JSON переписки</summary>
+          <textarea
+            id="jsonInput"
+            class="textarea textarea--json"
+            spellcheck="false"
+            placeholder='{ "contactName": "...", "messages": [...] }'
+          ></textarea>
+        </details>
+
+        <div class="actions">
+          <button type="button" id="btnExample" class="btn btn-secondary">Пример</button>
+          <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
+        </div>
+
+        <div class="row row--title-cards">
+          <span class="label">Заставки</span>
+          <div class="title-cards">
+            <label class="title-cards__row">
+              <input type="checkbox" id="introEnabled" />
+              <span>Начало (5 сек)</span>
+            </label>
+            <input
+              id="introTextInput"
+              class="input title-cards__input"
+              type="text"
+              placeholder="История началась: Часть 1"
+              autocomplete="off"
+            />
+            <label class="title-cards__row">
+              <input type="checkbox" id="endCardEnabled" />
+              <span>Конец (5 сек)</span>
+            </label>
+            <input
+              id="endCardTextInput"
+              class="input title-cards__input"
+              type="text"
+              placeholder="Продолжение следует..."
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div class="row row--music">
+          <label class="label" for="musicSelect">Фоновая музыка</label>
+          <select id="musicSelect" class="select">
+            <option value="">Загрузка…</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelLibrary" role="tabpanel" hidden>
+        <div class="library-panel__head">
+          <span class="label">Сохранённые диалоги</span>
+          <button type="button" id="btnRefreshLibrary" class="btn btn-secondary btn-small">
+            Обновить
+          </button>
+        </div>
+        <p class="dialogue-hint">
+          Локальная база <code>data/dialogues.db</code>. Откройте диалог в редакторе, измените, снова сохраните или
+          соберите видео.
+        </p>
+        <div id="dialoguesList" class="dialogues-list"></div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelApi" role="tabpanel" hidden>
+        <div class="api-panel__head">
+          <span class="label">Лимиты и настройка API</span>
+          <button type="button" id="btnRefreshApiStatus" class="btn btn-secondary btn-small">
+            Обновить
+          </button>
+        </div>
+        <p class="dialogue-hint">
+          Остатки пакетов Kling запрашиваются с официального API. У xAI (Grok) в этом проекте нет эндпоинта
+          баланса — только статус ключей и модели.
+        </p>
+        <div id="apiStatusContent" class="api-status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelPrompt" role="tabpanel" hidden>
+        <div class="row">
+          <label class="label" for="stylePromptInput">Базовый промпт для изображений</label>
+          <p class="prompt-tab-hint">
+            Общий стиль для всех кадров (генерация и «Промпт от Grok»). После смены стиля у уже заполненных кадров
+            нажмите <strong>Промпт от Grok</strong> заново или очистите «Промпт для этого кадра».
+          </p>
+          <textarea
+            id="stylePromptInput"
+            class="textarea textarea--prompt"
+            spellcheck="false"
+          ></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" id="btnSaveStylePrompt" class="btn btn-secondary">
+            Сохранить промпт
+          </button>
+          <span id="stylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="panel status-panel" id="statusPanel" hidden>
+        <h2 class="status-title">Статус</h2>
+        <p id="statusText" class="status-text"></p>
+        <div id="renderProgressBlock" class="render-progress-block" hidden>
+          <div
+            id="renderProgressTrack"
+            class="render-progress"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          >
+            <div id="renderProgressBar" class="render-progress__fill"></div>
+          </div>
+          <p id="renderProgressLabel" class="render-progress__label"></p>
+          <button type="button" id="btnStopRender" class="btn btn-danger btn-small" hidden>Стоп</button>
+        </div>
+        <pre id="statusLog" class="status-log"></pre>
+        <div id="renderCommandBlock" class="render-command-block" hidden>
+          <p class="render-command-block__hint">
+            Или быстрее на Mac вне Docker — вставьте в терминал (MP4 появится в
+            <code>out/</code>):
+          </p>
+          <pre id="renderCommand" class="render-command"></pre>
+          <button type="button" id="btnCopyRenderCommand" class="btn btn-secondary btn-small">
+            Копировать команду
+          </button>
+        </div>
+        <p id="downloadBlock" class="download-block" hidden>
+          <a id="downloadLink" class="download-link" href="#" download>Скачать MP4</a>
+          <span id="pathsHint" class="paths-hint"></span>
+        </p>
+      </section>
+    </main>
+
+    <div id="imageLightbox" class="lightbox" hidden aria-hidden="true">
+      <button type="button" class="lightbox__backdrop" aria-label="Закрыть"></button>
+      <div class="lightbox__inner">
+        <button type="button" class="lightbox__close" aria-label="Закрыть">×</button>
+        <img id="lightboxImg" class="lightbox__img" alt="" />
+      </div>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

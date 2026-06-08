@@ -1,0 +1,189 @@
+{
+  "contactName": "Лена",
+  "contactStatus": "в сети",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты уже выбрал ресторан?",
+      "sentAt": "19:12"
+    },
+    {
+      "author": "me",
+      "text": "Да 😎",
+      "sentAt": "19:12"
+    },
+    {
+      "author": "them",
+      "text": "Какой?",
+      "sentAt": "19:12"
+    },
+    {
+      "author": "me",
+      "text": "Очень атмосферное место",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "them",
+      "text": "Звучит хорошо 👀",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "me",
+      "text": "Там мягкий свет\nУютно\nИ музыка играет",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "them",
+      "text": "Ого\nТы меня удивляешь",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "me",
+      "text": "Я ещё столик у окна занял",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "them",
+      "text": "Столик у окна?\nТы серьёзно?",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "me",
+      "text": "Конечно",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "them",
+      "text": "А что за ресторан?",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "me",
+      "text": "Пока не скажу\nХочу эффект неожиданности",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "them",
+      "text": "Ты меня пугаешь",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "me",
+      "text": "Зря\nТам ещё акция есть",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "them",
+      "text": "Какая акция?",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "me",
+      "text": "Второй пирожок дешевле",
+      "sentAt": "19:17"
+    },
+    {
+      "author": "them",
+      "text": "…",
+      "sentAt": "19:17"
+    },
+    {
+      "author": "them",
+      "text": "Ты сейчас в пекарне?",
+      "sentAt": "19:17"
+    },
+    {
+      "author": "me",
+      "text": "Не просто в пекарне",
+      "sentAt": "19:18"
+    },
+    {
+      "author": "them",
+      "text": "А где?",
+      "sentAt": "19:18"
+    },
+    {
+      "author": "me",
+      "text": "В пекарне у окна",
+      "sentAt": "19:18"
+    },
+    {
+      "author": "them",
+      "text": "Ты назвал это рестораном?",
+      "sentAt": "19:19"
+    },
+    {
+      "author": "me",
+      "text": "Тут есть стулья",
+      "sentAt": "19:19"
+    },
+    {
+      "author": "them",
+      "text": "И музыка?",
+      "sentAt": "19:19"
+    },
+    {
+      "author": "me",
+      "text": "Радио",
+      "sentAt": "19:20"
+    },
+    {
+      "author": "them",
+      "text": "И мягкий свет?",
+      "sentAt": "19:20"
+    },
+    {
+      "author": "me",
+      "text": "Лампочка мигает\nОчень кинематографично",
+      "sentAt": "19:20"
+    },
+    {
+      "author": "them",
+      "text": "Я не приду",
+      "sentAt": "19:21"
+    },
+    {
+      "author": "me",
+      "text": "Поздно",
+      "sentAt": "19:21"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "19:21"
+    },
+    {
+      "author": "me",
+      "text": "Я уже взял второй пирожок по акции",
+      "sentAt": "19:22"
+    },
+    {
+      "author": "them",
+      "text": "С чем?",
+      "sentAt": "19:22"
+    },
+    {
+      "author": "me",
+      "text": "С вишней",
+      "sentAt": "19:22"
+    },
+    {
+      "author": "them",
+      "text": "Ладно\nЧерез 10 минут буду",
+      "sentAt": "19:23"
+    },
+    {
+      "author": "me",
+      "text": "Я знал, что романтика победит ❤️",
+      "sentAt": "19:23"
+    },
+    {
+      "author": "them",
+      "text": "Романтика нет\nВишня — да 😌",
+      "sentAt": "19:24"
+    }
+  ]
+}

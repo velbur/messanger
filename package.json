@@ -1,0 +1,31 @@
+{
+  "name": "chat-video-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts ChatVideo out/video.mp4 --codec=h264 --audio-codec=aac --props=./public/conversation.json",
+    "render:script": "node scripts/render.mjs",
+    "lint": "tsc --noEmit",
+    "verify-render": "node scripts/verify-render.mjs",
+    "sounds:generate": "node scripts/generate-sounds.mjs",
+    "ui": "node --max-old-space-size=4096 --import tsx scripts/server.mjs"
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "^4.0.0",
+    "express": "^4.21.2",
+    "remotion": "^4.0.0",
+    "tsx": "^4.19.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.7.2"
+  }
+}

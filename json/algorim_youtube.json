@@ -1,0 +1,224 @@
+{
+  "contactName": "Алгоритм Youtube",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ты кто?",
+      "sentAt": "20:11"
+    },
+    {
+      "author": "them",
+      "text": "Тот, кто решает, кому показать твой ролик",
+      "sentAt": "20:11"
+    },
+    {
+      "author": "me",
+      "text": "Алгоритм?",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "them",
+      "text": "Не называй меня так громко",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "me",
+      "text": "Почему?",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "them",
+      "text": "Люди начнут делать вид, что понимают, как я работаю",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "me",
+      "text": "А ты сам понимаешь?",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "them",
+      "text": "Не всегда 🙂",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "me",
+      "text": "Тогда почему ты мне пишешь?",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "them",
+      "text": "У тебя ролик спорный",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "me",
+      "text": "В плохом смысле?",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "them",
+      "text": "В полезном",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "Это как?",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "them",
+      "text": "Люди досматривают, но делают лицо",
+      "sentAt": "20:15"
+    },
+    {
+      "author": "me",
+      "text": "Какое?",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "“Я не понял, но останусь”",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "me",
+      "text": "Это хорошо?",
+      "sentAt": "20:16"
+    },
+    {
+      "author": "them",
+      "text": "Для меня — да",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "А для них?",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "them",
+      "text": "Они уже в комментариях будут объяснять друг другу",
+      "sentAt": "20:17"
+    },
+    {
+      "author": "me",
+      "text": "То есть ролик нормальный?",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "them",
+      "text": "Нормальный",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "me",
+      "text": "Тогда продвигай",
+      "sentAt": "20:18"
+    },
+    {
+      "author": "them",
+      "text": "Не командуй",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "Ладно",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "them",
+      "text": "Вот теперь похоже на автора",
+      "sentAt": "20:19"
+    },
+    {
+      "author": "me",
+      "text": "На какого?",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "them",
+      "text": "Который ещё не знает, что у него начало получается лучше финала",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "me",
+      "text": "Опять критика?",
+      "sentAt": "20:20"
+    },
+    {
+      "author": "them",
+      "text": "Нет",
+      "sentAt": "20:21"
+    },
+    {
+      "author": "me",
+      "text": "А что?",
+      "sentAt": "20:21"
+    },
+    {
+      "author": "them",
+      "text": "Бесплатный монтажный надзор",
+      "sentAt": "20:21"
+    },
+    {
+      "author": "me",
+      "text": "И что исправить?",
+      "sentAt": "20:22"
+    },
+    {
+      "author": "them",
+      "text": "Первые две секунды оставь",
+      "sentAt": "20:22"
+    },
+    {
+      "author": "me",
+      "text": "А дальше?",
+      "sentAt": "20:22"
+    },
+    {
+      "author": "them",
+      "text": "Дальше сделай так, чтобы человек подумал: “я зря моргнул?”",
+      "sentAt": "20:23"
+    },
+    {
+      "author": "me",
+      "text": "Это сложно",
+      "sentAt": "20:23"
+    },
+    {
+      "author": "them",
+      "text": "Зато работает",
+      "sentAt": "20:23"
+    },
+    {
+      "author": "me",
+      "text": "А если люди скажут, что это AI?",
+      "sentAt": "20:24"
+    },
+    {
+      "author": "them",
+      "text": "Скажут",
+      "sentAt": "20:24"
+    },
+    {
+      "author": "me",
+      "text": "И что делать?",
+      "sentAt": "20:24"
+    },
+    {
+      "author": "them",
+      "text": "Ответь: “даже алгоритм не уверен” 👀",
+      "sentAt": "20:25"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}
