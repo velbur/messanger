@@ -1,8 +1,7 @@
 import type {ConversationInput} from "./schema";
+import {msToFrames} from "./fps";
 
-const FPS = 60;
 /** Заставки идут ровно durationMs — без TIMING_SCALE переписки */
-const msToFrames = (ms: number): number => Math.max(1, Math.round((ms / 1000) * FPS));
 
 export type TitleCardConfig = {
   enabled: boolean;

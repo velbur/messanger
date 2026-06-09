@@ -2,9 +2,7 @@ import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./o
 import {mergeEndCard, mergeIntro, titleCardDurationFrames} from "./title-card";
 import {mergeConversationTiming, resolveMessageTiming} from "./timing";
 import type {ConversationInput} from "./schema";
-
-const FPS = 60;
-const msToFrames = (ms: number): number => Math.max(1, Math.round((ms / 1000) * FPS));
+import {msToFrames} from "./fps";
 
 /** Пауза на последнем кадре переписки перед заставками (без TIMING_SCALE) */
 export const POST_LAST_MESSAGE_TAIL_MS = 3000;

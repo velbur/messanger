@@ -1,5 +1,8 @@
 import path from "node:path";
-import {mkdir, readFile, writeFile} from "node:fs/promises";
+import {createWriteStream} from "node:fs";
+import {access, mkdir, readFile, writeFile} from "node:fs/promises";
+import {pipeline} from "node:stream/promises";
+import {Readable} from "node:stream";
 import express from "express";
 import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
@@ -74,6 +77,7 @@ import {
   deleteDialogue,
   touchDialogueOutput,
 } from "./dialogue-db.mjs";
+import {slugifyProjectName} from "./project-slug.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JSON_DIR = path.join(ROOT, "json");
@@ -137,29 +141,127 @@ const pruneFinishedJobs = () => {
     .forEach((job) => jobs.delete(job.id));
 };
 
-const slugify = (value) => {
-  const base = String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9_-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-  return base.slice(0, 48) || "render";
-};
-
-const resolveName = (rawName, conversation) => {
+const resolveName = (rawName, conversation, dialogueId) => {
   if (rawName && String(rawName).trim()) {
-    return slugify(rawName);
+    const fromTitle = slugifyProjectName(rawName);
+    if (fromTitle !== "render") {
+      return fromTitle;
+    }
   }
+
+  if (typeof dialogueId === "string" && dialogueId.trim()) {
+    const dialogue = getDialogue(dialogueId.trim());
+    if (dialogue?.outputFile) {
+      const fromDb = dialogue.outputFile.replace(/\.mp4$/i, "");
+      if (fromDb) {
+        return fromDb;
+      }
+    }
+  }
+
   if (conversation.contactName) {
-    const fromContact = slugify(conversation.contactName);
+    const fromContact = slugifyProjectName(conversation.contactName);
     if (fromContact !== "render") {
       return fromContact;
     }
   }
+
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   return `render-${stamp}`;
+};
+
+const resolveOutputFile = ({name, outputFile, dialogueId}) => {
+  if (typeof outputFile === "string" && outputFile.trim()) {
+    const file = outputFile.trim();
+    return file.endsWith(".mp4") ? file : `${file}.mp4`;
+  }
+
+  if (typeof dialogueId === "string" && dialogueId.trim()) {
+    const dialogue = getDialogue(dialogueId.trim());
+    if (dialogue?.outputFile) {
+      return dialogue.outputFile;
+    }
+  }
+
+  if (typeof name === "string" && name.trim()) {
+    return `${slugifyProjectName(name)}.mp4`;
+  }
+
+  return null;
+};
+
+/**
+ * Скачивает MP4 с удалённого воркера в локальный out/.
+ * @param {{ remoteUrl: string, outputFile: string, logs?: string[] }} opts
+ */
+const copyRemoteOutputToLocal = async ({remoteUrl, outputFile, logs = []}) => {
+  const localPath = path.join(OUT_DIR, outputFile);
+  await mkdir(OUT_DIR, {recursive: true});
+
+  try {
+    await access(localPath);
+    logs.push(`Уже на диске: out/${outputFile}`);
+    return {localPath, outputFile, alreadyExisted: true};
+  } catch {
+    // файла ещё нет — качаем с воркера
+  }
+
+  const url = `${remoteUrl}/out/${encodeURIComponent(outputFile)}`;
+  logs.push(`Копирование с воркера: ${url}`);
+
+  const resp = await fetchWithRetry(url, {}, {timeoutMs: 600000, retries: 2});
+  if (!resp.ok || !resp.body) {
+    throw new Error(
+      resp.status === 404
+        ? `На воркере нет out/${outputFile}`
+        : `Воркер вернул ошибку (${resp.status})`,
+    );
+  }
+
+  await pipeline(Readable.fromWeb(resp.body), createWriteStream(localPath));
+  logs.push(`Скопировано: out/${outputFile}`);
+  return {localPath, outputFile, alreadyExisted: false};
+};
+
+/** Запускает (или возвращает уже идущее) копирование MP4 с воркера в локальный out/ */
+const ensureRemoteMp4CopiedLocally = (job) => {
+  if (!job.remote || !job.outputFile) {
+    return Promise.resolve();
+  }
+  if (job.localCopyStatus === "done") {
+    job.downloadUrl = `/out/${job.outputFile}`;
+    return Promise.resolve();
+  }
+  if (job.localCopyStatus === "copying" && job.localCopyPromise) {
+    return job.localCopyPromise;
+  }
+
+  if (job.localCopyStatus !== "copying") {
+    job.logs.push("Копирование MP4 с воркера на этот компьютер…");
+  }
+  job.localCopyStatus = "copying";
+  job.localCopyPromise = (async () => {
+    try {
+      await copyRemoteOutputToLocal({
+        remoteUrl: job.remoteUrl,
+        outputFile: job.outputFile,
+        logs: job.logs,
+      });
+      job.localCopyStatus = "done";
+      job.downloadUrl = `/out/${job.outputFile}`;
+      if (job.dialogueId) {
+        touchDialogueOutput(job.dialogueId, job.outputFile);
+      }
+    } catch (error) {
+      job.localCopyStatus = "error";
+      const message = error instanceof Error ? error.message : String(error);
+      job.logs.push(`Не удалось скопировать: ${message}`);
+      job.downloadUrl = `/api/jobs/${job.id}/download`;
+      throw error;
+    }
+  })();
+
+  return job.localCopyPromise;
 };
 
 const processQueue = async () => {
@@ -187,6 +289,9 @@ const processQueue = async () => {
     const outputAbs = await renderChatVideo({
       conversation: job.conversation,
       outputPath: job.outputPath,
+      onBundleStatus: (message) => {
+        job.logs.push(message);
+      },
       onCompositionReady: (durationInFrames) => {
         job.totalFrames = durationInFrames;
       },
@@ -929,7 +1034,7 @@ app.post("/api/render", async (req, res) => {
       };
     }
 
-    const fileName = resolveName(rawName, conversation);
+    const fileName = resolveName(rawName, conversation, dialogueId);
     const inputRel = `json/${fileName}.json`;
     const outputRel = `out/${fileName}.mp4`;
     const outputFile = `${fileName}.mp4`;
@@ -988,6 +1093,8 @@ app.post("/api/render", async (req, res) => {
         outputFile: forwardData.outputFile ?? outputFile,
         dialogueId: typeof dialogueId === "string" ? dialogueId : null,
         downloadUrl: null,
+        localCopyStatus: null,
+        localCopyPromise: null,
         error: null,
         logs: [...logs],
         renderCommand,
@@ -1079,18 +1186,31 @@ app.get("/api/jobs/:id", async (req, res) => {
       if (data.status === "done") {
         job.status = "done";
         job.outputFile = data.outputFile ?? job.outputFile;
-        job.downloadUrl = `/api/jobs/${job.id}/download`;
+        try {
+          await ensureRemoteMp4CopiedLocally(job);
+        } catch {
+          // ошибка уже в job.logs и localCopyStatus === "error"
+        }
       } else {
         job.status = data.status;
       }
+      const downloadUrl =
+        data.status === "done"
+          ? job.localCopyStatus === "done"
+            ? `/out/${job.outputFile}`
+            : `/api/jobs/${job.id}/download`
+          : null;
       res.json({
         ...data,
         id: job.id,
+        status: job.status,
         target: "remote",
         outputPath: job.outputRel,
-        downloadUrl: data.status === "done" ? `/api/jobs/${job.id}/download` : null,
+        outputFile: job.outputFile,
+        downloadUrl,
+        localCopyStatus: job.localCopyStatus ?? null,
         renderCommand: job.renderCommand,
-        logs: [...job.logs, ...(data.logs ?? [])],
+        logs: job.logs,
       });
     } catch (error) {
       res.status(502).json({
@@ -1120,6 +1240,54 @@ app.get("/api/jobs/:id", async (req, res) => {
     queuePosition: job.status === "queued" ? renderQueue.indexOf(job.id) + 1 : 0,
     canCancel: job.status === "queued" || job.status === "running",
   });
+});
+
+/** Скопировать уже готовый MP4 с воркера без повторного рендера */
+app.post("/api/remote/fetch-output", async (req, res) => {
+  if (!REMOTE_RENDER_URL) {
+    res.status(400).json({error: "REMOTE_RENDER_URL не настроен"});
+    return;
+  }
+
+  const {name, outputFile: rawOutputFile, dialogueId} = req.body ?? {};
+  const outputFile = resolveOutputFile({
+    name,
+    outputFile: rawOutputFile,
+    dialogueId,
+  });
+
+  if (!outputFile || !outputFile.endsWith(".mp4")) {
+    res.status(400).json({
+      error: "Укажите name (название проекта), outputFile или откройте сохранённый диалог",
+    });
+    return;
+  }
+
+  const logs = [`Запрос копирования: out/${outputFile}`];
+  try {
+    const result = await copyRemoteOutputToLocal({
+      remoteUrl: REMOTE_RENDER_URL,
+      outputFile,
+      logs,
+    });
+    if (typeof dialogueId === "string" && dialogueId.trim()) {
+      touchDialogueOutput(dialogueId.trim(), outputFile);
+      logs.push(`Диалог обновлён: ${dialogueId.trim()}`);
+    }
+    const baseName = outputFile.replace(/\.mp4$/i, "");
+    res.json({
+      ok: true,
+      outputFile,
+      outputPath: `out/${baseName}.mp4`,
+      downloadUrl: `/out/${outputFile}`,
+      alreadyExisted: result.alreadyExisted,
+      logs,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logs.push(message);
+    res.status(502).json({error: message, logs});
+  }
 });
 
 app.get("/api/jobs/:id/download", async (req, res) => {

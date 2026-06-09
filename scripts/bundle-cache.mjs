@@ -1,0 +1,202 @@
+import {createHash} from "node:crypto";
+import {cp, mkdir, readFile, readdir, rm, stat, writeFile, access} from "node:fs/promises";
+import path from "node:path";
+import {bundle} from "@remotion/bundler";
+
+const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
+const ENTRY_POINT = path.join(PROJECT_ROOT, "src/index.ts");
+const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
+const BUNDLE_OUT_DIR = path.join(PROJECT_ROOT, ".cache/remotion-bundle");
+const META_FILE = path.join(BUNDLE_OUT_DIR, ".bundle-meta.json");
+
+const isBundleCacheDisabled = () =>
+  ["0", "false", "no"].includes((process.env.BUNDLE_CACHE ?? "1").trim().toLowerCase());
+
+/** @param {string} dir */
+const walkFiles = async (dir, files = []) => {
+  let entries;
+  try {
+    entries = await readdir(dir, {withFileTypes: true});
+  } catch {
+    return files;
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name === ".cache") {
+        continue;
+      }
+      await walkFiles(fullPath, files);
+      continue;
+    }
+    files.push(fullPath);
+  }
+  return files;
+};
+
+/** Fingerprint по src/ и конфигам — при совпадении webpack-бандл можно не пересобирать */
+const computeSrcFingerprint = async () => {
+  const parts = [];
+  const roots = [
+    path.join(PROJECT_ROOT, "src"),
+    path.join(PROJECT_ROOT, "package.json"),
+    path.join(PROJECT_ROOT, "tsconfig.json"),
+  ];
+
+  for (const root of roots) {
+    let st;
+    try {
+      st = await stat(root);
+    } catch {
+      continue;
+    }
+
+    if (st.isFile()) {
+      parts.push(`${path.relative(PROJECT_ROOT, root)}:${st.mtimeMs}:${st.size}`);
+      continue;
+    }
+
+    const files = await walkFiles(root);
+    for (const file of files.sort()) {
+      const fileStat = await stat(file);
+      parts.push(`${path.relative(PROJECT_ROOT, file)}:${fileStat.mtimeMs}:${fileStat.size}`);
+    }
+  }
+
+  return createHash("sha256").update(parts.join("\n")).digest("hex");
+};
+
+/** Fingerprint public/ — при изменении только картинок обновляем public в бандле без webpack */
+const computePublicFingerprint = async () => {
+  const files = await walkFiles(PUBLIC_DIR);
+  const parts = [];
+  for (const file of files.sort()) {
+    const fileStat = await stat(file);
+    parts.push(`${path.relative(PROJECT_ROOT, file)}:${fileStat.mtimeMs}:${fileStat.size}`);
+  }
+  return createHash("sha256").update(parts.join("\n")).digest("hex");
+};
+
+/** @returns {Promise<{ srcFingerprint: string, publicFingerprint: string, bundleLocation: string } | null>} */
+const readBundleMeta = async () => {
+  try {
+    const raw = await readFile(META_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.srcFingerprint === "string" &&
+      typeof parsed?.publicFingerprint === "string" &&
+      typeof parsed?.bundleLocation === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    // нет метаданных — соберём заново
+  }
+  return null;
+};
+
+/** @param {{ srcFingerprint: string, publicFingerprint: string, bundleLocation: string }} meta */
+const writeBundleMeta = async (meta) => {
+  await mkdir(BUNDLE_OUT_DIR, {recursive: true});
+  await writeFile(META_FILE, JSON.stringify(meta, null, 2), "utf8");
+};
+
+const bundleLooksValid = async (bundleLocation) => {
+  try {
+    await access(path.join(bundleLocation, "index.html"));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Синхронизирует public/ в собранный бандл (картинки, звуки) */
+const syncPublicIntoBundle = async (bundleLocation) => {
+  const dest = path.join(bundleLocation, "public");
+  try {
+    await stat(PUBLIC_DIR);
+  } catch {
+    return;
+  }
+  await rm(dest, {recursive: true, force: true});
+  await cp(PUBLIC_DIR, dest, {recursive: true});
+};
+
+/** @type {{ location: string | null, srcFingerprint: string | null }} */
+const memoryCache = {
+  location: null,
+  srcFingerprint: null,
+};
+
+const refreshPublicIfNeeded = async (bundleLocation, srcFingerprint, publicFingerprint, onStatus) => {
+  const meta = await readBundleMeta();
+  const cachedPublic = meta?.publicFingerprint ?? null;
+  if (cachedPublic === publicFingerprint) {
+    onStatus("Bundle из кэша");
+    return bundleLocation;
+  }
+
+  onStatus("Обновление public/ в bundle-кэше…");
+  await syncPublicIntoBundle(bundleLocation);
+  await writeBundleMeta({srcFingerprint, publicFingerprint, bundleLocation});
+  onStatus("Bundle из кэша (public/ обновлён)");
+  return bundleLocation;
+};
+
+/**
+ * Возвращает путь к Remotion bundle.
+ * @param {{ onStatus?: (message: string) => void }} [opts]
+ */
+export const getBundleLocation = async (opts = {}) => {
+  const onStatus = opts.onStatus ?? (() => {});
+  const srcFingerprint = await computeSrcFingerprint();
+  const publicFingerprint = await computePublicFingerprint();
+
+  if (
+    memoryCache.location &&
+    memoryCache.srcFingerprint === srcFingerprint &&
+    (await bundleLooksValid(memoryCache.location))
+  ) {
+    return refreshPublicIfNeeded(
+      memoryCache.location,
+      srcFingerprint,
+      publicFingerprint,
+      onStatus,
+    );
+  }
+
+  if (!isBundleCacheDisabled()) {
+    const meta = await readBundleMeta();
+    if (
+      meta &&
+      meta.srcFingerprint === srcFingerprint &&
+      (await bundleLooksValid(meta.bundleLocation))
+    ) {
+      memoryCache.location = meta.bundleLocation;
+      memoryCache.srcFingerprint = srcFingerprint;
+      return refreshPublicIfNeeded(
+        meta.bundleLocation,
+        srcFingerprint,
+        publicFingerprint,
+        (msg) => onStatus(msg === "Bundle из кэша" ? "Bundle из дискового кэша" : msg),
+      );
+    }
+  }
+
+  onStatus("Сборка Remotion bundle…");
+  await mkdir(BUNDLE_OUT_DIR, {recursive: true});
+
+  const bundleLocation = await bundle({
+    entryPoint: ENTRY_POINT,
+    outDir: BUNDLE_OUT_DIR,
+    enableCaching: true,
+    webpackOverride: (config) => config,
+  });
+
+  await writeBundleMeta({srcFingerprint, publicFingerprint, bundleLocation});
+  memoryCache.location = bundleLocation;
+  memoryCache.srcFingerprint = srcFingerprint;
+  onStatus("Bundle собран");
+  return bundleLocation;
+};

@@ -205,6 +205,7 @@ const createImageProviderPicker = (messageIndex) => {
 };
 let defaultMusicId = "romantic.mp3";
 let currentDialogueId = null;
+let currentDialogueOutputFile = null;
 
 const getStylePrompt = () => stylePromptInput.value.trim();
 
@@ -251,10 +252,52 @@ tabBtnLibrary.addEventListener("click", () => setActiveTab("library"));
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
 
-const slugifyProjectName = (value) => {
-  const base = String(value)
-    .trim()
+const CYRILLIC_TO_LATIN = {
+  а: "a",
+  б: "b",
+  в: "v",
+  г: "g",
+  д: "d",
+  е: "e",
+  ё: "e",
+  ж: "zh",
+  з: "z",
+  и: "i",
+  й: "y",
+  к: "k",
+  л: "l",
+  м: "m",
+  н: "n",
+  о: "o",
+  п: "p",
+  р: "r",
+  с: "s",
+  т: "t",
+  у: "u",
+  ф: "f",
+  х: "h",
+  ц: "ts",
+  ч: "ch",
+  ш: "sh",
+  щ: "sch",
+  ъ: "",
+  ы: "y",
+  ь: "",
+  э: "e",
+  ю: "yu",
+  я: "ya",
+};
+
+const transliterateProjectName = (value) =>
+  String(value)
     .toLowerCase()
+    .split("")
+    .map((ch) => CYRILLIC_TO_LATIN[ch] ?? ch)
+    .join("");
+
+const slugifyProjectName = (value) => {
+  const base = transliterateProjectName(value)
+    .trim()
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9_-]/g, "")
     .replace(/-+/g, "-")
@@ -263,10 +306,16 @@ const slugifyProjectName = (value) => {
 };
 
 const updateProjectPathsHint = () => {
+  if (currentDialogueOutputFile) {
+    const base = currentDialogueOutputFile.replace(/\.mp4$/i, "");
+    dialoguePathsHint.textContent = `Файлы: json/${base}.json, out/${currentDialogueOutputFile}`;
+    return;
+  }
+
   const raw = dialogueTitleInput.value.trim();
   if (!raw) {
     dialoguePathsHint.textContent =
-      "В базе и в файлах рендера: json/<имя>.json, out/<имя>.mp4 (латиница, например vagon)";
+      "В базе и в файлах рендера: json/<имя>.json, out/<имя>.mp4 (латиница или кириллица, например vagon)";
     return;
   }
   const slug = slugifyProjectName(raw);
@@ -278,6 +327,7 @@ dialogueTitleInput.addEventListener("input", updateProjectPathsHint);
 const applyDialogueToEditor = (dialogue) => {
   jsonInput.value = JSON.stringify(dialogue.conversation, null, 2);
   dialogueTitleInput.value = dialogue.title ?? "";
+  currentDialogueOutputFile = dialogue.outputFile ?? null;
   updateProjectPathsHint();
   setWallpaper(dialogue.wallpaper === "dark" ? "dark" : "default");
   if (dialogue.music === "none") {
@@ -353,6 +403,7 @@ const saveCurrentDialogue = async () => {
 
 const newDialogue = () => {
   currentDialogueId = null;
+  currentDialogueOutputFile = null;
   dialogueTitleInput.value = "";
   updateProjectPathsHint();
   jsonInput.value = "";
@@ -668,6 +719,7 @@ const loadRenderTargets = async () => {
       throw new Error(data.error ?? "Не удалось загрузить цели рендера");
     }
     const targets = data.targets ?? [];
+
     // Селектор нужен, только если есть удалённый воркер (иначе всегда локально)
     if (targets.length <= 1) {
       renderTargetRow.hidden = true;
@@ -1518,8 +1570,22 @@ const statusLabels = {
   queued: "В очереди…",
   running: "Рендер идёт (это может занять несколько минут)…",
   done: "Готово!",
+  copying: "Копирование MP4 на этот компьютер…",
   error: "Ошибка",
   cancelled: "Отменено",
+};
+
+const isRenderJobFinished = (job) => {
+  if (job.status === "error" || job.status === "cancelled") {
+    return true;
+  }
+  if (job.status !== "done") {
+    return false;
+  }
+  if (job.target === "remote") {
+    return job.localCopyStatus === "done" || job.localCopyStatus === "error";
+  }
+  return true;
 };
 
 const setBusy = (busy) => {
@@ -1550,9 +1616,10 @@ const formatProgressLabel = (job) => {
 };
 
 const updateRenderProgress = (job) => {
-  const active = job.status === "queued" || job.status === "running";
+  const copying = job.status === "done" && job.localCopyStatus === "copying";
+  const active = job.status === "queued" || job.status === "running" || copying;
   if (renderProgressBlock) {
-    renderProgressBlock.hidden = !active && job.status !== "done";
+    renderProgressBlock.hidden = !active;
   }
   if (!renderProgressBlock || renderProgressBlock.hidden) {
     return;
@@ -1566,7 +1633,9 @@ const updateRenderProgress = (job) => {
     renderProgressTrack.setAttribute("aria-valuenow", String(job.status === "done" ? 100 : percent));
   }
   if (renderProgressLabel) {
-    renderProgressLabel.textContent = formatProgressLabel(job);
+    renderProgressLabel.textContent = copying
+      ? statusLabels.copying
+      : formatProgressLabel(job);
   }
 };
 
@@ -1597,8 +1666,13 @@ const showStatus = (job) => {
     statusText.textContent = job.error ?? statusLabels.cancelled;
   }
 
-  if (job.status === "done") {
+  if (job.status === "done" && job.localCopyStatus !== "copying") {
     statusText.classList.add("status-text--done");
+  }
+
+  if (job.status === "done" && job.localCopyStatus === "copying") {
+    statusText.className = "status-text";
+    statusText.textContent = statusLabels.copying;
   }
 
   statusLog.textContent = (job.logs ?? []).join("\n");
@@ -1606,12 +1680,27 @@ const showStatus = (job) => {
   updateRenderProgress(job);
 
   if (downloadBlock && downloadLink && pathsHint) {
-    if (job.status === "done" && job.downloadUrl) {
+    if (job.status === "done" && job.localCopyStatus === "done" && job.downloadUrl) {
       downloadBlock.hidden = false;
       downloadLink.href = job.downloadUrl;
-      downloadLink.textContent = `Скачать ${job.outputPath ?? "video.mp4"}`;
-      downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
+      downloadLink.textContent =
+        job.target === "remote"
+          ? `Открыть ${job.outputPath ?? "out/video.mp4"}`
+          : `Скачать ${job.outputPath ?? "video.mp4"}`;
+      if (job.target === "remote") {
+        downloadLink.removeAttribute("download");
+      } else {
+        downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
+      }
       pathsHint.textContent = `JSON: ${job.inputPath ?? "—"} · MP4: ${job.outputPath ?? "—"} · concurrency: ${job.renderConcurrency ?? "—"}`;
+    } else if (job.status === "done" && job.downloadUrl && job.localCopyStatus === "error") {
+      downloadBlock.hidden = false;
+      downloadLink.href = job.downloadUrl;
+      downloadLink.textContent = `Скачать с воркера ${job.outputFile ?? "video.mp4"}`;
+      downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
+      pathsHint.textContent = `Локальная копия не удалась — файл остался на воркере. JSON: ${job.inputPath ?? "—"}`;
+    } else if (job.status === "done" && job.localCopyStatus === "copying") {
+      downloadBlock.hidden = true;
     } else if (job.inputPath || job.outputPath) {
       downloadBlock.hidden = false;
       downloadLink.href = job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`;
@@ -1653,12 +1742,12 @@ const pollJob = (jobId) => {
       consecutiveErrors = 0;
       showStatus(job);
 
-      if (job.status === "done" || job.status === "error" || job.status === "cancelled") {
+      if (isRenderJobFinished(job)) {
         clearInterval(pollTimer);
         pollTimer = null;
         activeRenderJobId = null;
         setBusy(false);
-        if (job.status === "done") {
+        if (job.status === "done" && job.localCopyStatus === "done") {
           loadDialoguesList();
         }
       }

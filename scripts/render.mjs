@@ -26,7 +26,12 @@ const run = async () => {
     concurrencyArg !== null ? Number.parseInt(String(concurrencyArg), 10) : getRenderConcurrency();
   console.log(`Render concurrency: ${concurrency}`);
 
-  const outputAbs = await renderChatVideo({conversation, outputPath, concurrency});
+  const outputAbs = await renderChatVideo({
+    conversation,
+    outputPath,
+    concurrency,
+    onBundleStatus: (message) => console.log(message),
+  });
   console.log(`Rendered: ${outputAbs}`);
 };
 

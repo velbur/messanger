@@ -1,10 +1,9 @@
 import os from "node:os";
 import path from "node:path";
 import {mkdir} from "node:fs/promises";
-import {bundle} from "@remotion/bundler";
 import {renderMedia, selectComposition} from "@remotion/renderer";
+import {getBundleLocation} from "./bundle-cache.mjs";
 
-const entryPoint = path.resolve("src/index.ts");
 const DEFAULT_CONCURRENCY = 5;
 
 /** Число доступных ядер (Remotion не разрешает concurrency больше этого значения) */
@@ -34,6 +33,43 @@ export const buildNativeRenderCommand = ({projectRoot, inputRel, outputRel}) => 
 };
 
 /**
+ * Пресет x264: ускоряет этап кодирования (финальный "хвост") без изменения CRF.
+ * "veryfast" заметно быстрее дефолтного "medium"; качество при том же CRF
+ * перцептивно то же, файл лишь немного больше. Переопределяется X264_PRESET.
+ */
+const getX264Preset = () => {
+  const valid = new Set([
+    "ultrafast",
+    "superfast",
+    "veryfast",
+    "faster",
+    "fast",
+    "medium",
+    "slow",
+    "slower",
+    "veryslow",
+  ]);
+  const raw = (process.env.X264_PRESET ?? "").trim().toLowerCase();
+  return valid.has(raw) ? raw : "veryfast";
+};
+
+/**
+ * Аппаратное кодирование (h264_videotoolbox на macOS). Только нативный запуск,
+ * НЕ в Docker/podman (Linux-VM не видит медиа-движок Apple). Включается
+ * REMOTION_HW=1; CRF несовместим с HW, поэтому используется videoBitrate.
+ */
+const getHardwareAccelerationOptions = () => {
+  const enabled = ["1", "true", "yes"].includes(
+    (process.env.REMOTION_HW ?? "").trim().toLowerCase(),
+  );
+  if (!enabled) {
+    return null;
+  }
+  const bitrate = (process.env.VIDEO_BITRATE ?? "20M").trim() || "20M";
+  return {hardwareAcceleration: "if-possible", videoBitrate: bitrate};
+};
+
+/**
  * @param {{
  *   conversation: object,
  *   outputPath: string,
@@ -41,6 +77,7 @@ export const buildNativeRenderCommand = ({projectRoot, inputRel, outputRel}) => 
  *   onProgress?: (progress: import("@remotion/renderer").RenderMediaProgress) => void,
  *   cancelSignal?: import("@remotion/renderer").CancelSignal,
  *   onCompositionReady?: (durationInFrames: number) => void,
+ *   onBundleStatus?: (message: string) => void,
  * }} opts
  */
 export async function renderChatVideo({
@@ -50,14 +87,12 @@ export async function renderChatVideo({
   onProgress,
   cancelSignal,
   onCompositionReady,
+  onBundleStatus,
 }) {
   const outputAbs = path.resolve(outputPath);
   await mkdir(path.dirname(outputAbs), {recursive: true});
 
-  const bundleLocation = await bundle({
-    entryPoint,
-    webpackOverride: (config) => config,
-  });
+  const bundleLocation = await getBundleLocation({onStatus: onBundleStatus});
 
   const composition = await selectComposition({
     serveUrl: bundleLocation,
@@ -66,6 +101,8 @@ export async function renderChatVideo({
   });
 
   onCompositionReady?.(composition.durationInFrames);
+
+  const hwOptions = getHardwareAccelerationOptions();
 
   await renderMedia({
     composition,
@@ -77,6 +114,8 @@ export async function renderChatVideo({
     concurrency: concurrency ?? getRenderConcurrency(),
     onProgress,
     cancelSignal,
+    // x264Preset применим только к программному libx264; для videotoolbox опция -preset недопустима
+    ...(hwOptions ?? {x264Preset: getX264Preset()}),
   });
 
   return outputAbs;

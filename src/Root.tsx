@@ -2,6 +2,7 @@ import React from "react";
 import {Composition} from "remotion";
 import {ChatVideo} from "./chat/ChatVideo";
 import {parseConversation, type ConversationInput} from "./chat/schema";
+import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
 import sample from "../public/conversation.json";
 
@@ -17,7 +18,7 @@ export const RemotionRoot: React.FC = () => {
         component={ChatVideo as React.ComponentType<Props>}
         width={1080}
         height={1920}
-        fps={60}
+        fps={FPS}
         defaultProps={{
           conversation: parseConversation(sample),
         }}

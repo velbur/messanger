@@ -1,9 +1,8 @@
 import type {ConversationInput} from "./schema";
+import {msToFrames} from "./fps";
 import {TIMING_SCALE} from "./timing";
 
-const FPS = 60;
 const scaleMs = (ms: number): number => Math.max(1, Math.round(ms * TIMING_SCALE));
-const msToFrames = (ms: number): number => Math.max(1, Math.round((ms / 1000) * FPS));
 
 export type ConversationOutro = {
   enabled: boolean;
