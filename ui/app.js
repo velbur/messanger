@@ -26,23 +26,52 @@ const endCardTextInput = document.getElementById("endCardTextInput");
 const dialoguePanel = document.getElementById("dialoguePanel");
 const dialogueEditor = document.getElementById("dialogueEditor");
 const btnRefreshDialogue = document.getElementById("btnRefreshDialogue");
-const tabBtnChat = document.getElementById("tabBtnChat");
-const tabBtnLibrary = document.getElementById("tabBtnLibrary");
+const tabBtnSeries = document.getElementById("tabBtnSeries");
+const tabBtnShorts = document.getElementById("tabBtnShorts");
 const tabBtnPrompt = document.getElementById("tabBtnPrompt");
 const tabBtnApi = document.getElementById("tabBtnApi");
-const tabPanelChat = document.getElementById("tabPanelChat");
-const tabPanelLibrary = document.getElementById("tabPanelLibrary");
+const tabPanelSeries = document.getElementById("tabPanelSeries");
+const tabPanelShorts = document.getElementById("tabPanelShorts");
+const tabPanelEditor = document.getElementById("tabPanelEditor");
 const tabPanelPrompt = document.getElementById("tabPanelPrompt");
 const tabPanelApi = document.getElementById("tabPanelApi");
+const seriesFieldsRow = document.getElementById("seriesFieldsRow");
+const seriesIdInput = document.getElementById("seriesIdInput");
+const seriesUseContext = document.getElementById("seriesUseContext");
+const seriesPartHint = document.getElementById("seriesPartHint");
+const seriesTitleCardsRow = document.getElementById("seriesTitleCardsRow");
+const dialoguePromptHint = document.getElementById("dialoguePromptHint");
+const seriesListView = document.getElementById("seriesListView");
+const seriesPartsView = document.getElementById("seriesPartsView");
+const seriesDialoguesList = document.getElementById("seriesDialoguesList");
+const seriesPartsList = document.getElementById("seriesPartsList");
+const seriesPartsTitle = document.getElementById("seriesPartsTitle");
+const shortsDialoguesList = document.getElementById("shortsDialoguesList");
+const btnRefreshSeriesList = document.getElementById("btnRefreshSeriesList");
+const btnRefreshSeriesParts = document.getElementById("btnRefreshSeriesParts");
+const btnRefreshShortsList = document.getElementById("btnRefreshShortsList");
+const btnNewSeries = document.getElementById("btnNewSeries");
+const btnNewPartInSeries = document.getElementById("btnNewPartInSeries");
+const btnBackToSeriesList = document.getElementById("btnBackToSeriesList");
+const btnNewShort = document.getElementById("btnNewShort");
+const btnBackToList = document.getElementById("btnBackToList");
 const apiStatusContent = document.getElementById("apiStatusContent");
 const btnRefreshApiStatus = document.getElementById("btnRefreshApiStatus");
 const dialogueTitleInput = document.getElementById("dialogueTitleInput");
+const dialoguePromptInput = document.getElementById("dialoguePromptInput");
+const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
+const dialogueTitleHint = document.getElementById("dialogueTitleHint");
+const dialogueIncludeImages = document.getElementById("dialogueIncludeImages");
+const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
+const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
+const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
+const btnRefineDialogue = document.getElementById("btnRefineDialogue");
+const btnGenerateImages = document.getElementById("btnGenerateImages");
+const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
 const btnNewDialogue = document.getElementById("btnNewDialogue");
-const dialoguesList = document.getElementById("dialoguesList");
-const btnRefreshLibrary = document.getElementById("btnRefreshLibrary");
 const stylePromptInput = document.getElementById("stylePromptInput");
 const btnSaveStylePrompt = document.getElementById("btnSaveStylePrompt");
 const stylePromptStatus = document.getElementById("stylePromptStatus");
@@ -52,159 +81,41 @@ const lightboxImg = document.getElementById("lightboxImg");
 let scanImagesTimer = null;
 let pollTimer = null;
 let activeRenderJobId = null;
-let klingConfigured = false;
-let klingImageAvailable = false;
-let klingAccountHint = "";
-let grokConfigured = false;
-let grokImageAvailable = false;
-let grokModel = "grok-4";
-let grokImageModel = "grok-imagine-image-quality";
+let openrouterConfigured = false;
+let openrouterImageAvailable = false;
+let openrouterTextModel = "openai/gpt-5.5";
+let openrouterImageModel = "openai/gpt-5.4-image-2";
 
-const IMAGE_PROVIDER_STORAGE_KEY = "chat-video-image-provider";
+const canGenerateImages = () => openrouterImageAvailable;
 
-const getDefaultImageProvider = () => {
-  try {
-    const saved = localStorage.getItem(IMAGE_PROVIDER_STORAGE_KEY);
-    if (saved === "grok" || saved === "kling") {
-      return saved;
-    }
-  } catch {
-    /* ignore */
-  }
-  return "kling";
-};
-
-const saveDefaultImageProvider = (provider) => {
-  try {
-    localStorage.setItem(IMAGE_PROVIDER_STORAGE_KEY, provider === "grok" ? "grok" : "kling");
-  } catch {
-    /* ignore */
-  }
-};
-
-const getImageProvider = (messageIndex) => {
-  if (typeof messageIndex === "number") {
-    const selected = document.querySelector(
-      `input[name="imageProvider-${messageIndex}"]:checked`,
-    );
-    if (selected) {
-      return selected.value === "grok" ? "grok" : "kling";
-    }
-  }
-  return getDefaultImageProvider();
-};
-
-const resolveProviderForNewSlot = () => {
-  let provider = getDefaultImageProvider();
-  const klingOk = klingConfigured && klingImageAvailable;
-  const grokOk = grokImageAvailable;
-  if (provider === "kling" && !klingOk && grokOk) {
-    provider = "grok";
-  } else if (provider === "grok" && !grokOk && klingOk) {
-    provider = "kling";
-  }
-  return provider;
-};
-
-const canGenerateImages = (provider) => {
-  if (provider === "grok") {
-    return grokImageAvailable;
-  }
-  return klingConfigured && klingImageAvailable;
-};
-
-const getImageProviderUnavailableHint = (provider) => {
-  if (provider === "grok") {
-    return grokConfigured
-      ? `Grok Imagine (${grokImageModel}) недоступен`
-      : "Grok: задайте XAI_API_KEY в docs/.env";
-  }
-  return klingAccountHint || "Kling: нет пакета Image или ключей не заданы";
-};
-
-const updateSlotImageProviderControls = (messageIndex) => {
-  const slot = document.querySelector(`[data-image-slot-index="${messageIndex}"]`);
-  if (!slot) {
-    return;
-  }
-  const provider = getImageProvider(messageIndex);
-  const available = canGenerateImages(provider);
-  const label = provider === "grok" ? "Grok" : "Kling";
-
-  for (const btn of slot.querySelectorAll("[data-action='generate-image']")) {
-    btn.disabled = !available;
-    if (!available) {
-      btn.title = getImageProviderUnavailableHint(provider);
-    } else {
-      btn.title =
-        provider === "grok"
-          ? `Генерация через Grok Imagine (${grokImageModel})`
-          : "Генерация через Kling";
-    }
-    if (btn.dataset.generateLabel === "primary") {
-      const hasFile = slot.classList.contains("image-slot--ok");
-      btn.textContent = hasFile ? `Сгенерировать (${label})` : `Сгенерировать (${label})`;
-    }
-  }
-};
+const getImageProviderUnavailableHint = () =>
+  openrouterConfigured
+    ? `OpenRouter (${openrouterImageModel}) недоступен`
+    : "OpenRouter: задайте OPENROUTER_API_KEY в docs/.env";
 
 const updateImageProviderControls = () => {
   for (const slot of document.querySelectorAll("[data-image-slot-index]")) {
-    const index = Number(slot.dataset.imageSlotIndex);
-    if (!Number.isNaN(index)) {
-      updateSlotImageProviderControls(index);
+    const available = canGenerateImages();
+    for (const btn of slot.querySelectorAll("[data-action='generate-image']")) {
+      btn.disabled = !available;
+      btn.title = available
+        ? `Генерация через OpenRouter (${openrouterImageModel})`
+        : getImageProviderUnavailableHint();
     }
   }
-};
-
-const createImageProviderPicker = (messageIndex) => {
-  const row = document.createElement("div");
-  row.className = "image-slot__provider";
-
-  const label = document.createElement("span");
-  label.className = "image-slot__provider-label";
-  label.textContent = "Генерация:";
-
-  const group = document.createElement("div");
-  group.className = "image-slot__provider-options";
-  group.setAttribute("role", "radiogroup");
-  group.setAttribute("aria-label", "Сервис генерации для этого кадра");
-
-  const defaultProvider = resolveProviderForNewSlot();
-  const options = [
-    {
-      value: "kling",
-      text: "Kling",
-      ok: klingConfigured && klingImageAvailable,
-    },
-    {value: "grok", text: "Grok Imagine", ok: grokImageAvailable},
-  ];
-
-  for (const opt of options) {
-    const lab = document.createElement("label");
-    lab.className = "image-slot__provider-option";
-    if (!opt.ok) {
-      lab.classList.add("image-slot__provider-option--disabled");
-    }
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = `imageProvider-${messageIndex}`;
-    input.value = opt.value;
-    input.checked = defaultProvider === opt.value;
-    input.disabled = !opt.ok;
-    input.addEventListener("change", () => {
-      saveDefaultImageProvider(getImageProvider(messageIndex));
-      updateSlotImageProviderControls(messageIndex);
-    });
-    lab.append(input, document.createTextNode(` ${opt.text}`));
-    group.append(lab);
-  }
-
-  row.append(label, group);
-  return row;
 };
 let defaultMusicId = "romantic.mp3";
 let currentDialogueId = null;
+let editorKind = "series";
+let editorVisible = false;
+let activeMainTab = "series";
+let selectedSeriesId = null;
+let currentPartNumber = null;
+
+const editorSnapshots = {
+  series: null,
+  shorts: null,
+};
 let currentDialogueOutputFile = null;
 
 const getStylePrompt = () => stylePromptInput.value.trim();
@@ -217,40 +128,343 @@ const setDialogueSaveStatus = (text, isError = false) => {
   dialogueSaveStatus.classList.toggle("editor-save-status--error", isError);
 };
 
-const setActiveTab = (tabId) => {
-  const panels = {
-    chat: tabPanelChat,
-    library: tabPanelLibrary,
-    prompt: tabPanelPrompt,
-    api: tabPanelApi,
+const syncEditorKindUi = () => {
+  const isSeries = editorKind === "series";
+  if (seriesFieldsRow) {
+    seriesFieldsRow.hidden = !isSeries;
+  }
+  if (seriesTitleCardsRow) {
+    seriesTitleCardsRow.hidden = !isSeries;
+  }
+  if (dialoguePromptHint) {
+    dialoguePromptHint.textContent = isSeries
+      ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
+      : "Генерация через ChatGPT (OpenRouter). Самостоятельная история для Shorts — длину и тон задайте в промпте.";
+  }
+  if (dialoguePromptInput) {
+    dialoguePromptInput.placeholder = isSeries
+      ? "Опишите часть истории, героев и финал сцены…"
+      : "Опишите сюжет, героев, тон и сколько сообщений нужно…";
+  }
+  if (dialogueTitleHint) {
+    dialogueTitleHint.textContent = isSeries
+      ? "Для сериала — латиница, например poka_v_sssr_part3"
+      : "На русском; в базу и в json/out сохранится транслитом";
+  }
+  if (dialogueTitleInput) {
+    dialogueTitleInput.placeholder = isSeries ? "poka_v_sssr_part3" : "Когда кот сел на клавиатуру";
+  }
+  updateSeriesPartHint();
+};
+
+const updateSeriesPartHint = () => {
+  if (!seriesPartHint) {
+    return;
+  }
+  if (editorKind !== "series" || !currentPartNumber) {
+    seriesPartHint.hidden = true;
+    seriesPartHint.textContent = "";
+    return;
+  }
+  seriesPartHint.hidden = false;
+  seriesPartHint.textContent = `Часть ${currentPartNumber}`;
+};
+
+const resolveSeriesPartNumber = async () => {
+  if (editorKind !== "series") {
+    return null;
+  }
+  if (currentPartNumber) {
+    return currentPartNumber;
+  }
+  const seriesId = seriesIdInput?.value.trim() ?? "";
+  if (!seriesId) {
+    return 1;
+  }
+  return getNextPartNumber(seriesId);
+};
+
+const resolveTitlePayload = () => {
+  const raw = dialogueTitleInput.value.trim();
+  if (!raw) {
+    return {};
+  }
+  if (editorKind === "shorts") {
+    return {
+      title: slugifyProjectName(raw),
+      titleDisplay: raw,
+    };
+  }
+  return {
+    title: raw,
+    titleDisplay: raw,
   };
+};
+
+const updateRefineDialogueControls = () => {
+  if (!btnRefineDialogue) {
+    return;
+  }
+  const hasJson = Boolean(jsonInput.value.trim());
+  btnRefineDialogue.disabled = !hasJson;
+  btnRefineDialogue.title = hasJson
+    ? "Отправить текущий диалог на доработку"
+    : "Сначала нужен JSON переписки";
+};
+
+const canGenerateDialogue = () => openrouterConfigured;
+
+const updateDialogueGenerateControls = () => {
+  if (!dialogueGenerateStatus) {
+    return;
+  }
+  if (!canGenerateDialogue()) {
+    dialogueGenerateStatus.textContent =
+      "Задайте OPENROUTER_API_KEY в docs/.env (ключ: openrouter.ai/keys), затем «Обновить» на вкладке API или перезапустите npm run ui";
+    return;
+  }
+  const status = dialogueGenerateStatus.textContent;
+  if (
+    !status ||
+    status.includes("не настроен") ||
+    status.includes("OPENROUTER") ||
+    status.includes("ChatGPT")
+  ) {
+    dialogueGenerateStatus.textContent = "";
+  }
+};
+const captureEditorSnapshot = () => ({
+  dialogueId: currentDialogueId,
+  title: dialogueTitleInput.value,
+  prompt: dialoguePromptInput?.value ?? "",
+  json: jsonInput.value,
+  outputFile: currentDialogueOutputFile,
+  seriesId: seriesIdInput?.value ?? "",
+  partNumber: currentPartNumber,
+  seriesUseContext: seriesUseContext?.checked ?? true,
+  wallpaper: getWallpaper(),
+  music: getMusicId(),
+});
+
+const restoreEditorSnapshot = async (snapshot) => {
+  currentDialogueId = snapshot?.dialogueId ?? null;
+  currentDialogueOutputFile = snapshot?.outputFile ?? null;
+  dialogueTitleInput.value = snapshot?.title ?? "";
+  if (dialoguePromptInput) {
+    dialoguePromptInput.value = snapshot?.prompt ?? "";
+  }
+  if (seriesIdInput) {
+    seriesIdInput.value = snapshot?.seriesId || "usssr";
+  }
+  currentPartNumber = snapshot?.partNumber ?? null;
+  updateSeriesPartHint();
+  if (seriesUseContext) {
+    seriesUseContext.checked = snapshot?.seriesUseContext !== false;
+  }
+  jsonInput.value = snapshot?.json ?? "";
+  if (snapshot?.wallpaper) {
+    setWallpaper(snapshot.wallpaper);
+  }
+  if (snapshot?.music) {
+    setMusicId(snapshot.music);
+  }
+  updateProjectPathsHint();
+  syncTitleCardFieldsFromJson();
+  if (jsonInput.value.trim()) {
+    await refreshDialogue();
+    try {
+      updateGenerateImagesControls(JSON.parse(jsonInput.value));
+    } catch {
+      updateGenerateImagesControls(null);
+    }
+  } else {
+    dialoguePanel.hidden = true;
+    dialogueEditor.replaceChildren();
+    updateGenerateImagesControls(null);
+  }
+  setDialogueSaveStatus(
+    currentDialogueId
+      ? `Открыт диалог (${editorKind === "series" ? "сериал" : "shorts"})`
+      : editorKind === "series"
+        ? "Новая часть серии"
+        : "Новый Shorts",
+  );
+  if (editorKind === "shorts" && jsonInput.value.trim()) {
+    applyTitleCardFieldsToJson();
+  }
+};
+
+const switchEditorKind = async (nextKind) => {
+  const normalized = nextKind === "shorts" ? "shorts" : "series";
+  if (normalized === editorKind) {
+    return;
+  }
+  if (editorVisible) {
+    editorSnapshots[editorKind] = captureEditorSnapshot();
+  }
+  editorKind = normalized;
+  syncEditorKindUi();
+  if (editorVisible) {
+    await restoreEditorSnapshot(editorSnapshots[normalized]);
+  }
+};
+
+const updateContentViewVisibility = () => {
+  const isContentTab = activeMainTab === "series" || activeMainTab === "shorts";
+  if (tabPanelSeries) {
+    tabPanelSeries.hidden = !isContentTab || editorVisible || activeMainTab !== "series";
+    tabPanelSeries.classList.toggle(
+      "tab-panel--active",
+      isContentTab && !editorVisible && activeMainTab === "series",
+    );
+  }
+  if (tabPanelShorts) {
+    tabPanelShorts.hidden = !isContentTab || editorVisible || activeMainTab !== "shorts";
+    tabPanelShorts.classList.toggle(
+      "tab-panel--active",
+      isContentTab && !editorVisible && activeMainTab === "shorts",
+    );
+  }
+  if (tabPanelEditor) {
+    tabPanelEditor.hidden = !isContentTab || !editorVisible;
+    tabPanelEditor.classList.toggle("tab-panel--active", isContentTab && editorVisible);
+  }
+  if (tabPanelPrompt) {
+    tabPanelPrompt.hidden = activeMainTab !== "prompt";
+    tabPanelPrompt.classList.toggle("tab-panel--active", activeMainTab === "prompt");
+  }
+  if (tabPanelApi) {
+    tabPanelApi.hidden = activeMainTab !== "api";
+    tabPanelApi.classList.toggle("tab-panel--active", activeMainTab === "api");
+  }
+};
+
+const showEditorView = async () => {
+  editorVisible = true;
+  updateContentViewVisibility();
+};
+
+const updateSeriesBrowseVisibility = () => {
+  const inPartsView = Boolean(selectedSeriesId);
+  if (seriesListView) {
+    seriesListView.hidden = inPartsView;
+  }
+  if (seriesPartsView) {
+    seriesPartsView.hidden = !inPartsView;
+  }
+  if (btnBackToList) {
+    btnBackToList.textContent =
+      editorKind === "series" && selectedSeriesId ? "← К частям" : "← К списку";
+  }
+};
+
+const showSeriesListView = async () => {
+  selectedSeriesId = null;
+  updateSeriesBrowseVisibility();
+  await loadDialoguesList("series");
+};
+
+const showSeriesPartsView = async (seriesId) => {
+  const normalized = String(seriesId ?? "").trim();
+  if (!normalized) {
+    await showSeriesListView();
+    return;
+  }
+  selectedSeriesId = normalized;
+  if (seriesPartsTitle) {
+    seriesPartsTitle.textContent = normalized;
+  }
+  updateSeriesBrowseVisibility();
+  await loadSeriesParts(normalized);
+};
+
+const showBrowseView = async (kind = editorKind) => {
+  if (editorVisible) {
+    editorSnapshots[editorKind] = captureEditorSnapshot();
+  }
+  editorKind = kind === "shorts" ? "shorts" : "series";
+  syncEditorKindUi();
+  editorVisible = false;
+  updateContentViewVisibility();
+  if (editorKind === "series") {
+    if (selectedSeriesId) {
+      await showSeriesPartsView(selectedSeriesId);
+    } else {
+      await showSeriesListView();
+    }
+  } else {
+    selectedSeriesId = null;
+    await loadDialoguesList("shorts");
+  }
+};
+
+const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
+  const isContentTab = tabId === "series" || tabId === "shorts";
+  activeMainTab = tabId;
+
+  if (isContentTab) {
+    if (tabId !== editorKind && !skipEditorSwitch) {
+      if (editorVisible) {
+        await switchEditorKind(tabId);
+      } else {
+        editorKind = tabId;
+        syncEditorKindUi();
+        await loadDialoguesList(editorKind);
+      }
+    } else if (tabId !== editorKind && skipEditorSwitch) {
+      editorKind = tabId;
+      syncEditorKindUi();
+    } else if (!editorVisible) {
+      if (editorKind === "series") {
+        if (selectedSeriesId) {
+          await showSeriesPartsView(selectedSeriesId);
+        } else {
+          await showSeriesListView();
+        }
+      } else {
+        await loadDialoguesList("shorts");
+      }
+    }
+  }
+
+  updateContentViewVisibility();
+  if (editorKind === "series" && !editorVisible) {
+    updateSeriesBrowseVisibility();
+  }
+
   const buttons = {
-    chat: tabBtnChat,
-    library: tabBtnLibrary,
+    series: tabBtnSeries,
+    shorts: tabBtnShorts,
     prompt: tabBtnPrompt,
     api: tabBtnApi,
   };
 
-  for (const [id, panel] of Object.entries(panels)) {
-    const active = id === tabId;
-    panel.classList.toggle("tab-panel--active", active);
-    panel.hidden = !active;
-    buttons[id].classList.toggle("tabs__btn--active", active);
-    buttons[id].setAttribute("aria-selected", String(active));
+  for (const [id, button] of Object.entries(buttons)) {
+    if (!button) {
+      continue;
+    }
+    const active = isContentTab ? id === editorKind : id === tabId;
+    button.classList.toggle("tabs__btn--active", active);
+    button.setAttribute("aria-selected", String(active));
   }
 
-  if (tabId === "library") {
-    loadDialoguesList();
-  }
   if (tabId === "api") {
     loadApiStatus();
   }
 };
 
-tabBtnChat.addEventListener("click", () => setActiveTab("chat"));
-tabBtnLibrary.addEventListener("click", () => setActiveTab("library"));
+tabBtnSeries?.addEventListener("click", () => {
+  if (!editorVisible) {
+    selectedSeriesId = null;
+    updateSeriesBrowseVisibility();
+  }
+  setActiveTab("series");
+});
+tabBtnShorts?.addEventListener("click", () => setActiveTab("shorts"));
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
+
+syncEditorKindUi();
 
 const CYRILLIC_TO_LATIN = {
   а: "a",
@@ -326,7 +540,15 @@ dialogueTitleInput.addEventListener("input", updateProjectPathsHint);
 
 const applyDialogueToEditor = (dialogue) => {
   jsonInput.value = JSON.stringify(dialogue.conversation, null, 2);
-  dialogueTitleInput.value = dialogue.title ?? "";
+  dialogueTitleInput.value = dialogue.titleDisplay || dialogue.title || "";
+  if (dialoguePromptInput) {
+    dialoguePromptInput.value = dialogue.dialoguePrompt ?? "";
+  }
+  if (seriesIdInput) {
+    seriesIdInput.value = dialogue.seriesId || "usssr";
+  }
+  currentPartNumber = dialogue.partNumber ?? null;
+  updateSeriesPartHint();
   currentDialogueOutputFile = dialogue.outputFile ?? null;
   updateProjectPathsHint();
   setWallpaper(dialogue.wallpaper === "dark" ? "dark" : "default");
@@ -362,9 +584,21 @@ const openDialogue = async (id) => {
   if (!res.ok) {
     throw new Error(data.error ?? "Не удалось открыть диалог");
   }
+  editorKind = data.kind === "series" ? "series" : "shorts";
+  activeMainTab = editorKind;
+  if (editorKind === "series" && data.seriesId) {
+    selectedSeriesId = data.seriesId.trim();
+  }
+  syncEditorKindUi();
   currentDialogueId = data.id;
   applyDialogueToEditor(data);
-  setActiveTab("chat");
+  if (editorKind === "shorts") {
+    applyTitleCardFieldsToJson();
+  }
+  editorSnapshots[editorKind] = captureEditorSnapshot();
+  editorVisible = true;
+  updateSeriesBrowseVisibility();
+  await setActiveTab(editorKind, {skipEditorSwitch: true});
   await refreshDialogue();
 };
 
@@ -376,10 +610,14 @@ const saveCurrentDialogue = async () => {
   }
 
   const payload = {
-    title: dialogueTitleInput.value.trim() || undefined,
+    ...resolveTitlePayload(),
     json,
     wallpaper: getWallpaper(),
     music: getMusicId(),
+    dialoguePrompt: dialoguePromptInput?.value.trim() ?? "",
+    kind: editorKind,
+    seriesId: editorKind === "series" ? (seriesIdInput?.value.trim() ?? "") : "",
+    partNumber: editorKind === "series" ? (currentPartNumber ?? (await resolveSeriesPartNumber())) : null,
   };
 
   const url = currentDialogueId ? `/api/dialogues/${currentDialogueId}` : "/api/dialogues";
@@ -396,20 +634,45 @@ const saveCurrentDialogue = async () => {
   }
 
   currentDialogueId = data.id;
-  dialogueTitleInput.value = data.title ?? dialogueTitleInput.value;
+  dialogueTitleInput.value = data.titleDisplay || data.title || dialogueTitleInput.value;
+  if (data.partNumber) {
+    currentPartNumber = data.partNumber;
+    updateSeriesPartHint();
+  }
+  updateProjectPathsHint();
+  editorSnapshots[editorKind] = captureEditorSnapshot();
   setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}`);
   return data;
 };
 
-const newDialogue = () => {
+const newDialogue = async ({openEditor = false} = {}) => {
   currentDialogueId = null;
   currentDialogueOutputFile = null;
   dialogueTitleInput.value = "";
+  if (dialoguePromptInput) {
+    dialoguePromptInput.value = "";
+  }
+  currentPartNumber = null;
+  updateSeriesPartHint();
+  if (seriesIdInput && editorKind === "series") {
+    seriesIdInput.value = "usssr";
+  }
   updateProjectPathsHint();
   jsonInput.value = "";
-  setDialogueSaveStatus("Новый диалог — вставьте JSON и нажмите «Сохранить»");
+  setDialogueSaveStatus(
+    editorKind === "series"
+      ? "Новая часть серии — вставьте JSON или сгенерируйте диалог"
+      : "Новый Shorts — вставьте JSON или сгенерируйте диалог",
+  );
   dialoguePanel.hidden = true;
   dialogueEditor.replaceChildren();
+  editorSnapshots[editorKind] = captureEditorSnapshot();
+  if (openEditor) {
+    activeMainTab = editorKind;
+    editorVisible = true;
+    updateContentViewVisibility();
+    await setActiveTab(editorKind, {skipEditorSwitch: true});
+  }
 };
 
 const renderDialogueListItem = (item) => {
@@ -420,12 +683,28 @@ const renderDialogueListItem = (item) => {
   head.className = "dialogue-library-card__head";
   const title = document.createElement("h3");
   title.className = "dialogue-library-card__title";
-  title.textContent = item.title || item.contactName || "Без названия";
+  title.textContent = item.titleDisplay || item.title || item.contactName || "Без названия";
+  const badge = document.createElement("span");
+  badge.className = "dialogue-library-card__badge";
+  if (item.kind === "series" && item.partNumber) {
+    badge.textContent = `ч.${item.partNumber}`;
+  } else if (item.kind === "series") {
+    badge.textContent = "сериал";
+  }
+  title.append(badge);
   head.append(title);
 
   const meta = document.createElement("p");
   meta.className = "dialogue-library-card__meta";
-  meta.textContent = `${item.contactName || "—"} · ${item.messageCount ?? 0} сообщ. · ${formatDate(item.updatedAt)}`;
+  let prefix = "";
+  if (item.kind === "series" && item.partNumber) {
+    prefix = selectedSeriesId
+      ? `часть ${item.partNumber} · `
+      : `${item.seriesId || "—"}${item.partNumber ? ` · часть ${item.partNumber}` : ""} · `;
+  } else if (item.kind === "series" && item.seriesId && !selectedSeriesId) {
+    prefix = `${item.seriesId} · `;
+  }
+  meta.textContent = `${prefix}${item.contactName || "—"} · ${item.messageCount ?? 0} сообщ. · ${formatDate(item.updatedAt)}`;
 
   const actions = document.createElement("div");
   actions.className = "dialogue-library-card__actions";
@@ -457,9 +736,18 @@ const renderDialogueListItem = (item) => {
         throw new Error(data.error ?? "Ошибка удаления");
       }
       if (currentDialogueId === item.id) {
-        newDialogue();
+        if (item.kind === "series" && selectedSeriesId) {
+          editorVisible = false;
+          updateContentViewVisibility();
+          await showSeriesPartsView(selectedSeriesId);
+        } else {
+          await showBrowseView(item.kind === "series" ? "series" : "shorts");
+        }
+      } else if (item.kind === "series" && selectedSeriesId) {
+        await loadSeriesParts(selectedSeriesId);
+      } else {
+        await loadDialoguesList(item.kind === "series" ? "series" : "shorts");
       }
-      await loadDialoguesList();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     }
@@ -481,8 +769,9 @@ const renderDialogueListItem = (item) => {
   return card;
 };
 
-const fetchDialoguesList = async () => {
-  const res = await fetch("/api/dialogues");
+const fetchDialoguesList = async (kind) => {
+  const normalizedKind = kind === "series" || kind === "shorts" ? kind : "series";
+  const res = await fetch(`/api/dialogues?kind=${encodeURIComponent(normalizedKind)}`);
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error ?? "Ошибка загрузки списка");
@@ -490,59 +779,236 @@ const fetchDialoguesList = async () => {
   return data.dialogues ?? [];
 };
 
-const renderDialoguesList = (dialogues) => {
-  if (!dialoguesList) {
+const getBrowseListElement = (kind) =>
+  kind === "shorts" ? shortsDialoguesList : seriesDialoguesList;
+
+const groupSeriesDialogues = (dialogues) => {
+  const groups = new Map();
+  for (const item of dialogues) {
+    const key = item.seriesId?.trim() || "Без ID серии";
+    if (!groups.has(key)) {
+      groups.set(key, {seriesId: key, parts: [], lastUpdated: 0});
+    }
+    const group = groups.get(key);
+    group.parts.push(item);
+    group.lastUpdated = Math.max(group.lastUpdated, item.updatedAt ?? 0);
+  }
+  return [...groups.values()].sort((a, b) => a.seriesId.localeCompare(b.seriesId, "ru"));
+};
+
+const renderEmptyList = (container, kind, context = "list") => {
+  if (!container) {
     return;
   }
-  dialoguesList.replaceChildren();
+  container.replaceChildren();
+  const empty = document.createElement("p");
+  empty.className = "dialogues-list__empty";
+  if (kind === "series" && context === "parts") {
+    empty.textContent = "В этой серии пока нет частей. Нажмите «Новая часть».";
+  } else if (kind === "series") {
+    empty.textContent = "Пока нет серий. Нажмите «Новый сериал».";
+  } else {
+    empty.textContent = "Пока нет Shorts. Нажмите «Новый Shorts».";
+  }
+  container.append(empty);
+};
+
+const renderSeriesRow = (group) => {
+  const row = document.createElement("article");
+  row.className = "series-row";
+
+  const main = document.createElement("div");
+  main.className = "series-row__main";
+
+  const title = document.createElement("span");
+  title.className = "series-row__title";
+  title.textContent = group.seriesId;
+
+  const meta = document.createElement("span");
+  meta.className = "series-row__meta";
+  const partCount = group.parts.length;
+  const partLabel =
+    partCount === 1 ? "1 часть" : partCount < 5 ? `${partCount} части` : `${partCount} частей`;
+  meta.textContent = `${partLabel} · обновлено ${formatDate(group.lastUpdated)}`;
+
+  main.append(title, meta);
+
+  const btnOpen = document.createElement("button");
+  btnOpen.type = "button";
+  btnOpen.className = "btn btn-primary btn-small";
+  btnOpen.textContent = "Открыть";
+  btnOpen.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    await showSeriesPartsView(group.seriesId);
+  });
+
+  row.append(main, btnOpen);
+  row.addEventListener("click", async () => {
+    await showSeriesPartsView(group.seriesId);
+  });
+
+  return row;
+};
+
+const renderShortsDialoguesList = (dialogues) => {
+  const container = shortsDialoguesList;
+  if (!container) {
+    return;
+  }
+  container.replaceChildren();
   if (!dialogues.length) {
-    const empty = document.createElement("p");
-    empty.className = "dialogues-list__empty";
-    empty.textContent = "Пока нет сохранённых диалогов. Создайте в редакторе и нажмите «Сохранить».";
-    dialoguesList.append(empty);
+    renderEmptyList(container, "shorts");
     return;
   }
   for (const item of dialogues) {
-    dialoguesList.append(renderDialogueListItem(item));
+    container.append(renderDialogueListItem(item));
   }
 };
 
-const loadDialoguesList = async () => {
+const renderSeriesDialoguesList = (dialogues) => {
+  const container = seriesDialoguesList;
+  if (!container) {
+    return;
+  }
+  container.replaceChildren();
+  if (!dialogues.length) {
+    renderEmptyList(container, "series");
+    return;
+  }
+
+  for (const group of groupSeriesDialogues(dialogues)) {
+    container.append(renderSeriesRow(group));
+  }
+};
+
+const renderSeriesPartsList = (dialogues) => {
+  const container = seriesPartsList;
+  if (!container) {
+    return;
+  }
+  container.replaceChildren();
+  if (!dialogues.length) {
+    renderEmptyList(container, "series", "parts");
+    return;
+  }
+
+  const sortedParts = [...dialogues].sort(
+    (a, b) => (a.partNumber ?? Number.MAX_SAFE_INTEGER) - (b.partNumber ?? Number.MAX_SAFE_INTEGER),
+  );
+  for (const item of sortedParts) {
+    container.append(renderDialogueListItem(item));
+  }
+};
+
+const loadSeriesParts = async (seriesId) => {
+  if (!seriesPartsList) {
+    return;
+  }
   try {
-    const dialogues = await fetchDialoguesList();
-    renderDialoguesList(dialogues);
+    const dialogues = await fetchDialoguesList("series");
+    const parts = dialogues.filter((item) => (item.seriesId?.trim() || "Без ID серии") === seriesId);
+    renderSeriesPartsList(parts);
   } catch (err) {
-    if (!dialoguesList) {
-      return;
-    }
-    dialoguesList.replaceChildren();
+    seriesPartsList.replaceChildren();
     const errEl = document.createElement("p");
     errEl.className = "dialogues-list__empty";
     errEl.textContent = err instanceof Error ? err.message : String(err);
-    dialoguesList.append(errEl);
+    seriesPartsList.append(errEl);
   }
 };
 
-/** При старте открыть последний сохранённый диалог (по updated_at). */
-const loadLatestDialogueOnStartup = async () => {
+const renderDialoguesList = (dialogues, kind) => {
+  if (kind === "shorts") {
+    renderShortsDialoguesList(dialogues);
+    return;
+  }
+  if (selectedSeriesId) {
+    const parts = dialogues.filter(
+      (item) => (item.seriesId?.trim() || "Без ID серии") === selectedSeriesId,
+    );
+    renderSeriesPartsList(parts);
+    return;
+  }
+  renderSeriesDialoguesList(dialogues);
+};
+
+const loadDialoguesList = async (kind = editorKind) => {
+  if (kind === "series" && selectedSeriesId) {
+    await loadSeriesParts(selectedSeriesId);
+    return;
+  }
+
+  const container = getBrowseListElement(kind);
   try {
-    const dialogues = await fetchDialoguesList();
-    renderDialoguesList(dialogues);
-    if (dialogues.length > 0) {
-      await openDialogue(dialogues[0].id);
+    const dialogues = await fetchDialoguesList(kind);
+    renderDialoguesList(dialogues, kind);
+  } catch (err) {
+    if (!container) {
       return;
     }
-  } catch {
-    /* пустой редактор */
+    container.replaceChildren();
+    const errEl = document.createElement("p");
+    errEl.className = "dialogues-list__empty";
+    errEl.textContent = err instanceof Error ? err.message : String(err);
+    container.append(errEl);
   }
-  scheduleRefreshDialogue();
+};
+
+const loadBrowseOnStartup = async () => {
+  try {
+    await showSeriesListView();
+    await loadDialoguesList("shorts");
+  } catch {
+    /* пустой список */
+  }
+  updateContentViewVisibility();
+  updateSeriesBrowseVisibility();
+  updateRefineDialogueControls();
+};
+
+const getNextPartNumber = async (seriesId) => {
+  const dialogues = await fetchDialoguesList("series");
+  const parts = dialogues.filter((item) => item.seriesId?.trim() === seriesId);
+  const maxPart = parts.reduce((max, item) => Math.max(max, item.partNumber ?? 0), 0);
+  return maxPart + 1;
+};
+
+const openNewSeriesEditor = async () => {
+  editorKind = "series";
+  selectedSeriesId = null;
+  syncEditorKindUi();
+  await newDialogue({openEditor: true});
+  if (seriesIdInput) {
+    seriesIdInput.value = "";
+  }
+  currentPartNumber = 1;
+  updateSeriesPartHint();
+};
+
+const openNewPartInSeriesEditor = async () => {
+  if (!selectedSeriesId) {
+    await openNewSeriesEditor();
+    return;
+  }
+  editorKind = "series";
+  syncEditorKindUi();
+  await newDialogue({openEditor: true});
+  if (seriesIdInput) {
+    seriesIdInput.value = selectedSeriesId;
+  }
+  currentPartNumber = await getNextPartNumber(selectedSeriesId);
+  updateSeriesPartHint();
 };
 
 btnSaveDialogue.addEventListener("click", async () => {
   btnSaveDialogue.disabled = true;
   try {
-    await saveCurrentDialogue();
-    await loadDialoguesList();
+    const data = await saveCurrentDialogue();
+    if (data?.kind === "series" && data.seriesId) {
+      selectedSeriesId = data.seriesId.trim();
+      updateSeriesBrowseVisibility();
+    }
+    await loadDialoguesList(editorKind);
   } catch (err) {
     setDialogueSaveStatus(err instanceof Error ? err.message : String(err), true);
   } finally {
@@ -550,8 +1016,43 @@ btnSaveDialogue.addEventListener("click", async () => {
   }
 });
 
-btnNewDialogue.addEventListener("click", newDialogue);
-btnRefreshLibrary.addEventListener("click", loadDialoguesList);
+btnNewDialogue.addEventListener("click", () => {
+  newDialogue();
+});
+btnBackToList?.addEventListener("click", async () => {
+  if (editorKind === "series" && selectedSeriesId) {
+    if (editorVisible) {
+      editorSnapshots.series = captureEditorSnapshot();
+    }
+    editorVisible = false;
+    updateContentViewVisibility();
+    updateSeriesBrowseVisibility();
+    await showSeriesPartsView(selectedSeriesId);
+    return;
+  }
+  await showBrowseView(editorKind);
+});
+btnBackToSeriesList?.addEventListener("click", () => {
+  showSeriesListView();
+});
+btnRefreshSeriesList?.addEventListener("click", () => showSeriesListView());
+btnRefreshSeriesParts?.addEventListener("click", () => {
+  if (selectedSeriesId) {
+    loadSeriesParts(selectedSeriesId);
+  }
+});
+btnRefreshShortsList?.addEventListener("click", () => loadDialoguesList("shorts"));
+btnNewSeries?.addEventListener("click", () => {
+  openNewSeriesEditor();
+});
+btnNewPartInSeries?.addEventListener("click", () => {
+  openNewPartInSeriesEditor();
+});
+btnNewShort?.addEventListener("click", async () => {
+  editorKind = "shorts";
+  syncEditorKindUi();
+  await newDialogue({openEditor: true});
+});
 
 const openLightbox = (src) => {
   if (!src) {
@@ -612,7 +1113,7 @@ const saveStylePrompt = async () => {
     }
     stylePromptInput.value = data.content ?? content;
     stylePromptStatus.textContent =
-      "Сохранено. Для старых кадров — «Промпт от Grok» заново или очистите промпт кадра.";
+      "Сохранено. Для старых кадров — сгенерируйте промпт заново или очистите промпт кадра.";
     await refreshDialogue();
   } catch (err) {
     stylePromptStatus.textContent = err instanceof Error ? err.message : String(err);
@@ -812,6 +1313,9 @@ const syncTitleCardFieldsFromJson = () => {
   if (!parsed || !introEnabled) {
     return;
   }
+  if (editorKind !== "series") {
+    return;
+  }
   introEnabled.checked = Boolean(parsed.intro?.enabled);
   introTextInput.value = parsed.intro?.text ?? "";
   endCardEnabled.checked = Boolean(parsed.endCard?.enabled);
@@ -821,6 +1325,13 @@ const syncTitleCardFieldsFromJson = () => {
 const applyTitleCardFieldsToJson = () => {
   const parsed = parseConversationJson();
   if (!parsed) {
+    return;
+  }
+
+  if (editorKind !== "series") {
+    delete parsed.intro;
+    delete parsed.endCard;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
     return;
   }
 
@@ -900,13 +1411,13 @@ const deleteLocalImage = async (targetRef) => {
   return data;
 };
 
-const suggestGrokPrompt = async (item, {force = false} = {}) => {
+const suggestImagePrompt = async (item, {force = false} = {}) => {
   const json = jsonInput.value.trim();
   if (!json) {
     throw new Error("Сначала вставьте JSON переписки");
   }
-  if (!grokConfigured) {
-    throw new Error("Grok API не настроен (XAI_API_KEY в docs/.env)");
+  if (!openrouterConfigured) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env");
   }
   const res = await fetch("/api/images/suggest-prompt", {
     method: "POST",
@@ -920,7 +1431,7 @@ const suggestGrokPrompt = async (item, {force = false} = {}) => {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error ?? "Ошибка Grok");
+    throw new Error(data.error ?? "Ошибка генерации промпта");
   }
   if (data.imagePrompt) {
     setJsonImagePrompt(item.messageIndex, data.imagePrompt);
@@ -928,7 +1439,7 @@ const suggestGrokPrompt = async (item, {force = false} = {}) => {
   return data;
 };
 
-const generateKlingImage = async (item) => {
+const generateFrameImage = async (item) => {
   const json = jsonInput.value.trim();
   if (!json) {
     throw new Error("Сначала вставьте JSON переписки");
@@ -943,8 +1454,6 @@ const generateKlingImage = async (item) => {
       stylePrompt: getStylePrompt(),
       targetRef,
       aspectRatio: "4:3",
-      useGrok: true,
-      provider: getImageProvider(item.messageIndex),
     }),
   });
   const data = await res.json();
@@ -984,7 +1493,6 @@ const correctFrameImage = async (item, editPromptOverride) => {
       messageIndex: item.messageIndex,
       imageEditPrompt: editPrompt,
       stylePrompt: getStylePrompt(),
-      provider: getImageProvider(item.messageIndex),
       aspectRatio: "4:3",
     }),
   });
@@ -1001,11 +1509,6 @@ const correctFrameImage = async (item, editPromptOverride) => {
     if (img) {
       img.src = data.previewUrl;
     }
-  }
-  if (data.usedGrokFallback) {
-    setDialogueSaveStatus(
-      "Правка выполнена через Grok Imagine (Kling почти не менял кадр)",
-    );
   }
   return data;
 };
@@ -1425,6 +1928,7 @@ const refreshDialogue = async () => {
   if (!json || !conversation) {
     dialoguePanel.hidden = true;
     dialogueEditor.replaceChildren();
+    updateGenerateImagesControls(null);
     return;
   }
 
@@ -1441,35 +1945,20 @@ const refreshDialogue = async () => {
       throw new Error(data.error ?? "Ошибка сканирования");
     }
 
-    if (typeof data.klingConfigured === "boolean") {
-      klingConfigured = data.klingConfigured;
+    if (typeof data.openrouterConfigured === "boolean") {
+      openrouterConfigured = data.openrouterConfigured;
     }
-    if (typeof data.klingImageAvailable === "boolean") {
-      klingImageAvailable = data.klingImageAvailable;
-    }
-    if (typeof data.klingBalanceHint === "string" && data.klingBalanceHint) {
-      klingAccountHint = data.klingBalanceHint;
-    } else if (data.klingHint) {
-      klingAccountHint = data.klingHint;
-    }
-    if (typeof data.grokConfigured === "boolean") {
-      grokConfigured = data.grokConfigured;
-    }
-    if (typeof data.grokModel === "string" && data.grokModel) {
-      grokModel = data.grokModel;
-    }
-    if (typeof data.grokImageAvailable === "boolean") {
-      grokImageAvailable = data.grokImageAvailable;
-    }
-    if (typeof data.grokImageModel === "string" && data.grokImageModel) {
-      grokImageModel = data.grokImageModel;
+    if (typeof data.openrouterImageAvailable === "boolean") {
+      openrouterImageAvailable = data.openrouterImageAvailable;
     }
 
     updateImageProviderControls();
     syncTitleCardFieldsFromJson();
     renderDialogueEditor(conversation, data.items ?? []);
+    updateGenerateImagesControls(conversation);
   } catch {
     renderDialogueEditor(conversation, []);
+    updateGenerateImagesControls(conversation);
   }
 };
 
@@ -1499,7 +1988,7 @@ dialogueEditor.addEventListener("click", (e) => {
 });
 
 document.addEventListener("paste", async (e) => {
-  if (tabPanelChat.hidden) {
+  if (tabPanelEditor.hidden) {
     return;
   }
   if (!parseConversationJson()) {
@@ -1553,6 +2042,8 @@ document.addEventListener("paste", async (e) => {
 
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
+  updateGenerateImagesControls();
+  updateRefineDialogueControls();
   scheduleRefreshDialogue();
 });
 stylePromptInput.addEventListener("input", scheduleRefreshDialogue);
@@ -1748,7 +2239,7 @@ const pollJob = (jobId) => {
         activeRenderJobId = null;
         setBusy(false);
         if (job.status === "done" && job.localCopyStatus === "done") {
-          loadDialoguesList();
+          loadDialoguesList(editorKind);
         }
       }
     } catch (err) {
@@ -1903,27 +2394,244 @@ btnRender.addEventListener("click", async () => {
   }
 });
 
-const applyApiStatusToEditor = (data) => {
-  if (data?.kling) {
-    klingConfigured = Boolean(data.kling.configured);
-    klingImageAvailable = Boolean(data.kling.imageGenerationAvailable);
-    if (typeof data.kling.balanceHint === "string" && data.kling.balanceHint) {
-      klingAccountHint = data.kling.balanceHint;
-    } else {
-      klingAccountHint = data.kling.error ?? "";
-    }
+const countPendingImages = (conversation) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  return messages.filter((message) => {
+    const hasPrompt = Boolean(String(message.imagePrompt ?? "").trim());
+    const hasImage = Boolean(String(message.image ?? "").trim());
+    return hasPrompt && !hasImage;
+  }).length;
+};
+
+const updateGenerateImagesControls = (conversation = null) => {
+  if (!btnGenerateImages) {
+    return;
   }
-  if (data?.grok) {
-    grokConfigured = Boolean(data.grok.configured);
-    grokImageAvailable = Boolean(data.grok.imageGenerationAvailable ?? data.grok.configured);
-    if (typeof data.grok.model === "string" && data.grok.model) {
-      grokModel = data.grok.model;
+
+  const parsed = conversation ?? parseConversationJson();
+  const pending = countPendingImages(parsed);
+  const canGenerate = openrouterImageAvailable && pending > 0;
+
+  btnGenerateImages.disabled = !canGenerate;
+  if (!openrouterImageAvailable) {
+    btnGenerateImages.title = "Задайте OPENROUTER_API_KEY в .env";
+  } else if (pending === 0) {
+    btnGenerateImages.title = parsed
+      ? "Нет сообщений с imagePrompt без прикреплённого image"
+      : "Сначала добавьте JSON переписки";
+  } else {
+    btnGenerateImages.title = `Сгенерировать ${pending} изображени${pending === 1 ? "е" : pending < 5 ? "я" : "й"}`;
+  }
+};
+
+const generateDialogueFromPrompt = async () => {
+  const prompt = dialoguePromptInput?.value.trim() ?? "";
+  if (!prompt) {
+    throw new Error("Введите промпт диалога");
+  }
+  if (!canGenerateDialogue()) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  const includeImages = dialogueIncludeImages?.checked !== false;
+  const body = {
+    prompt,
+    includeImages,
+    mode: editorKind,
+  };
+
+  if (editorKind === "series") {
+    body.seriesId = seriesIdInput?.value.trim() ?? "";
+    body.partNumber = currentPartNumber ?? (await resolveSeriesPartNumber());
+    body.useSeriesContext = seriesUseContext?.checked !== false;
+  }
+
+  const res = await fetch("/api/dialogues/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации диалога");
+  }
+
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  if (editorKind === "shorts" && data.displayTitle) {
+    dialogueTitleInput.value = data.displayTitle;
+    updateProjectPathsHint();
+  }
+  syncTitleCardFieldsFromJson();
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  updateRefineDialogueControls();
+  return data;
+};
+
+const refineDialogueFromPrompt = async () => {
+  const refinePrompt = dialogueRefinePromptInput?.value.trim() ?? "";
+  if (!refinePrompt) {
+    throw new Error("Введите, что доработать в тексте");
+  }
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  if (!canGenerateDialogue()) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  const includeImages = dialogueIncludeImages?.checked !== false;
+  const body = {
+    refinePrompt,
+    json,
+    includeImages,
+    mode: editorKind,
+  };
+  if (editorKind === "series") {
+    body.seriesId = seriesIdInput?.value.trim() ?? "";
+  }
+
+  const res = await fetch("/api/dialogues/refine", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка доработки диалога");
+  }
+
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  if (editorKind === "shorts" && data.displayTitle) {
+    dialogueTitleInput.value = data.displayTitle;
+    updateProjectPathsHint();
+  }
+  syncTitleCardFieldsFromJson();
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  updateRefineDialogueControls();
+  return data;
+};
+
+const generateMissingImages = async () => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала добавьте JSON переписки");
+  }
+  if (!openrouterImageAvailable) {
+    throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
+  }
+
+  const res = await fetch("/api/images/generate-missing", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      stylePrompt: getStylePrompt(),
+      provider: "openrouter",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации изображений");
+  }
+
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  return data;
+};
+
+btnGenerateDialogue?.addEventListener("click", async () => {
+  btnGenerateDialogue.disabled = true;
+  if (dialogueGenerateStatus) {
+    dialogueGenerateStatus.textContent = "Генерация диалога…";
+  }
+  try {
+    const data = await generateDialogueFromPrompt();
+    if (dialogueGenerateStatus) {
+      const mode = dialogueIncludeImages?.checked !== false ? "с фото" : "только текст";
+      const context =
+        editorKind === "series" && data.contextMessageCount
+          ? `, контекст: ${data.contextMessageCount} сообщ.`
+          : "";
+      const via = data.provider === "openrouter" ? "ChatGPT · " : "";
+      const messages =
+        typeof data.messageCount === "number"
+          ? `, ${data.messageCount} сообщ.`
+          : data.expandedFrom
+            ? `, ${data.expandedFrom}→${data.messageCount ?? "?"} сообщ.`
+            : "";
+      dialogueGenerateStatus.textContent = `Готово (${via}${data.model}, ${mode}${context}${messages}, попыток: ${data.attempts})${
+        editorKind === "shorts" && data.displayTitle ? ` · «${data.displayTitle}»` : ""
+      }`;
     }
-    if (typeof data.grok.imageModel === "string" && data.grok.imageModel) {
-      grokImageModel = data.grok.imageModel;
+  } catch (err) {
+    if (dialogueGenerateStatus) {
+      dialogueGenerateStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    btnGenerateDialogue.disabled = false;
+  }
+});
+
+btnRefineDialogue?.addEventListener("click", async () => {
+  btnRefineDialogue.disabled = true;
+  if (dialogueRefineStatus) {
+    dialogueRefineStatus.textContent = "Доработка текста…";
+  }
+  try {
+    const data = await refineDialogueFromPrompt();
+    if (dialogueRefineStatus) {
+      dialogueRefineStatus.textContent = `Готово (${data.model}, попыток: ${data.attempts})`;
+    }
+  } catch (err) {
+    if (dialogueRefineStatus) {
+      dialogueRefineStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    updateRefineDialogueControls();
+  }
+});
+
+btnGenerateImages?.addEventListener("click", async () => {
+  btnGenerateImages.disabled = true;
+  if (imagesGenerateStatus) {
+    imagesGenerateStatus.textContent = "Генерация изображений…";
+  }
+  try {
+    const data = await generateMissingImages();
+    const count = Array.isArray(data.logs) ? data.logs.length : 0;
+    if (imagesGenerateStatus) {
+      imagesGenerateStatus.textContent =
+        count > 0 ? `Готово: ${count} изображени${count === 1 ? "е" : count < 5 ? "я" : "й"}` : "Нечего генерировать";
+    }
+  } catch (err) {
+    if (imagesGenerateStatus) {
+      imagesGenerateStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    updateGenerateImagesControls();
+  }
+});
+
+const applyApiStatusToEditor = (data) => {
+  if (data?.openrouter) {
+    openrouterConfigured = Boolean(data.openrouter.configured);
+    openrouterImageAvailable = Boolean(
+      data.openrouter.imageGenerationAvailable ?? data.openrouter.configured,
+    );
+    if (typeof data.openrouter.textModel === "string" && data.openrouter.textModel) {
+      openrouterTextModel = data.openrouter.textModel;
+    }
+    if (typeof data.openrouter.imageModel === "string" && data.openrouter.imageModel) {
+      openrouterImageModel = data.openrouter.imageModel;
     }
   }
   updateImageProviderControls();
+  updateGenerateImagesControls();
+  updateDialogueGenerateControls();
 };
 
 const appendApiStatusSection = (title, bodyEl) => {
@@ -1942,41 +2650,20 @@ const renderApiStatusPanel = (data) => {
   }
   apiStatusContent.replaceChildren();
 
-  const kling = data?.kling;
-  if (!kling?.configured) {
-    const text = document.createElement("p");
-    text.className = "api-status-section__text";
-    text.textContent =
-      "Не настроено. Задайте KLING_ACCESS_KEY и KLING_SECRET_KEY в docs/.env.";
-    apiStatusContent.append(appendApiStatusSection("Kling", text));
+  const openrouter = data?.openrouter;
+  const openrouterText = document.createElement("p");
+  openrouterText.className = "api-status-section__text";
+  if (!openrouter?.configured) {
+    openrouterText.textContent = "Не настроено. Задайте OPENROUTER_API_KEY в .env.";
   } else {
-    const balance = document.createElement("pre");
-    balance.className = "api-status-section__balance";
-    if (kling.error) {
-      balance.classList.add("api-status-section__balance--error");
-      balance.textContent = kling.error;
-    } else {
-      balance.textContent = kling.balanceHint || "Нет данных о пакетах.";
-    }
-    apiStatusContent.append(appendApiStatusSection("Kling", balance));
-  }
-
-  const grok = data?.grok;
-  const grokText = document.createElement("p");
-  grokText.className = "api-status-section__text";
-  if (!grok?.configured) {
-    grokText.textContent = "Не настроено. Задайте XAI_API_KEY в docs/.env.";
-  } else {
-    const lines = [
-      `LLM: ${grok.model ?? grokModel}`,
-      `Изображения: ${grok.imageModel ?? grokImageModel}${
-        grok.imageGenerationAvailable ? " (доступно)" : " (ключ есть, проверьте модель)"
+    openrouterText.textContent = [
+      `Текст: ${openrouter.textModel ?? openrouterTextModel}`,
+      `Изображения: ${openrouter.imageModel ?? openrouterImageModel}${
+        openrouter.imageGenerationAvailable ? " (доступно)" : ""
       }`,
-      "Остаток токенов и биллинг — только в кабинете xAI; API баланса в проекте нет.",
-    ];
-    grokText.textContent = lines.join("\n");
+    ].join("\n");
   }
-  apiStatusContent.append(appendApiStatusSection("Grok (xAI)", grokText));
+  apiStatusContent.append(appendApiStatusSection("OpenRouter (ChatGPT)", openrouterText));
 };
 
 const loadApiStatus = async () => {
@@ -2008,34 +2695,20 @@ const loadApiStatus = async () => {
 
 btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
-const loadGrokStatus = async () => {
-  try {
-    const res = await fetch("/api/images/grok");
-    const data = await res.json();
-    applyApiStatusToEditor({grok: data});
-  } catch {
-    grokConfigured = false;
-    grokImageAvailable = false;
-    updateImageProviderControls();
-  }
-};
-
-const loadKlingStatus = async () => {
-  try {
-    const res = await fetch("/api/images/kling");
-    const data = await res.json();
-    applyApiStatusToEditor({kling: data});
-  } catch {
-    klingConfigured = false;
-    klingImageAvailable = false;
-    klingAccountHint = "";
-    updateImageProviderControls();
-  }
-};
-
 loadMusicTracks();
 loadRenderTargets();
-loadKlingStatus();
-loadGrokStatus();
+const loadOpenRouterStatus = async () => {
+  try {
+    const res = await fetch("/api/images/openrouter");
+    const data = await res.json();
+    applyApiStatusToEditor({openrouter: data});
+  } catch {
+    openrouterConfigured = false;
+    openrouterImageAvailable = false;
+    updateImageProviderControls();
+  }
+};
+
+loadOpenRouterStatus();
 loadStylePrompt();
-loadLatestDialogueOnStartup();
+loadBrowseOnStartup();

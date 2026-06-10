@@ -19,20 +19,20 @@
           class="tabs__btn tabs__btn--active"
           role="tab"
           aria-selected="true"
-          data-tab="chat"
-          id="tabBtnChat"
+          data-tab="series"
+          id="tabBtnSeries"
         >
-          Редактор
+          Сериал
         </button>
         <button
           type="button"
           class="tabs__btn"
           role="tab"
           aria-selected="false"
-          data-tab="library"
-          id="tabBtnLibrary"
+          data-tab="shorts"
+          id="tabBtnShorts"
         >
-          История
+          Shorts
         </button>
         <button
           type="button"
@@ -56,9 +56,76 @@
         </button>
       </nav>
 
-      <section class="panel tab-panel tab-panel--active" id="tabPanelChat" role="tabpanel">
+      <section class="panel tab-panel tab-panel--active" id="tabPanelSeries" role="tabpanel">
+        <div id="seriesListView">
+          <div class="browse-panel__head">
+            <span class="label">Сериалы</span>
+            <div class="browse-panel__actions">
+              <button type="button" id="btnRefreshSeriesList" class="btn btn-secondary btn-small">
+                Обновить
+              </button>
+              <button type="button" id="btnNewSeries" class="btn btn-primary btn-small">
+                Новый сериал
+              </button>
+            </div>
+          </div>
+          <p class="dialogue-hint">
+            Каждый сериал — отдельный контекст. Откройте серию, чтобы выбрать часть.
+          </p>
+          <div id="seriesDialoguesList" class="dialogues-list dialogues-list--series"></div>
+        </div>
+
+        <div id="seriesPartsView" hidden>
+          <div class="browse-panel__head">
+            <button type="button" id="btnBackToSeriesList" class="btn btn-secondary btn-small">
+              ← Все серии
+            </button>
+            <span id="seriesPartsTitle" class="label browse-panel__series-title"></span>
+            <div class="browse-panel__actions">
+              <button type="button" id="btnRefreshSeriesParts" class="btn btn-secondary btn-small">
+                Обновить
+              </button>
+              <button type="button" id="btnNewPartInSeries" class="btn btn-primary btn-small">
+                Новая часть
+              </button>
+            </div>
+          </div>
+          <p class="dialogue-hint">
+            Части одной истории. При генерации учитывается контекст только предыдущих частей этой серии.
+          </p>
+          <div id="seriesPartsList" class="dialogues-list"></div>
+        </div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelShorts" role="tabpanel" hidden>
+        <div class="browse-panel__head">
+          <span class="label">Shorts</span>
+          <div class="browse-panel__actions">
+            <button type="button" id="btnRefreshShortsList" class="btn btn-secondary btn-small">
+              Обновить
+            </button>
+            <button type="button" id="btnNewShort" class="btn btn-primary btn-small">
+              Новый Shorts
+            </button>
+          </div>
+        </div>
+        <p class="dialogue-hint">
+          Отдельные переписки без связи между собой.
+        </p>
+        <div id="shortsDialoguesList" class="dialogues-list"></div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelEditor" role="tabpanel" hidden>
+        <div class="editor-view__head">
+          <button type="button" id="btnBackToList" class="btn btn-secondary btn-small">
+            ← К списку
+          </button>
+        </div>
         <div class="row editor-save-row">
           <label class="label" for="dialogueTitleInput">Название</label>
+          <p id="dialogueTitleHint" class="editor-paths-hint">
+            Для сериала — латиница, например poka_v_sssr_part3
+          </p>
           <div class="editor-save-row__line">
             <input
               id="dialogueTitleInput"
@@ -77,6 +144,88 @@
           </p>
         </div>
         <p id="dialogueSaveStatus" class="editor-save-status" aria-live="polite"></p>
+
+        <div class="row editor-series-fields" id="seriesFieldsRow">
+          <span class="label">Серия</span>
+          <p class="dialogue-hint">
+            Части одной большой истории с общим контекстом. Номер части назначается автоматически при создании
+            из списка серии.
+          </p>
+          <label class="editor-series-fields__item">
+            <span class="editor-series-fields__label">ID серии</span>
+            <input
+              id="seriesIdInput"
+              class="input"
+              type="text"
+              value="usssr"
+              placeholder="usssr"
+              autocomplete="off"
+            />
+          </label>
+          <p id="seriesPartHint" class="editor-paths-hint" hidden></p>
+          <label class="title-cards__row">
+            <input type="checkbox" id="seriesUseContext" checked />
+            <span>Учитывать предыдущие части серии из базы</span>
+          </label>
+        </div>
+
+        <div class="row">
+          <label class="label" for="dialoguePromptInput">Промпт диалога</label>
+          <p class="dialogue-hint" id="dialoguePromptHint">
+            Задание для генерации переписки через ChatGPT (OpenRouter). Например: «Часть 3: Даня палится
+            современными словами, Алиса учит советскому языку».
+          </p>
+          <textarea
+            id="dialoguePromptInput"
+            class="textarea textarea--prompt"
+            spellcheck="false"
+            placeholder="Опишите часть истории, героев и финал сцены…"
+          ></textarea>
+          <label class="title-cards__row dialogue-gen-options">
+            <input type="checkbox" id="dialogueIncludeImages" checked />
+            <span>С фото в переписке (imagePrompt)</span>
+          </label>
+          <div class="actions actions--inline">
+            <button type="button" id="btnGenerateDialogue" class="btn btn-secondary">
+              Сгенерировать диалог
+            </button>
+            <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="label" for="dialogueRefinePromptInput">Доработка текста</label>
+          <p class="dialogue-hint">
+            Когда диалог уже есть, опишите что изменить: тон, финал, конкретные реплики. Текущий JSON уйдёт в
+            модель как основа.
+          </p>
+          <textarea
+            id="dialogueRefinePromptInput"
+            class="textarea textarea--prompt"
+            spellcheck="false"
+            placeholder="Например: финал сделай смешнее, убери повтор «окей», добавь twist в конце…"
+          ></textarea>
+          <div class="actions actions--inline">
+            <button type="button" id="btnRefineDialogue" class="btn btn-secondary" disabled>
+              Доработать текст
+            </button>
+            <span id="dialogueRefineStatus" class="style-prompt-status" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="label">Изображения</span>
+          <p class="dialogue-hint">
+            Кнопка активна, если в JSON есть фото-сообщения с <code>imagePrompt</code>, но без прикреплённого
+            файла <code>image</code>. Промпт каждой сцены строится по контексту всей переписки.
+          </p>
+          <div class="actions actions--inline">
+            <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
+              Сгенерировать изображения
+            </button>
+            <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+          </div>
+        </div>
 
         <div class="row">
           <span class="label">Тема мессенджера</span>
@@ -100,8 +249,8 @@
             </button>
           </div>
           <p class="dialogue-hint">
-            Сообщения как в видео. Там, где в JSON есть <code>image</code>, — блок фото: Kling или Grok у каждого
-            кадра, прикрепить, сгенерировать, промпт. Клик по превью — полный размер.
+            Сообщения как в видео. Там, где в JSON есть <code>image</code>, — блок фото: генерация через
+            OpenRouter (ChatGPT). Клик по превью — полный размер.
           </p>
           <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
         </div>
@@ -121,7 +270,7 @@
           <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
         </div>
 
-        <div class="row row--title-cards">
+        <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">
           <span class="label">Заставки</span>
           <div class="title-cards">
             <label class="title-cards__row">
@@ -164,20 +313,6 @@
         </div>
       </section>
 
-      <section class="panel tab-panel" id="tabPanelLibrary" role="tabpanel" hidden>
-        <div class="library-panel__head">
-          <span class="label">Сохранённые диалоги</span>
-          <button type="button" id="btnRefreshLibrary" class="btn btn-secondary btn-small">
-            Обновить
-          </button>
-        </div>
-        <p class="dialogue-hint">
-          Локальная база <code>data/dialogues.db</code>. Откройте диалог в редакторе, измените, снова сохраните или
-          соберите видео.
-        </p>
-        <div id="dialoguesList" class="dialogues-list"></div>
-      </section>
-
       <section class="panel tab-panel" id="tabPanelApi" role="tabpanel" hidden>
         <div class="api-panel__head">
           <span class="label">Лимиты и настройка API</span>
@@ -186,8 +321,7 @@
           </button>
         </div>
         <p class="dialogue-hint">
-          Остатки пакетов Kling запрашиваются с официального API. У xAI (Grok) в этом проекте нет эндпоинта
-          баланса — только статус ключей и модели.
+          Статус OpenRouter: ключ, модели для текста и изображений. Баланс и лимиты — в личном кабинете OpenRouter.
         </p>
         <div id="apiStatusContent" class="api-status" aria-live="polite"></div>
       </section>
@@ -196,8 +330,8 @@
         <div class="row">
           <label class="label" for="stylePromptInput">Базовый промпт для изображений</label>
           <p class="prompt-tab-hint">
-            Общий стиль для всех кадров (генерация и «Промпт от Grok»). После смены стиля у уже заполненных кадров
-            нажмите <strong>Промпт от Grok</strong> заново или очистите «Промпт для этого кадра».
+            Общий стиль для всех кадров (генерация и автопромпт через ChatGPT). После смены стиля у уже заполненных
+            кадров сгенерируйте промпт заново или очистите «Промпт для этого кадра».
           </p>
           <textarea
             id="stylePromptInput"

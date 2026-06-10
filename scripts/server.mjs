@@ -34,23 +34,6 @@ import {
   scanImagesFromJson,
   deletePublicImage,
 } from "./image-assets.mjs";
-import {
-  formatKlingError,
-  generateKlingImageBuffer,
-  getKlingAccountSummary,
-  getKlingImageModel,
-  isKlingConfigured,
-  loadKlingEnv,
-} from "./kling-client.mjs";
-import {
-  isXaiConfigured,
-  getXaiModel,
-  getXaiImageModel,
-  formatXaiError,
-  loadXaiEnv,
-  generateGrokImageBuffer,
-  isXaiImageConfigured,
-} from "./xai-client.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {resolveImageReferences} from "./image-references.mjs";
 import {
@@ -59,19 +42,25 @@ import {
 } from "./image-correction.mjs";
 import {
   resolveFramePrompts,
-  suggestImagePromptWithGrok,
+  suggestImagePrompt,
   buildImageGenerationPrompt,
-} from "./grok-image-prompt.mjs";
+} from "./image-prompt-llm.mjs";
 import {
-  previewKlingPrompt,
-  readStylePrompt,
-  writeStylePrompt,
-  buildKlingNegativePrompt,
-} from "./image-prompt.mjs";
+  loadOpenRouterEnv,
+  generateImageBuffer,
+  isOpenRouterConfigured,
+  getOpenRouterTextModel,
+  getOpenRouterImageModel,
+  formatOpenRouterError,
+} from "./openrouter-client.mjs";
+import {generateDialogue, isDialogueLlmConfigured, refineDialogue} from "./dialogue-gen.mjs";
+import {generateMissingConversationImages} from "./conversation-images.mjs";
+import {previewImagePrompt, readStylePrompt, writeStylePrompt} from "./image-prompt.mjs";
 import {
   initDialogueDb,
   listDialogues,
   getDialogue,
+  getSeriesContextMessages,
   createDialogue,
   updateDialogue,
   deleteDialogue,
@@ -392,39 +381,26 @@ app.put("/api/prompts/image-style", async (req, res) => {
   }
 });
 
-app.get("/api/images/grok", (_req, res) => {
+app.get("/api/images/openrouter", async (_req, res) => {
+  await loadOpenRouterEnv();
   res.json({
-    configured: isXaiConfigured(),
-    model: getXaiModel(),
-    imageGenerationAvailable: isXaiImageConfigured(),
-    imageModel: getXaiImageModel(),
+    configured: isOpenRouterConfigured(),
+    textModel: getOpenRouterTextModel(),
+    imageModel: getOpenRouterImageModel(),
+    imageGenerationAvailable: isOpenRouterConfigured(),
   });
 });
 
 app.get("/api/status", async (_req, res) => {
-  try {
-    const kling = await getKlingAccountSummary();
-    res.json({
-      kling: {
-        configured: kling.configured,
-        imageGenerationAvailable: kling.imageGenerationAvailable,
-        imageCreditsRemaining: kling.imageCreditsRemaining,
-        packs: kling.packs,
-        balanceHint: kling.balanceHint,
-        error: kling.error,
-      },
-      grok: {
-        configured: isXaiConfigured(),
-        imageGenerationAvailable: isXaiImageConfigured(),
-        model: getXaiModel(),
-        imageModel: getXaiImageModel(),
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  await loadOpenRouterEnv();
+  res.json({
+    openrouter: {
+      configured: isOpenRouterConfigured(),
+      textModel: getOpenRouterTextModel(),
+      imageModel: getOpenRouterImageModel(),
+      imageGenerationAvailable: isOpenRouterConfigured(),
+    },
+  });
 });
 
 app.post("/api/images/suggest-prompt", async (req, res) => {
@@ -438,8 +414,8 @@ app.post("/api/images/suggest-prompt", async (req, res) => {
       res.status(400).json({error: "Поле messageIndex обязательно"});
       return;
     }
-    if (!isXaiConfigured()) {
-      res.status(400).json({error: "Grok API не настроен (XAI_API_KEY в docs/.env)"});
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
       return;
     }
 
@@ -452,44 +428,28 @@ app.post("/api/images/suggest-prompt", async (req, res) => {
     const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
     const manual = String(messages[messageIndex]?.imagePrompt ?? "").trim();
     if (manual && !force) {
-      const resolved = await resolveFramePrompts({
-        conversation,
-        messageIndex,
-        stylePrompt: style,
-        useGrok: false,
-      });
       res.json({
         imagePrompt: manual,
-        klingPrompt: resolved.klingPrompt,
         promptSource: "manual",
-        grokUsed: false,
-        skippedGrok: true,
+        skippedLlm: true,
       });
       return;
     }
 
-    const grok = await suggestImagePromptWithGrok({
-      conversation,
-      messageIndex,
-      stylePrompt: style,
-    });
+    const llm = await suggestImagePrompt({conversation, messageIndex, stylePrompt: style});
     res.json({
-      ...grok,
-      promptSource: "grok",
-      grokUsed: true,
-      charCount: grok.klingPrompt.length,
-      maxChars: 500,
+      ...llm,
+      promptSource: "openrouter",
+      charCount: llm.imagePrompt.length,
     });
   } catch (error) {
-    res.status(400).json({
-      error: formatXaiError(error),
-    });
+    res.status(400).json({error: formatOpenRouterError(error)});
   }
 });
 
 app.post("/api/images/preview-prompt", async (req, res) => {
   try {
-    const {json: jsonText, messageIndex, stylePrompt, useGrok} = req.body ?? {};
+    const {json: jsonText, messageIndex, stylePrompt} = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
       return;
@@ -499,17 +459,14 @@ app.post("/api/images/preview-prompt", async (req, res) => {
       return;
     }
     const conversation = JSON.parse(jsonText);
-    const preview = await previewKlingPrompt({
+    const preview = await previewImagePrompt({
       conversation,
       messageIndex,
       stylePrompt: typeof stylePrompt === "string" ? stylePrompt : undefined,
-      useGrok: useGrok !== false && isXaiConfigured(),
     });
     res.json(preview);
   } catch (error) {
-    res.status(400).json({
-      error: formatXaiError(error),
-    });
+    res.status(400).json({error: formatOpenRouterError(error)});
   }
 });
 
@@ -522,19 +479,12 @@ app.post("/api/images/scan", async (req, res) => {
     }
     const result = await scanImagesFromJson(jsonText);
 
-    const kling = await getKlingAccountSummary();
     res.json({
       ...result,
-      klingConfigured: kling.configured,
-      klingImageAvailable: kling.imageGenerationAvailable,
-      klingPacks: kling.packs,
-      klingImageCredits: kling.imageCreditsRemaining,
-      klingBalanceHint: kling.balanceHint,
-      klingHint: kling.error,
-      grokConfigured: isXaiConfigured(),
-      grokModel: getXaiModel(),
-      grokImageAvailable: isXaiImageConfigured(),
-      grokImageModel: getXaiImageModel(),
+      openrouterConfigured: isOpenRouterConfigured(),
+      openrouterTextModel: getOpenRouterTextModel(),
+      openrouterImageModel: getOpenRouterImageModel(),
+      openrouterImageAvailable: isOpenRouterConfigured(),
     });
   } catch (error) {
     res.status(400).json({
@@ -563,50 +513,19 @@ app.post("/api/images/fetch", async (req, res) => {
   }
 });
 
-app.get("/api/images/kling", async (_req, res) => {
-  try {
-    const summary = await getKlingAccountSummary();
-    res.json(summary);
-  } catch (error) {
-    res.status(500).json({
-      configured: isKlingConfigured(),
-      error: formatKlingError(error),
-    });
-  }
-});
-
-const normalizeImageProvider = (value) => (value === "grok" ? "grok" : "kling");
-
 app.post("/api/images/generate", async (req, res) => {
   try {
-    const {
-      prompt,
-      json: jsonText,
-      messageIndex,
-      stylePrompt,
-      targetRef,
-      aspectRatio,
-      useGrok,
-      provider: providerRaw,
-    } = req.body ?? {};
+    const {prompt, json: jsonText, messageIndex, stylePrompt, targetRef, aspectRatio} =
+      req.body ?? {};
 
-    const provider = normalizeImageProvider(providerRaw);
-
-    if (provider === "kling" && !isKlingConfigured()) {
-      res.status(400).json({error: "Kling API не настроен (KLING_ACCESS_KEY в docs/.env)"});
-      return;
-    }
-    if (provider === "grok" && !isXaiImageConfigured()) {
-      res.status(400).json({error: "Grok Imagine не настроен (XAI_API_KEY в docs/.env)"});
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
       return;
     }
 
     let manualPrompt = typeof prompt === "string" ? prompt.trim() : "";
-    let frameBrief = null;
     let imagePromptSuggested = null;
     let promptSource = "manual";
-    let grokUsed = false;
-    let klingPrompt = "";
     let style = "";
     let imageRefs = null;
 
@@ -628,14 +547,10 @@ app.post("/api/images/generate", async (req, res) => {
           conversation,
           messageIndex,
           stylePrompt: style,
-          useGrok: useGrok !== false && isXaiConfigured(),
         });
 
-        frameBrief = resolved.frame;
-        klingPrompt = resolved.klingPrompt;
         imagePromptSuggested = resolved.imagePrompt;
         promptSource = resolved.promptSource;
-        grokUsed = resolved.grokUsed;
         imageRefs = resolved.imageReferences;
       } else {
         imageRefs = await resolveImageReferences(conversation.messages, messageIndex);
@@ -646,9 +561,7 @@ app.post("/api/images/generate", async (req, res) => {
       manualPrompt ||
       buildImageGenerationPrompt({
         imagePrompt: imagePromptSuggested,
-        klingPrompt,
         stylePrompt: style || (await readStylePrompt()),
-        provider,
       });
 
     if (!finalPrompt) {
@@ -657,24 +570,11 @@ app.post("/api/images/generate", async (req, res) => {
     }
 
     const referenceDataUrl = imageRefs?.primaryReference?.dataUrl ?? null;
-
-    let buffer;
-    if (provider === "grok") {
-      ({buffer} = await generateGrokImageBuffer({
-        prompt: finalPrompt,
-        aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
-        referenceDataUrl,
-      }));
-    } else {
-      const klingPromptText =
-        finalPrompt.length > 500 ? `${finalPrompt.slice(0, 499)}…` : finalPrompt;
-      ({buffer} = await generateKlingImageBuffer({
-        prompt: klingPromptText,
-        aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
-        negativePrompt: buildKlingNegativePrompt(frameBrief ?? finalPrompt),
-        referenceImage: referenceDataUrl,
-      }));
-    }
+    const {buffer} = await generateImageBuffer({
+      prompt: finalPrompt,
+      referenceDataUrl,
+      aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
+    });
 
     const refHint =
       targetRef && typeof targetRef === "string" && !targetRef.startsWith("http")
@@ -689,32 +589,25 @@ app.post("/api/images/generate", async (req, res) => {
       promptUsed: finalPrompt,
       imagePrompt: imagePromptSuggested,
       promptSource,
-      grokUsed,
-      provider,
-      imageModel: provider === "grok" ? getXaiImageModel() : getKlingImageModel(),
+      provider: "openrouter",
+      imageModel: getOpenRouterImageModel(),
       usedImageReference: Boolean(referenceDataUrl),
       referenceMessageIndex: imageRefs?.primaryReference?.messageIndex ?? null,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    const message =
-      /Grok/i.test(msg) ? formatXaiError(error) : formatKlingError(error);
-    res.status(400).json({error: message});
+    res.status(400).json({error: formatOpenRouterError(error)});
   }
 });
 
 app.post("/api/images/correct", async (req, res) => {
   try {
-    const {
-      json: jsonText,
-      messageIndex,
-      imageEditPrompt,
-      stylePrompt,
-      provider: providerRaw,
-      aspectRatio,
-    } = req.body ?? {};
+    const {json: jsonText, messageIndex, imageEditPrompt, stylePrompt, aspectRatio} =
+      req.body ?? {};
 
-    const provider = normalizeImageProvider(providerRaw);
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
+      return;
+    }
 
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -725,20 +618,9 @@ app.post("/api/images/correct", async (req, res) => {
       return;
     }
     const editText =
-      typeof imageEditPrompt === "string"
-        ? imageEditPrompt.trim()
-        : "";
+      typeof imageEditPrompt === "string" ? imageEditPrompt.trim() : "";
     if (!editText) {
       res.status(400).json({error: "Укажите imageEditPrompt — что исправить на кадре"});
-      return;
-    }
-
-    if (provider === "kling" && !isKlingConfigured()) {
-      res.status(400).json({error: "Kling API не настроен"});
-      return;
-    }
-    if (provider === "grok" && !isXaiImageConfigured()) {
-      res.status(400).json({error: "Grok Imagine не настроен"});
       return;
     }
 
@@ -754,7 +636,6 @@ app.post("/api/images/correct", async (req, res) => {
       messageIndex,
       imageEditPrompt: editText,
       stylePrompt: style,
-      provider,
       aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
     });
 
@@ -766,21 +647,15 @@ app.post("/api/images/correct", async (req, res) => {
       previewUrl,
       promptUsed: result.promptUsed,
       provider: result.provider,
-      requestedProvider: result.requestedProvider,
-      usedGrokFallback: result.usedGrokFallback,
       mode: "correct",
-      imageModel:
-        result.provider === "grok" ? getXaiImageModel() : getKlingImageModel(),
+      imageModel: getOpenRouterImageModel(),
     });
   } catch (error) {
     if (error instanceof ImageCorrectionUnchangedError) {
       res.status(400).json({error: error.message});
       return;
     }
-    const msg = error instanceof Error ? error.message : String(error);
-    const message =
-      /Grok/i.test(msg) ? formatXaiError(error) : formatKlingError(error);
-    res.status(400).json({error: message});
+    res.status(400).json({error: formatOpenRouterError(error)});
   }
 });
 
@@ -830,9 +705,34 @@ app.post("/api/images/upload", async (req, res) => {
   }
 });
 
-app.get("/api/dialogues", (_req, res) => {
+app.get("/api/dialogues", (req, res) => {
   try {
-    res.json({dialogues: listDialogues()});
+    const kind = req.query.kind;
+    res.json({
+      dialogues: listDialogues({
+        kind: kind === "series" || kind === "shorts" ? kind : undefined,
+      }),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.get("/api/dialogues/series/:seriesId/context", (req, res) => {
+  try {
+    const seriesId = String(req.params.seriesId ?? "").trim();
+    if (!seriesId) {
+      res.status(400).json({error: "seriesId обязателен"});
+      return;
+    }
+    const beforePart = Number(req.query.beforePart);
+    const messages = getSeriesContextMessages(
+      seriesId,
+      Number.isFinite(beforePart) && beforePart > 0 ? beforePart : null,
+    );
+    res.json({seriesId, messages, messageCount: messages.length});
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : String(error),
@@ -855,9 +755,164 @@ app.get("/api/dialogues/:id", (req, res) => {
   }
 });
 
+app.post("/api/images/generate-missing", async (req, res) => {
+  try {
+    const {json: jsonText, stylePrompt} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в .env)"});
+      return;
+    }
+
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const style =
+      typeof stylePrompt === "string" && stylePrompt.trim()
+        ? stylePrompt.trim()
+        : await readStylePrompt();
+    const logs = await generateMissingConversationImages(conversation, {stylePrompt: style});
+
+    res.json({conversation, logs, provider: "openrouter"});
+  } catch (error) {
+    const message = formatOpenRouterError(error);
+    res.status(400).json({error: message});
+  }
+});
+
+app.post("/api/dialogues/generate", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {
+      prompt,
+      previousMessages,
+      includeImages,
+      mode: modeRaw,
+      seriesId,
+      partNumber,
+      useSeriesContext,
+    } = req.body ?? {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      res.status(400).json({error: "Поле prompt обязательно"});
+      return;
+    }
+    if (!isDialogueLlmConfigured()) {
+      res.status(400).json({
+        error: "OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env (диалоги через ChatGPT)",
+      });
+      return;
+    }
+
+    const mode = modeRaw === "series" ? "series" : "shorts";
+    let contextMessages;
+
+    if (mode === "series" && useSeriesContext !== false) {
+      const normalizedSeriesId = typeof seriesId === "string" ? seriesId.trim() : "";
+      const part = Number(partNumber);
+      if (normalizedSeriesId) {
+        contextMessages = getSeriesContextMessages(
+          normalizedSeriesId,
+          Number.isFinite(part) && part > 0 ? part : null,
+        );
+      }
+      if (!contextMessages?.length && Array.isArray(previousMessages)) {
+        contextMessages = previousMessages;
+      }
+    }
+
+    const normalizedSeriesId =
+      mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
+    const result = await generateDialogue({
+      prompt,
+      previousMessages: contextMessages,
+      includeImages: includeImages !== false,
+      mode,
+      seriesId: normalizedSeriesId || "usssr",
+    });
+
+    res.json({
+      conversation: result.conversation,
+      displayTitle: result.displayTitle ?? "",
+      model: result.model,
+      attempts: result.attempts,
+      mode: result.mode,
+      provider: result.provider ?? "openrouter",
+      expandedFrom: result.expandedFrom ?? null,
+      messageCount: result.conversation?.messages?.length ?? 0,
+      contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/dialogues/refine", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {refinePrompt, json: jsonText, includeImages, mode: modeRaw, seriesId} = req.body ?? {};
+    if (!refinePrompt || typeof refinePrompt !== "string" || !refinePrompt.trim()) {
+      res.status(400).json({error: "Поле refinePrompt обязательно"});
+      return;
+    }
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isDialogueLlmConfigured()) {
+      res.status(400).json({
+        error: "OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env (диалоги через ChatGPT)",
+      });
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      res.status(400).json({error: "Некорректный JSON"});
+      return;
+    }
+
+    const conversation = parseConversation(parsed);
+    const mode = modeRaw === "series" ? "series" : "shorts";
+
+    const normalizedSeriesId =
+      mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
+    const result = await refineDialogue({
+      conversation,
+      refinePrompt,
+      includeImages: includeImages !== false,
+      mode,
+      seriesId: normalizedSeriesId || "usssr",
+    });
+
+    res.json({
+      conversation: result.conversation,
+      displayTitle: result.displayTitle ?? "",
+      model: result.model,
+      attempts: result.attempts,
+      mode: result.mode,
+      provider: result.provider ?? "openrouter",
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
 app.post("/api/dialogues", (req, res) => {
   try {
-    const {title, json: jsonText, wallpaper, music} = req.body ?? {};
+    const {
+      title,
+      titleDisplay,
+      json: jsonText,
+      wallpaper,
+      music,
+      dialoguePrompt,
+      kind,
+      seriesId,
+      partNumber,
+    } = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
       return;
@@ -872,9 +927,14 @@ app.post("/api/dialogues", (req, res) => {
     const conversation = parseConversation(parsed);
     const dialogue = createDialogue({
       title: typeof title === "string" ? title : undefined,
+      titleDisplay: typeof titleDisplay === "string" ? titleDisplay : "",
       conversation,
       wallpaper: wallpaper === "dark" ? "dark" : "default",
       music: typeof music === "string" ? music : "",
+      dialoguePrompt: typeof dialoguePrompt === "string" ? dialoguePrompt : "",
+      kind: kind === "series" ? "series" : "shorts",
+      seriesId: typeof seriesId === "string" ? seriesId : "",
+      partNumber,
     });
     res.status(201).json(dialogue);
   } catch (error) {
@@ -890,7 +950,8 @@ app.post("/api/dialogues", (req, res) => {
 
 app.put("/api/dialogues/:id", (req, res) => {
   try {
-    const {title, json: jsonText, wallpaper, music} = req.body ?? {};
+    const {title, titleDisplay, json: jsonText, wallpaper, music, dialoguePrompt, kind, seriesId, partNumber} =
+      req.body ?? {};
     let conversation;
     if (jsonText !== undefined) {
       if (typeof jsonText !== "string") {
@@ -915,9 +976,14 @@ app.put("/api/dialogues/:id", (req, res) => {
 
     const dialogue = updateDialogue(req.params.id, {
       title: typeof title === "string" ? title : undefined,
+      titleDisplay: typeof titleDisplay === "string" ? titleDisplay : undefined,
       conversation,
       wallpaper: wallpaper === "dark" ? "dark" : wallpaper === "default" ? "default" : undefined,
       music: typeof music === "string" ? music : undefined,
+      dialoguePrompt: typeof dialoguePrompt === "string" ? dialoguePrompt : undefined,
+      kind: kind === "series" ? "series" : kind === "shorts" ? "shorts" : undefined,
+      seriesId: typeof seriesId === "string" ? seriesId : undefined,
+      partNumber: partNumber !== undefined ? partNumber : undefined,
     });
 
     if (!dialogue) {
@@ -1018,7 +1084,16 @@ app.post("/api/render", async (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
-    const imageLogs = await resolveConversationImages(conversation);
+    const autoGenerateImages = req.body?.autoGenerateImages === true;
+    const imageGenLogs = autoGenerateImages
+      ? await generateMissingConversationImages(conversation, {provider: "openrouter"})
+      : [];
+    const imageLogs = [
+      ...imageGenLogs,
+      ...(await resolveConversationImages(conversation, {
+        failOnMissingImages: !autoGenerateImages,
+      })),
+    ];
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
     }
@@ -1389,20 +1464,21 @@ await mkdir(JSON_DIR, {recursive: true});
 await mkdir(OUT_DIR, {recursive: true});
 await mkdir(IMAGES_DIR, {recursive: true});
 await initDialogueDb();
-await loadKlingEnv();
-await loadXaiEnv();
+await loadOpenRouterEnv();
 await syncAudioToPublic();
 
-if (isKlingConfigured()) {
-  console.log("Kling API: ключи загружены");
+if (isOpenRouterConfigured()) {
+  console.log(
+    `OpenRouter: ключ загружен (text ${getOpenRouterTextModel()}, image ${getOpenRouterImageModel()})`,
+  );
 } else {
-  console.log("Kling API: не настроен (KLING_ACCESS_KEY / KLING_SECRET_KEY в .env)");
+  console.log("OpenRouter: не настроен (OPENROUTER_API_KEY в docs/.env)");
 }
 
-if (isXaiConfigured()) {
-  console.log(`Grok API: ключ загружен (LLM ${getXaiModel()}, Imagine ${getXaiImageModel()})`);
+if (isDialogueLlmConfigured()) {
+  console.log(`Диалоги: OpenRouter / ChatGPT (${getOpenRouterTextModel()})`);
 } else {
-  console.log("Grok API: не настроен (XAI_API_KEY в docs/.env)");
+  console.log("Диалоги: задайте OPENROUTER_API_KEY в docs/.env (ChatGPT через OpenRouter)");
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {

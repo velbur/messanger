@@ -7,7 +7,7 @@ export const STYLE_PROMPT_PATH = path.join(ROOT, "prompts", "image-style.txt");
 
 export const DEFAULT_STYLE_PROMPT = `Нарисованная иллюстрация, детальная, не фотореализм. Без текста на картинке.`;
 
-export const KLING_PROMPT_MAX = 500;
+export const SCENE_PROMPT_MAX = 500;
 
 const COMPACT_STYLE = "Стиль: рисованная иллюстрация, не фото.";
 
@@ -114,7 +114,7 @@ export const buildDialogueTranscript = (
 };
 
 /**
- * Полная переписка для LLM (Grok): без урезания до 500 символов Kling.
+ * Полная переписка для LLM.
  * Опционально — реплики после целевого сообщения (уточняют содержимое кадра).
  */
 export const buildFullDialogueTranscriptForLlm = (
@@ -224,7 +224,7 @@ const countImageFramesBefore = (messages, messageIndex) => {
   return n + 1;
 };
 
-const assemblePrompt = (parts, max = KLING_PROMPT_MAX) => {
+const assemblePrompt = (parts, max = SCENE_PROMPT_MAX) => {
   const order = ["task", "dialogue", "scene", "hide", "style", "footer"];
   const byKey = Object.fromEntries(parts.map((p) => [p.key, p.text]));
 
@@ -284,9 +284,9 @@ export const buildFrameBrief = ({
 };
 
 /**
- * Промпт для Kling: полная переписка до момента + задача сгенерировать фото для одного сообщения.
+ * Эвристический промпт сцены без LLM.
  */
-export const buildKlingImagePrompt = ({
+export const buildHeuristicScenePrompt = ({
   stylePrompt = DEFAULT_STYLE_PROMPT,
   contactName,
   messages,
@@ -329,36 +329,6 @@ export const buildKlingImagePrompt = ({
   ]);
 };
 
-export const buildKlingNegativePrompt = (frameOrCaption) => {
-  const base =
-    "blur, distortion, low quality, watermark, text, logo, ui, screenshot frame";
-  const mustNot = Array.isArray(frameOrCaption?.mustNotShow)
-    ? frameOrCaption.mustNotShow
-    : extractMustNotShow(normalizeSpace(frameOrCaption), {});
-
-  const en = [
-    "portrait",
-    "selfie",
-    "woman",
-    "girl",
-    "man",
-    "people",
-    "human face",
-    "character",
-    "trees",
-    "branches",
-    "forest",
-  ];
-
-  if (mustNot.some((r) => /люд|лиц|девушк|портрет/i.test(r))) {
-    return `${base}, ${en.join(", ")}`;
-  }
-  if (mustNot.some((r) => /дерев|веток|природ/i.test(r))) {
-    return `${base}, trees, branches, leaves, forest`;
-  }
-  return base;
-};
-
 export const readStylePrompt = async () => {
   try {
     const text = await readFile(STYLE_PROMPT_PATH, "utf8");
@@ -379,31 +349,22 @@ export const writeStylePrompt = async (content) => {
   return trimmed;
 };
 
-export const previewKlingPrompt = async ({
-  conversation,
-  messageIndex,
-  stylePrompt,
-  useGrok = false,
-}) => {
+export const previewImagePrompt = async ({conversation, messageIndex, stylePrompt}) => {
   const style = stylePrompt ?? (await readStylePrompt());
-  const {resolveFramePrompts} = await import("./grok-image-prompt.mjs");
+  const {resolveFramePrompts} = await import("./image-prompt-llm.mjs");
 
   const resolved = await resolveFramePrompts({
     conversation,
     messageIndex,
     stylePrompt: style,
-    useGrok,
   });
 
   return {
-    prompt: resolved.klingPrompt,
-    charCount: resolved.klingPrompt.length,
-    maxChars: KLING_PROMPT_MAX,
+    prompt: resolved.imagePrompt,
+    charCount: resolved.imagePrompt?.length ?? 0,
     frameBrief: resolved.frame,
-    negativePrompt: buildKlingNegativePrompt(resolved.frame),
     imagePrompt: resolved.imagePrompt,
     promptSource: resolved.promptSource,
-    grokUsed: resolved.grokUsed,
-    grokModel: resolved.grokModel,
+    llmModel: resolved.llmModel,
   };
 };

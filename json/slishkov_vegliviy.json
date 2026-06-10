@@ -1,0 +1,204 @@
+{
+  "contactName": "Лена",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Саша",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты почему так долго в магазине?",
+      "sentAt": "19:42"
+    },
+    {
+      "author": "me",
+      "text": "Застрял у кассы",
+      "sentAt": "19:42"
+    },
+    {
+      "author": "them",
+      "text": "Очередь?",
+      "sentAt": "19:43"
+    },
+    {
+      "author": "me",
+      "text": "Нет\nЯ сказал кассиру “спасибо”",
+      "sentAt": "19:43"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "19:43"
+    },
+    {
+      "author": "me",
+      "text": "Она сказала “пожалуйста”\nА я ответил “и вам спасибо”",
+      "sentAt": "19:44"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "19:44"
+    },
+    {
+      "author": "me",
+      "text": "Запаниковал",
+      "sentAt": "19:44"
+    },
+    {
+      "author": "them",
+      "text": "Просто уходи",
+      "sentAt": "19:45"
+    },
+    {
+      "author": "me",
+      "text": "Не могу",
+      "sentAt": "19:45"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "19:45"
+    },
+    {
+      "author": "me",
+      "text": "Она сказала “хорошего вечера”\nА я сказал “и вашему вечеру хорошего вас”",
+      "sentAt": "19:46"
+    },
+    {
+      "author": "them",
+      "text": "Саша…",
+      "sentAt": "19:46"
+    },
+    {
+      "author": "me",
+      "text": "Я знаю",
+      "sentAt": "19:47"
+    },
+    {
+      "author": "them",
+      "text": "Ты уже вышел?",
+      "sentAt": "19:47"
+    },
+    {
+      "author": "me",
+      "text": "Почти",
+      "sentAt": "19:47"
+    },
+    {
+      "author": "them",
+      "text": "Что ещё?",
+      "sentAt": "19:48"
+    },
+    {
+      "author": "me",
+      "text": "Охранник сказал “до свидания”",
+      "sentAt": "19:48"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "19:48"
+    },
+    {
+      "author": "me",
+      "text": "Я ответил “взаимно”\nА потом добавил “берегите себя и объект”",
+      "sentAt": "19:49"
+    },
+    {
+      "author": "them",
+      "text": "Почему объект?",
+      "sentAt": "19:49"
+    },
+    {
+      "author": "me",
+      "text": "Он охранник 😐",
+      "sentAt": "19:49"
+    },
+    {
+      "author": "them",
+      "text": "Всё, иди домой молча",
+      "sentAt": "19:50"
+    },
+    {
+      "author": "me",
+      "text": "Иду",
+      "sentAt": "19:50"
+    },
+    {
+      "author": "them",
+      "text": "Что сейчас?",
+      "sentAt": "19:51"
+    },
+    {
+      "author": "me",
+      "text": "Кассирша помахала мне через стекло",
+      "sentAt": "19:51"
+    },
+    {
+      "author": "them",
+      "text": "Не отвечай",
+      "sentAt": "19:51"
+    },
+    {
+      "author": "me",
+      "text": "Поздно\nЯ помахал",
+      "sentAt": "19:52"
+    },
+    {
+      "author": "them",
+      "text": "Ну ладно",
+      "sentAt": "19:52"
+    },
+    {
+      "author": "me",
+      "text": "Теперь охранник тоже машет",
+      "sentAt": "19:52"
+    },
+    {
+      "author": "them",
+      "text": "Саша",
+      "sentAt": "19:53"
+    },
+    {
+      "author": "me",
+      "text": "Сейчас вся смена стоит у окна",
+      "sentAt": "19:53"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "19:53"
+    },
+    {
+      "author": "me",
+      "text": "Провожают",
+      "sentAt": "19:54"
+    },
+    {
+      "author": "them",
+      "text": "Просто уходи",
+      "sentAt": "19:54"
+    },
+    {
+      "author": "me",
+      "text": "Не могу",
+      "sentAt": "19:54"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "19:55"
+    },
+    {
+      "author": "me",
+      "text": "Они аплодируют 😐",
+      "sentAt": "19:55"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

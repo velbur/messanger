@@ -1,7 +1,6 @@
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {loadPublicImageBuffer} from "./image-references.mjs";
-import {generateGrokImageEditBuffer, isXaiImageConfigured} from "./xai-client.mjs";
-import {generateKlingImageBuffer, isKlingConfigured} from "./kling-client.mjs";
+import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {readStylePrompt} from "./image-prompt.mjs";
 
 const MAX_CORRECTION_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -9,14 +8,12 @@ const MAX_CORRECTION_IMAGE_BYTES = 10 * 1024 * 1024;
 const normalizeSpace = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
 export class ImageCorrectionUnchangedError extends Error {
-  constructor(provider) {
+  constructor() {
     super(
-      provider === "kling"
-        ? "Kling вернул кадр, почти не отличающийся от исходного. Переключите провайдер на Grok Imagine или переформулируйте правку."
-        : "Модель вернула кадр, почти не отличающийся от исходного. Уточните правку (конкретнее: что добавить, убрать, изменить).",
+      "Модель вернула кадр, почти не отличающийся от исходного. Уточните правку (конкретнее: что добавить, убрать, изменить).",
     );
     this.name = "ImageCorrectionUnchangedError";
-    this.provider = provider;
+    this.provider = "openrouter";
   }
 }
 
@@ -39,56 +36,20 @@ export const loadCurrentFrameImageDataUrl = async (messages, messageIndex) => {
   return {ref, dataUrl, sourceBuffer: loaded.buffer};
 };
 
-export const buildImageCorrectionPrompt = ({
-  imageEditPrompt,
-  stylePrompt,
-  provider = "grok",
-}) => {
+export const buildImageCorrectionPrompt = ({imageEditPrompt, stylePrompt}) => {
   const edit = normalizeSpace(imageEditPrompt);
   if (!edit) {
     throw new Error("Укажите правки в поле imageEditPrompt");
   }
   const style = normalizeSpace(stylePrompt);
 
-  let parts;
-  if (provider === "grok") {
-    parts = [
-      edit,
-      style ? `Стиль иллюстрации: ${style}` : "",
-      `Формат ${CHAT_IMAGE_ASPECT_RATIO}, без текста на изображении, без UI чата.`,
-    ];
-  } else {
-    parts = [
-      "Отредактируй это изображение. Сохрани стиль иллюстрации, но обязательно внеси изменения:",
-      edit,
-      style ? `Стиль: ${style}` : "",
-      `Формат ${CHAT_IMAGE_ASPECT_RATIO}, без текста, без UI чата.`,
-    ];
-  }
-
-  let text = parts.filter(Boolean).join(" ");
-  if (provider === "kling" && text.length > 500) {
-    text = `${text.slice(0, 499)}…`;
-  }
-  return text;
-};
-
-/** Grok /images/edits точнее для правок; Kling — img2img с высоким референсом */
-export const resolveCorrectionProvider = (preferred) => {
-  const choice = preferred === "grok" ? "grok" : "kling";
-  if (choice === "grok" && isXaiImageConfigured()) {
-    return "grok";
-  }
-  if (choice === "kling" && isKlingConfigured()) {
-    return "kling";
-  }
-  if (isXaiImageConfigured()) {
-    return "grok";
-  }
-  if (isKlingConfigured()) {
-    return "kling";
-  }
-  throw new Error("Нет настроенного API для правки (Grok или Kling)");
+  return [
+    edit,
+    style ? `Стиль иллюстрации: ${style}` : "",
+    `Формат ${CHAT_IMAGE_ASPECT_RATIO}, без текста на изображении, без UI чата.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
 };
 
 const buffersAlmostEqual = (a, b, threshold = 0.02) => {
@@ -113,89 +74,35 @@ const buffersAlmostEqual = (a, b, threshold = 0.02) => {
   return diff / sampleSize < threshold;
 };
 
-const runCorrection = async ({
-  prompt,
-  dataUrl,
-  sourceBuffer,
-  provider,
-  aspectRatio,
-}) => {
-  if (provider === "grok") {
-    return generateGrokImageEditBuffer({
-      prompt,
-      referenceDataUrl: dataUrl,
-      aspectRatio,
-    });
-  }
-  return generateKlingImageBuffer({
-    prompt,
-    aspectRatio,
-    referenceImage: dataUrl,
-    referenceMode: "edit",
-    imageFidelity: 0.38,
-    omitNegativePrompt: true,
-  });
-};
-
-/**
- * Правка уже существующего кадра (тот же файл перезаписывается).
- */
 export const correctFrameImage = async ({
   messages,
   messageIndex,
   imageEditPrompt,
   stylePrompt,
-  provider: preferredProvider = "grok",
   aspectRatio = CHAT_IMAGE_ASPECT_RATIO,
 }) => {
+  if (!isOpenRouterConfigured()) {
+    throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY)");
+  }
+
   const {ref, dataUrl, sourceBuffer} = await loadCurrentFrameImageDataUrl(messages, messageIndex);
   const style = normalizeSpace(stylePrompt) || (await readStylePrompt());
-  const requestedProvider = resolveCorrectionProvider(preferredProvider);
-  const prompt = buildImageCorrectionPrompt({
-    imageEditPrompt,
-    stylePrompt: style,
-    provider: requestedProvider,
-  });
+  const prompt = buildImageCorrectionPrompt({imageEditPrompt, stylePrompt: style});
 
-  let effectiveProvider = requestedProvider;
-  let {buffer} = await runCorrection({
+  const {buffer} = await generateImageBuffer({
     prompt,
-    dataUrl,
-    sourceBuffer,
-    provider: requestedProvider,
+    referenceDataUrl: dataUrl,
     aspectRatio,
   });
 
-  if (
-    buffersAlmostEqual(sourceBuffer, buffer) &&
-    requestedProvider === "kling" &&
-    isXaiImageConfigured()
-  ) {
-    const grokPrompt = buildImageCorrectionPrompt({
-      imageEditPrompt,
-      stylePrompt: style,
-      provider: "grok",
-    });
-    ({buffer} = await runCorrection({
-      prompt: grokPrompt,
-      dataUrl,
-      sourceBuffer,
-      provider: "grok",
-      aspectRatio,
-    }));
-    effectiveProvider = "grok";
-  }
-
   if (buffersAlmostEqual(sourceBuffer, buffer)) {
-    throw new ImageCorrectionUnchangedError(effectiveProvider);
+    throw new ImageCorrectionUnchangedError();
   }
 
   return {
     buffer,
     ref,
     promptUsed: prompt,
-    provider: effectiveProvider,
-    requestedProvider,
-    usedGrokFallback: effectiveProvider === "grok" && requestedProvider === "kling",
+    provider: "openrouter",
   };
 };

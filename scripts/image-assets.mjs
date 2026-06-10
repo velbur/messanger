@@ -167,10 +167,25 @@ export const saveImageBuffer = async (buffer, targetRef) => {
 
 const hasRenderableText = (message) => (message.text ?? "").trim().length > 0;
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
+const hasImagePromptOnly = (message) =>
+  Boolean(message.imagePrompt?.trim()) && !hasRenderableImage(message);
 
 /** URL → локальный файл; без файла — убрать image; пустые сообщения не попадают в видео */
-export const resolveConversationImages = async (conversation) => {
+export const resolveConversationImages = async (conversation, {failOnMissingImages = false} = {}) => {
   const logs = [];
+
+  const missingPromptOnly = conversation.messages
+    .map((message, index) => ({message, index}))
+    .filter(({message}) => hasImagePromptOnly(message));
+
+  if (missingPromptOnly.length > 0) {
+    const indices = missingPromptOnly.map(({index}) => index + 1).join(", ");
+    const errorText = `Сообщения без image, только imagePrompt: №${indices}. Сгенерируйте картинки или включите autoGenerateImages.`;
+    if (failOnMissingImages) {
+      throw new Error(errorText);
+    }
+    logs.push(errorText);
+  }
 
   for (let i = 0; i < conversation.messages.length; i++) {
     const message = conversation.messages[i];

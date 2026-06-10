@@ -211,7 +211,7 @@ cmd_ui() {
     -v "${ROOT}/public:/app/public" \
     -v "${ROOT}/prompts:/app/prompts" \
     -v "${ROOT}/data:/app/data" \
-    -v "${ROOT}/audio:/app/audio:ro" \
+    -v "${ROOT}/docs/.env:/app/docs/.env:ro" \
     "$IMAGE" \
     node --import tsx scripts/server.mjs
 

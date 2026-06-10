@@ -1,0 +1,214 @@
+{
+  "contactName": "Вера",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "dark",
+  "myName": "Артём",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты когда-нибудь пользовался приложением “Шагомер”?",
+      "sentAt": "21:36"
+    },
+    {
+      "author": "me",
+      "text": "Ну да. А что?",
+      "sentAt": "21:36"
+    },
+    {
+      "author": "them",
+      "text": "У меня сегодня 18 000 шагов.",
+      "sentAt": "21:37"
+    },
+    {
+      "author": "me",
+      "text": "Ты же весь день на работе сидела.",
+      "sentAt": "21:37"
+    },
+    {
+      "author": "them",
+      "text": "Вот именно.",
+      "sentAt": "21:37"
+    },
+    {
+      "author": "me",
+      "text": "Может, телефон в сумке трясло?",
+      "sentAt": "21:38"
+    },
+    {
+      "author": "them",
+      "text": "Он лежал на столе.",
+      "sentAt": "21:38"
+    },
+    {
+      "author": "me",
+      "text": "Тогда странно.",
+      "sentAt": "21:38"
+    },
+    {
+      "author": "them",
+      "text": "Сейчас уже 18 043.",
+      "sentAt": "21:39"
+    },
+    {
+      "author": "me",
+      "text": "Он считает дальше? 👀",
+      "sentAt": "21:39"
+    },
+    {
+      "author": "them",
+      "text": "Да.",
+      "sentAt": "21:39"
+    },
+    {
+      "author": "me",
+      "text": "Телефон двигается?",
+      "sentAt": "21:40"
+    },
+    {
+      "author": "them",
+      "text": "Нет.",
+      "sentAt": "21:40"
+    },
+    {
+      "author": "me",
+      "text": "Перезагрузи.",
+      "sentAt": "21:40"
+    },
+    {
+      "author": "them",
+      "text": "Подожди.",
+      "sentAt": "21:41"
+    },
+    {
+      "author": "me",
+      "text": "Что?",
+      "sentAt": "21:41"
+    },
+    {
+      "author": "them",
+      "text": "Открылся маршрут.",
+      "sentAt": "21:41"
+    },
+    {
+      "author": "me",
+      "text": "Какой маршрут?",
+      "sentAt": "21:42"
+    },
+    {
+      "author": "them",
+      "text": "Будто я сегодня куда-то ходила.",
+      "sentAt": "21:42"
+    },
+    {
+      "author": "me",
+      "text": "Куда?",
+      "sentAt": "21:42"
+    },
+    {
+      "author": "them",
+      "text": "От офиса до старого стадиона.",
+      "sentAt": "21:43"
+    },
+    {
+      "author": "me",
+      "text": "Ты же там не была.",
+      "sentAt": "21:43"
+    },
+    {
+      "author": "them",
+      "text": "Я вообще не выходила.",
+      "sentAt": "21:43"
+    },
+    {
+      "author": "me",
+      "text": "Может, GPS глючит.",
+      "sentAt": "21:44"
+    },
+    {
+      "author": "them",
+      "text": "На маршруте есть остановки.",
+      "sentAt": "21:44"
+    },
+    {
+      "author": "me",
+      "text": "Какие?",
+      "sentAt": "21:44"
+    },
+    {
+      "author": "them",
+      "text": "“Смотрела на витрину”.",
+      "sentAt": "21:45"
+    },
+    {
+      "author": "me",
+      "text": "Что за бред.",
+      "sentAt": "21:45"
+    },
+    {
+      "author": "them",
+      "text": "“Плакала у перехода”.",
+      "sentAt": "21:45"
+    },
+    {
+      "author": "me",
+      "text": "Вера, это не смешно.",
+      "sentAt": "21:46"
+    },
+    {
+      "author": "them",
+      "text": "“Купила воду”.",
+      "sentAt": "21:46"
+    },
+    {
+      "author": "me",
+      "text": "Ты покупала воду?",
+      "sentAt": "21:46"
+    },
+    {
+      "author": "them",
+      "text": "Нет.",
+      "sentAt": "21:47"
+    },
+    {
+      "author": "me",
+      "text": "Открой камеру.",
+      "sentAt": "21:47"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "21:47"
+    },
+    {
+      "author": "me",
+      "text": "Просто проверь, где ты.",
+      "sentAt": "21:48"
+    },
+    {
+      "author": "them",
+      "text": "Я в офисе.",
+      "sentAt": "21:48"
+    },
+    {
+      "author": "me",
+      "text": "Точно?",
+      "sentAt": "21:48"
+    },
+    {
+      "author": "them",
+      "text": "Камера показывает стадион.",
+      "sentAt": "21:49"
+    },
+    {
+      "author": "them",
+      "text": "А на экране шагомера написано: “Осталось вернуться в тело” 😨",
+      "sentAt": "21:49"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  }
+}

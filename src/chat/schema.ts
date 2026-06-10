@@ -12,7 +12,7 @@ export const messageSchema = z
       .min(1)
       .transform((value) => value.replace(/^\/+/, ""))
       .optional(),
-    /** Явный промпт для генерации этого кадра (Kling); иначе собирается автоматически */
+    /** Явный промпт для генерации этого кадра; иначе собирается автоматически через OpenRouter */
     imagePrompt: z.string().min(1).optional(),
     /** Правки к уже сгенерированному кадру (image-to-image) */
     imageEditPrompt: z.string().min(1).optional(),

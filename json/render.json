@@ -1,0 +1,164 @@
+{
+  "contactName": "Лена",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Саша",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты кружку помыл?",
+      "sentAt": "21:12"
+    },
+    {
+      "author": "me",
+      "text": "Начал",
+      "sentAt": "21:12"
+    },
+    {
+      "author": "them",
+      "text": "Она одна",
+      "sentAt": "21:13"
+    },
+    {
+      "author": "me",
+      "text": "Я знаю",
+      "sentAt": "21:13"
+    },
+    {
+      "author": "them",
+      "text": "Что там можно “начать”?",
+      "sentAt": "21:13"
+    },
+    {
+      "author": "me",
+      "text": "Сначала я открыл воду",
+      "sentAt": "21:14"
+    },
+    {
+      "author": "them",
+      "text": "Так",
+      "sentAt": "21:14"
+    },
+    {
+      "author": "me",
+      "text": "Потом понял, что губка старая",
+      "sentAt": "21:14"
+    },
+    {
+      "author": "them",
+      "text": "И?",
+      "sentAt": "21:15"
+    },
+    {
+      "author": "me",
+      "text": "Пошёл за новой",
+      "sentAt": "21:15"
+    },
+    {
+      "author": "them",
+      "text": "Где кружка?",
+      "sentAt": "21:15"
+    },
+    {
+      "author": "me",
+      "text": "В раковине",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "them",
+      "text": "А ты?",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "me",
+      "text": "В магазине",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "them",
+      "text": "Ты ушёл покупать губку ради одной кружки? 😐",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "me",
+      "text": "Не только",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "them",
+      "text": "Что ещё?",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "me",
+      "text": "Купил средство для посуды",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "them",
+      "text": "У нас есть",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "me",
+      "text": "Теперь будет запас",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "them",
+      "text": "Саша",
+      "sentAt": "21:19"
+    },
+    {
+      "author": "me",
+      "text": "И перчатки",
+      "sentAt": "21:19"
+    },
+    {
+      "author": "them",
+      "text": "Ты готовишься мыть кружку или запускать клининг? 😂",
+      "sentAt": "21:19"
+    },
+    {
+      "author": "me",
+      "text": "Я подошёл к задаче системно",
+      "sentAt": "21:20"
+    },
+    {
+      "author": "them",
+      "text": "Когда вернёшься?",
+      "sentAt": "21:20"
+    },
+    {
+      "author": "me",
+      "text": "Через 10 минут",
+      "sentAt": "21:20"
+    },
+    {
+      "author": "them",
+      "text": "Кружка хотя бы замочена?",
+      "sentAt": "21:21"
+    },
+    {
+      "author": "me",
+      "text": "Да",
+      "sentAt": "21:21"
+    },
+    {
+      "author": "them",
+      "text": "В воде?",
+      "sentAt": "21:21"
+    },
+    {
+      "author": "me",
+      "text": "В чувстве вины 😐",
+      "sentAt": "21:22"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

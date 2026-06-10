@@ -1,0 +1,104 @@
+{
+  "contactName": "Мама",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Алиса",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Алиса, ты дома?",
+      "sentAt": "18:40"
+    },
+    {
+      "author": "me",
+      "text": "Да, а что?",
+      "sentAt": "18:41"
+    },
+    {
+      "author": "them",
+      "text": "Я поставила суп на плиту. Выключи через 10 минут.",
+      "sentAt": "18:41"
+    },
+    {
+      "author": "me",
+      "text": "Хорошо",
+      "sentAt": "18:42"
+    },
+    {
+      "author": "them",
+      "text": "И не забудь крышку снять, а то убежит.",
+      "sentAt": "18:42"
+    },
+    {
+      "author": "me",
+      "text": "Мам, суп не может убежать",
+      "sentAt": "18:43"
+    },
+    {
+      "author": "them",
+      "text": "У тебя в прошлый раз картошка смогла.",
+      "sentAt": "18:43"
+    },
+    {
+      "author": "me",
+      "text": "Это была не картошка, это я её уронила",
+      "sentAt": "18:44"
+    },
+    {
+      "author": "them",
+      "text": "Куда?",
+      "sentAt": "18:44"
+    },
+    {
+      "author": "me",
+      "text": "В коридор",
+      "sentAt": "18:45"
+    },
+    {
+      "author": "them",
+      "text": "А почему я нашла её в сапоге?",
+      "sentAt": "18:45"
+    },
+    {
+      "author": "me",
+      "text": "Она пыталась начать новую жизнь",
+      "sentAt": "18:46"
+    },
+    {
+      "author": "them",
+      "text": "Суп выключила?",
+      "sentAt": "18:50"
+    },
+    {
+      "author": "me",
+      "text": "Да",
+      "sentAt": "18:50"
+    },
+    {
+      "author": "them",
+      "text": "Крышку сняла?",
+      "sentAt": "18:51"
+    },
+    {
+      "author": "me",
+      "text": "Да. Он никуда не пошёл.",
+      "sentAt": "18:51"
+    },
+    {
+      "author": "them",
+      "text": "Молодец.",
+      "sentAt": "18:52"
+    },
+    {
+      "author": "me",
+      "text": "Но макароны уже собирают чемодан",
+      "sentAt": "18:52"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

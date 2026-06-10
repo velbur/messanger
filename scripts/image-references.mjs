@@ -39,7 +39,7 @@ const mimeFromPath = (filePath) => {
 };
 
 /**
- * Локальный файл из public/ → data URL для Grok vision / edits.
+ * Локальный файл из public/ → data URL для vision / image-to-image.
  */
 export const loadPublicImageBuffer = async (ref, {maxBytes = MAX_VISION_BYTES} = {}) => {
   if (!ref || isImageUrl(ref)) {

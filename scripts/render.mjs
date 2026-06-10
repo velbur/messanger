@@ -2,6 +2,7 @@ import path from "node:path";
 import {readFile} from "node:fs/promises";
 import {parseConversation} from "../src/chat/schema.ts";
 import {resolveConversationImages} from "./image-assets.mjs";
+import {loadOpenRouterEnv} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
 
 const parseArg = (name, fallback) => {
@@ -19,8 +20,9 @@ const concurrencyArg = parseArg("--concurrency", null);
 const run = async () => {
   const inputAbs = path.resolve(inputPath);
   const rawInput = await readFile(inputAbs, "utf8");
+  await loadOpenRouterEnv();
   const conversation = parseConversation(JSON.parse(rawInput));
-  await resolveConversationImages(conversation);
+  await resolveConversationImages(conversation, {failOnMissingImages: true});
 
   const concurrency =
     concurrencyArg !== null ? Number.parseInt(String(concurrencyArg), 10) : getRenderConcurrency();
