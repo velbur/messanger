@@ -164,6 +164,14 @@ const resolveName = (rawName, conversation, dialogueId) => {
   return `render-${stamp}`;
 };
 
+const mp4DownloadUrl = (outputFile, cacheToken) => {
+  const base = `/out/${outputFile}`;
+  if (!cacheToken) {
+    return base;
+  }
+  return `${base}?v=${cacheToken}`;
+};
+
 const resolveOutputFile = ({name, outputFile, dialogueId}) => {
   if (typeof outputFile === "string" && outputFile.trim()) {
     const file = outputFile.trim();
@@ -192,16 +200,16 @@ const copyRemoteOutputToLocal = async ({remoteUrl, outputFile, logs = []}) => {
   const localPath = path.join(OUT_DIR, outputFile);
   await mkdir(OUT_DIR, {recursive: true});
 
-  try {
-    await access(localPath);
-    logs.push(`Уже на диске: out/${outputFile}`);
-    return {localPath, outputFile, alreadyExisted: true};
-  } catch {
-    // файла ещё нет — качаем с воркера
-  }
+  const hadLocalCopy = await access(localPath)
+    .then(() => true)
+    .catch(() => false);
 
   const url = `${remoteUrl}/out/${encodeURIComponent(outputFile)}`;
-  logs.push(`Копирование с воркера: ${url}`);
+  logs.push(
+    hadLocalCopy
+      ? `Перезапись с воркера: ${url}`
+      : `Копирование с воркера: ${url}`,
+  );
 
   const resp = await fetchWithRetry(url, {}, {timeoutMs: 600000, retries: 2});
   if (!resp.ok || !resp.body) {
@@ -213,8 +221,8 @@ const copyRemoteOutputToLocal = async ({remoteUrl, outputFile, logs = []}) => {
   }
 
   await pipeline(Readable.fromWeb(resp.body), createWriteStream(localPath));
-  logs.push(`Скопировано: out/${outputFile}`);
-  return {localPath, outputFile, alreadyExisted: false};
+  logs.push(hadLocalCopy ? `Обновлено: out/${outputFile}` : `Скопировано: out/${outputFile}`);
+  return {localPath, outputFile, replaced: hadLocalCopy};
 };
 
 /** Запускает (или возвращает уже идущее) копирование MP4 с воркера в локальный out/ */
@@ -223,7 +231,7 @@ const ensureRemoteMp4CopiedLocally = (job) => {
     return Promise.resolve();
   }
   if (job.localCopyStatus === "done") {
-    job.downloadUrl = `/out/${job.outputFile}`;
+    job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
     return Promise.resolve();
   }
   if (job.localCopyStatus === "copying" && job.localCopyPromise) {
@@ -242,7 +250,7 @@ const ensureRemoteMp4CopiedLocally = (job) => {
         logs: job.logs,
       });
       job.localCopyStatus = "done";
-      job.downloadUrl = `/out/${job.outputFile}`;
+      job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
       if (job.dialogueId) {
         touchDialogueOutput(job.dialogueId, job.outputFile);
       }
@@ -307,8 +315,9 @@ const processQueue = async () => {
     });
     job.status = "done";
     job.progress = 1;
+    job.finishedAt = Date.now();
     job.outputPath = outputAbs;
-    job.downloadUrl = `/out/${job.outputFile}`;
+    job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
     job.logs.push(`Готово: ${outputAbs}`);
     if (job.dialogueId) {
       touchDialogueOutput(job.dialogueId, job.outputFile);
@@ -1320,6 +1329,7 @@ app.get("/api/jobs/:id", async (req, res) => {
       }
       if (data.status === "done") {
         job.status = "done";
+        job.finishedAt = job.finishedAt ?? Date.now();
         job.outputFile = data.outputFile ?? job.outputFile;
         try {
           await ensureRemoteMp4CopiedLocally(job);
@@ -1332,7 +1342,7 @@ app.get("/api/jobs/:id", async (req, res) => {
       const downloadUrl =
         data.status === "done"
           ? job.localCopyStatus === "done"
-            ? `/out/${job.outputFile}`
+            ? mp4DownloadUrl(job.outputFile, job.finishedAt)
             : `/api/jobs/${job.id}/download`
           : null;
       res.json({
@@ -1343,6 +1353,7 @@ app.get("/api/jobs/:id", async (req, res) => {
         outputPath: job.outputRel,
         outputFile: job.outputFile,
         downloadUrl,
+        finishedAt: job.finishedAt ?? null,
         localCopyStatus: job.localCopyStatus ?? null,
         renderCommand: job.renderCommand,
         logs: job.logs,
@@ -1363,6 +1374,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     outputPath: job.outputRel,
     outputFile: job.outputFile,
     downloadUrl: job.downloadUrl,
+    finishedAt: job.finishedAt ?? null,
     error: job.error,
     logs: job.logs,
     progress: job.progress,
@@ -1415,7 +1427,7 @@ app.post("/api/remote/fetch-output", async (req, res) => {
       outputFile,
       outputPath: `out/${baseName}.mp4`,
       downloadUrl: `/out/${outputFile}`,
-      alreadyExisted: result.alreadyExisted,
+      replaced: result.replaced,
       logs,
     });
   } catch (error) {
@@ -1499,7 +1511,14 @@ app.post("/api/jobs/:id/cancel", async (req, res) => {
   res.status(400).json({error: "Задача уже завершена или отменена"});
 });
 
-app.use("/out", express.static(OUT_DIR));
+app.use(
+  "/out",
+  express.static(OUT_DIR, {
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "no-cache");
+    },
+  }),
+);
 app.use("/music", express.static(PUBLIC_MUSIC_DIR));
 app.use("/images", express.static(IMAGES_DIR));
 app.use(express.static(UI_DIR));

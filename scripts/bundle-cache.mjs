@@ -156,7 +156,11 @@ const isBundleOlderThanSources = async (bundleLocation) => {
 const bundleHasRequiredMarkers = async (bundleLocation) => {
   try {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
-    return bundleJs.includes("IMAGE_FULLSCREEN_MS") && bundleJs.includes("FullscreenImage");
+    return (
+      bundleJs.includes("IMAGE_FULLSCREEN_DELAY_MS") &&
+      bundleJs.includes("IMAGE_FULLSCREEN_MS") &&
+      bundleJs.includes("FullscreenImage")
+    );
   } catch {
     return false;
   }

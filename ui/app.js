@@ -2365,10 +2365,21 @@ const showStatus = (job) => {
   showRenderCommand(job);
   updateRenderProgress(job);
 
+  const withCacheBust = (url, token) => {
+    if (!url || url.startsWith("/api/")) {
+      return url;
+    }
+    if (url.includes("v=")) {
+      return url;
+    }
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${token ?? Date.now()}`;
+  };
+
   if (downloadBlock && downloadLink && pathsHint) {
     if (job.status === "done" && job.localCopyStatus === "done" && job.downloadUrl) {
       downloadBlock.hidden = false;
-      downloadLink.href = job.downloadUrl;
+      downloadLink.href = withCacheBust(job.downloadUrl, job.finishedAt);
       downloadLink.textContent =
         job.target === "remote"
           ? `Открыть ${job.outputPath ?? "out/video.mp4"}`
@@ -2389,7 +2400,10 @@ const showStatus = (job) => {
       downloadBlock.hidden = true;
     } else if (job.inputPath || job.outputPath) {
       downloadBlock.hidden = false;
-      downloadLink.href = job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`;
+      downloadLink.href = withCacheBust(
+        job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`,
+        job.finishedAt,
+      );
       downloadLink.textContent = job.status === "done" ? `Открыть ${job.outputPath ?? "out/video.mp4"}` : "MP4 появится после рендера";
       if (job.status === "done") {
         downloadLink.removeAttribute("download");

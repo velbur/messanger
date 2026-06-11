@@ -49,7 +49,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     (event) =>
       event.image &&
       event.fullscreenFrames > 0 &&
-      frame >= event.revealFrame &&
+      frame >= event.fullscreenStartFrame &&
       frame < event.fullscreenEndFrame,
   );
 
@@ -57,8 +57,8 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     ? interpolate(
         frame,
         [
-          activeFullscreenEvent.revealFrame,
-          activeFullscreenEvent.revealFrame + 8,
+          activeFullscreenEvent.fullscreenStartFrame,
+          activeFullscreenEvent.fullscreenStartFrame + 8,
           activeFullscreenEvent.fullscreenEndFrame - 8,
           activeFullscreenEvent.fullscreenEndFrame,
         ],
@@ -211,7 +211,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             <FullscreenImage
               key={`fullscreen-${event.index}`}
               image={event.image}
-              startFrame={event.revealFrame}
+              startFrame={event.fullscreenStartFrame}
               durationFrames={event.fullscreenFrames}
             />
           ) : null,
