@@ -9,6 +9,11 @@ INPUT="${ROOT}/public/conversation.json"
 OUTPUT="${ROOT}/out/video.mp4"
 STUDIO_PORT="${STUDIO_PORT:-3000}"
 UI_PORT="${UI_PORT:-3333}"
+WORKER_PORT="${WORKER_PORT:-3333}"
+RENDER_CONCURRENCY="${RENDER_CONCURRENCY:-}"
+
+# docker или podman: CONTAINER=podman ./run.sh worker
+CONTAINER="${CONTAINER:-docker}"
 
 usage() {
   cat <<'EOF'
@@ -18,6 +23,7 @@ usage() {
   build              Собрать Docker-образ
   render             Срендерить видео (по умолчанию public/conversation.json -> out/video.mp4)
   ui                 Веб-интерфейс: JSON → рендер (http://localhost:3333)
+  worker             Render-воркер для удалённого рендера (порт 3333, без UI-прокси)
   dev                Запустить Remotion Studio в контейнере (http://localhost:3000)
   shell              Интерактивная оболочка в контейнере
 
@@ -26,21 +32,26 @@ usage() {
   --output PATH      Выходной MP4 (по умолчанию: out/video.mp4)
   --build            Пересобрать Docker-образ перед командой
 
-Опции (для ui):
+Опции (для ui / worker):
   --port N           Порт веб-интерфейса (по умолчанию: 3333)
   --build            Пересобрать Docker-образ перед запуском
 
 Переменные окружения:
   IMAGE              Имя Docker-образа (по умолчанию: chat-video-generator)
+  CONTAINER          docker или podman (по умолчанию: docker)
   STUDIO_PORT        Порт Remotion Studio (по умолчанию: 3000)
   UI_PORT            Порт веб-интерфейса (по умолчанию: 3333)
+  WORKER_PORT        Порт render-воркера (по умолчанию: 3333)
+  RENDER_CONCURRENCY Число потоков рендера на воркере
+  REMOTE_RENDER_URL  На Mac: URL воркера, напр. http://192.168.0.136:3333
 
 Примеры:
   ./run.sh build
   ./run.sh render
   ./run.sh render --input ./my-chat.json --output ./out/result.mp4
   ./run.sh ui
-  ./run.sh ui --build --port 3333
+  REMOTE_RENDER_URL=http://192.168.0.136:3333 ./run.sh ui
+  CONTAINER=podman RENDER_CONCURRENCY=12 ./run.sh worker --build
   ./run.sh dev
 EOF
 }
@@ -85,17 +96,29 @@ parse_render_args() {
 }
 
 ensure_image() {
-  if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  if ! "$CONTAINER" image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Образ '$IMAGE' не найден. Собираю..."
-    docker build -t "$IMAGE" .
+    "$CONTAINER" build -t "$IMAGE" .
   fi
 }
 
 cmd_build() {
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
-  docker build -t "$IMAGE" .
+  "$CONTAINER" build -t "$IMAGE" .
   echo "Готово: образ $IMAGE"
 }
+
+# Общие тома: актуальный Remotion-код с хоста (без пересборки образа после git pull)
+APP_VOLUMES=(
+  -v "${ROOT}/json:/app/json"
+  -v "${ROOT}/out:/app/out"
+  -v "${ROOT}/public:/app/public"
+  -v "${ROOT}/prompts:/app/prompts"
+  -v "${ROOT}/data:/app/data"
+  -v "${ROOT}/src:/app/src:ro"
+  -v "${ROOT}/scripts:/app/scripts:ro"
+  -v "${ROOT}/.cache:/app/.cache"
+)
 
 cmd_render() {
   parse_render_args "$@"
@@ -119,7 +142,7 @@ cmd_render() {
   output_file="$(basename "$OUTPUT")"
 
   # src/scripts монтируются с хоста — рендер без пересборки образа после правок Remotion
-  docker run --rm \
+  "$CONTAINER" run --rm \
     -v "${input_dir}:/input:ro" \
     -v "${output_dir}:/output" \
     -v "${ROOT}/src:/app/src:ro" \
@@ -136,7 +159,7 @@ cmd_render() {
 cmd_dev() {
   ensure_image
 
-  docker run --rm -it \
+  "$CONTAINER" run --rm -it \
     -p "${STUDIO_PORT}:3000" \
     -v "${ROOT}/public:/app/public" \
     -v "${ROOT}/out:/app/out" \
@@ -146,14 +169,16 @@ cmd_dev() {
 
 cmd_shell() {
   ensure_image
-  docker run --rm -it \
+  "$CONTAINER" run --rm -it \
     -v "${ROOT}/public:/app/public" \
     -v "${ROOT}/out:/app/out" \
     "$IMAGE" \
     bash
 }
 
-parse_ui_args() {
+parse_server_args() {
+  local port_var="$1"
+  shift
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --build)
@@ -161,7 +186,7 @@ parse_ui_args() {
         shift
         ;;
       --port)
-        UI_PORT="$2"
+        printf -v "$port_var" '%s' "$2"
         shift 2
         ;;
       -h|--help)
@@ -177,10 +202,51 @@ parse_ui_args() {
   done
 }
 
-cmd_ui() {
-  parse_ui_args "$@"
+run_server_container() {
+  local container_name="$1"
+  local host_port="$2"
+  local extra_env=("${@:3}")
 
-  mkdir -p "${ROOT}/json" "${ROOT}/out"
+  mkdir -p "${ROOT}/json" "${ROOT}/out" "${ROOT}/.cache"
+
+  local -a env_args=(
+    -e "PORT=3333"
+    -e "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=4096}"
+  )
+  if [[ -n "${RENDER_CONCURRENCY}" ]]; then
+    env_args+=(-e "RENDER_CONCURRENCY=${RENDER_CONCURRENCY}")
+  fi
+  for item in "${extra_env[@]}"; do
+    env_args+=(-e "$item")
+  done
+
+  local -a volume_args=("${APP_VOLUMES[@]}")
+  if [[ -f "${ROOT}/docs/.env" ]]; then
+    volume_args+=(-v "${ROOT}/docs/.env:/app/docs/.env:ro")
+  fi
+
+  "$CONTAINER" rm -f "$container_name" >/dev/null 2>&1 || true
+
+  stop_server() {
+    echo ""
+    echo "Остановка контейнера…"
+    "$CONTAINER" stop -t 3 "$container_name" >/dev/null 2>&1 || true
+    exit 130
+  }
+  trap stop_server INT TERM
+
+  "$CONTAINER" run --rm -it --init --name "$container_name" \
+    -p "${host_port}:3333" \
+    "${env_args[@]}" \
+    "${volume_args[@]}" \
+    "$IMAGE" \
+    node --import tsx scripts/server.mjs
+
+  trap - INT TERM
+}
+
+cmd_ui() {
+  parse_server_args UI_PORT "$@"
 
   if [[ "$DO_BUILD" -eq 1 ]]; then
     cmd_build
@@ -190,38 +256,31 @@ cmd_ui() {
 
   echo "Веб-интерфейс: http://localhost:${UI_PORT}"
   echo "JSON сохраняется в json/, видео — в out/"
+  if [[ -n "${REMOTE_RENDER_URL:-}" ]]; then
+    echo "Удалённый рендер: ${REMOTE_RENDER_URL}"
+  fi
   echo "Остановка: Ctrl+C (при активном рендере может занять до нескольких секунд)"
 
-  local container_name="chat-video-ui"
-  docker rm -f "$container_name" >/dev/null 2>&1 || true
+  run_server_container "chat-video-ui" "${UI_PORT}" \
+    "NATIVE_PROJECT_ROOT=${ROOT}" \
+    "REMOTE_RENDER_URL=${REMOTE_RENDER_URL:-}"
+}
 
-  stop_ui() {
-    echo ""
-    echo "Остановка контейнера…"
-    docker stop -t 3 "$container_name" >/dev/null 2>&1 || true
-    exit 130
-  }
-  trap stop_ui INT TERM
+cmd_worker() {
+  parse_server_args WORKER_PORT "$@"
 
-  docker run --rm -it --init --name "$container_name" \
-    -p "${UI_PORT}:3333" \
-    -e "PORT=3333" \
-    -e "NATIVE_PROJECT_ROOT=${ROOT}" \
-    -e "NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=4096}" \
-    -e "REMOTE_RENDER_URL=${REMOTE_RENDER_URL:-}" \
-    -v "${ROOT}/json:/app/json" \
-    -v "${ROOT}/out:/app/out" \
-    -v "${ROOT}/public:/app/public" \
-    -v "${ROOT}/prompts:/app/prompts" \
-    -v "${ROOT}/data:/app/data" \
-    -v "${ROOT}/docs/.env:/app/docs/.env:ro" \
-    -v "${ROOT}/src:/app/src:ro" \
-    -v "${ROOT}/scripts:/app/scripts:ro" \
-    -v "${ROOT}/.cache:/app/.cache" \
-    "$IMAGE" \
-    node --import tsx scripts/server.mjs
+  if [[ "$DO_BUILD" -eq 1 ]]; then
+    cmd_build
+  else
+    ensure_image
+  fi
 
-  trap - INT TERM
+  echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
+  echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
+  echo "Важно: после git pull перезапустите воркер (src/ монтируется с хоста)."
+  echo "Остановка: Ctrl+C"
+
+  run_server_container "chat-video-worker" "${WORKER_PORT}"
 }
 
 main() {
@@ -237,6 +296,9 @@ main() {
       ;;
     ui)
       cmd_ui "$@"
+      ;;
+    worker)
+      cmd_worker "$@"
       ;;
     dev)
       cmd_dev

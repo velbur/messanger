@@ -5,6 +5,10 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "dark",
   "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  },
   "messages": [
     {
       "author": "them",
@@ -335,9 +339,5 @@
       "text": "Вот теперь ты сосед сверху",
       "sentAt": "21:36"
     }
-  ],
-  "music": {
-    "enabled": true,
-    "src": "music/mystic.mp3"
-  }
+  ]
 }
