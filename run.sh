@@ -205,7 +205,7 @@ parse_server_args() {
 run_server_container() {
   local container_name="$1"
   local host_port="$2"
-  local extra_env=("${@:3}")
+  shift 2
 
   mkdir -p "${ROOT}/json" "${ROOT}/out" "${ROOT}/.cache"
 
@@ -216,9 +216,11 @@ run_server_container() {
   if [[ -n "${RENDER_CONCURRENCY}" ]]; then
     env_args+=(-e "RENDER_CONCURRENCY=${RENDER_CONCURRENCY}")
   fi
-  for item in "${extra_env[@]}"; do
-    env_args+=(-e "$item")
-  done
+  if [[ $# -gt 0 ]]; then
+    for item in "$@"; do
+      env_args+=(-e "$item")
+    done
+  fi
 
   local -a volume_args=("${APP_VOLUMES[@]}")
   if [[ -f "${ROOT}/docs/.env" ]]; then
