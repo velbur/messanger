@@ -1,6 +1,6 @@
 import {readFile} from "node:fs/promises";
 import path from "node:path";
-import {parseConversation} from "../src/chat/schema.ts";
+import {messageSchema, parseConversation} from "../src/chat/schema.ts";
 import {
   chatCompletionJson as openRouterChatCompletionJson,
   getOpenRouterTextModel,
@@ -234,6 +234,54 @@ const buildShortsExpandUserPrompt = ({prompt, conversation, displayTitle, includ
   ].join("\n");
 };
 
+const buildRegenerateMessageSystemPrompt = async ({
+  mode = "shorts",
+  seriesId = DEFAULT_SERIES_ID,
+} = {}) => {
+  const base = await buildSystemPrompt({mode, includeImages: true, seriesId});
+  return [
+    base,
+    "",
+    "Режим переписывания одной реплики:",
+    "- Пользователь указывает одно сообщение в готовой переписке.",
+    "- Верни только JSON вида {\"message\":{...}} — один объект сообщения.",
+    "- author не меняй. image, imagePrompt, imageEditPrompt сохраняй как в оригинале, если пользователь не просит иначе.",
+    "- Перепиши text: сделай реплику естественнее для WhatsApp, без кринжа и штампов.",
+    "- sentAt можно слегка подправить (±1–2 мин), формат HH:MM.",
+  ].join("\n");
+};
+
+const buildRegenerateMessageUserPrompt = ({
+  conversation,
+  messageIndex,
+  instruction,
+}) => {
+  const messages = conversation.messages;
+  const target = messages[messageIndex];
+  const who =
+    target.author === "me"
+      ? conversation.myName?.trim() || "Я"
+      : conversation.contactName?.trim() || "Собеседник";
+  const before = messages.slice(0, messageIndex);
+  const after = messages.slice(messageIndex + 1);
+
+  return [
+    instruction?.trim() ||
+      "Перепиши эту реплику: сделай естественнее, убери неуклюжие формулировки. Смысл и тон сцены сохрани.",
+    "",
+    `Целевое сообщение №${messageIndex + 1} (${who}):`,
+    JSON.stringify(target, null, 2),
+    "",
+    "Контекст до:",
+    before.length > 0 ? JSON.stringify(before, null, 2) : "(нет)",
+    "",
+    "Контекст после:",
+    after.length > 0 ? JSON.stringify(after, null, 2) : "(нет)",
+    "",
+    'Верни только JSON: {"message":{...}}',
+  ].join("\n");
+};
+
 const buildRefineUserPrompt = ({conversation, refinePrompt, includeImages = true}) => {
   const parts = [
     "Доработай текущую переписку по этим замечаниям:",
@@ -438,4 +486,80 @@ export const refineDialogue = async ({
   });
 
   return {...result, provider: llm.provider};
+};
+
+export const regenerateMessage = async ({
+  conversation,
+  messageIndex,
+  instruction,
+  mode = "shorts",
+  seriesId = DEFAULT_SERIES_ID,
+  maxAttempts = 3,
+}) => {
+  const llm = resolveDialogueLlm();
+  if (!llm) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
+  }
+  if (!conversation || typeof conversation !== "object") {
+    throw new Error("Текущая переписка обязательна");
+  }
+
+  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const validated = validateConversation(conversation);
+  const messages = validated.messages;
+
+  if (typeof messageIndex !== "number" || messageIndex < 0 || messageIndex >= messages.length) {
+    throw new Error("Некорректный индекс сообщения");
+  }
+
+  const target = messages[messageIndex];
+  if (!String(target.text ?? "").trim()) {
+    throw new Error("У сообщения нет текста для переписывания");
+  }
+
+  const system = await buildRegenerateMessageSystemPrompt({
+    mode: normalizedMode,
+    seriesId,
+  });
+  const user = buildRegenerateMessageUserPrompt({
+    conversation: validated,
+    messageIndex,
+    instruction,
+  });
+
+  const result = await runChatJsonGeneration({
+    maxAttempts,
+    completeJson: llm.completeJson,
+    messages: [
+      {role: "system", content: system},
+      {role: "user", content: user},
+    ],
+    parseResult: (data) => {
+      const raw = data?.message;
+      if (!raw || typeof raw !== "object") {
+        throw new Error("Ответ должен содержать поле message");
+      }
+
+      const merged = {
+        ...target,
+        ...raw,
+        author: target.author,
+        image: target.image ?? raw.image,
+        imagePrompt: target.imagePrompt ?? raw.imagePrompt,
+        imageEditPrompt: target.imageEditPrompt ?? raw.imageEditPrompt,
+      };
+
+      const message = messageSchema.parse(merged);
+      const updatedMessages = [...messages];
+      updatedMessages[messageIndex] = message;
+      const updatedConversation = validateConversation({
+        ...validated,
+        messages: updatedMessages,
+      });
+
+      return {conversation: updatedConversation, message, messageIndex};
+    },
+  });
+
+  return {...result, provider: llm.provider, mode: normalizedMode};
 };

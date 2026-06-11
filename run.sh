@@ -118,10 +118,13 @@ cmd_render() {
   output_dir="$(cd "$(dirname "$OUTPUT")" && pwd)"
   output_file="$(basename "$OUTPUT")"
 
-  # Пересоберите образ после изменений UI/шрифтов: ./run.sh build
+  # src/scripts монтируются с хоста — рендер без пересборки образа после правок Remotion
   docker run --rm \
     -v "${input_dir}:/input:ro" \
     -v "${output_dir}:/output" \
+    -v "${ROOT}/src:/app/src:ro" \
+    -v "${ROOT}/scripts:/app/scripts:ro" \
+    -v "${ROOT}/.cache:/app/.cache" \
     "$IMAGE" \
     node scripts/render.mjs \
       --input "/input/${input_file}" \
@@ -212,6 +215,9 @@ cmd_ui() {
     -v "${ROOT}/prompts:/app/prompts" \
     -v "${ROOT}/data:/app/data" \
     -v "${ROOT}/docs/.env:/app/docs/.env:ro" \
+    -v "${ROOT}/src:/app/src:ro" \
+    -v "${ROOT}/scripts:/app/scripts:ro" \
+    -v "${ROOT}/.cache:/app/.cache" \
     "$IMAGE" \
     node --import tsx scripts/server.mjs
 

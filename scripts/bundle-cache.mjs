@@ -111,6 +111,67 @@ const bundleLooksValid = async (bundleLocation) => {
   }
 };
 
+const SRC_ROOTS = [
+  path.join(PROJECT_ROOT, "src"),
+  path.join(PROJECT_ROOT, "package.json"),
+  path.join(PROJECT_ROOT, "tsconfig.json"),
+];
+
+/** Самый свежий mtime среди исходников Remotion */
+const newestSourceMtimeMs = async () => {
+  let max = 0;
+  for (const root of SRC_ROOTS) {
+    let st;
+    try {
+      st = await stat(root);
+    } catch {
+      continue;
+    }
+
+    if (st.isFile()) {
+      max = Math.max(max, st.mtimeMs);
+      continue;
+    }
+
+    const files = await walkFiles(root);
+    for (const file of files) {
+      const fileStat = await stat(file);
+      max = Math.max(max, fileStat.mtimeMs);
+    }
+  }
+  return max;
+};
+
+/** bundle.js старше исходников — кэш невалиден даже при совпадении fingerprint */
+const isBundleOlderThanSources = async (bundleLocation) => {
+  try {
+    const bundleMtime = (await stat(path.join(bundleLocation, "bundle.js"))).mtimeMs;
+    const srcMtime = await newestSourceMtimeMs();
+    return srcMtime > bundleMtime + 500;
+  } catch {
+    return true;
+  }
+};
+
+const bundleHasRequiredMarkers = async (bundleLocation) => {
+  try {
+    const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
+    return bundleJs.includes("IMAGE_FULLSCREEN_MS") && bundleJs.includes("FullscreenImage");
+  } catch {
+    return false;
+  }
+};
+
+const isBundleFresh = async (bundleLocation) => {
+  if (!(await bundleLooksValid(bundleLocation))) {
+    return false;
+  }
+  if (await isBundleOlderThanSources(bundleLocation)) {
+    return false;
+  }
+  return bundleHasRequiredMarkers(bundleLocation);
+};
+
 /** Синхронизирует public/ в собранный бандл (картинки, звуки) */
 const syncPublicIntoBundle = async (bundleLocation) => {
   const dest = path.join(bundleLocation, "public");
@@ -127,6 +188,12 @@ const syncPublicIntoBundle = async (bundleLocation) => {
 const memoryCache = {
   location: null,
   srcFingerprint: null,
+};
+
+export const invalidateBundleCache = async () => {
+  memoryCache.location = null;
+  memoryCache.srcFingerprint = null;
+  await rm(BUNDLE_OUT_DIR, {recursive: true, force: true});
 };
 
 const refreshPublicIfNeeded = async (bundleLocation, srcFingerprint, publicFingerprint, onStatus) => {
@@ -156,7 +223,7 @@ export const getBundleLocation = async (opts = {}) => {
   if (
     memoryCache.location &&
     memoryCache.srcFingerprint === srcFingerprint &&
-    (await bundleLooksValid(memoryCache.location))
+    (await isBundleFresh(memoryCache.location))
   ) {
     return refreshPublicIfNeeded(
       memoryCache.location,
@@ -171,7 +238,7 @@ export const getBundleLocation = async (opts = {}) => {
     if (
       meta &&
       meta.srcFingerprint === srcFingerprint &&
-      (await bundleLooksValid(meta.bundleLocation))
+      (await isBundleFresh(meta.bundleLocation))
     ) {
       memoryCache.location = meta.bundleLocation;
       memoryCache.srcFingerprint = srcFingerprint;
@@ -182,6 +249,12 @@ export const getBundleLocation = async (opts = {}) => {
         (msg) => onStatus(msg === "Bundle из кэша" ? "Bundle из дискового кэша" : msg),
       );
     }
+  }
+
+  if (memoryCache.location || (await readBundleMeta())) {
+    onStatus("Bundle устарел — пересборка…");
+    memoryCache.location = null;
+    memoryCache.srcFingerprint = null;
   }
 
   onStatus("Сборка Remotion bundle…");

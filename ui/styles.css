@@ -816,6 +816,18 @@ body.lightbox-open {
   white-space: nowrap;
 }
 
+.dialogue-msg__regen {
+  min-width: 28px;
+  padding: 2px 8px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  opacity: 0.85;
+}
+
+.dialogue-msg__regen:hover:not(:disabled) {
+  opacity: 1;
+}
+
 .dialogue-editor__image-alert {
   display: flex;
   flex-wrap: wrap;
@@ -945,6 +957,20 @@ body.lightbox-open {
   background: rgba(255, 152, 0, 0.06);
   color: #ffb74d;
   font-weight: 600;
+}
+
+.image-slot__prompt-edit {
+  margin: 10px 0;
+}
+
+.image-slot__correction-edit {
+  margin-bottom: 10px;
+}
+
+.image-slot__gen-status {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: 0.8rem;
 }
 
 .image-slot__actions {

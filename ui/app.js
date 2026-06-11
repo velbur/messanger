@@ -96,11 +96,21 @@ const getImageProviderUnavailableHint = () =>
 const updateImageProviderControls = () => {
   for (const slot of document.querySelectorAll("[data-image-slot-index]")) {
     const available = canGenerateImages();
+    const hasFile = slot.classList.contains("image-slot--ok");
     for (const btn of slot.querySelectorAll("[data-action='generate-image']")) {
       btn.disabled = !available;
+      btn.textContent = hasFile ? "Перегенерировать" : "Сгенерировать";
       btn.title = available
-        ? `Генерация через OpenRouter (${openrouterImageModel})`
+        ? hasFile
+          ? `Заменить картинку через OpenRouter (${openrouterImageModel})`
+          : `Генерация через OpenRouter (${openrouterImageModel})`
         : getImageProviderUnavailableHint();
+    }
+    for (const btn of slot.querySelectorAll("[data-action='suggest-prompt']")) {
+      btn.disabled = !openrouterConfigured;
+      btn.title = openrouterConfigured
+        ? "Собрать промпт по переписке (ChatGPT)"
+        : "Задайте OPENROUTER_API_KEY в docs/.env";
     }
   }
 };
@@ -1645,6 +1655,166 @@ const renderImageControls = (item) => {
     slot.append(placeholder);
   }
 
+  const promptBlock = document.createElement("div");
+  promptBlock.className = "image-slot__prompt-edit image-card__prompt-edit";
+
+  const promptLabel = document.createElement("label");
+  promptLabel.className = "image-card__prompt-label";
+  promptLabel.textContent = "Промпт для этого кадра";
+
+  const promptInput = document.createElement("textarea");
+  promptInput.className = "image-card__prompt-input";
+  promptInput.rows = 3;
+  promptInput.placeholder = "Описание сцены для генерации…";
+  promptInput.value = item.imagePrompt ?? "";
+  promptInput.addEventListener("input", () => {
+    const idx = item.messageIndex;
+    if (imagePromptSaveTimers.has(idx)) {
+      clearTimeout(imagePromptSaveTimers.get(idx));
+    }
+    imagePromptSaveTimers.set(
+      idx,
+      setTimeout(() => {
+        setJsonImagePrompt(idx, promptInput.value);
+        imagePromptSaveTimers.delete(idx);
+      }, 400),
+    );
+  });
+
+  const promptActions = document.createElement("div");
+  promptActions.className = "image-card__prompt-edit-actions";
+
+  const btnSuggest = document.createElement("button");
+  btnSuggest.type = "button";
+  btnSuggest.className = "btn btn-secondary btn-small";
+  btnSuggest.dataset.action = "suggest-prompt";
+  btnSuggest.textContent = "Промпт от ChatGPT";
+  btnSuggest.addEventListener("click", async () => {
+    btnSuggest.disabled = true;
+    const status = promptBlock.querySelector(".image-slot__gen-status");
+    if (status) {
+      status.textContent = "Сбор промпта…";
+    }
+    try {
+      await suggestImagePrompt(item, {force: true});
+      const parsed = parseConversationJson();
+      const nextPrompt = parsed?.messages?.[item.messageIndex]?.imagePrompt ?? "";
+      promptInput.value = nextPrompt;
+      if (status) {
+        status.textContent = "Промпт обновлён";
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = err instanceof Error ? err.message : String(err);
+      }
+    } finally {
+      updateImageProviderControls();
+    }
+  });
+
+  const btnGenerate = document.createElement("button");
+  btnGenerate.type = "button";
+  btnGenerate.className = "btn btn-primary btn-small";
+  btnGenerate.dataset.action = "generate-image";
+  btnGenerate.dataset.generateLabel = "primary";
+  btnGenerate.textContent =
+    item.status === "ok" && item.previewUrl ? "Перегенерировать" : "Сгенерировать";
+  btnGenerate.addEventListener("click", async () => {
+    const hasFile = item.status === "ok" && item.previewUrl;
+    if (
+      hasFile &&
+      !window.confirm("Перегенерировать изображение? Текущий файл будет заменён.")
+    ) {
+      return;
+    }
+    btnGenerate.disabled = true;
+    const status = promptBlock.querySelector(".image-slot__gen-status");
+    if (status) {
+      status.textContent = "Генерация…";
+    }
+    try {
+      await generateFrameImage(item);
+      await refreshDialogue();
+      if (status) {
+        status.textContent = hasFile ? "Изображение заменено" : "Готово";
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = err instanceof Error ? err.message : String(err);
+      }
+    } finally {
+      updateImageProviderControls();
+    }
+  });
+
+  const genStatus = document.createElement("span");
+  genStatus.className = "image-slot__gen-status style-prompt-status";
+  genStatus.setAttribute("aria-live", "polite");
+
+  promptActions.append(btnSuggest, btnGenerate, genStatus);
+  promptBlock.append(promptLabel, promptInput, promptActions);
+  slot.append(promptBlock);
+
+  if (item.status === "ok" && item.previewUrl) {
+    const correctionBlock = document.createElement("div");
+    correctionBlock.className = "image-slot__correction-edit image-card__correction-edit";
+
+    const editLabel = document.createElement("label");
+    editLabel.className = "image-card__prompt-label";
+    editLabel.textContent = "Правки к кадру";
+
+    const editInput = document.createElement("textarea");
+    editInput.className = "image-card__prompt-input";
+    editInput.rows = 2;
+    editInput.placeholder = "Что изменить на уже готовом фото…";
+    editInput.value = item.imageEditPrompt ?? "";
+    editInput.addEventListener("input", () => {
+      const idx = item.messageIndex;
+      if (imageEditPromptSaveTimers.has(idx)) {
+        clearTimeout(imageEditPromptSaveTimers.get(idx));
+      }
+      imageEditPromptSaveTimers.set(
+        idx,
+        setTimeout(() => {
+          setJsonImageEditPrompt(idx, editInput.value);
+          imageEditPromptSaveTimers.delete(idx);
+        }, 400),
+      );
+    });
+
+    const editActions = document.createElement("div");
+    editActions.className = "image-card__prompt-edit-actions";
+
+    const btnCorrect = document.createElement("button");
+    btnCorrect.type = "button";
+    btnCorrect.className = "btn btn-secondary btn-small";
+    btnCorrect.textContent = "Применить правки";
+    btnCorrect.addEventListener("click", async () => {
+      btnCorrect.disabled = true;
+      if (genStatus) {
+        genStatus.textContent = "Правка изображения…";
+      }
+      try {
+        await correctFrameImage(item, editInput.value);
+        await refreshDialogue();
+        if (genStatus) {
+          genStatus.textContent = "Правки применены";
+        }
+      } catch (err) {
+        if (genStatus) {
+          genStatus.textContent = err instanceof Error ? err.message : String(err);
+        }
+      } finally {
+        btnCorrect.disabled = false;
+        updateImageProviderControls();
+      }
+    });
+
+    editActions.append(btnCorrect);
+    correctionBlock.append(editLabel, editInput, editActions);
+    slot.append(correctionBlock);
+  }
+
   const actions = document.createElement("div");
   actions.className = "image-slot__actions";
 
@@ -1809,9 +1979,34 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
     time.textContent = message.sentAt;
     head.append(time);
   }
+
+  const messageText = String(message.text ?? "").trim();
+  if (messageText) {
+    const btnRegen = document.createElement("button");
+    btnRegen.type = "button";
+    btnRegen.className = "dialogue-msg__regen btn btn-secondary btn-small";
+    btnRegen.textContent = "↻";
+    btnRegen.title = "Переписать реплику (ChatGPT)";
+    btnRegen.disabled = !openrouterConfigured;
+    btnRegen.addEventListener("click", async () => {
+      btnRegen.disabled = true;
+      const prevTitle = btnRegen.title;
+      btnRegen.title = "Переписываю…";
+      try {
+        await regenerateMessageFromIndex(messageIndex);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : String(err));
+      } finally {
+        btnRegen.disabled = !openrouterConfigured;
+        btnRegen.title = prevTitle;
+      }
+    });
+    head.append(btnRegen);
+  }
+
   inner.append(head);
 
-  const text = String(message.text ?? "").trim();
+  const text = messageText;
   if (text) {
     const bubble = document.createElement("div");
     bubble.className = "dialogue-msg__bubble";
@@ -2468,6 +2663,40 @@ const generateDialogueFromPrompt = async () => {
   return data;
 };
 
+const regenerateMessageFromIndex = async (messageIndex) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  if (!canGenerateDialogue()) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  const body = {
+    json,
+    messageIndex,
+    mode: editorKind,
+  };
+  if (editorKind === "series") {
+    body.seriesId = seriesIdInput?.value.trim() ?? "";
+  }
+
+  const res = await fetch("/api/dialogues/regenerate-message", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка переписывания реплики");
+  }
+
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  return data;
+};
+
 const refineDialogueFromPrompt = async () => {
   const refinePrompt = dialogueRefinePromptInput?.value.trim() ?? "";
   if (!refinePrompt) {
@@ -2632,6 +2861,17 @@ const applyApiStatusToEditor = (data) => {
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateDialogueGenerateControls();
+  updateMessageRegenControls();
+};
+
+const updateMessageRegenControls = () => {
+  const available = openrouterConfigured;
+  for (const btn of document.querySelectorAll(".dialogue-msg__regen")) {
+    btn.disabled = !available;
+    btn.title = available
+      ? "Переписать реплику (ChatGPT)"
+      : "Задайте OPENROUTER_API_KEY в docs/.env";
+  }
 };
 
 const appendApiStatusSection = (title, bodyEl) => {
@@ -2706,6 +2946,7 @@ const loadOpenRouterStatus = async () => {
     openrouterConfigured = false;
     openrouterImageAvailable = false;
     updateImageProviderControls();
+    updateMessageRegenControls();
   }
 };
 

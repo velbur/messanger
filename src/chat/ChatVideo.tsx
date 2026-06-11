@@ -16,6 +16,7 @@ import {getTheme, LAYOUT} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatHeader} from "./components/ChatHeader";
 import {InputBar} from "./components/InputBar";
+import {FullscreenImage} from "./components/FullscreenImage";
 import {MessageBubble} from "./components/MessageBubble";
 import {StatusBar} from "./components/StatusBar";
 import {TypingIndicator} from "./components/TypingIndicator";
@@ -43,7 +44,30 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const inTitleCard = inIntro || inEndCard;
 
   const inOutro = !inTitleCard && outro.enabled && frame >= timeline.outroStartFrame;
-  const chatDim = inOutro
+
+  const activeFullscreenEvent = timeline.events.find(
+    (event) =>
+      event.image &&
+      event.fullscreenFrames > 0 &&
+      frame >= event.revealFrame &&
+      frame < event.fullscreenEndFrame,
+  );
+
+  const fullscreenDim = activeFullscreenEvent
+    ? interpolate(
+        frame,
+        [
+          activeFullscreenEvent.revealFrame,
+          activeFullscreenEvent.revealFrame + 8,
+          activeFullscreenEvent.fullscreenEndFrame - 8,
+          activeFullscreenEvent.fullscreenEndFrame,
+        ],
+        [1, 0, 0, 1],
+        {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+      )
+    : 1;
+
+  const outroDim = inOutro
     ? interpolate(
         frame,
         [timeline.outroStartFrame, timeline.outroStartFrame + 20],
@@ -51,6 +75,8 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
       )
     : 1;
+
+  const chatDim = Math.min(fullscreenDim, outroDim);
 
   const activeEvent = timeline.events.find(
     (event) => frame >= event.typingStartFrame && frame < event.revealFrame,
@@ -179,6 +205,17 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             durationFrames={timeline.endCardDurationFrames}
           />
         ) : null}
+
+        {timeline.events.map((event) =>
+          event.image && event.fullscreenFrames > 0 ? (
+            <FullscreenImage
+              key={`fullscreen-${event.index}`}
+              image={event.image}
+              startFrame={event.revealFrame}
+              durationFrames={event.fullscreenFrames}
+            />
+          ) : null,
+        )}
 
         {timeline.events.map((event) => (
           <React.Fragment key={`sound-${event.index}`}>

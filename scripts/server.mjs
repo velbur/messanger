@@ -53,7 +53,12 @@ import {
   getOpenRouterImageModel,
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
-import {generateDialogue, isDialogueLlmConfigured, refineDialogue} from "./dialogue-gen.mjs";
+import {
+  generateDialogue,
+  isDialogueLlmConfigured,
+  refineDialogue,
+  regenerateMessage,
+} from "./dialogue-gen.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
 import {previewImagePrompt, readStylePrompt, writeStylePrompt} from "./image-prompt.mjs";
 import {
@@ -841,6 +846,61 @@ app.post("/api/dialogues/generate", async (req, res) => {
       expandedFrom: result.expandedFrom ?? null,
       messageCount: result.conversation?.messages?.length ?? 0,
       contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/dialogues/regenerate-message", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {json: jsonText, messageIndex, instruction, mode: modeRaw, seriesId} = req.body ?? {};
+
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (typeof messageIndex !== "number" || messageIndex < 0) {
+      res.status(400).json({error: "Поле messageIndex обязательно"});
+      return;
+    }
+    if (!isDialogueLlmConfigured()) {
+      res.status(400).json({
+        error: "OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env (диалоги через ChatGPT)",
+      });
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      res.status(400).json({error: "Некорректный JSON"});
+      return;
+    }
+
+    const conversation = parseConversation(parsed);
+    const mode = modeRaw === "series" ? "series" : "shorts";
+    const normalizedSeriesId =
+      mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
+
+    const result = await regenerateMessage({
+      conversation,
+      messageIndex,
+      instruction: typeof instruction === "string" ? instruction : undefined,
+      mode,
+      seriesId: normalizedSeriesId || "usssr",
+    });
+
+    res.json({
+      conversation: result.conversation,
+      message: result.message,
+      messageIndex: result.messageIndex,
+      model: result.model,
+      attempts: result.attempts,
+      mode: result.mode,
+      provider: result.provider ?? "openrouter",
     });
   } catch (error) {
     res.status(400).json({error: formatOpenRouterError(error)});

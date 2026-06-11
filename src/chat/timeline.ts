@@ -7,6 +7,9 @@ import {msToFrames} from "./fps";
 /** Пауза на последнем кадре переписки перед заставками (без TIMING_SCALE) */
 export const POST_LAST_MESSAGE_TAIL_MS = 3000;
 
+/** Полноэкранный показ фото после появления в чате (без TIMING_SCALE) */
+export const IMAGE_FULLSCREEN_MS = 3000;
+
 export type MessageTimelineEvent = {
   index: number;
   author: "me" | "them";
@@ -17,6 +20,9 @@ export type MessageTimelineEvent = {
   typingStartFrame: number;
   typingEndFrame: number;
   revealFrame: number;
+  /** Кадр, когда заканчивается полноэкранный показ (только для сообщений с image) */
+  fullscreenEndFrame: number;
+  fullscreenFrames: number;
   endFrame: number;
   pauseFrames: number;
   typingFrames: number;
@@ -49,7 +55,10 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     const typingStartFrame = cursor + pauseFrames;
     const typingEndFrame = typingStartFrame + typingFrames;
     const revealFrame = typingEndFrame;
-    const endFrame = revealFrame + postRevealFrames;
+    const hasImage = Boolean(message.image?.trim());
+    const fullscreenFrames = hasImage ? msToFrames(IMAGE_FULLSCREEN_MS) : 0;
+    const fullscreenEndFrame = revealFrame + fullscreenFrames;
+    const endFrame = fullscreenEndFrame + postRevealFrames;
 
     events.push({
       index,
@@ -61,6 +70,8 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
       typingStartFrame,
       typingEndFrame,
       revealFrame,
+      fullscreenEndFrame,
+      fullscreenFrames,
       endFrame,
       pauseFrames,
       typingFrames,
