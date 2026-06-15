@@ -1,0 +1,35 @@
+{
+  "contactName": "Анна",
+  "contactStatus": "в сети",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Привет! Нужен ролик для сторис с имитацией чата.",
+      "sentAt": "12:31"
+    },
+    {
+      "author": "me",
+      "text": "Супер, сделаю в формате 9:16 и 60 FPS.",
+      "sentAt": "12:31"
+    },
+    {
+      "author": "them",
+      "image": "images/demo.svg",
+      "text": "Вот референс для сторис :fire:",
+      "sentAt": "12:32"
+    },
+    {
+      "author": "me",
+      "image": "images/demo.svg",
+      "sentAt": "12:32"
+    },
+    {
+      "author": "me",
+      "text": "Готово :check: Экспорт будет MP4 (H.264 + AAC).",
+      "sentAt": "12:32"
+    }
+  ]
+}

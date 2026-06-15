@@ -83,7 +83,7 @@ let pollTimer = null;
 let activeRenderJobId = null;
 let openrouterConfigured = false;
 let openrouterImageAvailable = false;
-let openrouterTextModel = "openai/gpt-5.5";
+let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "openai/gpt-5.4-image-2";
 
 const canGenerateImages = () => openrouterImageAvailable;
@@ -2633,6 +2633,17 @@ const updateGenerateImagesControls = (conversation = null) => {
   }
 };
 
+const clearShortsJsonBeforeGenerate = () => {
+  if (!jsonInput.value.trim()) {
+    return;
+  }
+  jsonInput.value = "";
+  dialoguePanel.hidden = true;
+  dialogueEditor.replaceChildren();
+  updateGenerateImagesControls(null);
+  updateRefineDialogueControls();
+};
+
 const generateDialogueFromPrompt = async () => {
   const prompt = dialoguePromptInput?.value.trim() ?? "";
   if (!prompt) {
@@ -2640,6 +2651,10 @@ const generateDialogueFromPrompt = async () => {
   }
   if (!canGenerateDialogue()) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  if (editorKind === "shorts") {
+    clearShortsJsonBeforeGenerate();
   }
 
   const includeImages = dialogueIncludeImages?.checked !== false;

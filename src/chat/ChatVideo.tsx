@@ -11,7 +11,7 @@ import {mergeConversationOutro} from "./outro";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildTimeline, visibleMessageCountAtFrame} from "./timeline";
+import {buildTimeline, FULLSCREEN_TIMELINE_REV, visibleMessageCountAtFrame} from "./timeline";
 import {getTheme, LAYOUT} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -209,7 +209,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         {timeline.events.map((event) =>
           event.image && event.fullscreenFrames > 0 ? (
             <FullscreenImage
-              key={`fullscreen-${event.index}`}
+              key={`fullscreen-${event.index}-${FULLSCREEN_TIMELINE_REV}`}
               image={event.image}
               startFrame={event.fullscreenStartFrame}
               durationFrames={event.fullscreenFrames}

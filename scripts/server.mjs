@@ -839,7 +839,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
     const result = await generateDialogue({
       prompt,
-      previousMessages: contextMessages,
+      previousMessages: mode === "series" ? contextMessages : undefined,
       includeImages: includeImages !== false,
       mode,
       seriesId: normalizedSeriesId || "usssr",

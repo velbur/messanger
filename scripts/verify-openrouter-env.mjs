@@ -49,7 +49,7 @@ try {
   // 4. Модели читаются
   await setEnvKey(TEST_KEY);
   await loadOpenRouterEnv();
-  assert(getOpenRouterTextModel() === "openai/gpt-5.5", "text model из .env");
+  assert(getOpenRouterTextModel() === "openai/gpt-5.4", "text model из .env");
 
   console.log("verify-openrouter-env: ok");
 } finally {

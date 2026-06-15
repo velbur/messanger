@@ -6,6 +6,8 @@ import {bundle} from "@remotion/bundler";
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
 const ENTRY_POINT = path.join(PROJECT_ROOT, "src/index.ts");
 const PUBLIC_DIR = path.join(PROJECT_ROOT, "public");
+const PUBLIC_CONVERSATION = path.join(PUBLIC_DIR, "conversation.json");
+const DEFAULT_CONVERSATION = path.join(PROJECT_ROOT, "src/default-conversation.json");
 const BUNDLE_OUT_DIR = path.join(PROJECT_ROOT, ".cache/remotion-bundle");
 const META_FILE = path.join(BUNDLE_OUT_DIR, ".bundle-meta.json");
 
@@ -157,13 +159,52 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
   try {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
     return (
-      bundleJs.includes("IMAGE_FULLSCREEN_DELAY_MS") &&
-      bundleJs.includes("IMAGE_FULLSCREEN_MS") &&
-      bundleJs.includes("FullscreenImage")
+      bundleJs.includes("fs-delay-2000-v2") &&
+      bundleJs.includes("fullscreenStartFrame") &&
+      bundleJs.includes("FullscreenImage") &&
+      bundleJs.includes("default-conversation.json")
     );
   } catch {
     return false;
   }
+};
+
+/** Remotion Studio / старый Root.tsx импортируют public/conversation.json при сборке bundle */
+const ensurePublicConversationJson = async () => {
+  try {
+    await access(PUBLIC_CONVERSATION);
+    return;
+  } catch {
+    // нет файла — создаём из src/default-conversation.json
+  }
+
+  await mkdir(PUBLIC_DIR, {recursive: true});
+  try {
+    await cp(DEFAULT_CONVERSATION, PUBLIC_CONVERSATION);
+    return;
+  } catch {
+    // fallback если src/ ещё не обновлён на воркере
+  }
+
+  await writeFile(
+    PUBLIC_CONVERSATION,
+    `${JSON.stringify(
+      {
+        contactName: "Contact",
+        contactStatus: "в сети",
+        contactAvatar: "avatar.svg",
+        wallpaper: "default",
+        myName: "You",
+        messages: [
+          {author: "them", text: "Привет", sentAt: "12:00"},
+          {author: "me", text: "Привет", sentAt: "12:01"},
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 };
 
 const isBundleFresh = async (bundleLocation) => {
@@ -263,6 +304,7 @@ export const getBundleLocation = async (opts = {}) => {
 
   onStatus("Сборка Remotion bundle…");
   await mkdir(BUNDLE_OUT_DIR, {recursive: true});
+  await ensurePublicConversationJson();
 
   const bundleLocation = await bundle({
     entryPoint: ENTRY_POINT,

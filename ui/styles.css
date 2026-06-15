@@ -160,6 +160,13 @@ body {
   cursor: pointer;
 }
 
+.dialogue-gen-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 8px;
+}
+
 .title-cards__input {
   width: 100%;
 }

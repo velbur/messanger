@@ -181,10 +181,12 @@
             spellcheck="false"
             placeholder="Опишите часть истории, героев и финал сцены…"
           ></textarea>
-          <label class="title-cards__row dialogue-gen-options">
-            <input type="checkbox" id="dialogueIncludeImages" checked />
-            <span>С фото в переписке (imagePrompt)</span>
-          </label>
+          <div class="dialogue-gen-options">
+            <label class="title-cards__row">
+              <input type="checkbox" id="dialogueIncludeImages" checked />
+              <span>С фото в переписке (imagePrompt)</span>
+            </label>
+          </div>
           <div class="actions actions--inline">
             <button type="button" id="btnGenerateDialogue" class="btn btn-secondary">
               Сгенерировать диалог

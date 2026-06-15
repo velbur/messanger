@@ -3,7 +3,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
-const DEFAULT_TEXT_MODEL = "openai/gpt-5.5";
+const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 const DEFAULT_IMAGE_MODEL = "openai/gpt-5.4-image-2";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";

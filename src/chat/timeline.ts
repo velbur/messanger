@@ -13,6 +13,12 @@ export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
 /** Полноэкранный показ фото (без TIMING_SCALE) */
 export const IMAGE_FULLSCREEN_MS = 3000;
 
+/**
+ * Ревизия таймлайна fullscreen — попадает в Remotion bundle для проверки кэша.
+ * При смене задержки/логики увеличить и обновить маркер в scripts/bundle-cache.mjs.
+ */
+export const FULLSCREEN_TIMELINE_REV = "fs-delay-2000-v2";
+
 export type MessageTimelineEvent = {
   index: number;
   author: "me" | "them";

@@ -114,7 +114,9 @@ APP_VOLUMES=(
   -v "${ROOT}/out:/app/out"
   -v "${ROOT}/public:/app/public"
   -v "${ROOT}/prompts:/app/prompts"
+  -v "${ROOT}/series:/app/series:ro"
   -v "${ROOT}/data:/app/data"
+  -v "${ROOT}/ui:/app/ui:ro"
   -v "${ROOT}/src:/app/src:ro"
   -v "${ROOT}/scripts:/app/scripts:ro"
   -v "${ROOT}/.cache:/app/.cache"
@@ -279,7 +281,8 @@ cmd_worker() {
 
   echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
-  echo "Важно: после git pull перезапустите воркер (src/ монтируется с хоста)."
+  echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
+  echo "Если рендер падает на conversation.json — на этой машине: git pull && перезапуск воркера."
   echo "Остановка: Ctrl+C"
 
   run_server_container "chat-video-worker" "${WORKER_PORT}"

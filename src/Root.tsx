@@ -4,7 +4,7 @@ import {ChatVideo} from "./chat/ChatVideo";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
-import sample from "../public/conversation.json";
+import sample from "./default-conversation.json";
 
 type Props = {
   conversation: ConversationInput;

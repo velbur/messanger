@@ -79,6 +79,17 @@ const buildJsonFormatBlock = ({
   return lines;
 };
 
+const buildEmojiRules = () => [
+  "- Используй emoji в text там, где это уместно в переписке: ирония, смягчение, тёплая реакция, короткая шутка.",
+  "- Не ставь emoji в каждой реплике и не используй их в напряжённых, страшных или отчаянных моментах.",
+];
+
+const buildShortsNameRules = () => [
+  "- Придумай новых героев для этой истории; contactName — свежее имя по сюжету.",
+  "- Не повторяй имена из других роликов и чужих переписок (Кирилл, Лена, Макс и т.п.), если пользователь явно не назвал героя.",
+  "- Если в задании нет имени — выбери небанальное, но правдоподобное для WhatsApp.",
+];
+
 const buildImageRules = (includeImages, {ussrStyle = false} = {}) => {
   if (includeImages) {
     return [
@@ -113,6 +124,7 @@ const buildSeriesSystemPrompt = async ({includeImages = true, seriesId = DEFAULT
     "- author: me = Алиса (2026), them = Даня (1984) или другое имя контакта.",
     "- Короткие реплики, как в мессенджере. Длинные мысли разбивай на несколько сообщений.",
     "- sentAt — время в формате HH:MM, логично растёт по ходу сцены.",
+    ...buildEmojiRules(),
     ...buildImageRules(includeImages, {ussrStyle: true}),
     "- Не добавляй системные сообщения, третьих персонажей в чате, хоррор и мистику.",
     "- Можно добавить intro, endCard, music только если это явно просит пользователь.",
@@ -136,12 +148,14 @@ const buildShortsSystemPrompt = ({includeImages = true} = {}) =>
     "- displayTitle: цепляющее название на русском для списка роликов.",
     "- Герои — новые для этой истории. myName — «Я» или имя из задания пользователя.",
     "- contactName — имя собеседника по сюжету; не используй Алису, Даню, СССР и серию «Пока в СССР», если пользователь явно не просит.",
+    ...buildShortsNameRules(),
     "- Каждая реплика короткая, как в мессенджере; длинные мысли разбивай на несколько сообщений.",
     "- messages — полная переписка целиком: от первого сообщения до финала сцены.",
     "- Не обрывай историю, пока задание пользователя не выполнено.",
     "- sentAt — время в формате HH:MM, логично растёт по ходу сцены.",
     "- Длину, тон, жанр и финал бери только из задания пользователя.",
     "- Не ссылайся на предыдущие части или другие истории.",
+    ...buildEmojiRules(),
     ...buildImageRules(includeImages, {ussrStyle: false}),
     "- Не добавляй системные сообщения и третьих персонажей в чате.",
     "- Не добавляй intro, endCard, music — только displayTitle и переписку.",
@@ -207,6 +221,9 @@ const buildUserPrompt = ({prompt, previousMessages, includeImages = true, mode =
     parts.push(
       "Не используй Алису, Даню и сеттинг СССР, если в задании нет прямой отсылки к ним.",
     );
+    parts.push(
+      "Имена героев придумай заново для этой истории; не копируй contactName из чужих диалогов.",
+    );
     parts.push("", "Обязательно добавь displayTitle на русском.");
   }
 
@@ -222,6 +239,7 @@ const buildShortsExpandUserPrompt = ({prompt, conversation, displayTitle, includ
     "",
     "Ниже черновик переписки. Разверни и допиши его до полного завершения сцены по заданию.",
     "Сохрани удачные реплики, добавь развитие, детали, диалог и финал.",
+    "Если в черновике имя или сюжет не совпадают с заданием — исправь contactName и героев по заданию.",
     "Верни полный JSON с полным массивом messages — не обрывай историю на полпути.",
     includeImages
       ? "Можно добавить фото-сообщения с imagePrompt (без text)."
@@ -246,7 +264,7 @@ const buildRegenerateMessageSystemPrompt = async ({
     "- Пользователь указывает одно сообщение в готовой переписке.",
     "- Верни только JSON вида {\"message\":{...}} — один объект сообщения.",
     "- author не меняй. image, imagePrompt, imageEditPrompt сохраняй как в оригинале, если пользователь не просит иначе.",
-    "- Перепиши text: сделай реплику естественнее для WhatsApp, без кринжа и штампов.",
+    "- Перепиши text: сделай реплику естественнее для WhatsApp, без кринжа и штампов; emoji — где уместно.",
     "- sentAt можно слегка подправить (±1–2 мин), формат HH:MM.",
   ].join("\n");
 };
@@ -390,7 +408,9 @@ export const generateDialogue = async ({
 
   const normalizedMode = mode === "series" ? "series" : "shorts";
   const contextMessages =
-    normalizedMode === "series" && Array.isArray(previousMessages) ? previousMessages : undefined;
+    normalizedMode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0
+      ? previousMessages
+      : undefined;
 
   const system = await buildSystemPrompt({mode: normalizedMode, includeImages, seriesId});
   const user = buildUserPrompt({
