@@ -6,7 +6,7 @@ import {Readable} from "node:stream";
 import express from "express";
 import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
-import {TIMING_SCALE} from "../src/chat/timing.ts";
+import {estimateMessagesDurationMs, TIMING_SCALE} from "../src/chat/timing.ts";
 import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
@@ -305,7 +305,10 @@ const processQueue = async () => {
 
   job.status = "running";
   job.logs.push("Рендер запущен…");
-  job.logs.push(`Тайминг переписки: scale ${TIMING_SCALE}`);
+  const messagesMs = estimateMessagesDurationMs(job.conversation);
+  job.logs.push(
+    `Тайминг переписки: scale ${TIMING_SCALE}, ~${(messagesMs / 1000).toFixed(1)} с на сообщения`,
+  );
 
   const {cancelSignal, cancel} = makeCancelSignal();
   job.cancel = cancel;
