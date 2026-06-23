@@ -65,7 +65,6 @@ import {
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {readShortsCorpusSummary, updateShortsCorpusSummary} from "./shorts-corpus.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
-import {SHORTS_STORY_TEMPLATES} from "./shorts-story-templates.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
@@ -446,10 +445,6 @@ app.get("/api/shorts/styles", async (_req, res) => {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-});
-
-app.get("/api/shorts/templates", (_req, res) => {
-  res.json({templates: SHORTS_STORY_TEMPLATES});
 });
 
 app.post("/api/shorts/pre-render-check", (req, res) => {

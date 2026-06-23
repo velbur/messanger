@@ -783,17 +783,6 @@ body.lightbox-open {
   background: #4d5d68;
 }
 
-.story-templates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.story-templates__btn {
-  white-space: nowrap;
-}
-
 .pre-render-checklist {
   margin-top: 10px;
   padding: 10px 12px;

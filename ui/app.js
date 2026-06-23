@@ -79,7 +79,6 @@ const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
 const btnCheckLogic = document.getElementById("btnCheckLogic");
 const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const btnYoutubeMetadata = document.getElementById("btnYoutubeMetadata");
-const shortsStoryTemplates = document.getElementById("shortsStoryTemplates");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const youtubeDescriptionInput = document.getElementById("youtubeDescriptionInput");
 const youtubeTitleVariants = document.getElementById("youtubeTitleVariants");
@@ -319,9 +318,6 @@ const syncEditorKindUi = () => {
   if (dialogueTitleInput) {
     dialogueTitleInput.placeholder = isSeries ? "poka_v_sssr_part3" : "Когда кот сел на клавиатуру";
   }
-  if (shortsStoryTemplates) {
-    shortsStoryTemplates.hidden = isSeries || shortsStoryTemplates.childElementCount === 0;
-  }
   if (preRenderChecklist && isSeries) {
     preRenderChecklist.hidden = true;
   }
@@ -544,9 +540,6 @@ const switchEditorKind = async (nextKind) => {
   }
   editorKind = normalized;
   syncEditorKindUi();
-  if (normalized === "shorts") {
-    void loadStoryTemplates();
-  }
   if (editorVisible) {
     await restoreEditorSnapshot(editorSnapshots[normalized]);
   }
@@ -1429,47 +1422,6 @@ const loadShortsStyles = async () => {
     }
   } catch {
     populateDialogueStyleOptions();
-  }
-};
-
-const renderStoryTemplateButtons = (templates) => {
-  if (!shortsStoryTemplates) {
-    return;
-  }
-  shortsStoryTemplates.replaceChildren();
-  const lang = getDialogueLanguage();
-  for (const item of templates) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn btn-secondary btn-small story-templates__btn";
-    btn.textContent = item.label;
-    btn.addEventListener("click", () => {
-      if (dialogueStyle) {
-        dialogueStyle.value = item.style in shortsStylesMeta ? item.style : DEFAULT_DIALOGUE_STYLE;
-      }
-      applyShortsStyleDefaults();
-      if (dialoguePromptInput) {
-        dialoguePromptInput.value = lang === "en" ? item.promptEn : item.promptRu;
-        saveLastShortsPrompt(dialoguePromptInput.value);
-      }
-    });
-    shortsStoryTemplates.append(btn);
-  }
-  shortsStoryTemplates.hidden = editorKind !== "shorts" || templates.length === 0;
-};
-
-const loadStoryTemplates = async () => {
-  try {
-    const res = await fetch("/api/shorts/templates");
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "templates");
-    }
-    renderStoryTemplateButtons(Array.isArray(data.templates) ? data.templates : []);
-  } catch {
-    if (shortsStoryTemplates) {
-      shortsStoryTemplates.hidden = true;
-    }
   }
 };
 
@@ -3923,5 +3875,4 @@ const loadOpenRouterStatus = async () => {
 loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
 loadShortsStyles();
-loadStoryTemplates();
 loadBrowseOnStartup();
