@@ -115,8 +115,3 @@ export const expandEmojis = (text: string, custom?: Record<string, string>): str
 
 /** Длина строки с учётом emoji (суррогатные пары). */
 export const charCount = (text: string): number => [...text].length;
-
-/** Безопасная обрезка для анимации набора. */
-export const sliceChars = (text: string, count: number): string => {
-  return [...text].slice(0, Math.max(0, count)).join("");
-};

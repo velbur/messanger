@@ -12,8 +12,8 @@ UI_PORT="${UI_PORT:-3333}"
 WORKER_PORT="${WORKER_PORT:-3333}"
 RENDER_CONCURRENCY="${RENDER_CONCURRENCY:-}"
 
-# docker или podman: CONTAINER=podman ./run.sh worker
-CONTAINER="${CONTAINER:-docker}"
+# docker или podman; если CONTAINER не задан — docker, иначе podman
+CONTAINER="${CONTAINER:-}"
 
 usage() {
   cat <<'EOF'
@@ -38,7 +38,7 @@ usage() {
 
 Переменные окружения:
   IMAGE              Имя Docker-образа (по умолчанию: chat-video-generator)
-  CONTAINER          docker или podman (по умолчанию: docker)
+  CONTAINER          docker или podman (если не задан — docker, иначе podman)
   STUDIO_PORT        Порт Remotion Studio (по умолчанию: 3000)
   UI_PORT            Порт веб-интерфейса (по умолчанию: 3333)
   WORKER_PORT        Порт render-воркера (по умолчанию: 3333)
@@ -62,6 +62,42 @@ resolve_path() {
     echo "$p"
   else
     echo "${ROOT}/${p}"
+  fi
+}
+
+resolve_container() {
+  if [[ -n "$CONTAINER" ]]; then
+    if ! command -v "$CONTAINER" >/dev/null 2>&1; then
+      echo "Команда контейнера не найдена: $CONTAINER" >&2
+      exit 1
+    fi
+    return
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    CONTAINER=docker
+  elif command -v podman >/dev/null 2>&1; then
+    CONTAINER=podman
+  else
+    echo "Не найден docker или podman. Установите один из них или задайте CONTAINER=podman ./run.sh …" >&2
+    exit 1
+  fi
+}
+
+ensure_project_dirs() {
+  mkdir -p \
+    "${ROOT}/json" \
+    "${ROOT}/out" \
+    "${ROOT}/public/images" \
+    "${ROOT}/public/sounds" \
+    "${ROOT}/public/music" \
+    "${ROOT}/data" \
+    "${ROOT}/prompts" \
+    "${ROOT}/series" \
+    "${ROOT}/.cache"
+
+  if [[ ! -f "${ROOT}/public/conversation.json" ]] && [[ -f "${ROOT}/src/default-conversation.json" ]]; then
+    cp "${ROOT}/src/default-conversation.json" "${ROOT}/public/conversation.json"
   fi
 }
 
@@ -124,6 +160,7 @@ APP_VOLUMES=(
 
 cmd_render() {
   parse_render_args "$@"
+  ensure_project_dirs
 
   if [[ ! -f "$INPUT" ]]; then
     echo "Файл не найден: $INPUT" >&2
@@ -159,6 +196,7 @@ cmd_render() {
 }
 
 cmd_dev() {
+  ensure_project_dirs
   ensure_image
 
   "$CONTAINER" run --rm -it \
@@ -170,6 +208,7 @@ cmd_dev() {
 }
 
 cmd_shell() {
+  ensure_project_dirs
   ensure_image
   "$CONTAINER" run --rm -it \
     -v "${ROOT}/public:/app/public" \
@@ -209,7 +248,7 @@ run_server_container() {
   local host_port="$2"
   shift 2
 
-  mkdir -p "${ROOT}/json" "${ROOT}/out" "${ROOT}/.cache"
+  ensure_project_dirs
 
   local -a env_args=(
     -e "PORT=3333"
@@ -293,6 +332,16 @@ main() {
   shift || true
 
   case "$cmd" in
+    -h|--help|help)
+      usage
+      exit 0
+      ;;
+  esac
+
+  resolve_container
+  echo "Контейнер: $CONTAINER"
+
+  case "$cmd" in
     build)
       cmd_build
       ;;
@@ -310,9 +359,6 @@ main() {
       ;;
     shell)
       cmd_shell
-      ;;
-    -h|--help|help)
-      usage
       ;;
     *)
       echo "Неизвестная команда: $cmd" >&2

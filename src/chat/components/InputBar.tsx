@@ -1,22 +1,17 @@
 import React from "react";
-import {useCurrentFrame} from "remotion";
 import {TEXT_FONT_FAMILY} from "../fonts";
 import {useChatTheme} from "../ThemeContext";
 import {CHROME, LAYOUT} from "../theme";
-import {MicIcon, PlusIcon, SendIcon, SmileIcon} from "./icons";
+import {MicIcon, PlusIcon, SmileIcon} from "./icons";
 
 type Props = {
-  typedText: string;
   placeholder?: string;
 };
 
 const I = CHROME.input;
 
-export const InputBar: React.FC<Props> = ({typedText, placeholder = "Сообщение"}) => {
+export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) => {
   const theme = useChatTheme();
-  const frame = useCurrentFrame();
-  const blink = Math.floor(frame / 25) % 2 === 0;
-  const hasText = typedText.length > 0;
 
   return (
     <div
@@ -63,17 +58,12 @@ export const InputBar: React.FC<Props> = ({typedText, placeholder = "Сообщ�
             flex: 1,
             fontFamily: TEXT_FONT_FAMILY,
             fontSize: I.textFontSize,
-            color: hasText ? theme.textPrimary : theme.inputPlaceholder,
+            color: theme.inputPlaceholder,
             lineHeight: 1.28,
           }}
         >
-          {typedText || placeholder}
+          {placeholder}
         </span>
-        {hasText ? (
-          <span style={{opacity: blink ? 1 : 0, fontFamily: TEXT_FONT_FAMILY, color: theme.textPrimary}}>
-            |
-          </span>
-        ) : null}
       </div>
 
       <div
@@ -85,11 +75,7 @@ export const InputBar: React.FC<Props> = ({typedText, placeholder = "Сообщ�
           flexShrink: 0,
         }}
       >
-        {hasText ? (
-          <SendIcon size={I.sendBtn} variant="circle" />
-        ) : (
-          <MicIcon size={I.fieldIcon} color={theme.inputIcon} strokeWidth={I.fieldIconStroke} />
-        )}
+        <MicIcon size={I.fieldIcon} color={theme.inputIcon} strokeWidth={I.fieldIconStroke} />
       </div>
     </div>
   );

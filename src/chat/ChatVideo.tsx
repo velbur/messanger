@@ -1,9 +1,6 @@
 import React, {useMemo} from "react";
 import {AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame} from "remotion";
 import type {ConversationInput} from "./schema";
-import {sliceChars} from "./emoji";
-import {messageCaption} from "./message";
-import {visibleCharCountAtProgress} from "./typingCurve";
 import {CHAT_FONT_FAMILY} from "./fonts";
 import {SubscribeOutro} from "./components/SubscribeOutro";
 import {TitleCard} from "./components/TitleCard";
@@ -91,18 +88,6 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
 
-  const activeCaption = activeEvent ? messageCaption(activeEvent) : "";
-  const typedText =
-    activeEvent?.author === "me" && activeCaption.length > 0
-      ? sliceChars(
-          activeCaption,
-          visibleCharCountAtProgress(
-            (frame - activeEvent.typingStartFrame) / Math.max(1, activeEvent.typingFrames),
-            activeCaption,
-          ),
-        )
-      : "";
-
   const isThemTyping = activeEvent?.author === "them";
   const headerStatus = isThemTyping
     ? messengerLocale.contactStatusTyping
@@ -182,7 +167,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
               paddingBottom: LAYOUT.shortsSafeAreaBottom,
             }}
           >
-            <InputBar typedText={typedText} placeholder={messengerLocale.inputPlaceholder} />
+            <InputBar placeholder={messengerLocale.inputPlaceholder} />
           </div>
         </div>
 
