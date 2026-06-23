@@ -100,6 +100,8 @@ const getRenderTargets = () => {
   return targets;
 };
 
+const getDefaultRenderTarget = () => (REMOTE_RENDER_URL ? "remote" : "local");
+
 const jobs = new Map();
 let jobCounter = 0;
 let renderBusy = false;
@@ -1469,7 +1471,7 @@ app.get("/api/example", async (_req, res) => {
 });
 
 app.get("/api/render-targets", (_req, res) => {
-  res.json({targets: getRenderTargets(), defaultTarget: "local"});
+  res.json({targets: getRenderTargets(), defaultTarget: getDefaultRenderTarget()});
 });
 
 /** Залить локальные картинки переписки на воркер (URL-ссылки пропускаем — они уже резолвятся локально) */
