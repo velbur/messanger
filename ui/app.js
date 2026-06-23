@@ -3474,6 +3474,9 @@ const refineDialogueFromPrompt = async () => {
     ...getDialogueGenOptions(),
     mode: editorKind,
   };
+  if (editorKind === "shorts") {
+    body.dialogueStyle = normalizeDialogueStyle(dialogueStyle?.value);
+  }
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
   }

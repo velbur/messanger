@@ -119,11 +119,47 @@ const buildJsonFormatBlock = ({
   return lines;
 };
 
-const buildEmojiRules = (language = "ru") => {
+const buildEmojiRules = (language = "ru", dialogueStyle = "fun", mode = "shorts") => {
+  const isFunShorts = dialogueStyle === "fun" && mode === "shorts";
+  const isMysticShorts = dialogueStyle === "mystic" && mode === "shorts";
+
   if (language === "en") {
+    if (isMysticShorts) {
+      return [
+        "- Use emoji sparingly: uneasy reactions (😬 👀), almost never joke emoji.",
+        "- Skip emoji in the scariest or most serious beats.",
+      ];
+    }
+    if (isFunShorts) {
+      return [
+        "- Make the chat visually rich like real WhatsApp: emoji in reactions, jokes, and surprise.",
+        "- Aim for emoji in about half of text messages — not every line, but often enough to feel alive on screen.",
+        "- Mix reactions: 😂 🤣 😅 💀 🙈 😭 🔥 👀 ❤️ 🤦 🤷 plus light text laugh (lol, lmao) where natural.",
+        "- Max 2–3 emoji per message; don't stack unrelated emoji.",
+        "- CAPS ok for comic emphasis (WHAT, NO WAY) — sparingly.",
+        "- Skip emoji only in dead-serious beats right before a punchline lands.",
+      ];
+    }
     return [
       "- Use emoji in text where it fits messaging: irony, softening, warm reaction, quick joke.",
       "- Don't put emoji in every line; skip them in tense, scary, or desperate moments.",
+    ];
+  }
+
+  if (isMysticShorts) {
+    return [
+      "- Emoji редко: только нервные реакции (😬 👀), без комедийных смайлов.",
+      "- В самых тревожных репликах — без emoji.",
+    ];
+  }
+  if (isFunShorts) {
+    return [
+      "- Переписка должна выглядеть живой и богатой, как в реальном WhatsApp: emoji в реакциях, шутках, удивлении.",
+      "- В весёлом стиле — emoji примерно в половине текстовых реплик: не в каждой строке, но регулярно, чтобы на видео было «живее».",
+      "- Чередуй: 😂 🤣 😅 💀 🙈 😭 🔥 👀 ❤️ 🤦 🤷 и текстовый смех (ахах, ору, блин) где уместно.",
+      "- Не больше 2–3 emoji в одной реплике; не ставь несвязанные подряд.",
+      "- КАПС для комического акцента (ЧТО, НЕТ) — изредка, не в каждой реплике.",
+      "- Без emoji только в по-настоящему серьёзных моментах перед панчлайном.",
     ];
   }
   return [
@@ -315,7 +351,7 @@ const buildTemplateVars = async ({
     MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
-    EMOJI_RULES: buildEmojiRules(language).join("\n"),
+    EMOJI_RULES: buildEmojiRules(language, dialogueStyle, mode).join("\n"),
     IMAGE_RULES: buildImageRules(imageCount, {
       ussrStyle: ussrStyle || mode === "series",
       language,
@@ -399,11 +435,12 @@ const buildRefineSystemPrompt = async ({
   language = "ru",
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
+  dialogueStyle = "fun",
 } = {}) => {
   const base =
     mode === "series"
       ? await buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId})
-      : await buildShortsSystemPrompt({imageCount, messageCount, language});
+      : await buildShortsSystemPrompt({imageCount, messageCount, language, dialogueStyle});
 
   return [
     base,
@@ -968,6 +1005,7 @@ export const refineDialogue = async ({
   language,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
+  dialogueStyle = "fun",
   model,
   maxAttempts = 3,
 }) => {
@@ -991,6 +1029,7 @@ export const refineDialogue = async ({
     language: gen.language,
     mode: normalizedMode,
     seriesId,
+    dialogueStyle,
   });
   const user = buildRefineUserPrompt({
     conversation: validated,

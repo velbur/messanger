@@ -1120,7 +1120,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
 app.post("/api/dialogues/refine", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, model} =
+    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, dialogueStyle, model} =
       req.body ?? {};
     if (!refinePrompt || typeof refinePrompt !== "string" || !refinePrompt.trim()) {
       res.status(400).json({error: "Поле refinePrompt обязательно"});
@@ -1159,6 +1159,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
+      dialogueStyle: typeof dialogueStyle === "string" ? dialogueStyle : "fun",
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 

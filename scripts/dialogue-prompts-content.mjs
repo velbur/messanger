@@ -128,6 +128,7 @@ Check and fix:
 
   "shorts-style-fun-ru": `Стиль истории: качественная весёлая переписка для Shorts.
 Юмор должен быть человечным, наблюдательным и актуальным: узнаваемые ситуации, живые реакции, лёгкая ирония, хороший комедийный тайминг.
+Переписка визуально богатая: emoji в реакциях и шутках, живой ритм мессенджера, иногда КАПС и «ахах» — как в настоящем чате, не сухой текст.
 Не делай диалог глупым: без кривляния, тупых персонажей, случайного абсурда, натянутых мемов и дешёвых панчлайнов.
 Сюжет должен быть разнообразным и трендовым по ощущению, но не зависеть от одной быстро устаревающей шутки.
 Избегай повторов слов, одинаковых реакций и однотипных реплик. Каждое сообщение должно двигать сцену или усиливать шутку.
@@ -136,6 +137,7 @@ Check and fix:
   "shorts-style-fun-en": `Story style: high-quality funny WhatsApp chat for Shorts.
 Write humor for a native English-speaking audience — not a translation of Russian jokes, idioms, or comedy patterns.
 Comedy should feel natural in English texting culture: dry wit, understatement, awkward beats, relatable everyday chaos, light irony, good timing.
+Visually rich chat: emoji in reactions and punchlines, real messenger rhythm, occasional CAPS and lol/lmao — not dry plain text.
 Avoid: Russian-to-English joke logic, wordplay that only works in Russian, forced meme stacks, cringe slang dumps, random absurdity, dumb characters.
 Keep it smart and human — varied setups, fresh reactions, no repeated punchline structure.
 Ending: funny but believable — a twist, a human detail, or a perspective flip without absurdity.`,
