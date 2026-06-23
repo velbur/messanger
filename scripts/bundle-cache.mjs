@@ -159,7 +159,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
     return (
       bundleJs.includes("fs-delay-2000-v2") &&
-      bundleJs.includes("timing-scale-merged-v2") &&
+      bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("fullscreenStartFrame") &&
       bundleJs.includes("FullscreenImage") &&
       bundleJs.includes("default-conversation.json")

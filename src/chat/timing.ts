@@ -2,11 +2,11 @@ import {charCount} from "./emoji";
 import {hasMessageImage, messageCaption} from "./message";
 import type {ConversationInput, MessageInput} from "./schema";
 
-/** Множитель длительности переписки (0.245 = на 50% быстрее прежнего 0.49) */
-export const TIMING_SCALE = 0.245;
+/** Множитель длительности переписки */
+export const TIMING_SCALE = 0.5;
 
 /** Маркер в Remotion bundle — при смене тайминга обновить и проверку в bundle-cache.mjs */
-export const TIMING_BUNDLE_MARKER = "timing-scale-merged-v2";
+export const TIMING_BUNDLE_MARKER = "timing-scale-050-v1";
 
 export const scaleTimingMs = (ms: number): number =>
   Math.max(1, Math.round(ms * TIMING_SCALE));

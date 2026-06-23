@@ -12,6 +12,10 @@
     "pauseBeforeMs": 700,
     "durationMs": 2800
   },
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  },
   "messages": [
     {
       "author": "me",
@@ -115,9 +119,5 @@
       "text": "А за рулем... сижу я. Без движения.",
       "sentAt": "19:53"
     }
-  ],
-  "music": {
-    "enabled": true,
-    "src": "music/mystic.mp3"
-  }
+  ]
 }
