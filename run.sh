@@ -12,7 +12,7 @@ UI_PORT="${UI_PORT:-3333}"
 WORKER_PORT="${WORKER_PORT:-3333}"
 RENDER_CONCURRENCY="${RENDER_CONCURRENCY:-}"
 
-# docker или podman; если CONTAINER не задан — docker, иначе podman
+# docker или podman; если CONTAINER не задан — первый runtime, который реально отвечает
 CONTAINER="${CONTAINER:-}"
 
 usage() {
@@ -38,7 +38,7 @@ usage() {
 
 Переменные окружения:
   IMAGE              Имя Docker-образа (по умолчанию: chat-video-generator)
-  CONTAINER          docker или podman (если не задан — docker, иначе podman)
+  CONTAINER          docker или podman (если не задан — первый доступный runtime)
   STUDIO_PORT        Порт Remotion Studio (по умолчанию: 3000)
   UI_PORT            Порт веб-интерфейса (по умолчанию: 3333)
   WORKER_PORT        Порт render-воркера (по умолчанию: 3333)
@@ -65,23 +65,55 @@ resolve_path() {
   fi
 }
 
+container_runtime_ready() {
+  local runtime="$1"
+  command -v "$runtime" >/dev/null 2>&1 && "$runtime" info >/dev/null 2>&1
+}
+
 resolve_container() {
   if [[ -n "$CONTAINER" ]]; then
     if ! command -v "$CONTAINER" >/dev/null 2>&1; then
       echo "Команда контейнера не найдена: $CONTAINER" >&2
       exit 1
     fi
+    if ! container_runtime_ready "$CONTAINER"; then
+      echo "Ошибка: $CONTAINER установлен, но недоступен (демон не запущен?)." >&2
+      if [[ "$CONTAINER" == docker ]] && command -v podman >/dev/null 2>&1; then
+        echo "Попробуйте CONTAINER=podman ./run.sh … или запустите Docker." >&2
+      elif [[ "$CONTAINER" == podman ]]; then
+        echo "На macOS: podman machine start" >&2
+      fi
+      exit 1
+    fi
     return
   fi
 
-  if command -v docker >/dev/null 2>&1; then
+  if container_runtime_ready docker; then
     CONTAINER=docker
-  elif command -v podman >/dev/null 2>&1; then
+    return
+  fi
+
+  if container_runtime_ready podman; then
+    if command -v docker >/dev/null 2>&1; then
+      echo "docker не отвечает — используется podman." >&2
+    fi
     CONTAINER=podman
-  else
-    echo "Не найден docker или podman. Установите один из них или задайте CONTAINER=podman ./run.sh …" >&2
+    return
+  fi
+
+  if command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1; then
+    echo "Контейнерный runtime установлен, но недоступен." >&2
+    if command -v docker >/dev/null 2>&1; then
+      echo "  docker: запустите Docker Desktop или systemctl start docker" >&2
+    fi
+    if command -v podman >/dev/null 2>&1; then
+      echo "  podman: podman machine start (macOS) или проверьте сокет" >&2
+    fi
     exit 1
   fi
+
+  echo "Не найден docker или podman. Установите один из них или задайте CONTAINER=podman ./run.sh …" >&2
+  exit 1
 }
 
 ensure_project_dirs() {
