@@ -5,12 +5,6 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "dark",
   "myName": "Я",
-  "outro": {
-    "enabled": true,
-    "text": "Подпишись, если досмотрел до станции «Дом»",
-    "pauseBeforeMs": 900,
-    "durationMs": 2200
-  },
   "music": {
     "enabled": true,
     "src": "music/mystic.mp3",

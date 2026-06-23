@@ -9,12 +9,6 @@
     "src": "music/mystery_lofi.mp3",
     "volume": 0.22
   },
-  "outro": {
-    "enabled": true,
-    "text": "Подпишись, если досмотрел до станции «Дом»",
-    "pauseBeforeMs": 900,
-    "durationMs": 2200
-  },
   "messages": [
     {
       "author": "them",

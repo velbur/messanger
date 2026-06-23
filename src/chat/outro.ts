@@ -13,14 +13,14 @@ export type ConversationOutro = {
 };
 
 export const DEFAULT_OUTRO_RU: ConversationOutro = {
-  enabled: true,
+  enabled: false,
   text: "Подпишись :)",
   pauseBeforeMs: 700,
   durationMs: 2800,
 };
 
 export const DEFAULT_OUTRO_EN: ConversationOutro = {
-  enabled: true,
+  enabled: false,
   text: "Subscribe :)",
   pauseBeforeMs: 700,
   durationMs: 2800,

@@ -7,7 +7,7 @@ import express from "express";
 import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
 import {estimateMessagesDurationMs, TIMING_SCALE} from "../src/chat/timing.ts";
-import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
+import {buildNativeRenderCommand, getRenderConcurrency, renderChatThumbnail, renderChatVideo} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
 const isUserCancelledRender = (error) => {
@@ -60,9 +60,14 @@ import {
   refineDialogue,
   regenerateMessage,
   checkDialogueLogic,
+  regenerateEnding,
 } from "./dialogue-gen.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {readShortsCorpusSummary, updateShortsCorpusSummary} from "./shorts-corpus.mjs";
+import {extractCorpusTips} from "./shorts-corpus-tips.mjs";
+import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
+import {SHORTS_STORY_TEMPLATES} from "./shorts-story-templates.mjs";
+import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
 import {previewImagePrompt, readStylePrompt, writeStylePrompt} from "./image-prompt.mjs";
@@ -345,6 +350,19 @@ const processQueue = async () => {
     job.outputPath = outputAbs;
     job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
     job.logs.push(`Готово: ${outputAbs}`);
+    const thumbPath = outputAbs.replace(/\.mp4$/i, "-thumb.jpg");
+    try {
+      await renderChatThumbnail({
+        conversation: job.conversation,
+        outputPath: thumbPath,
+        onBundleStatus: (message) => job.logs.push(message),
+      });
+      job.thumbnailFile = path.basename(thumbPath);
+      job.logs.push(`Превью: out/${job.thumbnailFile}`);
+    } catch (thumbError) {
+      const message = thumbError instanceof Error ? thumbError.message : String(thumbError);
+      job.logs.push(`Превью не создано: ${message}`);
+    }
     if (job.dialogueId) {
       touchDialogueOutput(job.dialogueId, job.outputFile);
       job.logs.push(`Диалог сохранён в базе: ${job.dialogueId}`);
@@ -431,6 +449,40 @@ app.get("/api/shorts/styles", async (_req, res) => {
   }
 });
 
+app.get("/api/shorts/templates", (_req, res) => {
+  res.json({templates: SHORTS_STORY_TEMPLATES});
+});
+
+app.get("/api/shorts/corpus-tips", async (_req, res) => {
+  try {
+    const summary = await readShortsCorpusSummary();
+    res.json({tips: extractCorpusTips(summary)});
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/shorts/pre-render-check", (req, res) => {
+  try {
+    const {json: jsonText, displayTitle} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const result = runShortsPreRenderChecklist(conversation, {
+      displayTitle: typeof displayTitle === "string" ? displayTitle : "",
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.get("/api/images/openrouter", async (_req, res) => {
   await loadOpenRouterEnv();
   res.json({
@@ -483,7 +535,7 @@ app.post("/api/youtube/publish", async (req, res) => {
       return;
     }
 
-    const {outputFile: rawOutputFile, dialogueId, title: rawTitle, privacyStatus: rawPrivacy} =
+    const {outputFile: rawOutputFile, dialogueId, title: rawTitle, privacyStatus: rawPrivacy, description, tags, thumbnailFile} =
       req.body ?? {};
 
     const outputFile = resolveOutputFile({
@@ -516,9 +568,31 @@ app.post("/api/youtube/publish", async (req, res) => {
       outputFile,
     });
 
+    let thumbnailPath;
+    if (typeof thumbnailFile === "string" && thumbnailFile.trim()) {
+      const candidate = path.join(OUT_DIR, path.basename(thumbnailFile.trim()));
+      try {
+        await access(candidate);
+        thumbnailPath = candidate;
+      } catch {
+        /* нет превью — загрузим только видео */
+      }
+    } else {
+      const autoThumb = filePath.replace(/\.mp4$/i, "-thumb.jpg");
+      try {
+        await access(autoThumb);
+        thumbnailPath = autoThumb;
+      } catch {
+        /* */
+      }
+    }
+
     const result = await uploadVideoToYoutube({
       filePath,
       title,
+      description: typeof description === "string" ? description : "",
+      tags: Array.isArray(tags) ? tags : [],
+      thumbnailPath,
       privacyStatus,
     });
 
@@ -1169,6 +1243,86 @@ app.post("/api/dialogues/logic", async (req, res) => {
   }
 });
 
+app.post("/api/dialogues/regenerate-ending", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {
+      json: jsonText,
+      displayTitle,
+      tailCount,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
+      dialogueStyle,
+      mode: modeRaw,
+      model,
+    } = req.body ?? {};
+
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isDialogueLlmConfigured()) {
+      res.status(400).json({
+        error: "OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env",
+      });
+      return;
+    }
+
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const mode = modeRaw === "series" ? "series" : "shorts";
+    const result = await regenerateEnding({
+      conversation,
+      displayTitle: typeof displayTitle === "string" ? displayTitle : "",
+      tailCount: Number(tailCount) || 3,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
+      dialogueStyle: typeof dialogueStyle === "string" ? dialogueStyle : "fun",
+      mode,
+      model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+    });
+
+    res.json({
+      conversation: result.conversation,
+      displayTitle: result.displayTitle ?? "",
+      model: result.model,
+      attempts: result.attempts,
+      mode: result.mode,
+      provider: result.provider ?? "openrouter",
+      regeneratedFrom: result.regeneratedFrom,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/youtube/metadata", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {json: jsonText, displayTitle, language} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен"});
+      return;
+    }
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const metadata = await generateYoutubeMetadata({
+      conversation,
+      displayTitle: typeof displayTitle === "string" ? displayTitle : "",
+      language: language === "en" ? "en" : "ru",
+    });
+    res.json(metadata);
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
 app.post("/api/dialogues", async (req, res) => {
   try {
     const {
@@ -1625,6 +1779,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     renderConcurrency: getRenderConcurrency(),
     queuePosition: job.status === "queued" ? renderQueue.indexOf(job.id) + 1 : 0,
     canCancel: job.status === "queued" || job.status === "running",
+    thumbnailFile: job.thumbnailFile ?? null,
   });
 });
 

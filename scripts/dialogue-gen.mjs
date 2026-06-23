@@ -147,17 +147,33 @@ const buildShortsNameRules = (language = "ru") => {
   ];
 };
 
-const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru"} = {}) => {
+const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", dialogueStyle = "fun"} = {}) => {
+  const mysticExtras =
+    dialogueStyle === "mystic"
+      ? language === "en"
+        ? [
+            "- Mystic shorts: at most 1 photo message in the whole chat.",
+            "- Place the photo at the peak of unease (proof of something wrong). Finale — text only, no image.",
+          ]
+        : [
+            "- Для мистики: не больше 1 фото-сообщения на весь диалог.",
+            "- Фото — на пике тревоги (доказательство странности). Финал — только текст, без image.",
+          ]
+      : [];
+
   if (imageCount <= 0) {
-    return language === "en"
-      ? [
-          "- Text messages only. Do not use imagePrompt or image.",
-          "- If the scene needs a photo, the character describes it in text.",
-        ]
-      : [
-          "- Только текстовые сообщения. Не используй imagePrompt и image.",
-          "- Если в сцене нужно фото, герой описывает это словами в text.",
-        ];
+    return [
+      ...(language === "en"
+        ? [
+            "- Text messages only. Do not use imagePrompt or image.",
+            "- If the scene needs a photo, the character describes it in text.",
+          ]
+        : [
+            "- Только текстовые сообщения. Не используй imagePrompt и image.",
+            "- Если в сцене нужно фото, герой описывает это словами в text.",
+          ]),
+      ...mysticExtras,
+    ];
   }
   const countRule =
     imageCount === 1
@@ -176,6 +192,7 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru"} = 
       ussrStyle
         ? "- Insert photos where a character sends proof: price tag, street, food, ticket, etc."
         : "- Insert photo messages where they strengthen the plot per the user brief.",
+      ...mysticExtras,
     ];
   }
   return [
@@ -186,7 +203,25 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru"} = 
     ussrStyle
       ? "- Вставляй фото там, где герой присылает доказательство: ценник, улица, еда, билет и т.п."
       : "- Вставляй фото-сообщения там, где это усиливает сюжет по заданию пользователя.",
+    ...mysticExtras,
   ];
+};
+
+const buildHookRules = (language = "ru", mode = "shorts") => {
+  if (mode !== "shorts") {
+    return [];
+  }
+  return language === "en"
+    ? [
+        "- First message (messages[0]) is the hook: conflict, absurdity, or mystery in ≤12 words.",
+        "- No weak openers: not «Hi», «Hey», «Listen», «I have a question».",
+        "- The reader must instantly want to know what happens next.",
+      ]
+    : [
+        "- Первое сообщение (messages[0]) — крючок: конфликт, абсурд или странность за ≤12 слов.",
+        "- Без слабых начал: не «Привет», «Слушай», «У меня вопрос», «Ну что».",
+        "- Читатель сразу должен захотеть узнать, что будет дальше.",
+      ];
 };
 
 const buildMessageCountRules = (messageCount = 20, language = "ru") => {
@@ -266,6 +301,7 @@ const buildTemplateVars = async ({
   language = "ru",
   mode = "shorts",
   ussrStyle = false,
+  dialogueStyle = "fun",
 } = {}) => {
   const logicRules = await readPromptFile(promptKeyForLogicRules(language));
   return {
@@ -278,10 +314,12 @@ const buildTemplateVars = async ({
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
     MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
     LOGIC_RULES: logicRules,
+    HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language).join("\n"),
     IMAGE_RULES: buildImageRules(imageCount, {
       ussrStyle: ussrStyle || mode === "series",
       language,
+      dialogueStyle,
     }).join("\n"),
     SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
     STORY_PLAN: "",
@@ -336,6 +374,7 @@ const buildShortsSystemPrompt = async ({
   imageCount = 0,
   messageCount = 20,
   language = "ru",
+  dialogueStyle = "fun",
 } = {}) => {
   const key = promptKeyForShortsSystem(language);
   const template = await readPromptFile(key);
@@ -349,6 +388,7 @@ const buildShortsSystemPrompt = async ({
       messageCount,
       language,
       mode: "shorts",
+      dialogueStyle,
     }),
   );
 };
@@ -402,11 +442,12 @@ const buildSystemPrompt = async ({
   messageCount = 20,
   language = "ru",
   seriesId = DEFAULT_SERIES_ID,
+  dialogueStyle = "fun",
 } = {}) => {
   if (mode === "series") {
     return buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId});
   }
-  return buildShortsSystemPrompt({imageCount, messageCount, language});
+  return buildShortsSystemPrompt({imageCount, messageCount, language, dialogueStyle});
 };
 
 const buildUserPrompt = async ({
@@ -860,6 +901,7 @@ export const generateDialogue = async ({
     messageCount: gen.messageCount,
     language: gen.language,
     seriesId,
+    dialogueStyle,
   });
   const user = await buildUserPrompt({
     prompt: fullPrompt,
@@ -1050,4 +1092,84 @@ export const regenerateMessage = async ({
   });
 
   return {...result, provider: llm.provider, mode: normalizedMode};
+};
+
+export const regenerateEnding = async ({
+  conversation,
+  displayTitle,
+  tailCount = 3,
+  messageCount,
+  imageCount = 0,
+  language,
+  dialogueStyle = "fun",
+  mode = "shorts",
+  model,
+  maxAttempts = 3,
+}) => {
+  const llm = resolveDialogueLlm(model);
+  if (!llm) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
+  }
+  if (!conversation || typeof conversation !== "object") {
+    throw new Error("Текущая переписка обязательна");
+  }
+
+  const gen = normalizeGenerationOptions({messageCount, imageCount, language});
+  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const validated = validateConversation(conversation);
+  const messages = validated.messages;
+  const safeTail = Math.max(1, Math.min(Math.round(tailCount) || 3, messages.length - 1));
+  const keepCount = messages.length - safeTail;
+  const prefix = messages.slice(0, keepCount);
+
+  const system = await buildSystemPrompt({
+    mode: normalizedMode,
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
+    dialogueStyle,
+  });
+
+  const draft = displayTitle && normalizedMode === "shorts" ? {displayTitle, ...validated} : validated;
+  const user =
+    gen.language === "en"
+      ? [
+          "Rewrite only the ending of this chat.",
+          `Keep messages 1..${keepCount} exactly as in the draft (same text, order, images).`,
+          `Replace the last ${safeTail} message(s) with a stronger finale that fits the setup.`,
+          `Total messages must not exceed ${gen.messageCount}.`,
+          "",
+          "Draft:",
+          JSON.stringify({...draft, messages}, null, 2),
+          "",
+          "Return the full valid JSON.",
+        ].join("\n")
+      : [
+          "Перепиши только финал этой переписки.",
+          `Сообщения 1..${keepCount} оставь как в черновике (тот же текст, порядок, фото).`,
+          `Последние ${safeTail} сообщения замени на более сильный финал, согласованный с завязкой.`,
+          `Всего сообщений — не больше ${gen.messageCount}.`,
+          "",
+          "Черновик:",
+          JSON.stringify({...draft, messages}, null, 2),
+          "",
+          "Верни полный валидный JSON.",
+        ].join("\n");
+
+  const parseMode = normalizedMode === "shorts" ? "shorts" : "series";
+  const result = await runChatJsonGeneration({
+    maxAttempts,
+    completeJson: llm.completeJson,
+    language: gen.language,
+    messages: [
+      {role: "system", content: system},
+      {role: "user", content: user},
+    ],
+    parseResult: (data) => {
+      const {conversation: updated, displayTitle: updatedTitle} = parseGeneratedPayload(data, parseMode);
+      return {conversation: updated, displayTitle: updatedTitle, mode: normalizedMode};
+    },
+  });
+
+  return {...result, provider: llm.provider, regeneratedFrom: keepCount};
 };

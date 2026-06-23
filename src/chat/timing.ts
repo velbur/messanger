@@ -8,6 +8,9 @@ export const TIMING_SCALE = 0.5;
 /** Маркер в Remotion bundle — при смене тайминга обновить и проверку в bundle-cache.mjs */
 export const TIMING_BUNDLE_MARKER = "timing-scale-050-v1";
 
+/** Маркер hook-плашки и zoom финала — обновить в bundle-cache.mjs */
+export const VIDEO_FEATURE_BUNDLE_MARKER = "hook-overlay-2s-v1";
+
 export const scaleTimingMs = (ms: number): number =>
   Math.max(1, Math.round(ms * TIMING_SCALE));
 
@@ -177,8 +180,9 @@ export const mergeConversationTiming = (conversation: ConversationInput): Conver
 /** Суммарная длительность переписки в мс (без intro/outro/tail/fullscreen) */
 export const estimateMessagesDurationMs = (conversation: ConversationInput): number => {
   const timing = mergeConversationTiming(conversation);
-  return conversation.messages.reduce((total, message) => {
+  return conversation.messages.reduce((total, message, index) => {
     const resolved = resolveMessageTiming(message, timing);
-    return total + resolved.pauseBeforeMs + resolved.typingMs + resolved.postRevealMs;
+    const pauseBeforeMs = index === 0 ? 0 : resolved.pauseBeforeMs;
+    return total + pauseBeforeMs + resolved.typingMs + resolved.postRevealMs;
   }, 0);
 };

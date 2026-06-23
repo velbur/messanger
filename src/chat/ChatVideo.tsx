@@ -10,11 +10,13 @@ import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
 import {buildTimeline, FULLSCREEN_TIMELINE_REV, getStatusBarTime, visibleMessageCountAtFrame} from "./timeline";
+import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
 import {getTheme, LAYOUT} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatHeader} from "./components/ChatHeader";
 import {InputBar} from "./components/InputBar";
 import {FullscreenImage} from "./components/FullscreenImage";
+import {HookOverlay} from "./components/HookOverlay";
 import {MessageBubble} from "./components/MessageBubble";
 import {StatusBar} from "./components/StatusBar";
 import {TypingIndicator} from "./components/TypingIndicator";
@@ -23,6 +25,8 @@ import {Wallpaper} from "./components/Wallpaper";
 type Props = {
   conversation: ConversationInput;
 };
+
+void VIDEO_FEATURE_BUNDLE_MARKER;
 
 export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const frame = useCurrentFrame();
@@ -87,6 +91,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     timeline.introDurationFrames,
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
+  const lastEventIndex = timeline.events.length - 1;
 
   const isThemTyping = activeEvent?.author === "them";
   const headerStatus = isThemTyping
@@ -152,6 +157,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                   image={event.image}
                   sentAt={event.sentAt}
                   revealFrame={event.revealFrame}
+                  emphasizeFinale={event.index === lastEventIndex}
                 />
               ))}
               {activeEvent?.author === "them" ? <TypingIndicator /> : null}
@@ -170,6 +176,10 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             <InputBar placeholder={messengerLocale.inputPlaceholder} />
           </div>
         </div>
+
+        {conversation.hookText?.trim() && !inTitleCard ? (
+          <HookOverlay text={conversation.hookText} />
+        ) : null}
 
         {music.enabled ? (
           <Audio src={staticFile(music.src)} volume={music.volume} loop />

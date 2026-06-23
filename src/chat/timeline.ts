@@ -78,7 +78,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
 
   conversation.messages.forEach((message, index) => {
     const resolved = resolveMessageTiming(message, timingConfig);
-    const pauseFrames = msToFrames(resolved.pauseBeforeMs);
+    const pauseFrames = index === 0 ? 0 : msToFrames(resolved.pauseBeforeMs);
     const typingFrames = msToFrames(resolved.typingMs);
     const postRevealFrames = msToFrames(resolved.postRevealMs);
     const typingStartFrame = cursor + pauseFrames;

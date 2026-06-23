@@ -6,12 +6,6 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "default",
   "myName": "Me",
-  "outro": {
-    "enabled": true,
-    "text": "Subscribe :)",
-    "pauseBeforeMs": 700,
-    "durationMs": 2800
-  },
   "music": {
     "enabled": true,
     "src": "music/fun.mp3"

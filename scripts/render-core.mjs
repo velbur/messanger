@@ -1,8 +1,9 @@
 import os from "node:os";
 import path from "node:path";
 import {mkdir} from "node:fs/promises";
-import {renderMedia, selectComposition} from "@remotion/renderer";
+import {renderMedia, renderStill, selectComposition} from "@remotion/renderer";
 import {getBundleLocation} from "./bundle-cache.mjs";
+import {buildTimeline} from "../src/chat/timeline.ts";
 
 const DEFAULT_CONCURRENCY = 5;
 
@@ -116,6 +117,43 @@ export async function renderChatVideo({
     cancelSignal,
     // x264Preset применим только к программному libx264; для videotoolbox опция -preset недопустима
     ...(hwOptions ?? {x264Preset: getX264Preset()}),
+  });
+
+  return outputAbs;
+}
+
+/**
+ * @param {{
+ *   conversation: object,
+ *   outputPath: string,
+ *   onBundleStatus?: (message: string) => void,
+ * }} opts
+ */
+export async function renderChatThumbnail({conversation, outputPath, onBundleStatus}) {
+  const outputAbs = path.resolve(outputPath);
+  await mkdir(path.dirname(outputAbs), {recursive: true});
+
+  const bundleLocation = await getBundleLocation({onStatus: onBundleStatus ?? (() => {})});
+  const composition = await selectComposition({
+    serveUrl: bundleLocation,
+    id: "ChatVideo",
+    inputProps: {conversation},
+  });
+
+  const timeline = buildTimeline(conversation);
+  const events = timeline.events;
+  const hookFrame = events[0]?.revealFrame ?? 0;
+  const finaleFrame = events[events.length - 1]?.revealFrame ?? hookFrame;
+  const frame = Math.min(finaleFrame, Math.max(hookFrame, composition.durationInFrames - 1));
+
+  await renderStill({
+    composition,
+    serveUrl: bundleLocation,
+    output: outputAbs,
+    inputProps: {conversation},
+    frame,
+    imageFormat: "jpeg",
+    jpegQuality: 88,
   });
 
   return outputAbs;

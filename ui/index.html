@@ -181,6 +181,9 @@
             spellcheck="false"
             placeholder="Опишите часть истории, героев и финал сцены…"
           ></textarea>
+          <div id="shortsStoryTemplates" class="story-templates" hidden></div>
+          <ul id="shortsCorpusTips" class="corpus-tips" hidden></ul>
+          <div id="preRenderChecklist" class="pre-render-checklist" hidden></div>
           <div class="actions actions--inline">
             <button type="button" id="btnSaveDialoguePrompt" class="btn btn-secondary btn-small">
               Сохранить промпт
@@ -238,6 +241,9 @@
             <button type="button" id="btnCheckLogic" class="btn btn-secondary" disabled>
               Логика
             </button>
+            <button type="button" id="btnRegenerateEnding" class="btn btn-secondary" disabled>
+              Финал
+            </button>
             <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
             <span class="workflow-actions__publish">
               <div class="publish-split" id="youtubePublishControl">
@@ -257,6 +263,18 @@
               </div>
               <a id="youtubeLink" class="youtube-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
             </span>
+            <button type="button" id="btnYoutubeMetadata" class="btn btn-secondary btn-small" disabled>
+              Описание для YouTube
+            </button>
+            <textarea
+              id="youtubeDescriptionInput"
+              class="textarea textarea--compact"
+              rows="3"
+              hidden
+              spellcheck="false"
+              placeholder="Описание и вопрос для комментариев…"
+            ></textarea>
+            <div id="youtubeTitleVariants" class="title-variants" hidden></div>
             <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
             <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
           </div>
@@ -445,6 +463,16 @@
         </div>
         <p id="downloadBlock" class="download-block" hidden>
           <a id="downloadLink" class="download-link" href="#" download>Скачать MP4</a>
+          <a
+            id="thumbnailLink"
+            class="download-link download-link--thumb"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            Превью JPG
+          </a>
           <span id="pathsHint" class="paths-hint"></span>
         </p>
       </section>

@@ -14,6 +14,7 @@ const renderCommandEl = document.getElementById("renderCommand");
 const btnCopyRenderCommand = document.getElementById("btnCopyRenderCommand");
 const downloadBlock = document.getElementById("downloadBlock");
 const downloadLink = document.getElementById("downloadLink");
+const thumbnailLink = document.getElementById("thumbnailLink");
 const btnPublishYoutube = document.getElementById("btnPublishYoutube");
 const youtubePrivacySelect = document.getElementById("youtubePrivacySelect");
 const youtubePublishControl = document.getElementById("youtubePublishControl");
@@ -76,6 +77,13 @@ const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus")
 const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
 const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
 const btnCheckLogic = document.getElementById("btnCheckLogic");
+const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
+const btnYoutubeMetadata = document.getElementById("btnYoutubeMetadata");
+const shortsStoryTemplates = document.getElementById("shortsStoryTemplates");
+const shortsCorpusTips = document.getElementById("shortsCorpusTips");
+const preRenderChecklist = document.getElementById("preRenderChecklist");
+const youtubeDescriptionInput = document.getElementById("youtubeDescriptionInput");
+const youtubeTitleVariants = document.getElementById("youtubeTitleVariants");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
@@ -110,7 +118,13 @@ const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
 const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
+const SHORTS_STYLE_PRESETS = {
+  fun: {messageCount: 10, imageCount: 0},
+  mystic: {messageCount: 20, imageCount: 1},
+};
 const SHORTS_PROMPT_STORAGE_KEY = "messanger.shortsPrompt";
+let lastThumbnailFile = null;
+let youtubeMetadataCache = null;
 
 const readLastShortsPrompt = () => localStorage.getItem(SHORTS_PROMPT_STORAGE_KEY) ?? "";
 
@@ -306,6 +320,15 @@ const syncEditorKindUi = () => {
   if (dialogueTitleInput) {
     dialogueTitleInput.placeholder = isSeries ? "poka_v_sssr_part3" : "Когда кот сел на клавиатуру";
   }
+  if (shortsStoryTemplates) {
+    shortsStoryTemplates.hidden = isSeries || shortsStoryTemplates.childElementCount === 0;
+  }
+  if (shortsCorpusTips) {
+    shortsCorpusTips.hidden = isSeries || shortsCorpusTips.childElementCount === 0;
+  }
+  if (preRenderChecklist && isSeries) {
+    preRenderChecklist.hidden = true;
+  }
   updateSeriesPartHint();
 };
 
@@ -370,12 +393,24 @@ const updateLogicControls = () => {
     return;
   }
   const hasJson = Boolean(jsonInput.value.trim());
-  btnCheckLogic.disabled = !hasJson || !canGenerateDialogue();
-  btnCheckLogic.title = !canGenerateDialogue()
+  const llmReady = canGenerateDialogue();
+  btnCheckLogic.disabled = !hasJson || !llmReady;
+  btnCheckLogic.title = !llmReady
     ? "Задайте OPENROUTER_API_KEY в docs/.env"
     : hasJson
       ? "Проверить и исправить логику диалога"
       : "Сначала нужен JSON переписки";
+  if (btnRegenerateEnding) {
+    btnRegenerateEnding.disabled = !hasJson || !llmReady || editorKind !== "shorts";
+    btnRegenerateEnding.title = !llmReady
+      ? "Задайте OPENROUTER_API_KEY в docs/.env"
+      : hasJson
+        ? "Переписать только последние 3 реплики"
+        : "Сначала нужен JSON переписки";
+  }
+  if (btnYoutubeMetadata) {
+    btnYoutubeMetadata.disabled = !hasJson || !llmReady;
+  }
 };
 
 const canGenerateDialogue = () => openrouterConfigured;
@@ -513,6 +548,10 @@ const switchEditorKind = async (nextKind) => {
   }
   editorKind = normalized;
   syncEditorKindUi();
+  if (normalized === "shorts") {
+    void loadStoryTemplates();
+    void loadCorpusTips();
+  }
   if (editorVisible) {
     await restoreEditorSnapshot(editorSnapshots[normalized]);
   }
@@ -1398,6 +1437,147 @@ const loadShortsStyles = async () => {
   }
 };
 
+const renderStoryTemplateButtons = (templates) => {
+  if (!shortsStoryTemplates) {
+    return;
+  }
+  shortsStoryTemplates.replaceChildren();
+  const lang = getDialogueLanguage();
+  for (const item of templates) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-secondary btn-small story-templates__btn";
+    btn.textContent = item.label;
+    btn.addEventListener("click", () => {
+      if (dialogueStyle) {
+        dialogueStyle.value = item.style in shortsStylesMeta ? item.style : DEFAULT_DIALOGUE_STYLE;
+      }
+      applyShortsStyleDefaults();
+      if (dialoguePromptInput) {
+        dialoguePromptInput.value = lang === "en" ? item.promptEn : item.promptRu;
+        saveLastShortsPrompt(dialoguePromptInput.value);
+      }
+    });
+    shortsStoryTemplates.append(btn);
+  }
+  shortsStoryTemplates.hidden = editorKind !== "shorts" || templates.length === 0;
+};
+
+const loadStoryTemplates = async () => {
+  try {
+    const res = await fetch("/api/shorts/templates");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "templates");
+    }
+    renderStoryTemplateButtons(Array.isArray(data.templates) ? data.templates : []);
+  } catch {
+    if (shortsStoryTemplates) {
+      shortsStoryTemplates.hidden = true;
+    }
+  }
+};
+
+const loadCorpusTips = async () => {
+  if (!shortsCorpusTips) {
+    return;
+  }
+  try {
+    const res = await fetch("/api/shorts/corpus-tips");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "tips");
+    }
+    const tips = Array.isArray(data.tips) ? data.tips : [];
+    shortsCorpusTips.replaceChildren();
+    for (const tip of tips) {
+      const li = document.createElement("li");
+      li.textContent = tip;
+      shortsCorpusTips.append(li);
+    }
+    shortsCorpusTips.hidden = editorKind !== "shorts" || tips.length === 0;
+  } catch {
+    shortsCorpusTips.hidden = true;
+  }
+};
+
+const updatePreRenderChecklistUI = (result) => {
+  if (!preRenderChecklist) {
+    return;
+  }
+  preRenderChecklist.replaceChildren();
+  const lines = [...(result?.warnings ?? []), ...(result?.tips ?? [])];
+  if (lines.length === 0) {
+    preRenderChecklist.hidden = true;
+    return;
+  }
+  for (const line of lines) {
+    const p = document.createElement("p");
+    p.className = (result?.warnings ?? []).includes(line)
+      ? "pre-render-checklist__warn"
+      : "pre-render-checklist__tip";
+    p.textContent = line;
+    preRenderChecklist.append(p);
+  }
+  preRenderChecklist.hidden = editorKind !== "shorts";
+};
+
+const injectHookTextIntoJson = () => {
+  applyMessengerLocaleToJson();
+  const title = dialogueTitleInput?.value?.trim();
+  if (!title) {
+    return jsonInput.value.trim();
+  }
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    parsed.hookText = title;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+    return jsonInput.value.trim();
+  } catch {
+    return jsonInput.value.trim();
+  }
+};
+
+const applyGeneratedDialogue = async (data) => {
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  applyMessengerLocaleToJson();
+  if (editorKind === "shorts" && data.displayTitle) {
+    dialogueTitleInput.value = data.displayTitle;
+    updateProjectPathsHint();
+  }
+  syncTitleCardFieldsFromJson();
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  updateRefineDialogueControls();
+};
+
+const runPreRenderCheck = async (json, displayTitle) => {
+  if (editorKind !== "shorts") {
+    return true;
+  }
+  try {
+    const res = await fetch("/api/shorts/pre-render-check", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({json, displayTitle}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "check");
+    }
+    updatePreRenderChecklistUI(data);
+    if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+      const proceed = window.confirm(
+        `Перед рендером:\n\n${data.warnings.map((w) => `• ${w}`).join("\n")}\n\nВсё равно собрать видео?`,
+      );
+      return proceed;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+};
+
 const saveDialoguePromptOnly = async () => {
   const prompt = dialoguePromptInput?.value.trim() ?? "";
   if (!prompt) {
@@ -1533,6 +1713,14 @@ const populateDialogueStyleOptions = () => {
 };
 
 const applyShortsStyleDefaults = () => {
+  const style = normalizeDialogueStyle(dialogueStyle?.value);
+  const preset = SHORTS_STYLE_PRESETS[style] ?? SHORTS_STYLE_PRESETS.fun;
+  if (dialogueMessageCount) {
+    dialogueMessageCount.value = String(preset.messageCount);
+  }
+  if (dialogueImageCount) {
+    dialogueImageCount.value = String(preset.imageCount);
+  }
   const meta = getShortsStyleMeta();
   if (!meta) {
     return;
@@ -1780,13 +1968,17 @@ const applyMessengerLocaleToJson = () => {
   } else if (parsed.myName === "Me") {
     parsed.myName = "Я";
   }
-  parsed.outro = {
-    ...(parsed.outro ?? {}),
-    enabled: parsed.outro?.enabled ?? true,
-    text: isEn ? "Subscribe :)" : "Подпишись :)",
-    pauseBeforeMs: parsed.outro?.pauseBeforeMs ?? 700,
-    durationMs: parsed.outro?.durationMs ?? 2800,
-  };
+  if (parsed.outro?.enabled) {
+    parsed.outro = {
+      ...(parsed.outro ?? {}),
+      enabled: true,
+      text: parsed.outro?.text ?? (isEn ? "Subscribe :)" : "Подпишись :)"),
+      pauseBeforeMs: parsed.outro?.pauseBeforeMs ?? 700,
+      durationMs: parsed.outro?.durationMs ?? 2800,
+    };
+  } else {
+    delete parsed.outro;
+  }
   jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
@@ -2848,6 +3040,15 @@ const showStatus = (job) => {
     } else {
       downloadBlock.hidden = true;
     }
+    if (thumbnailLink) {
+      if (job.status === "done" && job.thumbnailFile) {
+        thumbnailLink.hidden = false;
+        thumbnailLink.href = withCacheBust(`/out/${job.thumbnailFile}`, job.finishedAt);
+        thumbnailLink.textContent = `Превью out/${job.thumbnailFile}`;
+      } else {
+        thumbnailLink.hidden = true;
+      }
+    }
     updateYoutubePublishControls();
   }
 };
@@ -2967,10 +3168,15 @@ btnExample.addEventListener("click", async () => {
 });
 
 btnRender.addEventListener("click", async () => {
-  applyMessengerLocaleToJson();
-  const json = jsonInput.value.trim();
+  const json = injectHookTextIntoJson();
   if (!json) {
     alert("Вставьте JSON переписки");
+    return;
+  }
+
+  const displayTitle = dialogueTitleInput?.value?.trim() ?? "";
+  const proceed = await runPreRenderCheck(json, displayTitle);
+  if (!proceed) {
     return;
   }
 
@@ -2993,6 +3199,10 @@ btnRender.addEventListener("click", async () => {
   }
   downloadBlock.hidden = true;
   lastPublishOutputFile = null;
+  lastThumbnailFile = null;
+  if (thumbnailLink) {
+    thumbnailLink.hidden = true;
+  }
   if (youtubeLink) {
     youtubeLink.hidden = true;
   }
@@ -3372,6 +3582,87 @@ btnCheckLogic?.addEventListener("click", async () => {
   }
 });
 
+btnRegenerateEnding?.addEventListener("click", async () => {
+  btnRegenerateEnding.disabled = true;
+  if (dialogueLogicStatus) {
+    dialogueLogicStatus.textContent = "Перегенерация финала…";
+  }
+  try {
+    const res = await fetch("/api/dialogues/regenerate-ending", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        json: jsonInput.value,
+        displayTitle: dialogueTitleInput?.value?.trim() ?? "",
+        tailCount: 3,
+        messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()),
+        imageCount: Number(dialogueImageCount?.value ?? 0),
+        language: getDialogueLanguage(),
+        dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
+        model: getDialogueModel(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось перегенерировать финал");
+    }
+    applyGeneratedDialogue(data);
+    if (dialogueLogicStatus) {
+      dialogueLogicStatus.textContent = `Финал обновлён (${data.model}, попыток: ${data.attempts})`;
+    }
+  } catch (err) {
+    if (dialogueLogicStatus) {
+      dialogueLogicStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    updateLogicControls();
+  }
+});
+
+btnYoutubeMetadata?.addEventListener("click", async () => {
+  btnYoutubeMetadata.disabled = true;
+  try {
+    const res = await fetch("/api/youtube/metadata", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        json: jsonInput.value,
+        displayTitle: dialogueTitleInput?.value?.trim() ?? "",
+        language: getDialogueLanguage(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось сгенерировать описание");
+    }
+    youtubeMetadataCache = data;
+    if (youtubeDescriptionInput) {
+      youtubeDescriptionInput.hidden = false;
+      youtubeDescriptionInput.value = data.description ?? "";
+    }
+    if (youtubeTitleVariants) {
+      youtubeTitleVariants.replaceChildren();
+      for (const title of data.titleVariants ?? []) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-secondary btn-small title-variants__btn";
+        btn.textContent = title;
+        btn.addEventListener("click", () => {
+          if (dialogueTitleInput) {
+            dialogueTitleInput.value = title;
+          }
+        });
+        youtubeTitleVariants.append(btn);
+      }
+      youtubeTitleVariants.hidden = !(data.titleVariants?.length > 0);
+    }
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err));
+  } finally {
+    updateLogicControls();
+  }
+});
+
 btnRefineDialogue?.addEventListener("click", async () => {
   btnRefineDialogue.disabled = true;
   if (dialogueRefineStatus) {
@@ -3460,6 +3751,9 @@ const syncPublishOutputFromJob = (job) => {
       currentDialogueOutputFile = file;
     }
   }
+  if (job.thumbnailFile) {
+    lastThumbnailFile = job.thumbnailFile;
+  }
 };
 
 const getPublishOutputFile = () => lastPublishOutputFile || currentDialogueOutputFile || null;
@@ -3500,6 +3794,9 @@ const publishToYoutube = async () => {
 
   const title = dialogueTitleInput?.value?.trim() || undefined;
   const privacyStatus = youtubePrivacySelect?.value || "public";
+  const description =
+    youtubeDescriptionInput?.value?.trim() || youtubeMetadataCache?.description || "";
+  const tags = Array.isArray(youtubeMetadataCache?.tags) ? youtubeMetadataCache.tags : [];
 
   youtubePublishing = true;
   updateYoutubePublishControls();
@@ -3517,6 +3814,9 @@ const publishToYoutube = async () => {
         dialogueId: currentDialogueId ?? undefined,
         title,
         privacyStatus,
+        description,
+        tags,
+        thumbnailFile: lastThumbnailFile ?? undefined,
       }),
     });
     const data = await res.json();
@@ -3646,4 +3946,6 @@ const loadOpenRouterStatus = async () => {
 loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
 loadShortsStyles();
+loadStoryTemplates();
+loadCorpusTips();
 loadBrowseOnStartup();

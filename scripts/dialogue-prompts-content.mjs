@@ -20,6 +20,7 @@ export const HARDCODED_PROMPTS = {
 - Каждая реплика короткая, как в мессенджере; длинные мысли разбивай на несколько сообщений.
 {{MESSAGE_COUNT_RULES}}
 {{LOGIC_RULES}}
+{{HOOK_RULES}}
 - messages — полная переписка целиком: от первого сообщения до финала сцены.
 - Не обрывай историю, пока задание пользователя не выполнено.
 - sentAt — время в формате HH:MM, логично растёт по ходу сцены.
@@ -44,6 +45,7 @@ Rules:
 - Keep each line short, like real messaging; split long thoughts into multiple messages.
 {{MESSAGE_COUNT_RULES}}
 {{LOGIC_RULES}}
+{{HOOK_RULES}}
 - messages is the full chat from first message to scene finale.
 - Don't stop until the user brief is fully delivered.
 - sentAt is HH:MM, increasing logically through the scene.
@@ -90,6 +92,8 @@ Rules:
 - sentAt не по порядку или нереалистичен для темпа сцены
 {{MESSAGE_COUNT_RULES}}
 {{IMAGE_RULES}}
+{{LOGIC_RULES}}
+{{HOOK_RULES}}
 - displayTitle сохрани, если был; меняй только если логически не сходится с перепиской.`,
 
   "dialogue-logic-en": `You are a logic editor for WhatsApp-style Shorts chat scripts.
@@ -107,6 +111,7 @@ Check and fix:
 - sentAt out of order or implausible for scene pace
 {{MESSAGE_COUNT_RULES}}
 {{IMAGE_RULES}}
+{{HOOK_RULES}}
 - Keep displayTitle if present; change only if logically inconsistent with the chat.`,
 
   "logic-rules-ru": `- Логическая состоятельность критична: факты, хронология, знания героев, причина и следствие должны сходиться.

@@ -1,5 +1,5 @@
 import {createReadStream} from "node:fs";
-import {access, stat} from "node:fs/promises";
+import {access, readFile, stat} from "node:fs/promises";
 import path from "node:path";
 import {loadOpenRouterEnv} from "./openrouter-client.mjs";
 
@@ -82,8 +82,40 @@ const streamToBuffer = async (stream) => {
 
 /**
  * @param {{
+ *   videoId: string,
+ *   thumbnailPath: string,
+ *   accessToken: string,
+ * }} opts
+ */
+const uploadYoutubeThumbnail = async ({videoId, thumbnailPath, accessToken}) => {
+  const absPath = path.resolve(thumbnailPath);
+  await access(absPath);
+  const body = await readFile(absPath);
+  const resp = await fetch(
+    `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(videoId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "image/jpeg",
+        "Content-Length": String(body.length),
+      },
+      body,
+    },
+  );
+  if (!resp.ok) {
+    throw new Error(await readResponseError(resp));
+  }
+  return resp.json();
+};
+
+/**
+ * @param {{
  *   filePath: string,
  *   title: string,
+ *   description?: string,
+ *   tags?: string[],
+ *   thumbnailPath?: string,
  *   privacyStatus?: "public" | "unlisted" | "private",
  *   onProgress?: (progress: number) => void,
  * }} opts
@@ -91,6 +123,9 @@ const streamToBuffer = async (stream) => {
 export const uploadVideoToYoutube = async ({
   filePath,
   title,
+  description = "",
+  tags = [],
+  thumbnailPath,
   privacyStatus = "unlisted",
   onProgress,
 }) => {
@@ -102,6 +137,12 @@ export const uploadVideoToYoutube = async ({
 
   const snippet = {
     title: title.slice(0, 100),
+    description: String(description ?? "").slice(0, 5000),
+    tags: (Array.isArray(tags) ? tags : [])
+      .map((tag) => String(tag).trim().replace(/^#/, ""))
+      .filter(Boolean)
+      .slice(0, 30)
+      .map((tag) => tag.slice(0, 30)),
   };
 
   const initResp = await fetch(UPLOAD_INIT_URL, {
@@ -147,6 +188,17 @@ export const uploadVideoToYoutube = async ({
   const videoId = result?.id;
   if (!videoId) {
     throw new Error("YouTube не вернул id видео");
+  }
+
+  onProgress?.(0.95);
+
+  if (thumbnailPath) {
+    try {
+      await uploadYoutubeThumbnail({videoId, thumbnailPath, accessToken});
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("YouTube thumbnail upload failed:", message);
+    }
   }
 
   onProgress?.(1);

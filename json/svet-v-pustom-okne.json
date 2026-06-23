@@ -6,12 +6,6 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "dark",
   "myName": "Я",
-  "outro": {
-    "enabled": true,
-    "text": "Подпишись :)",
-    "pauseBeforeMs": 700,
-    "durationMs": 2800
-  },
   "messages": [
     {
       "author": "me",

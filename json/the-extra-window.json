@@ -6,12 +6,6 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "dark",
   "myName": "Me",
-  "outro": {
-    "enabled": true,
-    "text": "Subscribe :)",
-    "pauseBeforeMs": 700,
-    "durationMs": 2800
-  },
   "messages": [
     {
       "author": "them",

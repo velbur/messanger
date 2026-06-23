@@ -112,6 +112,8 @@ export const conversationSchema = z.object({
       maxPostRevealMs: z.number().optional(),
     })
     .optional(),
+  /** Текст-хук поверх чата в первые ~2 с (обычно = название ролика) */
+  hookText: z.string().max(120).optional(),
   messages: z.array(messageSchema).min(1),
 });
 

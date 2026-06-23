@@ -12,6 +12,7 @@ type Props = {
   sentAt: string;
   author: "me" | "them";
   revealFrame: number;
+  emphasizeFinale?: boolean;
 };
 
 const MetaRow: React.FC<{
@@ -70,7 +71,14 @@ const TimeOverlay: React.FC<{sentAt: string; isMe: boolean}> = ({sentAt, isMe}) 
   );
 };
 
-export const MessageBubble: React.FC<Props> = ({text, image, sentAt, author, revealFrame}) => {
+export const MessageBubble: React.FC<Props> = ({
+  text,
+  image,
+  sentAt,
+  author,
+  revealFrame,
+  emphasizeFinale = false,
+}) => {
   const theme = useChatTheme();
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -93,7 +101,13 @@ export const MessageBubble: React.FC<Props> = ({text, image, sentAt, author, rev
     extrapolateRight: "clamp",
   });
   const translateX = (isMe ? 16 : -16) * (1 - progress);
-  const scale = 0.92 + 0.08 * progress;
+  const finaleBoost = emphasizeFinale
+    ? interpolate(relative, [0, 18, 45], [0, 0.04, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 0;
+  const scale = 0.92 + 0.08 * progress + finaleBoost;
 
   return (
     <div
