@@ -1,7 +1,6 @@
 import {createHash} from "node:crypto";
 import {cp, mkdir, readFile, readdir, rm, stat, writeFile, access} from "node:fs/promises";
 import path from "node:path";
-import {bundle} from "@remotion/bundler";
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
 const ENTRY_POINT = path.join(PROJECT_ROOT, "src/index.ts");
@@ -307,6 +306,7 @@ export const getBundleLocation = async (opts = {}) => {
   await mkdir(BUNDLE_OUT_DIR, {recursive: true});
   await ensurePublicConversationJson();
 
+  const {bundle} = await import("@remotion/bundler");
   const bundleLocation = await bundle({
     entryPoint: ENTRY_POINT,
     outDir: BUNDLE_OUT_DIR,
