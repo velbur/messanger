@@ -1522,19 +1522,21 @@ const updatePreRenderChecklistUI = (result) => {
   preRenderChecklist.hidden = editorKind !== "shorts";
 };
 
-const injectHookTextIntoJson = () => {
+const prepareJsonForRender = () => {
   applyMessengerLocaleToJson();
-  const title = dialogueTitleInput?.value?.trim();
-  if (!title) {
-    return jsonInput.value.trim();
+  const json = jsonInput.value.trim();
+  if (!json) {
+    return "";
   }
   try {
-    const parsed = JSON.parse(jsonInput.value);
-    parsed.hookText = title;
-    jsonInput.value = JSON.stringify(parsed, null, 2);
+    const parsed = JSON.parse(json);
+    if ("hookText" in parsed) {
+      delete parsed.hookText;
+      jsonInput.value = JSON.stringify(parsed, null, 2);
+    }
     return jsonInput.value.trim();
   } catch {
-    return jsonInput.value.trim();
+    return json;
   }
 };
 
@@ -3168,7 +3170,7 @@ btnExample.addEventListener("click", async () => {
 });
 
 btnRender.addEventListener("click", async () => {
-  const json = injectHookTextIntoJson();
+  const json = prepareJsonForRender();
   if (!json) {
     alert("Вставьте JSON переписки");
     return;
