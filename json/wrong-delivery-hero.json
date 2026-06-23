@@ -1,0 +1,73 @@
+{
+  "contactName": "Marnie",
+  "locale": "en",
+  "contactStatus": "online",
+  "contactStatusTyping": "typing...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Me",
+  "outro": {
+    "enabled": true,
+    "text": "Subscribe :)",
+    "pauseBeforeMs": 700,
+    "durationMs": 2800
+  },
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  },
+  "messages": [
+    {
+      "author": "them",
+      "text": "Did you send me a lasagna?",
+      "sentAt": "18:11"
+    },
+    {
+      "author": "me",
+      "text": "...possibly",
+      "sentAt": "18:11"
+    },
+    {
+      "author": "them",
+      "text": "Why is there a note that says \"hang in there, champ\"",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "me",
+      "text": "Oh no",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "me",
+      "text": "That was meant for my brother. He got dumped this morning.",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "them",
+      "text": "",
+      "image": "images/msg-6.png",
+      "imagePrompt": "A takeaway lasagna on a doorstep in the early evening, with a handwritten sticky note on top that says 'hang in there, champ.' The door clearly shows the house number 24.",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "them",
+      "text": "Well, your brother lives at 42.",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "You live at 24. I reversed the numbers.",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "them",
+      "text": "Correct. And now I have emotional support pasta.",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "me",
+      "text": "Honestly that note still applies 😅",
+      "sentAt": "18:15"
+    }
+  ]
+}

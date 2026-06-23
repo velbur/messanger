@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {expandEmojis} from "./emoji";
+import {normalizeMessengerLocale} from "./locale";
 
 export const messageSchema = z
   .object({
@@ -36,6 +37,8 @@ export const messageSchema = z
 
 export const conversationSchema = z.object({
   contactName: z.string().min(1).default("Contact"),
+  /** UI language: messenger chrome (status, typing, input placeholder) */
+  locale: z.enum(["ru", "en"]).optional(),
   /** Статус в шапке, когда собеседник не печатает */
   contactStatus: z.string().default("в сети"),
   /** Статус в шапке, пока идёт анимация набора у them */
@@ -119,11 +122,11 @@ export const parseConversation = (input: unknown): ConversationInput => {
   const parsed = conversationSchema.parse(input);
   const custom = parsed.emojiAliases;
 
-  return {
+  return normalizeMessengerLocale({
     ...parsed,
     messages: parsed.messages.map((message) => ({
       ...message,
       text: message.text ? expandEmojis(message.text, custom) : "",
     })),
-  };
+  });
 };

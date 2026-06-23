@@ -1,0 +1,144 @@
+{
+  "contactName": "Друг",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Банк прислал уведомление: “Мы заметили необычную активность”",
+      "sentAt": "14:06"
+    },
+    {
+      "author": "me",
+      "text": "Ого. Мошенники?",
+      "sentAt": "14:06"
+    },
+    {
+      "author": "them",
+      "text": "Нет",
+      "sentAt": "14:07"
+    },
+    {
+      "author": "me",
+      "text": "А что?",
+      "sentAt": "14:07"
+    },
+    {
+      "author": "them",
+      "text": "Я купил шаурму",
+      "sentAt": "14:07"
+    },
+    {
+      "author": "me",
+      "text": "Банк осудил?",
+      "sentAt": "14:08"
+    },
+    {
+      "author": "them",
+      "text": "Он написал: “Это точно были вы?”",
+      "sentAt": "14:08"
+    },
+    {
+      "author": "me",
+      "text": "Ну подтвердил?",
+      "sentAt": "14:08"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "14:09"
+    },
+    {
+      "author": "me",
+      "text": "И всё?",
+      "sentAt": "14:09"
+    },
+    {
+      "author": "them",
+      "text": "Потом пришло: “Рекомендуем пересмотреть бюджет”",
+      "sentAt": "14:09"
+    },
+    {
+      "author": "me",
+      "text": "Из-за шаурмы?",
+      "sentAt": "14:10"
+    },
+    {
+      "author": "them",
+      "text": "Похоже",
+      "sentAt": "14:10"
+    },
+    {
+      "author": "me",
+      "text": "Сколько она стоила?",
+      "sentAt": "14:10"
+    },
+    {
+      "author": "them",
+      "text": "280 рублей",
+      "sentAt": "14:11"
+    },
+    {
+      "author": "me",
+      "text": "Жёсткая аналитика",
+      "sentAt": "14:11"
+    },
+    {
+      "author": "them",
+      "text": "Дальше приложение предложило цель накопления",
+      "sentAt": "14:11"
+    },
+    {
+      "author": "me",
+      "text": "На что?",
+      "sentAt": "14:12"
+    },
+    {
+      "author": "them",
+      "text": "“Финансовая стабильность”",
+      "sentAt": "14:12"
+    },
+    {
+      "author": "me",
+      "text": "После шаурмы?",
+      "sentAt": "14:12"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "14:13"
+    },
+    {
+      "author": "me",
+      "text": "И что ты сделал?",
+      "sentAt": "14:13"
+    },
+    {
+      "author": "them",
+      "text": "Назвал цель “соус чесночный” 😐",
+      "sentAt": "14:13"
+    },
+    {
+      "author": "me",
+      "text": "Банк принял?",
+      "sentAt": "14:14"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "14:14"
+    },
+    {
+      "author": "them",
+      "text": "Теперь пишет: “Вы стали ближе к мечте” 🙂",
+      "sentAt": "14:14"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

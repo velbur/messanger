@@ -1,0 +1,59 @@
+{
+  "contactName": "Витя",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ехал в лифте с соседом",
+      "sentAt": "18:41"
+    },
+    {
+      "author": "me",
+      "text": "И что?",
+      "sentAt": "18:41"
+    },
+    {
+      "author": "them",
+      "text": "Он нажал 7, я 9",
+      "sentAt": "18:42"
+    },
+    {
+      "author": "me",
+      "text": "Дальше?",
+      "sentAt": "18:42"
+    },
+    {
+      "author": "them",
+      "text": "На 7 двери открылись, но он не вышел",
+      "sentAt": "18:42"
+    },
+    {
+      "author": "me",
+      "text": "Почему?",
+      "sentAt": "18:43"
+    },
+    {
+      "author": "them",
+      "text": "Сказал: “уже неловко расходиться”",
+      "sentAt": "18:43"
+    },
+    {
+      "author": "me",
+      "text": "Вы же молчали",
+      "sentAt": "18:43"
+    },
+    {
+      "author": "them",
+      "text": "Вот именно. Теперь едем вместе до конца 😐",
+      "sentAt": "18:44"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

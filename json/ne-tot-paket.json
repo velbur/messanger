@@ -1,0 +1,114 @@
+{
+  "contactName": "Тихон",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты сейчас дома?",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "me",
+      "text": "Да, а что",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "them",
+      "text": "Я тебе пакет у двери оставил",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "Какой ещё пакет",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "them",
+      "text": "С едой. Ты же писал, что умираешь с голода",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "Я писал \"умираю от холода\" 😐",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "them",
+      "text": "...",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "them",
+      "text": "Подожди",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "me",
+      "text": "У двери реально пакет",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "me",
+      "text": "Тут доширак, батон и корм для кота",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "them",
+      "text": "Я собирал на автомате",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "me",
+      "text": "У меня нет кота",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "them",
+      "text": "Теперь есть план на будущее",
+      "sentAt": "18:16"
+    },
+    {
+      "author": "me",
+      "text": "А от холода мне что делать?",
+      "sentAt": "18:16"
+    },
+    {
+      "author": "them",
+      "text": "Доширак завари. От него идёт пар",
+      "sentAt": "18:16"
+    },
+    {
+      "author": "me",
+      "text": "Гениально",
+      "sentAt": "18:16"
+    },
+    {
+      "author": "them",
+      "text": "Если не поможет, я через 10 минут вернусь",
+      "sentAt": "18:17"
+    },
+    {
+      "author": "me",
+      "text": "С обогревателем?",
+      "sentAt": "18:17"
+    },
+    {
+      "author": "them",
+      "text": "С котом. Обогреватель занят",
+      "sentAt": "18:17"
+    },
+    {
+      "author": "me",
+      "text": "Ладно, если кот умеет включать батареи — неси",
+      "sentAt": "18:18"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

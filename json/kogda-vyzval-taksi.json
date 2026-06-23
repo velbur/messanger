@@ -1,0 +1,144 @@
+{
+  "contactName": "Друг",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  },
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты уже уехал?",
+      "sentAt": "22:17"
+    },
+    {
+      "author": "me",
+      "text": "Почти",
+      "sentAt": "22:17"
+    },
+    {
+      "author": "them",
+      "text": "Что значит почти?",
+      "sentAt": "22:18"
+    },
+    {
+      "author": "me",
+      "text": "Такси приехало",
+      "sentAt": "22:18"
+    },
+    {
+      "author": "them",
+      "text": "Ну садись",
+      "sentAt": "22:18"
+    },
+    {
+      "author": "me",
+      "text": "Не могу",
+      "sentAt": "22:19"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "22:19"
+    },
+    {
+      "author": "me",
+      "text": "Водитель пишет: “подойдите чуть ближе”",
+      "sentAt": "22:19"
+    },
+    {
+      "author": "them",
+      "text": "Он далеко?",
+      "sentAt": "22:20"
+    },
+    {
+      "author": "me",
+      "text": "На соседней улице",
+      "sentAt": "22:20"
+    },
+    {
+      "author": "them",
+      "text": "Это не “чуть”",
+      "sentAt": "22:20"
+    },
+    {
+      "author": "me",
+      "text": "Я тоже так написал",
+      "sentAt": "22:21"
+    },
+    {
+      "author": "them",
+      "text": "И что он?",
+      "sentAt": "22:21"
+    },
+    {
+      "author": "me",
+      "text": "“Мне так удобнее”",
+      "sentAt": "22:21"
+    },
+    {
+      "author": "them",
+      "text": "А тебе?",
+      "sentAt": "22:22"
+    },
+    {
+      "author": "me",
+      "text": "А я, видимо, декоративный пассажир",
+      "sentAt": "22:22"
+    },
+    {
+      "author": "them",
+      "text": "Отмени",
+      "sentAt": "22:22"
+    },
+    {
+      "author": "me",
+      "text": "Жалко",
+      "sentAt": "22:23"
+    },
+    {
+      "author": "them",
+      "text": "Почему?",
+      "sentAt": "22:23"
+    },
+    {
+      "author": "me",
+      "text": "Он уже поставил “ожидаю”",
+      "sentAt": "22:23"
+    },
+    {
+      "author": "them",
+      "text": "Где он тебя ожидает?",
+      "sentAt": "22:24"
+    },
+    {
+      "author": "me",
+      "text": "В своей версии реальности 😐",
+      "sentAt": "22:24"
+    },
+    {
+      "author": "them",
+      "text": "И что будешь делать?",
+      "sentAt": "22:24"
+    },
+    {
+      "author": "me",
+      "text": "Иду к нему",
+      "sentAt": "22:25"
+    },
+    {
+      "author": "them",
+      "text": "Зачем?",
+      "sentAt": "22:25"
+    },
+    {
+      "author": "me",
+      "text": "Хочу посмотреть на человека, который вызвал меня через приложение такси 🙂",
+      "sentAt": "22:25"
+    }
+  ]
+}

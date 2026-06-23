@@ -1,17 +1,20 @@
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
 import {mergeEndCard, mergeIntro, titleCardDurationFrames} from "./title-card";
-import {mergeConversationTiming, resolveMessageTiming} from "./timing";
+import {mergeConversationTiming, resolveMessageTiming, scaleTimingMs, TIMING_BUNDLE_MARKER} from "./timing";
 import type {ConversationInput} from "./schema";
 import {msToFrames} from "./fps";
 
-/** Пауза на последнем кадре переписки перед заставками (без TIMING_SCALE) */
+/** Пауза на последнем кадре переписки перед заставками */
 export const POST_LAST_MESSAGE_TAIL_MS = 3000;
 
-/** Пауза в чате после появления фото, до полноэкранного показа (без TIMING_SCALE) */
+/** Пауза в чате после появления фото, до полноэкранного показа */
 export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
 
-/** Полноэкранный показ фото (без TIMING_SCALE) */
+/** Полноэкранный показ фото */
 export const IMAGE_FULLSCREEN_MS = 3000;
+
+/** Для проверки актуальности bundle (scripts/bundle-cache.mjs) */
+export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 
 /**
  * Ревизия таймлайна fullscreen — попадает в Remotion bundle для проверки кэша.
@@ -49,6 +52,21 @@ export type ConversationTimeline = {
   durationInFrames: number;
 };
 
+export const getStatusBarTime = (
+  events: MessageTimelineEvent[],
+  visibleCount: number,
+  activeEvent: MessageTimelineEvent | undefined,
+): string => {
+  const fallback = events[0]?.sentAt ?? "12:34";
+  if (activeEvent?.sentAt) {
+    return activeEvent.sentAt;
+  }
+  if (visibleCount > 0) {
+    return events[visibleCount - 1]?.sentAt ?? fallback;
+  }
+  return fallback;
+};
+
 export const buildTimeline = (conversation: ConversationInput): ConversationTimeline => {
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
@@ -67,8 +85,8 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     const typingEndFrame = typingStartFrame + typingFrames;
     const revealFrame = typingEndFrame;
     const hasImage = Boolean(message.image?.trim());
-    const fullscreenDelayFrames = hasImage ? msToFrames(IMAGE_FULLSCREEN_DELAY_MS) : 0;
-    const fullscreenFrames = hasImage ? msToFrames(IMAGE_FULLSCREEN_MS) : 0;
+    const fullscreenDelayFrames = hasImage ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_DELAY_MS)) : 0;
+    const fullscreenFrames = hasImage ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_MS)) : 0;
     const fullscreenStartFrame = revealFrame + fullscreenDelayFrames;
     const fullscreenEndFrame = fullscreenStartFrame + fullscreenFrames;
     const endFrame = fullscreenEndFrame + postRevealFrames;
@@ -95,7 +113,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   });
 
   const outro = mergeConversationOutro(conversation);
-  const tailFrames = msToFrames(POST_LAST_MESSAGE_TAIL_MS);
+  const tailFrames = msToFrames(scaleTimingMs(POST_LAST_MESSAGE_TAIL_MS));
   const outroPause = outro.enabled ? outroPauseFrames(outro) : 0;
   const endCardFrames = endCard.enabled ? titleCardDurationFrames(endCard) : 0;
   const endCardStart = cursor + tailFrames + outroPause;

@@ -7,11 +7,12 @@ import {MicIcon, PlusIcon, SendIcon, SmileIcon} from "./icons";
 
 type Props = {
   typedText: string;
+  placeholder?: string;
 };
 
 const I = CHROME.input;
 
-export const InputBar: React.FC<Props> = ({typedText}) => {
+export const InputBar: React.FC<Props> = ({typedText, placeholder = "Сообщение"}) => {
   const theme = useChatTheme();
   const frame = useCurrentFrame();
   const blink = Math.floor(frame / 25) % 2 === 0;
@@ -66,7 +67,7 @@ export const InputBar: React.FC<Props> = ({typedText}) => {
             lineHeight: 1.28,
           }}
         >
-          {typedText || "Сообщение"}
+          {typedText || placeholder}
         </span>
         {hasText ? (
           <span style={{opacity: blink ? 1 : 0, fontFamily: TEXT_FONT_FAMILY, color: theme.textPrimary}}>

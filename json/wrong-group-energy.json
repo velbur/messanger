@@ -1,0 +1,64 @@
+{
+  "contactName": "Priya",
+  "contactStatus": "online",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Me",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Please tell me that \"can everyone stop replying all\" was meant for work and not our family group",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "me",
+      "text": "...define \"meant for\"",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "them",
+      "text": "You sent it right after Aunt Leena shared 14 photos of her air fryer",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "In my defense, photo 9 was somehow also photo 3",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "them",
+      "text": "Dad replied \"Agreed\" and now Aunt Leena has left the group",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "me",
+      "text": "Oh no",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "me",
+      "text": "I can fix this. I'll say I was talking about work stress spilling over.",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "them",
+      "text": "Too late. She made a new group called \"People Who Appreciate Crispy Things\"",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "me",
+      "text": "Am I in it?",
+      "sentAt": "18:15"
+    },
+    {
+      "author": "them",
+      "text": "No. Dad is. He just sent \"Agreed\" there too.",
+      "sentAt": "18:16"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

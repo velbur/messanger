@@ -1,0 +1,123 @@
+{
+  "contactName": "Mara",
+  "locale": "en",
+  "contactStatus": "online",
+  "contactStatusTyping": "typing...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "dark",
+  "myName": "Me",
+  "outro": {
+    "enabled": true,
+    "text": "Subscribe :)",
+    "pauseBeforeMs": 700,
+    "durationMs": 2800
+  },
+  "messages": [
+    {
+      "author": "them",
+      "text": "You still at the archive?",
+      "sentAt": "21:07"
+    },
+    {
+      "author": "me",
+      "text": "Just left. Why?",
+      "sentAt": "21:08"
+    },
+    {
+      "author": "them",
+      "text": "Look up at your building before you go in.",
+      "sentAt": "21:08"
+    },
+    {
+      "author": "me",
+      "text": "I am.",
+      "sentAt": "21:09"
+    },
+    {
+      "author": "me",
+      "text": "What am I supposed to see?",
+      "sentAt": "21:09"
+    },
+    {
+      "author": "them",
+      "text": "Top floor. Far left.",
+      "sentAt": "21:10"
+    },
+    {
+      "author": "me",
+      "text": "There isn't a window there.",
+      "sentAt": "21:10"
+    },
+    {
+      "author": "them",
+      "text": "Tonight there is.",
+      "sentAt": "21:11"
+    },
+    {
+      "author": "me",
+      "text": "",
+      "image": "images/msg-9.png",
+      "imagePrompt": "A rainy apartment building at night, seen from the street. Most windows are dark or warm, but on the top floor far left there's a narrow extra window where the facade should be solid, glowing pale blue behind thin curtains.",
+      "sentAt": "21:12"
+    },
+    {
+      "author": "them",
+      "text": "Don't zoom in.",
+      "sentAt": "21:12"
+    },
+    {
+      "author": "me",
+      "text": "Too late.",
+      "sentAt": "21:13"
+    },
+    {
+      "author": "me",
+      "text": "That's my desk lamp.",
+      "sentAt": "21:13"
+    },
+    {
+      "author": "them",
+      "text": "I know.",
+      "sentAt": "21:14"
+    },
+    {
+      "author": "them",
+      "text": "I'm in your apartment.",
+      "sentAt": "21:14"
+    },
+    {
+      "author": "me",
+      "text": "Not funny.",
+      "sentAt": "21:15"
+    },
+    {
+      "author": "them",
+      "text": "Not yours exactly.",
+      "sentAt": "21:15"
+    },
+    {
+      "author": "them",
+      "text": "The one with the extra room.",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "me",
+      "text": "Mara.",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "them",
+      "text": "The box of postcards from 1986 is under your bed here too.",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "them",
+      "text": "Only in this one, you actually mailed them.",
+      "sentAt": "21:17"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  }
+}

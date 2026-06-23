@@ -1,0 +1,114 @@
+{
+  "contactName": "Миша",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты дома?",
+      "sentAt": "19:12"
+    },
+    {
+      "author": "me",
+      "text": "Да. Что случилось?",
+      "sentAt": "19:12"
+    },
+    {
+      "author": "them",
+      "text": "Я у тебя под дверью",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "me",
+      "text": "Зачем 😐",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "them",
+      "text": "Мне срочно нужен твой вайфай",
+      "sentAt": "19:13"
+    },
+    {
+      "author": "me",
+      "text": "Это звучит как очень странное ограбление",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "them",
+      "text": "У меня дома интернет умер прямо во время созвона",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "them",
+      "text": "А я всем уже сказал, что \"связь нестабильна\"",
+      "sentAt": "19:14"
+    },
+    {
+      "author": "me",
+      "text": "Классика удалёнки",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "me",
+      "text": "Ладно, пароль: Grechka2024",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "them",
+      "text": "Не подходит",
+      "sentAt": "19:15"
+    },
+    {
+      "author": "me",
+      "text": "Тогда с большой G",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "them",
+      "text": "Тоже нет",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "me",
+      "text": "Подожди",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "me",
+      "text": "Я в прошлом месяце менял",
+      "sentAt": "19:16"
+    },
+    {
+      "author": "me",
+      "text": "Попробуй: Grechka2025!",
+      "sentAt": "19:17"
+    },
+    {
+      "author": "them",
+      "text": "Зашло 🙏",
+      "sentAt": "19:17"
+    },
+    {
+      "author": "them",
+      "text": "Если меня спросят, почему фон созвона внезапно стал с твоими обоями, я скажу, что это коллаб",
+      "sentAt": "19:18"
+    },
+    {
+      "author": "me",
+      "text": "Скажи, что это новый формат: соседский коворкинг",
+      "sentAt": "19:18"
+    },
+    {
+      "author": "them",
+      "text": "Если что, я уже поставил чайник. Аренду оплачу печеньем 😎",
+      "sentAt": "19:19"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

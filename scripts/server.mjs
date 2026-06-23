@@ -6,6 +6,7 @@ import {Readable} from "node:stream";
 import express from "express";
 import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
+import {TIMING_SCALE} from "../src/chat/timing.ts";
 import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
@@ -58,7 +59,11 @@ import {
   isDialogueLlmConfigured,
   refineDialogue,
   regenerateMessage,
+  checkDialogueLogic,
 } from "./dialogue-gen.mjs";
+import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
+import {readShortsCorpusSummary, updateShortsCorpusSummary} from "./shorts-corpus.mjs";
+import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
 import {previewImagePrompt, readStylePrompt, writeStylePrompt} from "./image-prompt.mjs";
 import {
@@ -72,6 +77,7 @@ import {
   touchDialogueOutput,
 } from "./dialogue-db.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
+import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JSON_DIR = path.join(ROOT, "json");
@@ -192,6 +198,22 @@ const resolveOutputFile = ({name, outputFile, dialogueId}) => {
   return null;
 };
 
+const resolvePublishTitle = ({rawTitle, dialogueId, outputFile}) => {
+  let title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+  if (!title && typeof dialogueId === "string" && dialogueId.trim()) {
+    const dialogue = getDialogue(dialogueId.trim());
+    title =
+      dialogue?.titleDisplay?.trim() ||
+      dialogue?.title?.trim() ||
+      dialogue?.contactName?.trim() ||
+      "";
+  }
+  if (!title) {
+    title = outputFile.replace(/\.mp4$/i, "");
+  }
+  return title;
+};
+
 /**
  * Скачивает MP4 с удалённого воркера в локальный out/.
  * @param {{ remoteUrl: string, outputFile: string, logs?: string[] }} opts
@@ -283,6 +305,7 @@ const processQueue = async () => {
 
   job.status = "running";
   job.logs.push("Рендер запущен…");
+  job.logs.push(`Тайминг переписки: scale ${TIMING_SCALE}`);
 
   const {cancelSignal, cancel} = makeCancelSignal();
   job.cancel = cancel;
@@ -395,6 +418,16 @@ app.put("/api/prompts/image-style", async (req, res) => {
   }
 });
 
+app.get("/api/shorts/styles", async (_req, res) => {
+  try {
+    res.json({styles: await readShortsStylesMeta()});
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.get("/api/images/openrouter", async (_req, res) => {
   await loadOpenRouterEnv();
   res.json({
@@ -403,6 +436,17 @@ app.get("/api/images/openrouter", async (_req, res) => {
     imageModel: getOpenRouterImageModel(),
     imageGenerationAvailable: isOpenRouterConfigured(),
   });
+});
+
+app.get("/api/openrouter/dialogue-models", async (_req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    res.json(listDialogueModels());
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 
 app.get("/api/status", async (_req, res) => {
@@ -414,7 +458,76 @@ app.get("/api/status", async (_req, res) => {
       imageModel: getOpenRouterImageModel(),
       imageGenerationAvailable: isOpenRouterConfigured(),
     },
+    youtube: {
+      configured: isYoutubeConfigured(),
+    },
   });
+});
+
+app.get("/api/youtube/status", async (_req, res) => {
+  await loadOpenRouterEnv();
+  res.json({configured: isYoutubeConfigured()});
+});
+
+app.post("/api/youtube/publish", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    if (!isYoutubeConfigured()) {
+      res.status(400).json({
+        error:
+          "YouTube не настроен — задайте YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET и YOUTUBE_REFRESH_TOKEN в docs/.env",
+      });
+      return;
+    }
+
+    const {outputFile: rawOutputFile, dialogueId, title: rawTitle, privacyStatus: rawPrivacy} =
+      req.body ?? {};
+
+    const outputFile = resolveOutputFile({
+      outputFile: rawOutputFile,
+      dialogueId: typeof dialogueId === "string" ? dialogueId : undefined,
+      name: typeof rawTitle === "string" ? rawTitle : undefined,
+    });
+
+    if (!outputFile) {
+      res.status(400).json({error: "Укажите outputFile или откройте диалог с готовым MP4"});
+      return;
+    }
+
+    const filePath = path.join(OUT_DIR, outputFile);
+    try {
+      await access(filePath);
+    } catch {
+      res.status(404).json({error: `Файл не найден: out/${outputFile}. Сначала соберите видео.`});
+      return;
+    }
+
+    const privacyStatus =
+      rawPrivacy === "public" || rawPrivacy === "private" || rawPrivacy === "unlisted"
+        ? rawPrivacy
+        : "unlisted";
+
+    const title = resolvePublishTitle({
+      rawTitle,
+      dialogueId: typeof dialogueId === "string" ? dialogueId : undefined,
+      outputFile,
+    });
+
+    const result = await uploadVideoToYoutube({
+      filePath,
+      title,
+      privacyStatus,
+    });
+
+    res.json({
+      ok: true,
+      ...result,
+      outputFile,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    res.status(500).json({error: message});
+  }
 });
 
 app.post("/api/images/suggest-prompt", async (req, res) => {
@@ -800,12 +913,17 @@ app.post("/api/dialogues/generate", async (req, res) => {
     await loadOpenRouterEnv();
     const {
       prompt,
+      dialogueStyle,
       previousMessages,
       includeImages,
+      imageCount,
+      messageCount,
+      language,
       mode: modeRaw,
       seriesId,
       partNumber,
       useSeriesContext,
+      model,
     } = req.body ?? {};
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       res.status(400).json({error: "Поле prompt обязательно"});
@@ -839,10 +957,15 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
     const result = await generateDialogue({
       prompt,
+      dialogueStyle: dialogueStyle === "mystic" ? "mystic" : "fun",
       previousMessages: mode === "series" ? contextMessages : undefined,
-      includeImages: includeImages !== false,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
+      model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 
     res.json({
@@ -864,7 +987,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
 app.post("/api/dialogues/regenerate-message", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {json: jsonText, messageIndex, instruction, mode: modeRaw, seriesId} = req.body ?? {};
+    const {json: jsonText, messageIndex, instruction, mode: modeRaw, seriesId, model} = req.body ?? {};
 
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -900,6 +1023,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
       instruction: typeof instruction === "string" ? instruction : undefined,
       mode,
       seriesId: normalizedSeriesId || "usssr",
+      model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 
     res.json({
@@ -919,7 +1043,8 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
 app.post("/api/dialogues/refine", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {refinePrompt, json: jsonText, includeImages, mode: modeRaw, seriesId} = req.body ?? {};
+    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, model} =
+      req.body ?? {};
     if (!refinePrompt || typeof refinePrompt !== "string" || !refinePrompt.trim()) {
       res.status(400).json({error: "Поле refinePrompt обязательно"});
       return;
@@ -951,9 +1076,13 @@ app.post("/api/dialogues/refine", async (req, res) => {
     const result = await refineDialogue({
       conversation,
       refinePrompt,
-      includeImages: includeImages !== false,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
+      model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 
     res.json({
@@ -969,7 +1098,75 @@ app.post("/api/dialogues/refine", async (req, res) => {
   }
 });
 
-app.post("/api/dialogues", (req, res) => {
+app.post("/api/dialogues/logic", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {
+      prompt,
+      json: jsonText,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
+      mode: modeRaw,
+      seriesId,
+      model,
+    } = req.body ?? {};
+
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isDialogueLlmConfigured()) {
+      res.status(400).json({
+        error: "OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env (диалоги через ChatGPT)",
+      });
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      res.status(400).json({error: "Некорректный JSON"});
+      return;
+    }
+
+    const conversation = parseConversation(parsed);
+    const mode = modeRaw === "series" ? "series" : "shorts";
+    const normalizedSeriesId =
+      mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
+    const displayTitle =
+      typeof parsed.displayTitle === "string" ? parsed.displayTitle.trim() : "";
+
+    const result = await checkDialogueLogic({
+      prompt: typeof prompt === "string" ? prompt : "",
+      conversation,
+      displayTitle,
+      includeImages,
+      imageCount,
+      messageCount,
+      language,
+      mode,
+      seriesId: normalizedSeriesId || "usssr",
+      model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+    });
+
+    res.json({
+      conversation: result.conversation,
+      displayTitle: result.displayTitle ?? displayTitle,
+      model: result.model,
+      attempts: result.attempts,
+      mode: result.mode,
+      provider: result.provider ?? "openrouter",
+      logicRevised: result.logicRevised ?? false,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/dialogues", async (req, res) => {
   try {
     const {
       title,
@@ -1005,7 +1202,26 @@ app.post("/api/dialogues", (req, res) => {
       seriesId: typeof seriesId === "string" ? seriesId : "",
       partNumber,
     });
-    res.status(201).json(dialogue);
+
+    let corpusUpdate = null;
+    if (dialogue.kind === "shorts") {
+      await loadOpenRouterEnv();
+      try {
+        corpusUpdate = await updateShortsCorpusSummary({
+          title: dialogue.titleDisplay || dialogue.title,
+          dialoguePrompt: dialogue.dialoguePrompt,
+          conversation: dialogue.conversation,
+        });
+      } catch (error) {
+        console.warn("shorts corpus update failed:", error);
+        corpusUpdate = {
+          updated: false,
+          reason: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+
+    res.status(201).json({...dialogue, corpusUpdate});
   } catch (error) {
     const message =
       error instanceof ZodError
@@ -1017,7 +1233,7 @@ app.post("/api/dialogues", (req, res) => {
   }
 });
 
-app.put("/api/dialogues/:id", (req, res) => {
+app.put("/api/dialogues/:id", async (req, res) => {
   try {
     const {title, titleDisplay, json: jsonText, wallpaper, music, dialoguePrompt, kind, seriesId, partNumber} =
       req.body ?? {};
@@ -1059,7 +1275,26 @@ app.put("/api/dialogues/:id", (req, res) => {
       res.status(404).json({error: "Диалог не найден"});
       return;
     }
-    res.json(dialogue);
+
+    let corpusUpdate = null;
+    if (dialogue.kind === "shorts") {
+      await loadOpenRouterEnv();
+      try {
+        corpusUpdate = await updateShortsCorpusSummary({
+          title: dialogue.titleDisplay || dialogue.title,
+          dialoguePrompt: dialogue.dialoguePrompt,
+          conversation: dialogue.conversation,
+        });
+      } catch (error) {
+        console.warn("shorts corpus update failed:", error);
+        corpusUpdate = {
+          updated: false,
+          reason: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+
+    res.json({...dialogue, corpusUpdate});
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),
@@ -1208,6 +1443,7 @@ app.post("/api/render", async (req, res) => {
 
     if (target === "remote") {
       logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
+      logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
 
       const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
@@ -1558,6 +1794,12 @@ if (isDialogueLlmConfigured()) {
   console.log(`Диалоги: OpenRouter / ChatGPT (${getOpenRouterTextModel()})`);
 } else {
   console.log("Диалоги: задайте OPENROUTER_API_KEY в docs/.env (ChatGPT через OpenRouter)");
+}
+
+if (isYoutubeConfigured()) {
+  console.log("YouTube: ключи загружены (публикация Shorts)");
+} else {
+  console.log("YouTube: не настроен (YOUTUBE_* в docs/.env)");
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {

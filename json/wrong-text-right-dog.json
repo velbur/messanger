@@ -1,0 +1,64 @@
+{
+  "contactName": "Nina",
+  "contactStatus": "online",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Me",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Quick favor: can you act normal if my landlord sees you leaving my apartment?",
+      "sentAt": "18:11"
+    },
+    {
+      "author": "me",
+      "text": "Very specific opener but yes",
+      "sentAt": "18:11"
+    },
+    {
+      "author": "them",
+      "text": "Good. Also if he asks, you're my cousin",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "me",
+      "text": "Why would your landlord be monitoring cousin traffic",
+      "sentAt": "18:12"
+    },
+    {
+      "author": "them",
+      "text": "Because my lease says no pets and I'm borrowing my sister's dog for one night",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "Nina",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "me",
+      "text": "You sent this to your landlord",
+      "sentAt": "18:13"
+    },
+    {
+      "author": "them",
+      "text": "I know. He just replied, \"Then your cousin needs a leash. The dog is in the hallway eating my fern.\"",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "me",
+      "text": "Honestly that's on you for assigning me fern behavior",
+      "sentAt": "18:14"
+    },
+    {
+      "author": "them",
+      "text": "Please come over. Apparently my cousin has also pooped by 4B.",
+      "sentAt": "18:15"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

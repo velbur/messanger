@@ -14,6 +14,10 @@ const renderCommandEl = document.getElementById("renderCommand");
 const btnCopyRenderCommand = document.getElementById("btnCopyRenderCommand");
 const downloadBlock = document.getElementById("downloadBlock");
 const downloadLink = document.getElementById("downloadLink");
+const btnPublishYoutube = document.getElementById("btnPublishYoutube");
+const youtubePrivacySelect = document.getElementById("youtubePrivacySelect");
+const youtubePublishControl = document.getElementById("youtubePublishControl");
+const youtubeLink = document.getElementById("youtubeLink");
 const pathsHint = document.getElementById("pathsHint");
 const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const musicSelect = document.getElementById("musicSelect");
@@ -61,16 +65,26 @@ const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
-const dialogueIncludeImages = document.getElementById("dialogueIncludeImages");
+const dialogueStyleOption = document.getElementById("dialogueStyleOption");
+const dialogueStyle = document.getElementById("dialogueStyle");
+const dialogueMessageCount = document.getElementById("dialogueMessageCount");
+const dialogueImageCount = document.getElementById("dialogueImageCount");
+const dialogueLanguage = document.getElementById("dialogueLanguage");
+const dialogueModel = document.getElementById("dialogueModel");
+const dialogueModelOption = document.getElementById("dialogueModelOption");
 const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
 const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
 const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
+const btnCheckLogic = document.getElementById("btnCheckLogic");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
+const btnSaveDialoguePrompt = document.getElementById("btnSaveDialoguePrompt");
+const dialoguePromptSaveStatus = document.getElementById("dialoguePromptSaveStatus");
+const dialogueLogicStatus = document.getElementById("dialogueLogicStatus");
 const btnNewDialogue = document.getElementById("btnNewDialogue");
 const stylePromptInput = document.getElementById("stylePromptInput");
 const btnSaveStylePrompt = document.getElementById("btnSaveStylePrompt");
@@ -82,11 +96,136 @@ let scanImagesTimer = null;
 let pollTimer = null;
 let activeRenderJobId = null;
 let openrouterConfigured = false;
+let youtubeConfigured = false;
+let lastPublishOutputFile = null;
+let youtubePublishing = false;
 let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "openai/gpt-5.4-image-2";
 
 const canGenerateImages = () => openrouterImageAvailable;
+
+const DEFAULT_DIALOGUE_STYLE = "fun";
+const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
+const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
+const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
+const DEFAULT_SERIES_MESSAGE_COUNT = 20;
+const SHORTS_PROMPT_STORAGE_KEY = "messanger.shortsPrompt";
+
+const readLastShortsPrompt = () => localStorage.getItem(SHORTS_PROMPT_STORAGE_KEY) ?? "";
+
+const saveLastShortsPrompt = (prompt) => {
+  const trimmed = String(prompt ?? "").trim();
+  if (!trimmed) {
+    return;
+  }
+  localStorage.setItem(SHORTS_PROMPT_STORAGE_KEY, trimmed);
+};
+
+const shortsStylesMeta = {
+  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
+  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
+};
+
+const getDialogueLanguage = () => (dialogueLanguage?.value === "en" ? "en" : "ru");
+
+const normalizeDialogueStyle = (value) =>
+  value && value in shortsStylesMeta ? value : DEFAULT_DIALOGUE_STYLE;
+
+let dialogueModelsCatalog = {models: [], defaultId: ""};
+
+const getDialogueModel = () => {
+  const selected = dialogueModel?.value?.trim();
+  if (selected) {
+    return selected;
+  }
+  return dialogueModelsCatalog.defaultId || openrouterTextModel;
+};
+
+const findDialogueModelLabel = (modelId) => {
+  const item = dialogueModelsCatalog.models.find((entry) => entry.id === modelId);
+  return item?.label ?? modelId;
+};
+
+const getDefaultMessageCount = () =>
+  editorKind === "shorts" ? DEFAULT_SHORTS_MESSAGE_COUNT : DEFAULT_SERIES_MESSAGE_COUNT;
+
+const getDefaultDialogueModel = () =>
+  editorKind === "shorts"
+    ? DEFAULT_SHORTS_DIALOGUE_MODEL
+    : dialogueModelsCatalog.defaultId || openrouterTextModel;
+
+const populateDialogueModelOptions = (preferredId) => {
+  if (!dialogueModel) {
+    return;
+  }
+  const models = dialogueModelsCatalog.models ?? [];
+  const envDefaultId = dialogueModelsCatalog.defaultId || openrouterTextModel;
+  const kindDefaultId = getDefaultDialogueModel();
+  const stored = localStorage.getItem(DIALOGUE_MODEL_STORAGE_KEY);
+  const resolved =
+    (preferredId && models.some((item) => item.id === preferredId) ? preferredId : null) ||
+    (editorKind === "shorts" &&
+    models.some((item) => item.id === DEFAULT_SHORTS_DIALOGUE_MODEL)
+      ? DEFAULT_SHORTS_DIALOGUE_MODEL
+      : null) ||
+    (stored && models.some((item) => item.id === stored) ? stored : null) ||
+    (models.some((item) => item.id === kindDefaultId) ? kindDefaultId : null) ||
+    (models.some((item) => item.id === envDefaultId) ? envDefaultId : models[0]?.id) ||
+    envDefaultId;
+
+  dialogueModel.replaceChildren();
+  for (const item of models) {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    if (item.hint) {
+      opt.title = item.hint;
+    }
+    dialogueModel.append(opt);
+  }
+  if (resolved && [...dialogueModel.options].some((opt) => opt.value === resolved)) {
+    dialogueModel.value = resolved;
+  }
+  dialogueModel.disabled = !openrouterConfigured || models.length === 0;
+};
+
+const loadDialogueModels = async () => {
+  try {
+    const res = await fetch("/api/openrouter/dialogue-models");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить модели");
+    }
+    dialogueModelsCatalog = {
+      models: Array.isArray(data.models) ? data.models : [],
+      defaultId: data.defaultId ?? openrouterTextModel,
+    };
+    populateDialogueModelOptions();
+  } catch (err) {
+    if (dialogueModel) {
+      dialogueModel.replaceChildren();
+      const opt = document.createElement("option");
+      opt.value = openrouterTextModel || "";
+      opt.textContent = openrouterTextModel || "Ошибка загрузки";
+      dialogueModel.append(opt);
+      dialogueModel.disabled = true;
+      dialogueModel.title = err instanceof Error ? err.message : String(err);
+    }
+  }
+};
+
+dialogueModel?.addEventListener("change", () => {
+  if (dialogueModel?.value) {
+    localStorage.setItem(DIALOGUE_MODEL_STORAGE_KEY, dialogueModel.value);
+  }
+});
+
+dialoguePromptInput?.addEventListener("input", () => {
+  if (editorKind === "shorts") {
+    saveLastShortsPrompt(dialoguePromptInput.value);
+  }
+});
 
 const getImageProviderUnavailableHint = () =>
   openrouterConfigured
@@ -146,15 +285,18 @@ const syncEditorKindUi = () => {
   if (seriesTitleCardsRow) {
     seriesTitleCardsRow.hidden = !isSeries;
   }
+  if (dialogueStyleOption) {
+    dialogueStyleOption.hidden = isSeries;
+  }
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
-      : "Генерация через ChatGPT (OpenRouter). Самостоятельная история для Shorts — длину и тон задайте в промпте.";
+      : "Ваше задание для Shorts. Стиль и сводка корпуса подмешиваются на сервере автоматически.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
       ? "Опишите часть истории, героев и финал сцены…"
-      : "Опишите сюжет, героев, тон и сколько сообщений нужно…";
+      : "Опишите сюжет, героев и желаемый финал…";
   }
   if (dialogueTitleHint) {
     dialogueTitleHint.textContent = isSeries
@@ -220,6 +362,20 @@ const updateRefineDialogueControls = () => {
   btnRefineDialogue.title = hasJson
     ? "Отправить текущий диалог на доработку"
     : "Сначала нужен JSON переписки";
+  updateLogicControls();
+};
+
+const updateLogicControls = () => {
+  if (!btnCheckLogic) {
+    return;
+  }
+  const hasJson = Boolean(jsonInput.value.trim());
+  btnCheckLogic.disabled = !hasJson || !canGenerateDialogue();
+  btnCheckLogic.title = !canGenerateDialogue()
+    ? "Задайте OPENROUTER_API_KEY в docs/.env"
+    : hasJson
+      ? "Проверить и исправить логику диалога"
+      : "Сначала нужен JSON переписки";
 };
 
 const canGenerateDialogue = () => openrouterConfigured;
@@ -243,12 +399,42 @@ const updateDialogueGenerateControls = () => {
     dialogueGenerateStatus.textContent = "";
   }
 };
+
+const resetWorkflowControls = () => {
+  lastPublishOutputFile = null;
+  if (downloadBlock) {
+    downloadBlock.hidden = true;
+  }
+  if (youtubeLink) {
+    youtubeLink.hidden = true;
+  }
+  if (dialogueGenerateStatus) {
+    dialogueGenerateStatus.textContent = canGenerateDialogue()
+      ? ""
+      : "Задайте OPENROUTER_API_KEY в docs/.env (ключ: openrouter.ai/keys), затем «Обновить» на вкладке API или перезапустите npm run ui";
+  }
+  if (dialogueRefineStatus) {
+    dialogueRefineStatus.textContent = "";
+  }
+  if (imagesGenerateStatus) {
+    imagesGenerateStatus.textContent = "";
+  }
+  if (dialogueLogicStatus) {
+    dialogueLogicStatus.textContent = "";
+  }
+  updateGenerateImagesControls(null);
+  updateRefineDialogueControls();
+  updateYoutubePublishControls();
+};
 const captureEditorSnapshot = () => ({
   dialogueId: currentDialogueId,
   title: dialogueTitleInput.value,
   prompt: dialoguePromptInput?.value ?? "",
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
+  dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
+  dialogueModel: getDialogueModel(),
+  messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -262,6 +448,16 @@ const restoreEditorSnapshot = async (snapshot) => {
   dialogueTitleInput.value = snapshot?.title ?? "";
   if (dialoguePromptInput) {
     dialoguePromptInput.value = snapshot?.prompt ?? "";
+    if (editorKind === "shorts" && !dialoguePromptInput.value.trim()) {
+      dialoguePromptInput.value = readLastShortsPrompt();
+    }
+  }
+  if (dialogueStyle) {
+    dialogueStyle.value = normalizeDialogueStyle(snapshot?.dialogueStyle);
+  }
+  populateDialogueModelOptions(snapshot?.dialogueModel);
+  if (dialogueMessageCount && snapshot?.messageCount) {
+    dialogueMessageCount.value = String(snapshot.messageCount);
   }
   if (seriesIdInput) {
     seriesIdInput.value = snapshot?.seriesId || "usssr";
@@ -301,6 +497,9 @@ const restoreEditorSnapshot = async (snapshot) => {
   );
   if (editorKind === "shorts" && jsonInput.value.trim()) {
     applyTitleCardFieldsToJson();
+  }
+  if (editorKind === "shorts") {
+    applyShortsStyleDefaults();
   }
 };
 
@@ -552,7 +751,13 @@ const applyDialogueToEditor = (dialogue) => {
   jsonInput.value = JSON.stringify(dialogue.conversation, null, 2);
   dialogueTitleInput.value = dialogue.titleDisplay || dialogue.title || "";
   if (dialoguePromptInput) {
-    dialoguePromptInput.value = dialogue.dialoguePrompt ?? "";
+    const fromDb = dialogue.dialoguePrompt ?? "";
+    if (editorKind === "shorts") {
+      dialoguePromptInput.value = fromDb.trim() || readLastShortsPrompt();
+      saveLastShortsPrompt(dialoguePromptInput.value);
+    } else {
+      dialoguePromptInput.value = fromDb;
+    }
   }
   if (seriesIdInput) {
     seriesIdInput.value = dialogue.seriesId || "usssr";
@@ -560,6 +765,7 @@ const applyDialogueToEditor = (dialogue) => {
   currentPartNumber = dialogue.partNumber ?? null;
   updateSeriesPartHint();
   currentDialogueOutputFile = dialogue.outputFile ?? null;
+  lastPublishOutputFile = null;
   updateProjectPathsHint();
   setWallpaper(dialogue.wallpaper === "dark" ? "dark" : "default");
   if (dialogue.music === "none") {
@@ -573,6 +779,31 @@ const applyDialogueToEditor = (dialogue) => {
       : "",
   );
   syncTitleCardFieldsFromJson();
+  if (editorKind === "shorts") {
+    applyMessengerLocaleToJson();
+  }
+  showExistingOutputDownload();
+};
+
+const showExistingOutputDownload = () => {
+  if (!downloadBlock || !downloadLink) {
+    return;
+  }
+  if (!currentDialogueOutputFile || lastPublishOutputFile) {
+    updateYoutubePublishControls();
+    return;
+  }
+  downloadBlock.hidden = false;
+  downloadLink.href = `/out/${currentDialogueOutputFile}`;
+  downloadLink.textContent = `Открыть out/${currentDialogueOutputFile}`;
+  downloadLink.removeAttribute("download");
+  if (pathsHint) {
+    pathsHint.textContent = `Готовый MP4: out/${currentDialogueOutputFile}`;
+  }
+  if (youtubeLink) {
+    youtubeLink.hidden = true;
+  }
+  updateYoutubePublishControls();
 };
 
 const formatDate = (ts) => {
@@ -651,7 +882,15 @@ const saveCurrentDialogue = async () => {
   }
   updateProjectPathsHint();
   editorSnapshots[editorKind] = captureEditorSnapshot();
-  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}`);
+  let corpusNote = "";
+  if (editorKind === "shorts" && data.corpusUpdate) {
+    corpusNote = data.corpusUpdate.updated
+      ? " · сводка корпуса обновлена"
+      : data.corpusUpdate.reason === "openrouter_not_configured"
+        ? ""
+        : " · сводка корпуса не обновлена";
+  }
+  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}${corpusNote}`);
   return data;
 };
 
@@ -660,7 +899,11 @@ const newDialogue = async ({openEditor = false} = {}) => {
   currentDialogueOutputFile = null;
   dialogueTitleInput.value = "";
   if (dialoguePromptInput) {
-    dialoguePromptInput.value = "";
+    dialoguePromptInput.value =
+      editorKind === "shorts" ? readLastShortsPrompt() : "";
+  }
+  if (dialoguePromptSaveStatus) {
+    dialoguePromptSaveStatus.textContent = "";
   }
   currentPartNumber = null;
   updateSeriesPartHint();
@@ -676,6 +919,11 @@ const newDialogue = async ({openEditor = false} = {}) => {
   );
   dialoguePanel.hidden = true;
   dialogueEditor.replaceChildren();
+  resetWorkflowControls();
+  if (editorKind === "shorts") {
+    applyShortsStyleDefaults();
+    applyShortsGenDefaults();
+  }
   editorSnapshots[editorKind] = captureEditorSnapshot();
   if (openEditor) {
     activeMainTab = editorKind;
@@ -1134,6 +1382,104 @@ const saveStylePrompt = async () => {
 
 btnSaveStylePrompt.addEventListener("click", saveStylePrompt);
 
+const loadShortsStyles = async () => {
+  try {
+    const res = await fetch("/api/shorts/styles");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить стили Shorts");
+    }
+    if (data.styles && typeof data.styles === "object") {
+      Object.assign(shortsStylesMeta, data.styles);
+      populateDialogueStyleOptions();
+    }
+  } catch {
+    populateDialogueStyleOptions();
+  }
+};
+
+const saveDialoguePromptOnly = async () => {
+  const prompt = dialoguePromptInput?.value.trim() ?? "";
+  if (!prompt) {
+    if (dialoguePromptSaveStatus) {
+      dialoguePromptSaveStatus.textContent = "Промпт не может быть пустым";
+    }
+    return;
+  }
+
+  const json = jsonInput.value.trim();
+  if (!currentDialogueId) {
+    if (!json) {
+      if (dialoguePromptSaveStatus) {
+        dialoguePromptSaveStatus.textContent = "Сначала вставьте JSON и сохраните диалог целиком";
+      }
+      return;
+    }
+    if (dialoguePromptSaveStatus) {
+      dialoguePromptSaveStatus.textContent = "Сохранение…";
+    }
+    try {
+      await saveCurrentDialogue();
+      if (dialoguePromptSaveStatus) {
+        dialoguePromptSaveStatus.textContent = "Промпт сохранён вместе с диалогом";
+      }
+    } catch (err) {
+      if (dialoguePromptSaveStatus) {
+        dialoguePromptSaveStatus.textContent = err instanceof Error ? err.message : String(err);
+      }
+    }
+    return;
+  }
+
+  if (!json) {
+    if (dialoguePromptSaveStatus) {
+      dialoguePromptSaveStatus.textContent = "Нужен JSON переписки для сохранения";
+    }
+    return;
+  }
+
+  if (btnSaveDialoguePrompt) {
+    btnSaveDialoguePrompt.disabled = true;
+  }
+  if (dialoguePromptSaveStatus) {
+    dialoguePromptSaveStatus.textContent = "Сохранение…";
+  }
+  try {
+    const res = await fetch(`/api/dialogues/${currentDialogueId}`, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        ...resolveTitlePayload(),
+        json,
+        wallpaper: getWallpaper(),
+        music: getMusicId(),
+        dialoguePrompt: prompt,
+        kind: editorKind,
+        seriesId: editorKind === "series" ? (seriesIdInput?.value.trim() ?? "") : "",
+        partNumber: editorKind === "series" ? currentPartNumber : null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Ошибка сохранения промпта");
+    }
+    editorSnapshots[editorKind] = captureEditorSnapshot();
+    if (dialoguePromptSaveStatus) {
+      dialoguePromptSaveStatus.textContent = `Сохранено ${formatDate(data.updatedAt)}`;
+    }
+  } catch (err) {
+    if (dialoguePromptSaveStatus) {
+      dialoguePromptSaveStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    if (btnSaveDialoguePrompt) {
+      btnSaveDialoguePrompt.disabled = false;
+    }
+  }
+};
+
+btnSaveDialoguePrompt?.addEventListener("click", saveDialoguePromptOnly);
+
 const getWallpaper = () => {
   const checked = document.querySelector('input[name="wallpaper"]:checked');
   return checked?.value === "dark" ? "dark" : "default";
@@ -1163,6 +1509,58 @@ const setMusicId = (id) => {
     musicSelect.value = id;
   }
 };
+
+const getShortsStyleMeta = () => {
+  if (editorKind !== "shorts") {
+    return null;
+  }
+  return shortsStylesMeta[normalizeDialogueStyle(dialogueStyle?.value)] ?? null;
+};
+
+const populateDialogueStyleOptions = () => {
+  if (!dialogueStyle) {
+    return;
+  }
+  const current = normalizeDialogueStyle(dialogueStyle.value);
+  dialogueStyle.replaceChildren();
+  for (const [id, meta] of Object.entries(shortsStylesMeta)) {
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = meta.label ?? id;
+    dialogueStyle.append(opt);
+  }
+  dialogueStyle.value = current in shortsStylesMeta ? current : DEFAULT_DIALOGUE_STYLE;
+};
+
+const applyShortsStyleDefaults = () => {
+  const meta = getShortsStyleMeta();
+  if (!meta) {
+    return;
+  }
+  if (meta.wallpaper) {
+    setWallpaper(meta.wallpaper);
+  }
+  if (meta.music) {
+    setMusicId(meta.music);
+  }
+};
+
+const applyShortsGenDefaults = () => {
+  if (dialogueMessageCount) {
+    dialogueMessageCount.value = String(DEFAULT_SHORTS_MESSAGE_COUNT);
+  }
+  populateDialogueModelOptions(DEFAULT_SHORTS_DIALOGUE_MODEL);
+};
+
+dialogueStyle?.addEventListener("change", () => {
+  applyShortsStyleDefaults();
+});
+
+dialogueLanguage?.addEventListener("change", () => {
+  if (editorKind === "shorts" && jsonInput.value.trim()) {
+    applyMessengerLocaleToJson();
+  }
+});
 
 const syncMusicFromJson = () => {
   try {
@@ -1207,6 +1605,7 @@ const loadMusicTracks = async () => {
     }
 
     setMusicId(defaultMusicId);
+    applyShortsStyleDefaults();
   } catch (err) {
     musicSelect.replaceChildren();
     const opt = document.createElement("option");
@@ -1359,6 +1758,35 @@ const applyTitleCardFieldsToJson = () => {
     delete parsed.endCard;
   }
 
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const applyMessengerLocaleToJson = () => {
+  if (editorKind !== "shorts") {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  const isEn = getDialogueLanguage() === "en";
+  parsed.locale = isEn ? "en" : "ru";
+  parsed.contactStatus = isEn ? "online" : "в сети";
+  parsed.contactStatusTyping = isEn ? "typing..." : "печатает...";
+  if (isEn) {
+    if (!parsed.myName || parsed.myName === "Я" || parsed.myName === "Алиса") {
+      parsed.myName = "Me";
+    }
+  } else if (parsed.myName === "Me") {
+    parsed.myName = "Я";
+  }
+  parsed.outro = {
+    ...(parsed.outro ?? {}),
+    enabled: parsed.outro?.enabled ?? true,
+    text: isEn ? "Subscribe :)" : "Подпишись :)",
+    pauseBeforeMs: parsed.outro?.pauseBeforeMs ?? 700,
+    durationMs: parsed.outro?.durationMs ?? 2800,
+  };
   jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
@@ -2377,7 +2805,12 @@ const showStatus = (job) => {
   };
 
   if (downloadBlock && downloadLink && pathsHint) {
-    if (job.status === "done" && job.localCopyStatus === "done" && job.downloadUrl) {
+    if (
+      job.status === "done" &&
+      job.downloadUrl &&
+      (job.target !== "remote" || job.localCopyStatus === "done")
+    ) {
+      syncPublishOutputFromJob(job);
       downloadBlock.hidden = false;
       downloadLink.href = withCacheBust(job.downloadUrl, job.finishedAt);
       downloadLink.textContent =
@@ -2399,6 +2832,7 @@ const showStatus = (job) => {
     } else if (job.status === "done" && job.localCopyStatus === "copying") {
       downloadBlock.hidden = true;
     } else if (job.inputPath || job.outputPath) {
+      syncPublishOutputFromJob(job);
       downloadBlock.hidden = false;
       downloadLink.href = withCacheBust(
         job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`,
@@ -2414,6 +2848,7 @@ const showStatus = (job) => {
     } else {
       downloadBlock.hidden = true;
     }
+    updateYoutubePublishControls();
   }
 };
 
@@ -2449,6 +2884,9 @@ const pollJob = (jobId) => {
         setBusy(false);
         if (job.status === "done" && job.localCopyStatus === "done") {
           loadDialoguesList(editorKind);
+        }
+        if (job.status === "done") {
+          loadOpenRouterStatus();
         }
       }
     } catch (err) {
@@ -2529,6 +2967,7 @@ btnExample.addEventListener("click", async () => {
 });
 
 btnRender.addEventListener("click", async () => {
+  applyMessengerLocaleToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     alert("Вставьте JSON переписки");
@@ -2553,6 +2992,11 @@ btnRender.addEventListener("click", async () => {
     renderProgressLabel.textContent = "Запуск…";
   }
   downloadBlock.hidden = true;
+  lastPublishOutputFile = null;
+  if (youtubeLink) {
+    youtubeLink.hidden = true;
+  }
+  updateYoutubePublishControls();
 
   try {
     if (currentDialogueId) {
@@ -2644,25 +3088,48 @@ const clearShortsJsonBeforeGenerate = () => {
   updateRefineDialogueControls();
 };
 
+const getDialogueGenOptions = () => ({
+  messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
+  imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
+  language: getDialogueLanguage(),
+  model: getDialogueModel(),
+});
+
+const formatDialogueGenSummary = ({messageCount, imageCount, language, model}) => {
+  const lang = language === "en" ? "EN" : "RU";
+  const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
+  const meta = getShortsStyleMeta();
+  const style = meta ? `, ${meta.label}` : "";
+  const modelLabel = model ? `, ${findDialogueModelLabel(model)}` : "";
+  return `≤${messageCount} сообщ.${photos}, ${lang}${style}${modelLabel}`;
+};
+
 const generateDialogueFromPrompt = async () => {
-  const prompt = dialoguePromptInput?.value.trim() ?? "";
-  if (!prompt) {
-    throw new Error("Введите промпт диалога");
-  }
   if (!canGenerateDialogue()) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
   }
 
   if (editorKind === "shorts") {
     clearShortsJsonBeforeGenerate();
+    applyShortsStyleDefaults();
   }
 
-  const includeImages = dialogueIncludeImages?.checked !== false;
+  const prompt = dialoguePromptInput?.value.trim() ?? "";
+  if (!prompt) {
+    throw new Error("Введите промпт диалога");
+  }
+
   const body = {
     prompt,
-    includeImages,
+    ...getDialogueGenOptions(),
     mode: editorKind,
   };
+
+  if (editorKind === "shorts") {
+    body.dialogueStyle = normalizeDialogueStyle(dialogueStyle?.value);
+    body.includeImages = Number(dialogueImageCount?.value ?? 0) > 0;
+    body.imageCount = Number(dialogueImageCount?.value ?? 0) || 0;
+  }
 
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
@@ -2681,6 +3148,55 @@ const generateDialogueFromPrompt = async () => {
   }
 
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  applyMessengerLocaleToJson();
+  if (editorKind === "shorts" && data.displayTitle) {
+    dialogueTitleInput.value = data.displayTitle;
+    updateProjectPathsHint();
+  }
+  syncTitleCardFieldsFromJson();
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  updateRefineDialogueControls();
+  return data;
+};
+
+const checkDialogueLogicFromPrompt = async () => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  if (!canGenerateDialogue()) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  const body = {
+    prompt: dialoguePromptInput?.value.trim() ?? "",
+    json,
+    ...getDialogueGenOptions(),
+    mode: editorKind,
+    includeImages: Number(dialogueImageCount?.value ?? 0) > 0,
+    imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
+  };
+  if (editorKind === "series") {
+    body.seriesId = seriesIdInput?.value.trim() ?? "";
+  }
+
+  const res = await fetch("/api/dialogues/logic", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка проверки логики");
+  }
+
+  const merged = {...JSON.parse(json), ...data.conversation};
+  if (data.displayTitle) {
+    merged.displayTitle = data.displayTitle;
+  }
+  jsonInput.value = JSON.stringify(merged, null, 2);
+  applyMessengerLocaleToJson();
   if (editorKind === "shorts" && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
@@ -2705,6 +3221,7 @@ const regenerateMessageFromIndex = async (messageIndex) => {
     json,
     messageIndex,
     mode: editorKind,
+    model: getDialogueModel(),
   };
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
@@ -2739,11 +3256,10 @@ const refineDialogueFromPrompt = async () => {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
   }
 
-  const includeImages = dialogueIncludeImages?.checked !== false;
   const body = {
     refinePrompt,
     json,
-    includeImages,
+    ...getDialogueGenOptions(),
     mode: editorKind,
   };
   if (editorKind === "series") {
@@ -2761,6 +3277,7 @@ const refineDialogueFromPrompt = async () => {
   }
 
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  applyMessengerLocaleToJson();
   if (editorKind === "shorts" && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
@@ -2809,7 +3326,7 @@ btnGenerateDialogue?.addEventListener("click", async () => {
   try {
     const data = await generateDialogueFromPrompt();
     if (dialogueGenerateStatus) {
-      const mode = dialogueIncludeImages?.checked !== false ? "с фото" : "только текст";
+      const mode = formatDialogueGenSummary(getDialogueGenOptions());
       const context =
         editorKind === "series" && data.contextMessageCount
           ? `, контекст: ${data.contextMessageCount} сообщ.`
@@ -2831,6 +3348,27 @@ btnGenerateDialogue?.addEventListener("click", async () => {
     }
   } finally {
     btnGenerateDialogue.disabled = false;
+  }
+});
+
+btnCheckLogic?.addEventListener("click", async () => {
+  btnCheckLogic.disabled = true;
+  if (dialogueLogicStatus) {
+    dialogueLogicStatus.textContent = "Проверка логики…";
+  }
+  try {
+    const data = await checkDialogueLogicFromPrompt();
+    if (dialogueLogicStatus) {
+      dialogueLogicStatus.textContent = `Готово (${data.model}, попыток: ${data.attempts}${
+        data.logicRevised ? ", исправлено" : ", без правок"
+      })`;
+    }
+  } catch (err) {
+    if (dialogueLogicStatus) {
+      dialogueLogicStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    updateLogicControls();
   }
 });
 
@@ -2887,11 +3425,123 @@ const applyApiStatusToEditor = (data) => {
       openrouterImageModel = data.openrouter.imageModel;
     }
   }
+  if (data?.youtube) {
+    youtubeConfigured = Boolean(data.youtube.configured);
+  }
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateDialogueGenerateControls();
   updateMessageRegenControls();
+  updateLogicControls();
+  populateDialogueModelOptions();
+  updateYoutubePublishControls();
 };
+
+const outputFileFromJob = (job) => {
+  if (job?.outputFile) {
+    return job.outputFile;
+  }
+  const path = job?.outputPath ?? "";
+  const match = String(path).match(/([^/]+\.mp4)$/i);
+  return match ? match[1] : null;
+};
+
+const syncPublishOutputFromJob = (job) => {
+  if (job?.status !== "done") {
+    return;
+  }
+  if (job.target === "remote" && job.localCopyStatus === "error") {
+    return;
+  }
+  const file = outputFileFromJob(job);
+  if (file) {
+    lastPublishOutputFile = file;
+    if (job.dialogueId && job.dialogueId === currentDialogueId) {
+      currentDialogueOutputFile = file;
+    }
+  }
+};
+
+const getPublishOutputFile = () => lastPublishOutputFile || currentDialogueOutputFile || null;
+
+const updateYoutubePublishControls = () => {
+  if (!btnPublishYoutube) {
+    return;
+  }
+  const outputFile = getPublishOutputFile();
+  const canPublish = youtubeConfigured && Boolean(outputFile) && !youtubePublishing;
+  btnPublishYoutube.disabled = !canPublish;
+  btnPublishYoutube.title = !youtubeConfigured
+    ? "YouTube не настроен — задайте YOUTUBE_* в docs/.env и обновите страницу"
+    : !outputFile
+      ? "Сначала соберите видео"
+      : youtubePublishing
+        ? "Загрузка на YouTube…"
+        : `Загрузить out/${outputFile} на YouTube`;
+  if (youtubePrivacySelect) {
+    youtubePrivacySelect.disabled = youtubePublishing || !youtubeConfigured || !outputFile;
+  }
+  if (youtubePublishControl) {
+    const isReady = youtubeConfigured && Boolean(outputFile);
+    youtubePublishControl.classList.toggle("publish-split--active", isReady);
+  }
+};
+
+const publishToYoutube = async () => {
+  const outputFile = getPublishOutputFile();
+  if (!outputFile) {
+    alert("Нет готового MP4. Сначала соберите видео.");
+    return;
+  }
+  if (!youtubeConfigured) {
+    alert("YouTube не настроен — задайте ключи в docs/.env");
+    return;
+  }
+
+  const title = dialogueTitleInput?.value?.trim() || undefined;
+  const privacyStatus = youtubePrivacySelect?.value || "public";
+
+  youtubePublishing = true;
+  updateYoutubePublishControls();
+  btnPublishYoutube.textContent = "Загрузка…";
+  if (youtubeLink) {
+    youtubeLink.hidden = true;
+  }
+
+  try {
+    const res = await fetch("/api/youtube/publish", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        outputFile,
+        dialogueId: currentDialogueId ?? undefined,
+        title,
+        privacyStatus,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось опубликовать");
+    }
+
+    if (youtubeLink && data.url) {
+      youtubeLink.hidden = false;
+      youtubeLink.href = data.url;
+      youtubeLink.textContent = `Открыть на YouTube: ${data.title ?? "ролик"}`;
+    }
+    statusText.className = "status-text status-text--done";
+    statusText.textContent = `Опубликовано на YouTube (${privacyStatus})`;
+    statusPanel.hidden = false;
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err));
+  } finally {
+    youtubePublishing = false;
+    btnPublishYoutube.textContent = "Опубликовать на YouTube";
+    updateYoutubePublishControls();
+  }
+};
+
+btnPublishYoutube?.addEventListener("click", () => publishToYoutube());
 
 const updateMessageRegenControls = () => {
   const available = openrouterConfigured;
@@ -2933,6 +3583,14 @@ const renderApiStatusPanel = (data) => {
     ].join("\n");
   }
   apiStatusContent.append(appendApiStatusSection("OpenRouter (ChatGPT)", openrouterText));
+
+  const youtube = data?.youtube;
+  const youtubeText = document.createElement("p");
+  youtubeText.className = "api-status-section__text";
+  youtubeText.textContent = youtube?.configured
+    ? "Настроено. Кнопка «Опубликовать на YouTube» доступна после сборки MP4."
+    : "Не настроено. Задайте YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET и YOUTUBE_REFRESH_TOKEN в docs/.env.";
+  apiStatusContent.append(appendApiStatusSection("YouTube", youtubeText));
 };
 
 const loadApiStatus = async () => {
@@ -2968,17 +3626,24 @@ loadMusicTracks();
 loadRenderTargets();
 const loadOpenRouterStatus = async () => {
   try {
-    const res = await fetch("/api/images/openrouter");
+    const res = await fetch("/api/status");
     const data = await res.json();
-    applyApiStatusToEditor({openrouter: data});
+    if (!res.ok) {
+      throw new Error(data.error ?? "status");
+    }
+    applyApiStatusToEditor(data);
   } catch {
     openrouterConfigured = false;
     openrouterImageAvailable = false;
+    youtubeConfigured = false;
     updateImageProviderControls();
     updateMessageRegenControls();
+    updateLogicControls();
+    updateYoutubePublishControls();
   }
 };
 
-loadOpenRouterStatus();
+loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
+loadShortsStyles();
 loadBrowseOnStartup();

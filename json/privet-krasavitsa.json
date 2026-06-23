@@ -1,0 +1,59 @@
+{
+  "contactName": "Незнакомый номер",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Прывед красавицца",
+      "sentAt": "21:08"
+    },
+    {
+      "author": "me",
+      "text": "Здравствуйте. Вы кто?",
+      "sentAt": "21:08"
+    },
+    {
+      "author": "them",
+      "text": "Ты красцива давай знакомицца слыш",
+      "sentAt": "21:09"
+    },
+    {
+      "author": "me",
+      "text": "Давайте",
+      "sentAt": "21:09"
+    },
+    {
+      "author": "them",
+      "text": "О норм",
+      "sentAt": "21:09"
+    },
+    {
+      "author": "me",
+      "text": "У тибя есть квартира, машына и многа денег?",
+      "sentAt": "21:10"
+    },
+    {
+      "author": "them",
+      "text": "Чево",
+      "sentAt": "21:10"
+    },
+    {
+      "author": "me",
+      "text": "Ну ти ж знакомицца хотел",
+      "sentAt": "21:10"
+    },
+    {
+      "author": "them",
+      "text": "Ти щто ни руская што ли? 😐",
+      "sentAt": "21:11"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "contactName": "Риелтор",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Самая лёгкая смерть на свете — это находиться в эпицентре термоядерного взрыва",
+      "sentAt": "16:42"
+    },
+    {
+      "author": "me",
+      "text": "Простите?",
+      "sentAt": "16:42"
+    },
+    {
+      "author": "them",
+      "text": "Излучение сжигает тело быстрее, чем болевые сигналы доходят до центральной нервной системы",
+      "sentAt": "16:43"
+    },
+    {
+      "author": "me",
+      "text": "Вы сейчас про квартиру?",
+      "sentAt": "16:43"
+    },
+    {
+      "author": "them",
+      "text": "Да. Поэтому недвижимость в центре такая дорогая",
+      "sentAt": "16:44"
+    },
+    {
+      "author": "me",
+      "text": "А можно нам другого риелтора? 😐",
+      "sentAt": "16:44"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

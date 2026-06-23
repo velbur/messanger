@@ -181,17 +181,84 @@
             spellcheck="false"
             placeholder="Опишите часть истории, героев и финал сцены…"
           ></textarea>
+          <div class="actions actions--inline">
+            <button type="button" id="btnSaveDialoguePrompt" class="btn btn-secondary btn-small">
+              Сохранить промпт
+            </button>
+            <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
+          </div>
           <div class="dialogue-gen-options">
-            <label class="title-cards__row">
-              <input type="checkbox" id="dialogueIncludeImages" checked />
-              <span>С фото в переписке (imagePrompt)</span>
+            <label class="dialogue-gen-option" id="dialogueStyleOption">
+              <span class="dialogue-gen-option__label">Стиль</span>
+              <select id="dialogueStyle" class="select select--compact" title="Готовый стиль промпта для Shorts">
+                <option value="fun" selected>Весёлая</option>
+                <option value="mystic">Мистика</option>
+              </select>
+            </label>
+            <label class="dialogue-gen-option">
+              <span class="dialogue-gen-option__label">Сообщений</span>
+              <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
+                <option value="10" selected>до 10</option>
+                <option value="15">до 15</option>
+                <option value="20">до 20</option>
+                <option value="25">до 25</option>
+                <option value="30">до 30</option>
+                <option value="40">до 40</option>
+              </select>
+            </label>
+            <label class="dialogue-gen-option">
+              <span class="dialogue-gen-option__label">Фото</span>
+              <select id="dialogueImageCount" class="select select--compact" title="Сколько фото-сообщений с imagePrompt">
+                <option value="0" selected>0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+            <label class="dialogue-gen-option">
+              <span class="dialogue-gen-option__label">Язык</span>
+              <select id="dialogueLanguage" class="select select--compact">
+                <option value="ru" selected>Русский</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
+              <span class="dialogue-gen-option__label">Модель</span>
+              <select id="dialogueModel" class="select select--compact" title="OpenRouter — для генерации и проверки диалога">
+                <option value="">Загрузка…</option>
+              </select>
             </label>
           </div>
-          <div class="actions actions--inline">
-            <button type="button" id="btnGenerateDialogue" class="btn btn-secondary">
+          <div class="actions actions--inline workflow-actions">
+            <button type="button" id="btnGenerateDialogue" class="btn btn-generate">
               Сгенерировать диалог
             </button>
+            <button type="button" id="btnCheckLogic" class="btn btn-secondary" disabled>
+              Логика
+            </button>
+            <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
+            <span class="workflow-actions__publish">
+              <div class="publish-split" id="youtubePublishControl">
+                <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
+                  Опубликовать на YouTube
+                </button>
+                <select
+                  id="youtubePrivacySelect"
+                  class="publish-split__select"
+                  title="Видимость на YouTube"
+                  disabled
+                >
+                  <option value="public" selected>Публичное</option>
+                  <option value="unlisted">По ссылке</option>
+                  <option value="private">Приватное</option>
+                </select>
+              </div>
+              <a id="youtubeLink" class="youtube-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+            </span>
             <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+            <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
           </div>
         </div>
 
@@ -267,9 +334,8 @@
           ></textarea>
         </details>
 
-        <div class="actions">
+        <div class="actions actions--example">
           <button type="button" id="btnExample" class="btn btn-secondary">Пример</button>
-          <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
         </div>
 
         <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">

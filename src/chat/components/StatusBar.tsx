@@ -4,9 +4,13 @@ import {useChatTheme} from "../ThemeContext";
 import {CHROME, LAYOUT} from "../theme";
 import {BatteryIcon, SignalIcon} from "./icons";
 
+type Props = {
+  time: string;
+};
+
 const S = CHROME.statusBar;
 
-export const StatusBar: React.FC = () => {
+export const StatusBar: React.FC<Props> = ({time}) => {
   const theme = useChatTheme();
 
   return (
@@ -26,7 +30,7 @@ export const StatusBar: React.FC = () => {
         letterSpacing: 0.2,
       }}
     >
-      <span style={{fontVariantNumeric: "tabular-nums"}}>12:34</span>
+      <span style={{fontVariantNumeric: "tabular-nums"}}>{time}</span>
       <div style={{display: "flex", gap: S.iconsGap, alignItems: "center"}}>
         <SignalIcon size={S.signalIcon} color={theme.headerText} />
         <span style={{fontSize: S.networkFontSize, fontWeight: 600, letterSpacing: 0.2}}>5G</span>

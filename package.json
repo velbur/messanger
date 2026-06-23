@@ -16,7 +16,8 @@
     "series:import": "node --import tsx scripts/series-import.mjs",
     "series:dialogue": "node --import tsx scripts/generate-dialogue.mjs",
     "series:images": "node scripts/generate-image.mjs",
-    "series:export": "node scripts/export-conversation.mjs"
+    "series:export": "node scripts/export-conversation.mjs",
+    "youtube:auth": "node scripts/youtube-oauth.mjs"
   },
   "dependencies": {
     "@remotion/google-fonts": "^4.0.0",

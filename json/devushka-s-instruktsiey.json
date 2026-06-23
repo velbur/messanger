@@ -1,0 +1,64 @@
+{
+  "contactName": "Незнакомый номер",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Привет, давай познакомимся?",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "me",
+      "text": "Давай. Только я сразу предупреждаю: я на голову больная",
+      "sentAt": "21:16"
+    },
+    {
+      "author": "them",
+      "text": "Понял, значит нет",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "me",
+      "text": "Почему нет?",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "them",
+      "text": "Ну ты же отказала",
+      "sentAt": "21:17"
+    },
+    {
+      "author": "me",
+      "text": "Я не отказала",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "them",
+      "text": "А что это было?",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "me",
+      "text": "Инструкция по технике безопасности",
+      "sentAt": "21:18"
+    },
+    {
+      "author": "them",
+      "text": "То есть да?",
+      "sentAt": "21:19"
+    },
+    {
+      "author": "me",
+      "text": "Да. Только потом не ной 😐",
+      "sentAt": "21:19"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  }
+}

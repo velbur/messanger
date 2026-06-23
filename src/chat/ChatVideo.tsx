@@ -8,10 +8,11 @@ import {CHAT_FONT_FAMILY} from "./fonts";
 import {SubscribeOutro} from "./components/SubscribeOutro";
 import {TitleCard} from "./components/TitleCard";
 import {mergeConversationOutro} from "./outro";
+import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildTimeline, FULLSCREEN_TIMELINE_REV, visibleMessageCountAtFrame} from "./timeline";
+import {buildTimeline, FULLSCREEN_TIMELINE_REV, getStatusBarTime, visibleMessageCountAtFrame} from "./timeline";
 import {getTheme, LAYOUT} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -32,6 +33,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const sounds = useMemo(() => mergeConversationSounds(conversation), [conversation]);
   const music = useMemo(() => mergeConversationMusic(conversation), [conversation]);
   const outro = useMemo(() => mergeConversationOutro(conversation), [conversation]);
+  const messengerLocale = useMemo(() => getMessengerLocale(conversation), [conversation]);
   const intro = useMemo(() => mergeIntro(conversation), [conversation]);
   const endCard = useMemo(() => mergeEndCard(conversation), [conversation]);
   const theme = getTheme(conversation.wallpaper);
@@ -103,8 +105,10 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
 
   const isThemTyping = activeEvent?.author === "them";
   const headerStatus = isThemTyping
-    ? conversation.contactStatusTyping
-    : conversation.contactStatus;
+    ? messengerLocale.contactStatusTyping
+    : messengerLocale.contactStatus;
+
+  const statusBarTime = getStatusBarTime(timeline.events, visibleCount, activeEvent);
 
   return (
     <ChatThemeProvider mode={conversation.wallpaper}>
@@ -130,7 +134,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             opacity: inTitleCard ? 0 : chatDim,
           }}
         >
-          <StatusBar />
+          <StatusBar time={statusBarTime} />
           <ChatHeader
             contactName={conversation.contactName}
             contactStatus={headerStatus}
@@ -178,7 +182,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
               paddingBottom: LAYOUT.shortsSafeAreaBottom,
             }}
           >
-            <InputBar typedText={typedText} />
+            <InputBar typedText={typedText} placeholder={messengerLocale.inputPlaceholder} />
           </div>
         </div>
 

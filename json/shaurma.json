@@ -1,0 +1,59 @@
+{
+  "contactName": "Витя",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Я попросил шаурму без лука",
+      "sentAt": "13:22"
+    },
+    {
+      "author": "me",
+      "text": "И сделали?",
+      "sentAt": "13:22"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "13:23"
+    },
+    {
+      "author": "me",
+      "text": "Ну отлично",
+      "sentAt": "13:23"
+    },
+    {
+      "author": "them",
+      "text": "Почти",
+      "sentAt": "13:23"
+    },
+    {
+      "author": "me",
+      "text": "Что добавили?",
+      "sentAt": "13:24"
+    },
+    {
+      "author": "them",
+      "text": "Извинение",
+      "sentAt": "13:24"
+    },
+    {
+      "author": "me",
+      "text": "Вместо лука?",
+      "sentAt": "13:24"
+    },
+    {
+      "author": "them",
+      "text": "Нет, вместе с луком 😐",
+      "sentAt": "13:25"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

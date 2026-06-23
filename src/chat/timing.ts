@@ -2,10 +2,16 @@ import {charCount} from "./emoji";
 import {hasMessageImage, messageCaption} from "./message";
 import type {ConversationInput, MessageInput} from "./schema";
 
-/** Множитель длительности переписки (0.7 = на 30% быстрее) */
-export const TIMING_SCALE = 0.7;
+/** Множитель длительности переписки (0.245 = на 50% быстрее прежнего 0.49) */
+export const TIMING_SCALE = 0.245;
 
-const scaleMs = (ms: number): number => Math.max(1, Math.round(ms * TIMING_SCALE));
+/** Маркер в Remotion bundle — при смене тайминга обновить и проверку в bundle-cache.mjs */
+export const TIMING_BUNDLE_MARKER = "timing-scale-0245-v1";
+
+export const scaleTimingMs = (ms: number): number =>
+  Math.max(1, Math.round(ms * TIMING_SCALE));
+
+const scaleMs = scaleTimingMs;
 
 export type ConversationTiming = {
   /** Пауза перед набором: база, мс */
@@ -109,8 +115,9 @@ export const resolveMessageTiming = (
     );
 
     return {
-      pauseBeforeMs: message.pauseBeforeMs ?? scaleMs(autoPause),
-      typingMs: message.typingMs ?? scaleMs(autoTyping),
+      pauseBeforeMs:
+        message.pauseBeforeMs !== undefined ? scaleMs(message.pauseBeforeMs) : scaleMs(autoPause),
+      typingMs: message.typingMs !== undefined ? scaleMs(message.typingMs) : scaleMs(autoTyping),
       postRevealMs: scaleMs(autoPostReveal),
       charLength: chars,
     };
@@ -136,8 +143,9 @@ export const resolveMessageTiming = (
   );
 
   return {
-    pauseBeforeMs: message.pauseBeforeMs ?? scaleMs(autoPause),
-    typingMs: message.typingMs ?? scaleMs(autoTyping),
+    pauseBeforeMs:
+      message.pauseBeforeMs !== undefined ? scaleMs(message.pauseBeforeMs) : scaleMs(autoPause),
+    typingMs: message.typingMs !== undefined ? scaleMs(message.typingMs) : scaleMs(autoTyping),
     postRevealMs: scaleMs(autoPostReveal),
     charLength: chars,
   };

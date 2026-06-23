@@ -1,0 +1,64 @@
+{
+  "contactName": "Начальник",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "С понедельника у нас новый график",
+      "sentAt": "10:04"
+    },
+    {
+      "author": "me",
+      "text": "Какой?",
+      "sentAt": "10:04"
+    },
+    {
+      "author": "them",
+      "text": "Теперь работаем по субботам",
+      "sentAt": "10:05"
+    },
+    {
+      "author": "me",
+      "text": "Хорошо",
+      "sentAt": "10:05"
+    },
+    {
+      "author": "them",
+      "text": "Отлично. Ты даже не против?",
+      "sentAt": "10:05"
+    },
+    {
+      "author": "me",
+      "text": "Конечно нет",
+      "sentAt": "10:06"
+    },
+    {
+      "author": "them",
+      "text": "Приятно видеть такую зрелую позицию",
+      "sentAt": "10:06"
+    },
+    {
+      "author": "me",
+      "text": "А я тут при чём?",
+      "sentAt": "10:06"
+    },
+    {
+      "author": "them",
+      "text": "В смысле?",
+      "sentAt": "10:07"
+    },
+    {
+      "author": "me",
+      "text": "Вы взрослые люди, работайте когда хотите 😐",
+      "sentAt": "10:07"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

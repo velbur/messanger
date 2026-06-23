@@ -1,0 +1,69 @@
+{
+  "contactName": "Друг",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает…",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "them",
+      "text": "Я попросил столик в тихом месте",
+      "sentAt": "20:11"
+    },
+    {
+      "author": "me",
+      "text": "И дали?",
+      "sentAt": "20:11"
+    },
+    {
+      "author": "them",
+      "text": "Да, рядом с аквариумом",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "me",
+      "text": "Ну идеально",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "them",
+      "text": "Не совсем",
+      "sentAt": "20:12"
+    },
+    {
+      "author": "me",
+      "text": "Что не так?",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "them",
+      "text": "Рыба смотрела на меня всё время",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "me",
+      "text": "Ты отвёл взгляд?",
+      "sentAt": "20:13"
+    },
+    {
+      "author": "them",
+      "text": "Да",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "me",
+      "text": "А ты что ел?",
+      "sentAt": "20:14"
+    },
+    {
+      "author": "them",
+      "text": "Рыбу 😐",
+      "sentAt": "20:14"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

@@ -3,26 +3,37 @@ import path from "node:path";
 import {messageSchema, parseConversation} from "../src/chat/schema.ts";
 import {
   chatCompletionJson as openRouterChatCompletionJson,
-  getOpenRouterTextModel,
   isOpenRouterConfigured,
 } from "./openrouter-client.mjs";
 
 import {seriesContentDir} from "./project-paths.mjs";
+import {
+  readPromptFile,
+  renderPromptTemplate,
+  promptKeyForShortsSystem,
+  promptKeyForLogic,
+  promptKeyForLogicRules,
+  promptKeyForShortsStyle,
+} from "./dialogue-prompts.mjs";
+import {readShortsCorpusSummary} from "./shorts-corpus.mjs";
+import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
 
 export const isDialogueLlmConfigured = () => isOpenRouterConfigured();
 
-const resolveDialogueLlm = () => {
+const resolveDialogueLlm = (model) => {
   if (!isOpenRouterConfigured()) {
     return null;
   }
+  const resolvedModel = resolveDialogueModel(model);
   return {
     provider: "openrouter",
-    model: getOpenRouterTextModel(),
+    model: resolvedModel,
     completeJson: async (options) =>
       openRouterChatCompletionJson({
         ...options,
+        model: options.model ?? resolvedModel,
         maxTokens: options.maxTokens ?? DIALOGUE_MAX_TOKENS,
       }),
   };
@@ -42,20 +53,49 @@ const buildJsonFormatBlock = ({
   withDisplayTitle = false,
   myName = "Алиса",
   fullConversation = false,
+  language = "ru",
 } = {}) => {
-  const lines = [
-    "Формат JSON:",
-    "{",
-  ];
-  if (withDisplayTitle) {
+  const resolvedMyName =
+    language === "en" && (myName === "Алиса" || myName === "Я") ? "Me" : myName;
+
+  if (language === "en") {
+    const lines = ["JSON format:", "{"];
+    if (withDisplayTitle) {
+      lines.push('  "displayTitle": "catchy video title in English, 2–7 words",');
+    }
     lines.push(
-      '  "displayTitle": "название ролика на русском, 2–7 слов",',
+      '  "contactName": "contact name in chat header",',
+      `  "myName": "${resolvedMyName}",`,
+      '  "wallpaper": "default" | "dark",',
+      '  "messages": [',
+      "    {",
+      '      "author": "me" | "them",',
+      '      "text": "message text",',
+      '      "sentAt": "HH:MM"',
+      "    },",
+      "    {",
+      '      "author": "them",',
+      '      "imagePrompt": "photo description for the artist",',
+      '      "sentAt": "HH:MM"',
+      "    },",
     );
+    if (fullConversation) {
+      lines.push(
+        "    /* …continue messages: full chat from start to finish,",
+        "       as many messages as the user brief requires… */",
+      );
+    }
+    lines.push("  ]", "}");
+    return lines;
+  }
+
+  const lines = ["Формат JSON:", "{"];
+  if (withDisplayTitle) {
+    lines.push('  "displayTitle": "название ролика на русском, 2–7 слов",');
   }
   lines.push(
     '  "contactName": "имя собеседника в шапке чата",',
-    '  "contactStatus": "в сети",',
-    `  "myName": "${myName}",`,
+    `  "myName": "${resolvedMyName}",`,
     '  "wallpaper": "default" | "dark",',
     '  "messages": [',
     "    {",
@@ -79,160 +119,401 @@ const buildJsonFormatBlock = ({
   return lines;
 };
 
-const buildEmojiRules = () => [
-  "- Используй emoji в text там, где это уместно в переписке: ирония, смягчение, тёплая реакция, короткая шутка.",
-  "- Не ставь emoji в каждой реплике и не используй их в напряжённых, страшных или отчаянных моментах.",
-];
-
-const buildShortsNameRules = () => [
-  "- Придумай новых героев для этой истории; contactName — свежее имя по сюжету.",
-  "- Не повторяй имена из других роликов и чужих переписок (Кирилл, Лена, Макс и т.п.), если пользователь явно не назвал героя.",
-  "- Если в задании нет имени — выбери небанальное, но правдоподобное для WhatsApp.",
-];
-
-const buildImageRules = (includeImages, {ussrStyle = false} = {}) => {
-  if (includeImages) {
+const buildEmojiRules = (language = "ru") => {
+  if (language === "en") {
     return [
-      "- Для фото-сообщений используй только imagePrompt без text и без image.",
-      ussrStyle
-        ? "- imagePrompt: 1–3 предложения, что должно быть на фото (бытовая сцена СССР 1984)."
-        : "- imagePrompt: 1–3 предложения, что должно быть на фото.",
-      ussrStyle
-        ? "- Вставляй фото там, где герой присылает доказательство: ценник, улица, еда, билет и т.п."
-        : "- Вставляй фото-сообщения там, где это усиливает сюжет по заданию пользователя.",
+      "- Use emoji in text where it fits messaging: irony, softening, warm reaction, quick joke.",
+      "- Don't put emoji in every line; skip them in tense, scary, or desperate moments.",
     ];
   }
   return [
-    "- Только текстовые сообщения. Не используй imagePrompt и image.",
-    "- Если в сцене нужно фото, герой описывает это словами в text.",
+    "- Используй emoji в text там, где это уместно в переписке: ирония, смягчение, тёплая реакция, короткая шутка.",
+    "- Не ставь emoji в каждой реплике и не используй их в напряжённых, страшных или отчаянных моментах.",
   ];
 };
 
-const buildSeriesSystemPrompt = async ({includeImages = true, seriesId = DEFAULT_SERIES_ID} = {}) => {
+const buildShortsNameRules = (language = "ru") => {
+  if (language === "en") {
+    return [
+      "- Invent new characters for this story; contactName should be fresh and fit the plot.",
+      "- Don't reuse names from other videos or chats (Chris, Emma, Max, etc.) unless the user named a character.",
+      "- If no name in the brief — pick something plausible but not cliché for WhatsApp.",
+    ];
+  }
+  return [
+    "- Придумай новых героев для этой истории; contactName — свежее имя по сюжету.",
+    "- Не повторяй имена из других роликов и чужих переписок (Кирилл, Лена, Макс и т.п.), если пользователь явно не назвал героя.",
+    "- Если в задании нет имени — выбери небанальное, но правдоподобное для WhatsApp.",
+  ];
+};
+
+const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru"} = {}) => {
+  if (imageCount <= 0) {
+    return language === "en"
+      ? [
+          "- Text messages only. Do not use imagePrompt or image.",
+          "- If the scene needs a photo, the character describes it in text.",
+        ]
+      : [
+          "- Только текстовые сообщения. Не используй imagePrompt и image.",
+          "- Если в сцене нужно фото, герой описывает это словами в text.",
+        ];
+  }
+  const countRule =
+    imageCount === 1
+      ? language === "en"
+        ? "- Exactly 1 photo message with imagePrompt (no text, no image)."
+        : "- Ровно 1 фото-сообщение с imagePrompt (без text и без image)."
+      : language === "en"
+        ? `- Up to ${imageCount} photo messages with imagePrompt (no text, no image) — as many as fit the scene, but no more than ${imageCount}.`
+        : `- До ${imageCount} фото-сообщений с imagePrompt (без text и без image) — столько, сколько уместно сцене, но не больше ${imageCount}.`;
+  if (language === "en") {
+    return [
+      countRule,
+      ussrStyle
+        ? "- imagePrompt: 1–3 sentences describing the photo (everyday USSR 1984 scene)."
+        : "- imagePrompt: 1–3 sentences describing what should be in the photo.",
+      ussrStyle
+        ? "- Insert photos where a character sends proof: price tag, street, food, ticket, etc."
+        : "- Insert photo messages where they strengthen the plot per the user brief.",
+    ];
+  }
+  return [
+    countRule,
+    ussrStyle
+      ? "- imagePrompt: 1–3 предложения, что должно быть на фото (бытовая сцена СССР 1984)."
+      : "- imagePrompt: 1–3 предложения, что должно быть на фото.",
+    ussrStyle
+      ? "- Вставляй фото там, где герой присылает доказательство: ценник, улица, еда, билет и т.п."
+      : "- Вставляй фото-сообщения там, где это усиливает сюжет по заданию пользователя.",
+  ];
+};
+
+const buildMessageCountRules = (messageCount = 20, language = "ru") => {
+  if (language === "en") {
+    return [
+      `- messages array: at most ${messageCount} messages.`,
+      "- If the scene needs fewer lines — keep it shorter, don't pad for volume.",
+    ];
+  }
+  return [
+    `- В массиве messages — не больше ${messageCount} сообщений.`,
+    "- Если сцене достаточно меньше реплик — пиши короче, не растягивай ради объёма.",
+  ];
+};
+
+const buildLanguageRules = (language = "ru", mode = "shorts") => {
+  if (language === "en") {
+    return [
+      "- All dialogue text and contactName must be in English.",
+      "- Write for a native English-speaking audience. Do not translate Russian jokes, idioms, slang, or humor patterns into English.",
+      "- Tone, references, rhythm, and punchlines must feel natural in English chat culture — not like localized Russian comedy.",
+      mode === "shorts"
+        ? "- displayTitle: catchy title in English, 2–7 words."
+        : "",
+    ].filter(Boolean);
+  }
+  return [
+    "- Вся переписка (text, contactName" +
+      (mode === "shorts" ? ", displayTitle" : "") +
+      ") — на русском.",
+    mode === "shorts" ? "- displayTitle: цепляющее название на русском, 2–7 слов." : "",
+  ].filter(Boolean);
+};
+
+export const normalizeGenerationOptions = ({
+  messageCount,
+  imageCount,
+  includeImages,
+  language,
+} = {}) => {
+  const mc = Number(messageCount);
+  const normalizedMessageCount =
+    Number.isFinite(mc) && mc > 0 ? Math.min(Math.round(mc), 80) : 20;
+
+  let ic = Number(imageCount);
+  if (!Number.isFinite(ic)) {
+    ic = includeImages === false ? 0 : includeImages === true ? 2 : 0;
+  }
+  const normalizedImageCount = Math.max(0, Math.min(Math.round(ic), 15));
+
+  return {
+    messageCount: normalizedMessageCount,
+    imageCount: normalizedImageCount,
+    language: language === "en" ? "en" : "ru",
+  };
+};
+
+const imageCountUserHint = (imageCount, language = "ru") => {
+  if (imageCount <= 0) {
+    return language === "en"
+      ? "Text messages only — no imagePrompt, no image."
+      : "Только текстовые сообщения, без imagePrompt и без image.";
+  }
+  if (imageCount === 1) {
+    return language === "en"
+      ? "Add exactly 1 photo message with imagePrompt (no text)."
+      : "Добавь ровно 1 фото-сообщение с imagePrompt (без text).";
+  }
+  return language === "en"
+    ? `Add up to ${imageCount} photo messages with imagePrompt (no text), as many as fit the scene.`
+    : `Добавь до ${imageCount} фото-сообщений с imagePrompt (без text), сколько уместно сцене.`;
+};
+
+const buildTemplateVars = async ({
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+  mode = "shorts",
+  ussrStyle = false,
+} = {}) => {
+  const logicRules = await readPromptFile(promptKeyForLogicRules(language));
+  return {
+    JSON_FORMAT: buildJsonFormatBlock({
+      withDisplayTitle: mode === "shorts",
+      myName: mode === "shorts" ? (language === "en" ? "Me" : "Я") : language === "en" ? "Alice" : "Алиса",
+      fullConversation: mode === "shorts",
+      language,
+    }).join("\n"),
+    LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
+    MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
+    LOGIC_RULES: logicRules,
+    EMOJI_RULES: buildEmojiRules(language).join("\n"),
+    IMAGE_RULES: buildImageRules(imageCount, {
+      ussrStyle: ussrStyle || mode === "series",
+      language,
+    }).join("\n"),
+    SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
+    STORY_PLAN: "",
+    LITERARY_EDITOR: "",
+  };
+};
+
+export const buildFullUserPrompt = async ({
+  prompt,
+  dialogueStyle = "fun",
+  language = "ru",
+  mode = "shorts",
+} = {}) => {
+  const parts = [String(prompt ?? "").trim()];
+  if (mode === "shorts") {
+    const styleKey = promptKeyForShortsStyle(dialogueStyle, language);
+    const styleText = await readPromptFile(styleKey);
+    if (styleText) {
+      parts.push("", language === "en" ? "Style brief:" : "Стиль:", styleText);
+    }
+  }
+  return parts.filter((part) => part !== "").join("\n");
+};
+
+const buildSeriesSystemPrompt = async ({
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+  seriesId = DEFAULT_SERIES_ID,
+} = {}) => {
   const seriesDir = seriesContentDir(seriesId);
   const storyPlan = await readOptionalFile(path.join(seriesDir, "story-plan.md"));
   const literaryEditor = await readOptionalFile(path.join(seriesDir, "literary-editor.md"));
 
-  return [
-    "Ты пишешь переписку для генератора видео в стиле WhatsApp.",
-    "Это часть большой серии — учитывай общий сюжет и характеры героев.",
-    "Ответ — строго один JSON-объект без markdown и пояснений.",
-    "",
-    ...buildJsonFormatBlock(),
-    "",
-    "Правила:",
-    "- author: me = Алиса (2026), them = Даня (1984) или другое имя контакта.",
-    "- Короткие реплики, как в мессенджере. Длинные мысли разбивай на несколько сообщений.",
-    "- sentAt — время в формате HH:MM, логично растёт по ходу сцены.",
-    ...buildEmojiRules(),
-    ...buildImageRules(includeImages, {ussrStyle: true}),
-    "- Не добавляй системные сообщения, третьих персонажей в чате, хоррор и мистику.",
-    "- Можно добавить intro, endCard, music только если это явно просит пользователь.",
-    "",
-    storyPlan ? `План истории:\n${storyPlan}` : "",
-    literaryEditor ? `Литературный редактор:\n${literaryEditor}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const template = await readPromptFile("series-system");
+  if (!template) {
+    throw new Error("Файл prompts/series-system.txt не найден");
+  }
+  const vars = await buildTemplateVars({
+    imageCount,
+    messageCount,
+    language,
+    mode: "series",
+    ussrStyle: true,
+  });
+  vars.STORY_PLAN = storyPlan ? `План истории:\n${storyPlan}` : "";
+  vars.LITERARY_EDITOR = literaryEditor ? `Литературный редактор:\n${literaryEditor}` : "";
+  return renderPromptTemplate(template, vars);
 };
 
-const buildShortsSystemPrompt = ({includeImages = true} = {}) =>
-  [
-    "Ты пишешь самостоятельную переписку для генератора видео в стиле WhatsApp.",
-    "Каждый диалог — отдельная история без связи с другими.",
-    "Ответ — строго один JSON-объект без markdown и пояснений.",
-    "",
-    ...buildJsonFormatBlock({withDisplayTitle: true, myName: "Я", fullConversation: true}),
-    "",
-    "Правила:",
-    "- displayTitle: цепляющее название на русском для списка роликов.",
-    "- Герои — новые для этой истории. myName — «Я» или имя из задания пользователя.",
-    "- contactName — имя собеседника по сюжету; не используй Алису, Даню, СССР и серию «Пока в СССР», если пользователь явно не просит.",
-    ...buildShortsNameRules(),
-    "- Каждая реплика короткая, как в мессенджере; длинные мысли разбивай на несколько сообщений.",
-    "- messages — полная переписка целиком: от первого сообщения до финала сцены.",
-    "- Не обрывай историю, пока задание пользователя не выполнено.",
-    "- sentAt — время в формате HH:MM, логично растёт по ходу сцены.",
-    "- Длину, тон, жанр и финал бери только из задания пользователя.",
-    "- Не ссылайся на предыдущие части или другие истории.",
-    ...buildEmojiRules(),
-    ...buildImageRules(includeImages, {ussrStyle: false}),
-    "- Не добавляй системные сообщения и третьих персонажей в чате.",
-    "- Не добавляй intro, endCard, music — только displayTitle и переписку.",
-  ].join("\n");
+const buildShortsSystemPrompt = async ({
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+} = {}) => {
+  const key = promptKeyForShortsSystem(language);
+  const template = await readPromptFile(key);
+  if (!template) {
+    throw new Error(`Файл prompts/${key.replace(/-/g, "-")}.txt не найден`);
+  }
+  return renderPromptTemplate(
+    template,
+    await buildTemplateVars({
+      imageCount,
+      messageCount,
+      language,
+      mode: "shorts",
+    }),
+  );
+};
 
 const buildRefineSystemPrompt = async ({
-  includeImages = true,
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
 } = {}) => {
   const base =
     mode === "series"
-      ? await buildSeriesSystemPrompt({includeImages, seriesId})
-      : buildShortsSystemPrompt({includeImages});
+      ? await buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId})
+      : await buildShortsSystemPrompt({imageCount, messageCount, language});
 
   return [
     base,
     "",
-    "Режим доработки:",
-    "- Пользователь присылает уже готовую переписку и замечания.",
-    "- Верни полный обновлённый JSON переписки с учётом правок.",
-    "- Не начинай с нуля: сохраняй удачные реплики и структуру, меняй только то, что просят.",
-    "- Если в исходнике есть image или imagePrompt — сохраняй, если пользователь не просит убрать.",
+    language === "en" ? "Refinement mode:" : "Режим доработки:",
+    language === "en"
+      ? "- User sends an existing chat and revision notes."
+      : "- Пользователь присылает уже готовую переписку и замечания.",
+    language === "en"
+      ? "- Return the full updated chat JSON with revisions applied."
+      : "- Верни полный обновлённый JSON переписки с учётом правок.",
+    language === "en"
+      ? "- Don't start from scratch: keep strong lines and structure, change only what is requested."
+      : "- Не начинай с нуля: сохраняй удачные реплики и структуру, меняй только то, что просят.",
+    language === "en"
+      ? "- If the source has image or imagePrompt — keep them unless the user asks to remove."
+      : "- Если в исходнике есть image или imagePrompt — сохраняй, если пользователь не просит убрать.",
     mode === "shorts"
-      ? "- Если в исходнике был displayTitle — сохрани или улучши по смыслу; иначе не добавляй."
+      ? language === "en"
+        ? "- If the source had displayTitle — keep or improve it; otherwise don't add one."
+        : "- Если в исходнике был displayTitle — сохрани или улучши по смыслу; иначе не добавляй."
       : "",
     mode === "shorts"
-      ? "- Не подменяй героев на Алису/Даню и не уводи сюжет в серию «Пока в СССР», если пользователь не просит."
+      ? language === "en"
+        ? "- Don't swap characters for Alice/Danya or drift into the «Back in the USSR» series unless the user asks."
+        : "- Не подменяй героев на Алису/Даню и не уводи сюжет в серию «Пока в СССР», если пользователь не просит."
       : "",
   ]
     .filter(Boolean)
     .join("\n");
 };
 
-const buildSystemPrompt = async ({mode = "shorts", includeImages = true, seriesId = DEFAULT_SERIES_ID} = {}) => {
+const buildSystemPrompt = async ({
+  mode = "shorts",
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+  seriesId = DEFAULT_SERIES_ID,
+} = {}) => {
   if (mode === "series") {
-    return buildSeriesSystemPrompt({includeImages, seriesId});
+    return buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId});
   }
-  return buildShortsSystemPrompt({includeImages});
+  return buildShortsSystemPrompt({imageCount, messageCount, language});
 };
 
-const buildUserPrompt = ({prompt, previousMessages, includeImages = true, mode = "shorts"}) => {
+const buildUserPrompt = async ({
+  prompt,
+  previousMessages,
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+  mode = "shorts",
+}) => {
   const parts = [
     mode === "series"
-      ? "Напиши новую часть переписки по этому заданию:"
-      : "Напиши самостоятельную переписку по этому заданию:",
+      ? language === "en"
+        ? "Write a new part of the chat from this brief:"
+        : "Напиши новую часть переписки по этому заданию:"
+      : language === "en"
+        ? "Write a standalone chat transcript from this brief:"
+        : "Напиши самостоятельную переписку по этому заданию:",
     prompt.trim(),
-    includeImages
-      ? "В переписке должны быть отдельные фото-сообщения с imagePrompt (без text)."
-      : "Только текстовые сообщения, без imagePrompt и без image.",
+    imageCountUserHint(imageCount, language),
+    language === "en"
+      ? `At most ${messageCount} messages in messages.`
+      : `Не больше ${messageCount} сообщений в messages.`,
+    language === "en"
+      ? "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian."
+      : "Пиши переписку на русском.",
+    language === "en"
+      ? "Keep the dialogue logically consistent from first message to finale."
+      : "Держи логическую состоятельность переписки от первого сообщения до финала.",
   ];
 
   if (mode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0) {
     parts.push(
       "",
-      "Контекст предыдущих частей серии (учитывай, но не повторяй дословно):",
+      language === "en"
+        ? "Context from previous series parts (use it, but don't repeat verbatim):"
+        : "Контекст предыдущих частей серии (учитывай, но не повторяй дословно):",
       JSON.stringify(previousMessages.slice(-30), null, 2),
     );
   }
 
   if (mode === "shorts") {
-    parts.push("", "Не используй контекст из других историй — только это задание.");
+    const corpus = await readShortsCorpusSummary();
+    if (corpus) {
+      parts.push(
+        "",
+        language === "en"
+          ? "Corpus of existing Shorts (avoid repeating plots, names, and punchline patterns):"
+          : "Сводка уже снятых Shorts (не повторяй сюжеты, имена и приёмы):",
+        corpus,
+      );
+    }
     parts.push(
-      "Не используй Алису, Даню и сеттинг СССР, если в задании нет прямой отсылки к ним.",
+      "",
+      language === "en"
+        ? "Don't use context from other stories — only this brief."
+        : "Не используй контекст из других историй — только это задание.",
     );
     parts.push(
-      "Имена героев придумай заново для этой истории; не копируй contactName из чужих диалогов.",
+      language === "en"
+        ? "Don't use Alice, Danya, or USSR setting unless the brief explicitly references them."
+        : "Не используй Алису, Даню и сеттинг СССР, если в задании нет прямой отсылки к ним.",
     );
-    parts.push("", "Обязательно добавь displayTitle на русском.");
+    parts.push(
+      language === "en"
+        ? "Invent character names for this story; don't copy contactName from other dialogues."
+        : "Имена героев придумай заново для этой истории; не копируй contactName из чужих диалогов.",
+    );
+    parts.push(
+      "",
+      language === "en" ? "Add displayTitle in English." : "Обязательно добавь displayTitle на русском.",
+    );
   }
 
-  parts.push("", "Верни только валидный JSON.");
+  parts.push("", language === "en" ? "Return only valid JSON." : "Верни только валидный JSON.");
   return parts.join("\n");
 };
 
-const buildShortsExpandUserPrompt = ({prompt, conversation, displayTitle, includeImages}) => {
+const buildShortsExpandUserPrompt = ({
+  prompt,
+  conversation,
+  displayTitle,
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+}) => {
   const draft = displayTitle ? {displayTitle, ...conversation} : conversation;
+  if (language === "en") {
+    return [
+      "User brief:",
+      prompt.trim(),
+      "",
+      "Draft below. Expand it into a complete scene per the brief.",
+      "Keep strong lines, add development, detail, dialogue, and a finale.",
+      "If the draft name or plot doesn't match the brief — fix contactName and characters per the brief.",
+      "Return full JSON with the complete messages array — don't stop halfway.",
+      `At most ${messageCount} messages in messages.`,
+      "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian.",
+      "Keep the dialogue logically consistent from first message to finale.",
+      imageCountUserHint(imageCount, language),
+      "",
+      "Draft:",
+      JSON.stringify(draft, null, 2),
+      "",
+      "Return only the full JSON.",
+    ].join("\n");
+  }
   return [
     "Задание пользователя:",
     prompt.trim(),
@@ -241,9 +522,10 @@ const buildShortsExpandUserPrompt = ({prompt, conversation, displayTitle, includ
     "Сохрани удачные реплики, добавь развитие, детали, диалог и финал.",
     "Если в черновике имя или сюжет не совпадают с заданием — исправь contactName и героев по заданию.",
     "Верни полный JSON с полным массивом messages — не обрывай историю на полпути.",
-    includeImages
-      ? "Можно добавить фото-сообщения с imagePrompt (без text)."
-      : "Только текстовые сообщения, без imagePrompt и без image.",
+    `Не больше ${messageCount} сообщений в messages.`,
+    "Пиши переписку на русском.",
+    "Держи логическую состоятельность переписки от первого сообщения до финала.",
+    imageCountUserHint(imageCount, language),
     "",
     "Черновик:",
     JSON.stringify(draft, null, 2),
@@ -300,18 +582,34 @@ const buildRegenerateMessageUserPrompt = ({
   ].join("\n");
 };
 
-const buildRefineUserPrompt = ({conversation, refinePrompt, includeImages = true}) => {
+const buildRefineUserPrompt = ({
+  conversation,
+  refinePrompt,
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+}) => {
   const parts = [
-    "Доработай текущую переписку по этим замечаниям:",
+    language === "en"
+      ? "Refine the current chat per these notes:"
+      : "Доработай текущую переписку по этим замечаниям:",
     refinePrompt.trim(),
-    includeImages
-      ? "Сохрани или добавь фото-сообщения с imagePrompt там, где это уместно."
-      : "Только текстовые сообщения, без imagePrompt и без image.",
+    imageCount <= 0
+      ? language === "en"
+        ? "Text messages only — no imagePrompt, no image."
+        : "Только текстовые сообщения, без imagePrompt и без image."
+      : imageCountUserHint(imageCount, language),
+    language === "en"
+      ? `At most ${messageCount} messages in messages.`
+      : `Не больше ${messageCount} сообщений в messages.`,
+    language === "en"
+      ? "Keep the dialogue in English for a native English-speaking audience."
+      : "Переписка на русском.",
     "",
-    "Текущая переписка:",
+    language === "en" ? "Current chat:" : "Текущая переписка:",
     JSON.stringify(conversation, null, 2),
     "",
-    "Верни только полный обновлённый JSON.",
+    language === "en" ? "Return only the full updated JSON." : "Верни только полный обновлённый JSON.",
   ];
   return parts.join("\n");
 };
@@ -337,7 +635,7 @@ const parseGeneratedPayload = (data, mode) => {
   return {conversation, displayTitle};
 };
 
-const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, completeJson}) => {
+const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, completeJson, language = "ru"}) => {
   let lastError;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -346,7 +644,10 @@ const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, co
       if (lastError) {
         chatMessages.push({
           role: "user",
-          content: `Предыдущий ответ невалиден: ${lastError}. Исправь и верни только JSON.`,
+          content:
+            language === "en"
+              ? `Previous response was invalid: ${lastError}. Fix it and return only JSON.`
+              : `Предыдущий ответ невалиден: ${lastError}. Исправь и верни только JSON.`,
         });
       }
 
@@ -366,19 +667,147 @@ const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, co
   throw new Error(lastError || "Не удалось сгенерировать диалог");
 };
 
+const buildLogicSystemPrompt = async ({
+  mode = "shorts",
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+} = {}) => {
+  const key = promptKeyForLogic(language);
+  const template = await readPromptFile(key);
+  if (!template) {
+    throw new Error(`Файл prompts/${key}.txt не найден`);
+  }
+  return renderPromptTemplate(
+    template,
+    await buildTemplateVars({
+      imageCount,
+      messageCount,
+      language,
+      mode,
+      ussrStyle: mode === "series",
+    }),
+  );
+};
+
+const buildLogicUserPrompt = ({
+  prompt,
+  conversation,
+  displayTitle,
+  messageCount = 20,
+  language = "ru",
+  mode = "shorts",
+}) => {
+  const draft = displayTitle && mode === "shorts" ? {displayTitle, ...conversation} : conversation;
+  if (language === "en") {
+    return [
+      "User brief:",
+      prompt?.trim() || "(not provided)",
+      "",
+      "Check and fix logic in the draft below. Do not change wording unless required for logic.",
+      `At most ${messageCount} messages in messages.`,
+      "",
+      "Draft:",
+      JSON.stringify(draft, null, 2),
+      "",
+      "Return only the full valid JSON.",
+    ].join("\n");
+  }
+  return [
+    "Задание пользователя:",
+    prompt?.trim() || "(не указано)",
+    "",
+    "Проверь и исправь логику в черновике ниже. Не меняй формулировки без необходимости для логики.",
+    `Не больше ${messageCount} сообщений в messages.`,
+    "",
+    "Черновик:",
+    JSON.stringify(draft, null, 2),
+    "",
+    "Верни только полный валидный JSON.",
+  ].join("\n");
+};
+
+export const checkDialogueLogic = async ({
+  prompt,
+  conversation,
+  displayTitle,
+  mode = "shorts",
+  imageCount = 0,
+  messageCount = 20,
+  language = "ru",
+  model,
+  maxAttempts = 3,
+}) => {
+  const llm = resolveDialogueLlm(model);
+  if (!llm) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
+  }
+  if (!conversation || typeof conversation !== "object") {
+    throw new Error("Текущая переписка обязательна");
+  }
+
+  const gen = normalizeGenerationOptions({messageCount, imageCount, language});
+  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const validated = validateConversation(conversation);
+  const before = JSON.stringify(validated);
+  const system = await buildLogicSystemPrompt({
+    mode: normalizedMode,
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
+  });
+  const user = buildLogicUserPrompt({
+    prompt,
+    conversation: validated,
+    displayTitle,
+    messageCount: gen.messageCount,
+    language: gen.language,
+    mode: normalizedMode,
+  });
+  const parseMode = normalizedMode === "shorts" ? "shorts" : "series";
+  const result = await runChatJsonGeneration({
+    maxAttempts,
+    completeJson: llm.completeJson,
+    language: gen.language,
+    messages: [
+      {role: "system", content: system},
+      {role: "user", content: user},
+    ],
+    parseResult: (data) => {
+      const {conversation: fixed, displayTitle: fixedTitle} = parseGeneratedPayload(data, parseMode);
+      return {conversation: fixed, displayTitle: fixedTitle, mode: normalizedMode};
+    },
+  });
+  return {
+    ...result,
+    provider: llm.provider,
+    logicRevised: JSON.stringify(result.conversation) !== before,
+  };
+};
+
 const expandShortsDialogue = async ({
   prompt,
   conversation,
   displayTitle,
-  includeImages,
+  imageCount,
+  messageCount,
+  language,
   system,
   completeJson,
   maxAttempts,
 }) => {
-  const user = buildShortsExpandUserPrompt({prompt, conversation, displayTitle, includeImages});
+  const user = buildShortsExpandUserPrompt({
+    prompt,
+    conversation,
+    displayTitle,
+    imageCount,
+    messageCount,
+    language,
+  });
   return runChatJsonGeneration({
     maxAttempts,
     completeJson,
+    language,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -392,13 +821,18 @@ const expandShortsDialogue = async ({
 
 export const generateDialogue = async ({
   prompt,
+  dialogueStyle = "fun",
   previousMessages,
-  includeImages = true,
+  includeImages,
+  imageCount,
+  messageCount,
+  language,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
+  model,
   maxAttempts = 3,
 }) => {
-  const llm = resolveDialogueLlm();
+  const llm = resolveDialogueLlm(model);
   if (!llm) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
   }
@@ -406,23 +840,40 @@ export const generateDialogue = async ({
     throw new Error("Промпт диалога обязателен");
   }
 
+  const gen = normalizeGenerationOptions({messageCount, imageCount, includeImages, language});
   const normalizedMode = mode === "series" ? "series" : "shorts";
   const contextMessages =
     normalizedMode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0
       ? previousMessages
       : undefined;
 
-  const system = await buildSystemPrompt({mode: normalizedMode, includeImages, seriesId});
-  const user = buildUserPrompt({
+  const fullPrompt = await buildFullUserPrompt({
     prompt,
+    dialogueStyle,
+    language: gen.language,
+    mode: normalizedMode,
+  });
+
+  const system = await buildSystemPrompt({
+    mode: normalizedMode,
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
+    seriesId,
+  });
+  const user = await buildUserPrompt({
+    prompt: fullPrompt,
     previousMessages: contextMessages,
-    includeImages,
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
     mode: normalizedMode,
   });
 
   const result = await runChatJsonGeneration({
     maxAttempts,
     completeJson: llm.completeJson,
+    language: gen.language,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -433,46 +884,52 @@ export const generateDialogue = async ({
     },
   });
 
-  if (normalizedMode !== "shorts") {
-    return {...result, provider: llm.provider};
-  }
+  let finalResult = {...result, provider: llm.provider};
 
-  const draftCount = result.conversation?.messages?.length ?? 0;
-  try {
-    const expanded = await expandShortsDialogue({
-      prompt,
-      conversation: result.conversation,
-      displayTitle: result.displayTitle,
-      includeImages,
-      system,
-      completeJson: llm.completeJson,
-      maxAttempts,
-    });
-    const expandedCount = expanded.conversation?.messages?.length ?? 0;
-    if (expandedCount > draftCount) {
-      return {
-        ...expanded,
-        provider: llm.provider,
-        attempts: result.attempts + expanded.attempts,
-        expandedFrom: draftCount,
-      };
+  if (normalizedMode === "shorts") {
+    const draftCount = result.conversation?.messages?.length ?? 0;
+    try {
+      const expanded = await expandShortsDialogue({
+        prompt: fullPrompt,
+        conversation: result.conversation,
+        displayTitle: result.displayTitle,
+        imageCount: gen.imageCount,
+        messageCount: gen.messageCount,
+        language: gen.language,
+        system,
+        completeJson: llm.completeJson,
+        maxAttempts,
+      });
+      const expandedCount = expanded.conversation?.messages?.length ?? 0;
+      if (expandedCount > draftCount) {
+        finalResult = {
+          ...expanded,
+          provider: llm.provider,
+          attempts: result.attempts + expanded.attempts,
+          expandedFrom: draftCount,
+        };
+      }
+    } catch {
+      /* черновик лучше, чем ничего */
     }
-  } catch {
-    /* черновик лучше, чем ничего */
   }
 
-  return {...result, provider: llm.provider};
+  return {...finalResult, provider: llm.provider};
 };
 
 export const refineDialogue = async ({
   conversation,
   refinePrompt,
-  includeImages = true,
+  includeImages,
+  imageCount,
+  messageCount,
+  language,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
+  model,
   maxAttempts = 3,
 }) => {
-  const llm = resolveDialogueLlm();
+  const llm = resolveDialogueLlm(model);
   if (!llm) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
   }
@@ -483,18 +940,28 @@ export const refineDialogue = async ({
     throw new Error("Текущая переписка обязательна");
   }
 
+  const gen = normalizeGenerationOptions({messageCount, imageCount, includeImages, language});
   const normalizedMode = mode === "series" ? "series" : "shorts";
   const validated = validateConversation(conversation);
-  const system = await buildRefineSystemPrompt({includeImages, mode: normalizedMode, seriesId});
+  const system = await buildRefineSystemPrompt({
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
+    mode: normalizedMode,
+    seriesId,
+  });
   const user = buildRefineUserPrompt({
     conversation: validated,
     refinePrompt,
-    includeImages,
+    imageCount: gen.imageCount,
+    messageCount: gen.messageCount,
+    language: gen.language,
   });
 
   const result = await runChatJsonGeneration({
     maxAttempts,
     completeJson: llm.completeJson,
+    language: gen.language,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -514,9 +981,10 @@ export const regenerateMessage = async ({
   instruction,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
+  model,
   maxAttempts = 3,
 }) => {
-  const llm = resolveDialogueLlm();
+  const llm = resolveDialogueLlm(model);
   if (!llm) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
   }
