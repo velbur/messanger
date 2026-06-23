@@ -9,7 +9,7 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildTimeline, FULLSCREEN_TIMELINE_REV, getStatusBarTime, TIMELINE_TAIL_MARKER, visibleMessageCountAtFrame} from "./timeline";
+import {buildTimeline, FULLSCREEN_TIMELINE_REV, getStatusBarTime, THUMBNAIL_PICKER_MARKER, TIMELINE_TAIL_MARKER, visibleMessageCountAtFrame} from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
 import {getTheme, LAYOUT} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
@@ -28,6 +28,7 @@ type Props = {
 
 void VIDEO_FEATURE_BUNDLE_MARKER;
 void TIMELINE_TAIL_MARKER;
+void THUMBNAIL_PICKER_MARKER;
 
 export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const frame = useCurrentFrame();

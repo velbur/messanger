@@ -3,7 +3,7 @@ import path from "node:path";
 import {mkdir} from "node:fs/promises";
 import {renderMedia, renderStill, selectComposition} from "@remotion/renderer";
 import {getBundleLocation} from "./bundle-cache.mjs";
-import {buildTimeline} from "../src/chat/timeline.ts";
+import {buildTimeline, pickThumbnailFrame} from "../src/chat/timeline.ts";
 
 const DEFAULT_CONCURRENCY = 5;
 
@@ -141,10 +141,7 @@ export async function renderChatThumbnail({conversation, outputPath, onBundleSta
   });
 
   const timeline = buildTimeline(conversation);
-  const events = timeline.events;
-  const hookFrame = events[0]?.revealFrame ?? 0;
-  const finaleFrame = events[events.length - 1]?.revealFrame ?? hookFrame;
-  const frame = Math.min(finaleFrame, Math.max(hookFrame, composition.durationInFrames - 1));
+  const frame = pickThumbnailFrame(timeline, composition.durationInFrames);
 
   await renderStill({
     composition,
