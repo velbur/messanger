@@ -10,9 +10,6 @@ export const POST_LAST_MESSAGE_TAIL_MS = 8000;
 /** Маркер хвоста / мгновенного крючка — обновить в bundle-cache.mjs */
 export const TIMELINE_TAIL_MARKER = "tail-8000-instant-hook-v1";
 
-/** Маркер выбора кадра превью — обновить в bundle-cache.mjs */
-export const THUMBNAIL_PICKER_MARKER = "thumb-prefers-photo-v1";
-
 /** Пауза в чате после появления фото, до полноэкранного показа */
 export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
 
@@ -148,24 +145,13 @@ export const visibleMessageCountAtFrame = (
   return events.filter((event) => frame >= event.revealFrame).length;
 };
 
-/** Кадр для JPG-превью: фото в fullscreen, иначе финальная реплика */
+/** Кадр для JPG-превью без фото: финальная реплика в чате */
 export const pickThumbnailFrame = (
   timeline: ConversationTimeline,
   durationInFrames: number,
 ): number => {
   const events = timeline.events;
   const maxFrame = Math.max(0, durationInFrames - 1);
-  const withImage = events.filter((event) => event.image?.trim());
-
-  if (withImage.length > 0) {
-    const photo = withImage[withImage.length - 1];
-    if (photo.fullscreenFrames > 0) {
-      const fade = Math.min(10, Math.max(4, Math.floor(photo.fullscreenFrames * 0.08)));
-      const frame = photo.fullscreenStartFrame + fade + 2;
-      return Math.min(frame, maxFrame);
-    }
-    return Math.min(photo.revealFrame + 8, maxFrame);
-  }
 
   const hookFrame = events[0]?.revealFrame ?? 0;
   const finaleFrame = events[events.length - 1]?.revealFrame ?? hookFrame;

@@ -4,6 +4,7 @@ import {mkdir} from "node:fs/promises";
 import {renderMedia, renderStill, selectComposition} from "@remotion/renderer";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {buildTimeline, pickThumbnailFrame} from "../src/chat/timeline.ts";
+import {pickThumbnailImageRef} from "../src/chat/message.ts";
 
 const DEFAULT_CONCURRENCY = 5;
 
@@ -134,6 +135,26 @@ export async function renderChatThumbnail({conversation, outputPath, onBundleSta
   await mkdir(path.dirname(outputAbs), {recursive: true});
 
   const bundleLocation = await getBundleLocation({onStatus: onBundleStatus ?? (() => {})});
+  const imageRef = pickThumbnailImageRef(conversation);
+
+  if (imageRef) {
+    const composition = await selectComposition({
+      serveUrl: bundleLocation,
+      id: "PhotoThumbnail",
+      inputProps: {image: imageRef},
+    });
+    await renderStill({
+      composition,
+      serveUrl: bundleLocation,
+      output: outputAbs,
+      inputProps: {image: imageRef},
+      frame: 0,
+      imageFormat: "jpeg",
+      jpegQuality: 88,
+    });
+    return outputAbs;
+  }
+
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: "ChatVideo",

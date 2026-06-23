@@ -162,7 +162,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("hook-overlay-2s-v1") &&
       bundleJs.includes("tail-8000-instant-hook-v1") &&
-      bundleJs.includes("thumb-prefers-photo-v1") &&
+      bundleJs.includes("thumb-photo-composition-v1") &&
       bundleJs.includes("fullscreenStartFrame") &&
       bundleJs.includes("FullscreenImage") &&
       bundleJs.includes("default-conversation.json")

@@ -1,21 +1,28 @@
 import React from "react";
 import {Composition} from "remotion";
 import {ChatVideo} from "./chat/ChatVideo";
+import {PHOTO_THUMBNAIL_MARKER, PhotoThumbnail} from "./chat/PhotoThumbnail";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
 import sample from "./default-conversation.json";
 
-type Props = {
+type ChatVideoProps = {
   conversation: ConversationInput;
 };
+
+type PhotoThumbnailProps = {
+  image: string;
+};
+
+void PHOTO_THUMBNAIL_MARKER;
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
         id="ChatVideo"
-        component={ChatVideo as React.ComponentType<Props>}
+        component={ChatVideo as React.ComponentType<ChatVideoProps>}
         width={1080}
         height={1920}
         fps={FPS}
@@ -32,6 +39,17 @@ export const RemotionRoot: React.FC = () => {
               conversation,
             },
           };
+        }}
+      />
+      <Composition
+        id="PhotoThumbnail"
+        component={PhotoThumbnail as React.ComponentType<PhotoThumbnailProps>}
+        width={1080}
+        height={1920}
+        fps={FPS}
+        durationInFrames={1}
+        defaultProps={{
+          image: "images/msg-15.png",
         }}
       />
     </>
