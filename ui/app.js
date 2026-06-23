@@ -80,7 +80,6 @@ const btnCheckLogic = document.getElementById("btnCheckLogic");
 const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const btnYoutubeMetadata = document.getElementById("btnYoutubeMetadata");
 const shortsStoryTemplates = document.getElementById("shortsStoryTemplates");
-const shortsCorpusTips = document.getElementById("shortsCorpusTips");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const youtubeDescriptionInput = document.getElementById("youtubeDescriptionInput");
 const youtubeTitleVariants = document.getElementById("youtubeTitleVariants");
@@ -305,7 +304,7 @@ const syncEditorKindUi = () => {
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
-      : "Ваше задание для Shorts. Стиль и сводка корпуса подмешиваются на сервере автоматически.";
+      : "Ваше задание для Shorts. Стиль подмешивается на сервере автоматически.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
@@ -322,9 +321,6 @@ const syncEditorKindUi = () => {
   }
   if (shortsStoryTemplates) {
     shortsStoryTemplates.hidden = isSeries || shortsStoryTemplates.childElementCount === 0;
-  }
-  if (shortsCorpusTips) {
-    shortsCorpusTips.hidden = isSeries || shortsCorpusTips.childElementCount === 0;
   }
   if (preRenderChecklist && isSeries) {
     preRenderChecklist.hidden = true;
@@ -550,7 +546,6 @@ const switchEditorKind = async (nextKind) => {
   syncEditorKindUi();
   if (normalized === "shorts") {
     void loadStoryTemplates();
-    void loadCorpusTips();
   }
   if (editorVisible) {
     await restoreEditorSnapshot(editorSnapshots[normalized]);
@@ -1475,29 +1470,6 @@ const loadStoryTemplates = async () => {
     if (shortsStoryTemplates) {
       shortsStoryTemplates.hidden = true;
     }
-  }
-};
-
-const loadCorpusTips = async () => {
-  if (!shortsCorpusTips) {
-    return;
-  }
-  try {
-    const res = await fetch("/api/shorts/corpus-tips");
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "tips");
-    }
-    const tips = Array.isArray(data.tips) ? data.tips : [];
-    shortsCorpusTips.replaceChildren();
-    for (const tip of tips) {
-      const li = document.createElement("li");
-      li.textContent = tip;
-      shortsCorpusTips.append(li);
-    }
-    shortsCorpusTips.hidden = editorKind !== "shorts" || tips.length === 0;
-  } catch {
-    shortsCorpusTips.hidden = true;
   }
 };
 
@@ -3952,5 +3924,4 @@ loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
 loadShortsStyles();
 loadStoryTemplates();
-loadCorpusTips();
 loadBrowseOnStartup();
