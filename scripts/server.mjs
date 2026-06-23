@@ -64,7 +64,6 @@ import {
 } from "./dialogue-gen.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {readShortsCorpusSummary, updateShortsCorpusSummary} from "./shorts-corpus.mjs";
-import {extractCorpusTips} from "./shorts-corpus-tips.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {SHORTS_STORY_TEMPLATES} from "./shorts-story-templates.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
@@ -451,17 +450,6 @@ app.get("/api/shorts/styles", async (_req, res) => {
 
 app.get("/api/shorts/templates", (_req, res) => {
   res.json({templates: SHORTS_STORY_TEMPLATES});
-});
-
-app.get("/api/shorts/corpus-tips", async (_req, res) => {
-  try {
-    const summary = await readShortsCorpusSummary();
-    res.json({tips: extractCorpusTips(summary)});
-  } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
 });
 
 app.post("/api/shorts/pre-render-check", (req, res) => {
