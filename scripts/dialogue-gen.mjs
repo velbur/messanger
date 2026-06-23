@@ -249,14 +249,14 @@ const buildHookRules = (language = "ru", mode = "shorts") => {
   }
   return language === "en"
     ? [
-        "- First message (messages[0]) is the hook: conflict, absurdity, or mystery in ≤12 words.",
+        "- First message (messages[0]) is the hook: conflict, absurdity, or mystery in at most ~12 words.",
         "- No weak openers: not «Hi», «Hey», «Listen», «I have a question».",
-        "- The reader must instantly want to know what happens next.",
+        "- The reader must instantly want to know what happens next; don't pad the opening.",
       ]
     : [
-        "- Первое сообщение (messages[0]) — крючок: конфликт, абсурд или странность за ≤12 слов.",
+        "- Первое сообщение (messages[0]) — крючок: конфликт, абсурд или странность, не длиннее ~12 слов.",
         "- Без слабых начал: не «Привет», «Слушай», «У меня вопрос», «Ну что».",
-        "- Читатель сразу должен захотеть узнать, что будет дальше.",
+        "- Читатель сразу должен захотеть узнать, что будет дальше; не раздувай завязку.",
       ];
 };
 

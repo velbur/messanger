@@ -1,7 +1,5 @@
 /** Чеклист качества Shorts перед рендером (без LLM). */
 
-const WEAK_OPENERS = /^(привет|здравствуй|слушай|у меня вопрос|ну что|хай|hi|hello|hey)\b/i;
-
 export const runShortsPreRenderChecklist = (conversation, {displayTitle = ""} = {}) => {
   const warnings = [];
   const tips = [];
@@ -12,14 +10,8 @@ export const runShortsPreRenderChecklist = (conversation, {displayTitle = ""} = 
   }
 
   const firstText = String(messages[0]?.text ?? "").trim();
-  if (!firstText) {
-    warnings.push("Первое сообщение без текста — слабый старт для Shorts");
-  } else if (firstText.length > 55) {
-    warnings.push("Первая реплика длинная — крючок лучше уложить в ~12 слов");
-  } else if (WEAK_OPENERS.test(firstText)) {
-    warnings.push("Слабое начало («Привет» и т.п.) — лучше сразу конфликт или абсурд");
-  } else if (firstText.length <= 40) {
-    tips.push("Первая реплика короткая — хорошо для крючка");
+  if (!firstText && !messages[0]?.image) {
+    warnings.push("Первое сообщение без текста и без фото");
   }
 
   if (!displayTitle?.trim()) {
