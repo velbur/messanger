@@ -183,6 +183,7 @@ export const estimateMessagesDurationMs = (conversation: ConversationInput): num
   return conversation.messages.reduce((total, message, index) => {
     const resolved = resolveMessageTiming(message, timing);
     const pauseBeforeMs = index === 0 ? 0 : resolved.pauseBeforeMs;
-    return total + pauseBeforeMs + resolved.typingMs + resolved.postRevealMs;
+    const typingMs = index === 0 ? 0 : resolved.typingMs;
+    return total + pauseBeforeMs + typingMs + resolved.postRevealMs;
   }, 0);
 };

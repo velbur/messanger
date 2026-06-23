@@ -4,8 +4,11 @@ import {mergeConversationTiming, resolveMessageTiming, scaleTimingMs, TIMING_BUN
 import type {ConversationInput} from "./schema";
 import {msToFrames} from "./fps";
 
-/** Пауза на последнем кадре переписки перед заставками */
-export const POST_LAST_MESSAGE_TAIL_MS = 3000;
+/** Пауза на последнем кадре переписки перед заставками (музыка доигрывает в этот хвост) */
+export const POST_LAST_MESSAGE_TAIL_MS = 8000;
+
+/** Маркер хвоста / мгновенного крючка — обновить в bundle-cache.mjs */
+export const TIMELINE_TAIL_MARKER = "tail-8000-instant-hook-v1";
 
 /** Пауза в чате после появления фото, до полноэкранного показа */
 export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
@@ -79,7 +82,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   conversation.messages.forEach((message, index) => {
     const resolved = resolveMessageTiming(message, timingConfig);
     const pauseFrames = index === 0 ? 0 : msToFrames(resolved.pauseBeforeMs);
-    const typingFrames = msToFrames(resolved.typingMs);
+    const typingFrames = index === 0 ? 0 : msToFrames(resolved.typingMs);
     const postRevealFrames = msToFrames(resolved.postRevealMs);
     const typingStartFrame = cursor + pauseFrames;
     const typingEndFrame = typingStartFrame + typingFrames;
