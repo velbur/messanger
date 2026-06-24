@@ -6,6 +6,12 @@
   "contactAvatar": "avatar.svg",
   "wallpaper": "dark",
   "myName": "Я",
+  "outro": {
+    "enabled": true,
+    "text": "Подпишись :)",
+    "pauseBeforeMs": 700,
+    "durationMs": 2800
+  },
   "music": {
     "enabled": true,
     "src": "music/mystic.mp3"

@@ -981,6 +981,36 @@ body.lightbox-open {
   word-break: break-word;
 }
 
+.dialogue-msg__bubble--edit {
+  padding: 0;
+}
+
+.dialogue-msg__bubble-text {
+  display: block;
+  width: 100%;
+  min-height: 2.5em;
+  padding: 10px 12px;
+  border: none;
+  border-radius: inherit;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: transparent;
+  resize: vertical;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dialogue-msg__bubble-text:focus {
+  outline: 2px solid rgba(83, 189, 235, 0.45);
+  outline-offset: -2px;
+}
+
+.dialogue-msg__bubble-text::placeholder {
+  color: rgba(233, 237, 239, 0.45);
+}
+
 .dialogue-msg--me .dialogue-msg__bubble {
   background: #005c4b;
   color: #e9edef;

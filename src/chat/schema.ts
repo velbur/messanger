@@ -1,12 +1,17 @@
 import {z} from "zod";
 import {expandEmojis} from "./emoji";
 import {normalizeMessengerLocale} from "./locale";
+import {sanitizeMessageText} from "./message-text";
 
 export const messageSchema = z
   .object({
     author: z.enum(["me", "them"]),
     /** Текст или подпись к изображению */
-    text: z.string().optional().default(""),
+    text: z
+      .string()
+      .optional()
+      .default("")
+      .transform(sanitizeMessageText),
     /** Путь в public/ или URL (http/https) — URL скачивается при рендере */
     image: z
       .string()

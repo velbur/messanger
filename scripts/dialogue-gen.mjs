@@ -214,14 +214,19 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
   const countRule =
     imageCount === 1
       ? language === "en"
-        ? "- Exactly 1 photo message with imagePrompt (no text, no image)."
-        : "- Ровно 1 фото-сообщение с imagePrompt (без text и без image)."
+        ? "- Exactly 1 photo message with imagePrompt (no image field). text optional: short plain caption or empty."
+        : "- Ровно 1 фото-сообщение с imagePrompt (без поля image). text необязателен: короткая подпись или пусто."
       : language === "en"
-        ? `- Up to ${imageCount} photo messages with imagePrompt (no text, no image) — as many as fit the scene, but no more than ${imageCount}.`
-        : `- До ${imageCount} фото-сообщений с imagePrompt (без text и без image) — столько, сколько уместно сцене, но не больше ${imageCount}.`;
+        ? `- Up to ${imageCount} photo messages with imagePrompt (no image field) — as many as fit the scene, but no more than ${imageCount}. text optional.`
+        : `- До ${imageCount} фото-сообщений с imagePrompt (без поля image) — столько, сколько уместно сцене, но не больше ${imageCount}. text необязателен.`;
+  const bracketRule =
+    language === "en"
+      ? "- Never put photo/frame descriptions in square brackets in text (no «[photo …]», «[image]», or any […] annotations). Visual description belongs only in imagePrompt."
+      : "- В text никогда не пиши описание фото в квадратных скобках (запрещено «[фото …]», «[картинка]» и любые […] с пояснением кадра). Описание кадра — только в imagePrompt.";
   if (language === "en") {
     return [
       countRule,
+      bracketRule,
       ussrStyle
         ? "- imagePrompt: 1–3 sentences describing the photo (everyday USSR 1984 scene)."
         : "- imagePrompt: 1–3 sentences describing what should be in the photo.",
@@ -233,6 +238,7 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
   }
   return [
     countRule,
+    bracketRule,
     ussrStyle
       ? "- imagePrompt: 1–3 предложения, что должно быть на фото (бытовая сцена СССР 1984)."
       : "- imagePrompt: 1–3 предложения, что должно быть на фото.",

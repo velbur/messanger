@@ -1817,6 +1817,44 @@ const imageEditPromptSaveTimers = new Map();
 
 const isImageUrl = (ref) => /^https?:\/\//i.test(String(ref ?? "").trim());
 
+/** Убирает LLM-плейсхолдеры в квадратных скобках из текста сообщения. */
+const sanitizeMessageText = (text) =>
+  String(text ?? "")
+    .replace(/\s*\[[^\]]+\]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+const sanitizeConversationTexts = (conversation) => {
+  if (!conversation?.messages?.length) {
+    return false;
+  }
+  let changed = false;
+  for (const message of conversation.messages) {
+    const cleaned = sanitizeMessageText(message.text);
+    if (cleaned !== String(message.text ?? "")) {
+      message.text = cleaned;
+      changed = true;
+    }
+  }
+  return changed;
+};
+
+const setMessageTextInJson = (messageIndex, newText) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.[messageIndex]) {
+    return;
+  }
+  parsed.messages[messageIndex].text = newText;
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateLogicControls();
+  updateGenerateImagesControls(parsed);
+};
+
+const autoResizeMessageTextarea = (textarea) => {
+  textarea.style.height = "auto";
+  textarea.style.height = `${Math.max(textarea.scrollHeight, 40)}px`;
+};
+
 const parseConversationJson = () => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -2527,38 +2565,53 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
   }
 
   const messageText = String(message.text ?? "").trim();
-  if (messageText) {
-    const btnRegen = document.createElement("button");
-    btnRegen.type = "button";
-    btnRegen.className = "dialogue-msg__regen btn btn-secondary btn-small";
-    btnRegen.textContent = "↻";
-    btnRegen.title = "Переписать реплику (ChatGPT)";
-    btnRegen.disabled = !openrouterConfigured;
-    btnRegen.addEventListener("click", async () => {
-      btnRegen.disabled = true;
-      const prevTitle = btnRegen.title;
-      btnRegen.title = "Переписываю…";
-      try {
-        await regenerateMessageFromIndex(messageIndex);
-      } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
-      } finally {
-        btnRegen.disabled = !openrouterConfigured;
-        btnRegen.title = prevTitle;
-      }
-    });
-    head.append(btnRegen);
-  }
+
+  const btnRegen = document.createElement("button");
+  btnRegen.type = "button";
+  btnRegen.className = "dialogue-msg__regen btn btn-secondary btn-small";
+  btnRegen.textContent = "↻";
+  btnRegen.title = "Переписать реплику (ChatGPT)";
+  btnRegen.disabled = !openrouterConfigured;
+  btnRegen.addEventListener("click", async () => {
+    btnRegen.disabled = true;
+    const prevTitle = btnRegen.title;
+    btnRegen.title = "Переписываю…";
+    try {
+      await regenerateMessageFromIndex(messageIndex);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      btnRegen.disabled = !openrouterConfigured;
+      btnRegen.title = prevTitle;
+    }
+  });
+  head.append(btnRegen);
 
   inner.append(head);
 
-  const text = messageText;
-  if (text) {
-    const bubble = document.createElement("div");
-    bubble.className = "dialogue-msg__bubble";
-    bubble.textContent = text;
-    inner.append(bubble);
-  }
+  const bubble = document.createElement("div");
+  bubble.className = "dialogue-msg__bubble dialogue-msg__bubble--edit";
+  const textarea = document.createElement("textarea");
+  textarea.className = "dialogue-msg__bubble-text";
+  textarea.rows = 2;
+  textarea.value = messageText;
+  textarea.placeholder = "Текст сообщения…";
+  textarea.dataset.messageTextIndex = String(messageIndex);
+  textarea.addEventListener("input", () => {
+    autoResizeMessageTextarea(textarea);
+    setMessageTextInJson(messageIndex, textarea.value);
+  });
+  textarea.addEventListener("blur", () => {
+    const cleaned = sanitizeMessageText(textarea.value);
+    if (cleaned !== textarea.value) {
+      textarea.value = cleaned;
+      setMessageTextInJson(messageIndex, cleaned);
+    }
+    autoResizeMessageTextarea(textarea);
+  });
+  bubble.append(textarea);
+  inner.append(bubble);
+  requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
 
   if (message.image?.trim() || message.imagePrompt?.trim()) {
     const resolved = resolveImageItem(message, messageIndex, item);
@@ -2586,6 +2639,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
 
 const renderDialogueEditor = (conversation, items) => {
   const activeId = document.activeElement?.id;
+  const activeTextIndex = document.activeElement?.dataset?.messageTextIndex;
   const scrollTop = dialogueEditor.scrollTop;
 
   dialogueEditor.replaceChildren();
@@ -2658,12 +2712,21 @@ const renderDialogueEditor = (conversation, items) => {
     if (el) {
       el.focus();
     }
+  } else if (activeTextIndex != null) {
+    const el = dialogueEditor.querySelector(
+      `[data-message-text-index="${activeTextIndex}"]`,
+    );
+    if (el) {
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    }
   }
   dialogueEditor.scrollTop = scrollTop;
 };
 
 const refreshDialogue = async () => {
-  const json = jsonInput.value.trim();
+  let json = jsonInput.value.trim();
   const conversation = parseConversationJson();
 
   if (!json || !conversation) {
@@ -2671,6 +2734,11 @@ const refreshDialogue = async () => {
     dialogueEditor.replaceChildren();
     updateGenerateImagesControls(null);
     return;
+  }
+
+  if (sanitizeConversationTexts(conversation)) {
+    jsonInput.value = JSON.stringify(conversation, null, 2);
+    json = jsonInput.value.trim();
   }
 
   dialoguePanel.hidden = false;
