@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit",
     "verify-render": "node scripts/verify-render.mjs",
     "sounds:generate": "node scripts/generate-sounds.mjs",
+    "voiceover:install": "pip3 install -r scripts/tts/requirements.txt",
     "ui": "node --max-old-space-size=4096 --import tsx scripts/server.mjs",
     "db:migrate": "node scripts/migrate-dialogues.mjs",
     "series:import": "node --import tsx scripts/series-import.mjs",

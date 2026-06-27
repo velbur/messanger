@@ -229,6 +229,7 @@ ensure_project_dirs() {
     "${ROOT}/json" \
     "${ROOT}/out" \
     "${ROOT}/public/images" \
+    "${ROOT}/public/audio" \
     "${ROOT}/public/sounds" \
     "${ROOT}/public/music" \
     "${ROOT}/data" \
@@ -409,10 +410,11 @@ cmd_render() {
   output_dir="$(cd "$(dirname "$OUTPUT")" && pwd)"
   output_file="$(basename "$OUTPUT")"
 
-  # src/scripts монтируются с хоста — рендер без пересборки образа после правок Remotion
+  # src/scripts/public монтируются с хоста — рендер без пересборки образа после правок Remotion
   "$CONTAINER" run --rm \
     -v "${input_dir}:/input:ro" \
     -v "${output_dir}:/output" \
+    -v "${ROOT}/public:/app/public:ro" \
     -v "${ROOT}/src:/app/src:ro" \
     -v "${ROOT}/scripts:/app/scripts:ro" \
     -v "${ROOT}/.cache:/app/.cache" \
@@ -550,6 +552,7 @@ cmd_worker() {
   echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
   echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
+  echo "Озвучка: WAV из public/audio/ синхронизируется с Mac перед рендером; на воркере — MMS/Silero для генерации."
   echo "При изменении package-lock.json образ пересоберётся автоматически."
   echo "Если рендер падает на conversation.json — на этой машине: git pull && перезапуск воркера."
   echo "Остановка: Ctrl+C"

@@ -1,6 +1,7 @@
 import React from "react";
 import {Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from "remotion";
 import {useChatTheme} from "../ThemeContext";
+import {useChatTypography} from "../TypographyContext";
 import {CHAT} from "../theme";
 import {ReadReceiptIcon} from "./icons";
 import {EmojiText} from "./EmojiText";
@@ -20,6 +21,7 @@ const MetaRow: React.FC<{
   isMe: boolean;
 }> = ({sentAt, isMe}) => {
   const theme = useChatTheme();
+  const typography = useChatTypography();
 
   return (
     <div
@@ -32,7 +34,7 @@ const MetaRow: React.FC<{
         marginTop: 4,
       }}
     >
-      <span style={{fontSize: CHAT.messageTimeFontSize, color: theme.textMeta, lineHeight: 1}}>
+      <span style={{fontSize: typography.messageTimeFontSize, color: theme.textMeta, lineHeight: 1}}>
         {sentAt}
       </span>
       {isMe ? <ReadReceiptIcon size={CHAT.readReceiptSize} color={theme.readReceipt} /> : null}
@@ -42,6 +44,7 @@ const MetaRow: React.FC<{
 
 const TimeOverlay: React.FC<{sentAt: string; isMe: boolean}> = ({sentAt, isMe}) => {
   const theme = useChatTheme();
+  const typography = useChatTypography();
 
   return (
     <div
@@ -59,7 +62,7 @@ const TimeOverlay: React.FC<{sentAt: string; isMe: boolean}> = ({sentAt, isMe}) 
     >
       <span
         style={{
-          fontSize: CHAT.messageTimeFontSize,
+          fontSize: typography.messageTimeFontSize,
           color: "#ffffff",
           lineHeight: 1,
         }}
@@ -80,6 +83,7 @@ export const MessageBubble: React.FC<Props> = ({
   emphasizeFinale = false,
 }) => {
   const theme = useChatTheme();
+  const typography = useChatTypography();
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const relative = frame - revealFrame;
@@ -155,7 +159,7 @@ export const MessageBubble: React.FC<Props> = ({
             <EmojiText
               text={caption}
               style={{
-                fontSize: CHAT.messageFontSize,
+                fontSize: typography.messageFontSize,
                 lineHeight: CHAT.messageLineHeight,
                 color: theme.textPrimary,
                 display: "block",

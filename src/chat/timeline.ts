@@ -1,15 +1,26 @@
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
-import {mergeEndCard, mergeIntro, titleCardDurationFrames} from "./title-card";
-import {mergeConversationTiming, resolveMessageTiming, scaleTimingMs, TIMING_BUNDLE_MARKER} from "./timing";
+import {mergeEndCard, mergeIntro} from "./title-card";
+import {
+  getTimingSpeed,
+  mergeConversationTiming,
+  resolveMessageTiming,
+  scaleConversationMs,
+  scaleTimingMs,
+  TIMING_BUNDLE_MARKER,
+} from "./timing";
 import {isStorySplitLayout, mergeStoryConfig, messageHasStoryImage} from "./story";
+import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
-import {msToFrames} from "./fps";
+import {msToFrames, FPS} from "./fps";
 
 /** Пауза на последнем кадре переписки перед заставками (музыка доигрывает в этот хвост) */
 export const POST_LAST_MESSAGE_TAIL_MS = 8000;
 
-/** Маркер хвоста / мгновенного крючка — обновить в bundle-cache.mjs */
+/** Маркер хвоста в bundle — обновить в bundle-cache.mjs */
 export const TIMELINE_TAIL_MARKER = "tail-8000-story-split-v1";
+
+/** Маркер глобального timingSpeed в таймлайне — обновить в bundle-cache.mjs */
+export const TIMING_SPEED_TIMELINE_MARKER = "timing-speed-v1";
 
 /** Пауза в чате после появления фото, до полноэкранного показа */
 export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
@@ -47,6 +58,9 @@ export type MessageTimelineEvent = {
   endFrame: number;
   pauseFrames: number;
   typingFrames: number;
+  voiceAudio?: string;
+  voiceDurationMs?: number;
+  voiceDurationFrames: number;
 };
 
 export type StorySceneTimelineEvent = {
@@ -97,9 +111,14 @@ export const getStatusBarTime = (
 };
 
 export const buildTimeline = (conversation: ConversationInput): ConversationTimeline => {
+  void TIMING_SPEED_TIMELINE_MARKER;
+  void TIMELINE_TAIL_MARKER;
+  void VOICEOVER_BUNDLE_MARKER;
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
-  const introFrames = intro.enabled ? titleCardDurationFrames(intro) : 0;
+  const introFrames = intro.enabled
+    ? msToFrames(scaleConversationMs(conversation, intro.durationMs))
+    : 0;
   const storySplit = isStorySplitLayout(conversation);
   const storyConfig = mergeStoryConfig(conversation);
   const disableMessageFullscreen = storySplit && storyConfig.disableMessageFullscreen;
@@ -107,9 +126,18 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   const events: MessageTimelineEvent[] = [];
   let cursor = introFrames;
   const timingConfig = mergeConversationTiming(conversation);
+  const timingSpeed = getTimingSpeed(conversation);
+  const voiceover = mergeConversationVoiceover(conversation);
+  const voicePaddingMs = scaleTimingMs(200);
 
   conversation.messages.forEach((message, index) => {
-    const resolved = resolveMessageTiming(message, timingConfig);
+    let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
+    if (voiceover.enabled && messageHasVoiceover(message)) {
+      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) + voicePaddingMs;
+      if (voiceMinPostRevealMs > resolved.postRevealMs) {
+        resolved = {...resolved, postRevealMs: voiceMinPostRevealMs};
+      }
+    }
     const pauseFrames = index === 0 ? 0 : msToFrames(resolved.pauseBeforeMs);
     const typingFrames = index === 0 ? 0 : msToFrames(resolved.typingMs);
     const postRevealFrames = msToFrames(resolved.postRevealMs);
@@ -118,12 +146,19 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     const revealFrame = typingEndFrame;
     const hasImage = Boolean(message.image?.trim());
     const fullscreenDelayFrames =
-      hasImage && !disableMessageFullscreen ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_DELAY_MS)) : 0;
+      hasImage && !disableMessageFullscreen
+        ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_DELAY_MS))
+        : 0;
     const fullscreenFrames =
-      hasImage && !disableMessageFullscreen ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_MS)) : 0;
+      hasImage && !disableMessageFullscreen
+        ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_MS))
+        : 0;
     const fullscreenStartFrame = revealFrame + fullscreenDelayFrames;
     const fullscreenEndFrame = fullscreenStartFrame + fullscreenFrames;
     const endFrame = fullscreenEndFrame + postRevealFrames;
+    const voiceDurationMs =
+      voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
+    const voiceDurationFrames = voiceDurationMs ? msToFrames(voiceDurationMs) : 0;
 
     events.push({
       index,
@@ -141,17 +176,23 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
       endFrame,
       pauseFrames,
       typingFrames,
+      voiceAudio:
+        voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
+      voiceDurationMs,
+      voiceDurationFrames,
     });
 
     cursor = endFrame;
   });
 
   const outro = mergeConversationOutro(conversation);
-  const tailFrames = msToFrames(scaleTimingMs(POST_LAST_MESSAGE_TAIL_MS));
-  const outroPause = outro.enabled ? outroPauseFrames(outro) : 0;
-  const endCardFrames = endCard.enabled ? titleCardDurationFrames(endCard) : 0;
+  const tailFrames = msToFrames(scaleConversationMs(conversation, POST_LAST_MESSAGE_TAIL_MS));
+  const outroPause = outro.enabled ? outroPauseFrames(outro, conversation) : 0;
+  const endCardFrames = endCard.enabled
+    ? msToFrames(scaleConversationMs(conversation, endCard.durationMs))
+    : 0;
   const endCardStart = cursor + tailFrames + outroPause;
-  const outroFrames = outro.enabled ? outroDurationFrames(outro) : 0;
+  const outroFrames = outro.enabled ? outroDurationFrames(outro, conversation) : 0;
   const outroStart = endCardStart + endCardFrames;
 
   const story = buildStoryTimeline(conversation, events, introFrames, outroStart);
@@ -193,8 +234,12 @@ const buildStoryTimeline = (
 
   const storyConfig = mergeStoryConfig(conversation);
   const openingStartFrame = introFrames;
-  const openingDurationFrames = msToFrames(scaleTimingMs(storyConfig.opening.durationMs));
-  const splitTransitionFrames = msToFrames(scaleTimingMs(storyConfig.splitTransitionMs));
+  const openingDurationFrames = msToFrames(
+    scaleConversationMs(conversation, storyConfig.opening.durationMs),
+  );
+  const splitTransitionFrames = msToFrames(
+    scaleConversationMs(conversation, storyConfig.splitTransitionMs),
+  );
   const openingEndFrame = openingStartFrame + openingDurationFrames;
   const splitStartFrame = openingEndFrame;
   const splitCompleteFrame = splitStartFrame + splitTransitionFrames;
@@ -293,6 +338,11 @@ export const visibleMessageCountAtFrame = (
 };
 
 /** Кадр для JPG-превью без фото: финальная реплика в чате */
+export const estimateVideoDurationMs = (conversation: ConversationInput): number => {
+  const timeline = buildTimeline(conversation);
+  return (timeline.durationInFrames / FPS) * 1000;
+};
+
 export const pickThumbnailFrame = (
   timeline: ConversationTimeline,
   durationInFrames: number,

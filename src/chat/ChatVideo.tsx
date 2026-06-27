@@ -9,6 +9,7 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
+import {mergeConversationVoiceover} from "./voiceover";
 import {
   activeStorySceneAtFrame,
   buildTimeline,
@@ -22,6 +23,7 @@ import {
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
 import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
+import {ChatTypographyProvider} from "./TypographyContext";
 import {ChatHeader} from "./components/ChatHeader";
 import {InputBar} from "./components/InputBar";
 import {FullscreenImage} from "./components/FullscreenImage";
@@ -134,6 +136,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const timeline = useMemo(() => buildTimeline(conversation), [conversation]);
   const sounds = useMemo(() => mergeConversationSounds(conversation), [conversation]);
   const music = useMemo(() => mergeConversationMusic(conversation), [conversation]);
+  const voiceover = useMemo(() => mergeConversationVoiceover(conversation), [conversation]);
   const outro = useMemo(() => mergeConversationOutro(conversation), [conversation]);
   const messengerLocale = useMemo(() => getMessengerLocale(conversation), [conversation]);
   const intro = useMemo(() => mergeIntro(conversation), [conversation]);
@@ -182,6 +185,32 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     : 1;
 
   const chatDim = Math.min(fullscreenDim, outroDim);
+
+  const voiceFrameRanges = useMemo(
+    () =>
+      voiceover.enabled
+        ? timeline.events
+            .filter((event) => event.voiceAudio && event.voiceDurationFrames > 0)
+            .map((event) => ({
+              start: event.revealFrame,
+              end: event.revealFrame + event.voiceDurationFrames,
+            }))
+        : [],
+    [timeline.events, voiceover.enabled],
+  );
+
+  const isVoiceActiveAtFrame = (f: number): boolean =>
+    voiceFrameRanges.some((range) => f >= range.start && f < range.end);
+
+  const musicVolumeAtFrame = (f: number): number => {
+    if (!music.enabled) {
+      return 0;
+    }
+    if (voiceover.enabled && isVoiceActiveAtFrame(f)) {
+      return music.volume * voiceover.musicDuck;
+    }
+    return music.volume;
+  };
 
   const activeEvent = timeline.events.find(
     (event) => frame >= event.typingStartFrame && frame < event.revealFrame,
@@ -258,6 +287,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
 
   return (
     <ChatThemeProvider mode={conversation.wallpaper}>
+      <ChatTypographyProvider conversation={conversation}>
       <AbsoluteFill
         style={{
           fontFamily: CHAT_FONT_FAMILY,
@@ -320,7 +350,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         {showHook ? <HookOverlay text={conversation.hookText ?? ""} /> : null}
 
         {music.enabled ? (
-          <Audio src={staticFile(music.src)} volume={music.volume} loop />
+          <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
         ) : null}
 
         {intro.enabled ? (
@@ -362,6 +392,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 volume={sounds.messageVolume}
               />
             </Sequence>
+            {event.voiceAudio && event.voiceDurationFrames > 0 ? (
+              <Sequence from={event.revealFrame} durationInFrames={event.voiceDurationFrames}>
+                <Audio src={staticFile(event.voiceAudio)} volume={voiceover.volume} />
+              </Sequence>
+            ) : null}
             {event.typingFrames >= 12 ? (
               <Sequence from={event.typingStartFrame}>
                 <Audio
@@ -373,6 +408,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           </React.Fragment>
         ))}
       </AbsoluteFill>
+      </ChatTypographyProvider>
     </ChatThemeProvider>
   );
 };

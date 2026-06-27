@@ -65,6 +65,20 @@ const IMAGE_ONLY_ME_TYPING_MS = 380;
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+export const TIMING_SPEED_MIN = 0.25;
+export const TIMING_SPEED_MAX = 4;
+export const DEFAULT_TIMING_SPEED = 1;
+
+export const getTimingSpeed = (conversation: ConversationInput): number =>
+  clamp(conversation.timingSpeed ?? DEFAULT_TIMING_SPEED, TIMING_SPEED_MIN, TIMING_SPEED_MAX);
+
+const applyTimingSpeed = (ms: number, speed: number): number =>
+  Math.max(1, Math.round(ms * speed));
+
+/** Масштаб фиксированных отрезков таймлайна (хвост, заставки, outro) под timingSpeed */
+export const scaleConversationMs = (conversation: ConversationInput, ms: number): number =>
+  applyTimingSpeed(scaleTimingMs(ms), getTimingSpeed(conversation));
+
 const lineCount = (text: string): number => Math.max(1, text.split("\n").length);
 
 const punctuationPauseCount = (text: string): number =>
@@ -100,6 +114,7 @@ export type ResolvedMessageTiming = {
 export const resolveMessageTiming = (
   message: MessageInput,
   timing: ConversationTiming,
+  speed = DEFAULT_TIMING_SPEED,
 ): ResolvedMessageTiming => {
   const caption = messageCaption(message);
   const chars = charCount(caption);
@@ -133,14 +148,19 @@ export const resolveMessageTiming = (
       timing.maxPostRevealMs,
     );
 
+    const pauseBeforeMs =
+      message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause;
+    const typingMs =
+      message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping;
+    const postRevealMs =
+      message.postRevealMs !== undefined
+        ? scaleTimingValue(message.postRevealMs)
+        : autoPostReveal;
+
     return {
-      pauseBeforeMs:
-        message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause,
-      typingMs: message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping,
-      postRevealMs:
-        message.postRevealMs !== undefined
-          ? scaleTimingValue(message.postRevealMs)
-          : autoPostReveal,
+      pauseBeforeMs: applyTimingSpeed(pauseBeforeMs, speed),
+      typingMs: applyTimingSpeed(typingMs, speed),
+      postRevealMs: applyTimingSpeed(postRevealMs, speed),
       charLength: chars,
     };
   }
@@ -168,12 +188,17 @@ export const resolveMessageTiming = (
     timing.maxPostRevealMs,
   );
 
+  const pauseBeforeMs =
+    message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause;
+  const typingMs =
+    message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping;
+  const postRevealMs =
+    message.postRevealMs !== undefined ? scaleTimingValue(message.postRevealMs) : autoPostReveal;
+
   return {
-    pauseBeforeMs:
-      message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause,
-    typingMs: message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping,
-    postRevealMs:
-      message.postRevealMs !== undefined ? scaleTimingValue(message.postRevealMs) : autoPostReveal,
+    pauseBeforeMs: applyTimingSpeed(pauseBeforeMs, speed),
+    typingMs: applyTimingSpeed(typingMs, speed),
+    postRevealMs: applyTimingSpeed(postRevealMs, speed),
     charLength: chars,
   };
 };
@@ -184,8 +209,9 @@ export const mergeConversationTiming = (conversation: ConversationInput): Conver
 /** Суммарная длительность переписки в мс (без intro/outro/tail/fullscreen) */
 export const estimateMessagesDurationMs = (conversation: ConversationInput): number => {
   const timing = mergeConversationTiming(conversation);
+  const speed = getTimingSpeed(conversation);
   return conversation.messages.reduce((total, message, index) => {
-    const resolved = resolveMessageTiming(message, timing);
+    const resolved = resolveMessageTiming(message, timing, speed);
     const pauseBeforeMs = index === 0 ? 0 : resolved.pauseBeforeMs;
     const typingMs = index === 0 ? 0 : resolved.typingMs;
     return total + pauseBeforeMs + typingMs + resolved.postRevealMs;

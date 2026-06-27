@@ -1,5 +1,5 @@
 /** Масштаб всего UI (+20% к базовым размерам) */
-const S = (n: number): number => Math.round(n * 1.2);
+export const S = (n: number): number => Math.round(n * 1.2);
 
 /** Единый отступ под UI YouTube Shorts (справа и снизу) */
 export const SHORTS_SAFE_AREA = S(128);

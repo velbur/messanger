@@ -1,9 +1,7 @@
 import type {ConversationInput} from "./schema";
 import {isEnglishConversation} from "./locale";
 import {msToFrames} from "./fps";
-import {scaleTimingMs} from "./timing";
-
-const scaleMs = scaleTimingMs;
+import {scaleConversationMs} from "./timing";
 
 export type ConversationOutro = {
   enabled: boolean;
@@ -37,8 +35,8 @@ export const mergeConversationOutro = (conversation: ConversationInput): Convers
   ...conversation.outro,
 });
 
-export const outroPauseFrames = (outro: ConversationOutro): number =>
-  msToFrames(scaleMs(outro.pauseBeforeMs));
+export const outroPauseFrames = (outro: ConversationOutro, conversation: ConversationInput): number =>
+  msToFrames(scaleConversationMs(conversation, outro.pauseBeforeMs));
 
-export const outroDurationFrames = (outro: ConversationOutro): number =>
-  msToFrames(scaleMs(outro.durationMs));
+export const outroDurationFrames = (outro: ConversationOutro, conversation: ConversationInput): number =>
+  msToFrames(scaleConversationMs(conversation, outro.durationMs));

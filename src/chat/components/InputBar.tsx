@@ -1,6 +1,7 @@
 import React from "react";
 import {TEXT_FONT_FAMILY} from "../fonts";
 import {useChatTheme} from "../ThemeContext";
+import {useChatTypography} from "../TypographyContext";
 import {CHROME, LAYOUT} from "../theme";
 import {MicIcon, PlusIcon, SmileIcon} from "./icons";
 
@@ -12,6 +13,7 @@ const I = CHROME.input;
 
 export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) => {
   const theme = useChatTheme();
+  const typography = useChatTypography();
 
   return (
     <div
@@ -57,7 +59,7 @@ export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) 
           style={{
             flex: 1,
             fontFamily: TEXT_FONT_FAMILY,
-            fontSize: I.textFontSize,
+            fontSize: typography.inputTextFontSize,
             color: theme.inputPlaceholder,
             lineHeight: 1.28,
           }}

@@ -38,6 +38,14 @@ export const messageSchema = z
     pauseBeforeMs: z.number().min(0).max(10000).optional(),
     /** Пауза после появления пузыря, мс (до следующего сообщения) */
     postRevealMs: z.number().min(0).max(10000).optional(),
+    /** Локальная озвучка реплики (public/audio/…) */
+    voiceAudio: z
+      .string()
+      .min(1)
+      .transform((value) => value.replace(/^\/+/, ""))
+      .optional(),
+    /** Длительность voiceAudio, мс (заполняется при генерации) */
+    voiceDurationMs: z.number().min(50).max(120000).optional(),
     sentAt: z.string().optional().default("12:34"),
   })
   .superRefine((message, ctx) => {
@@ -64,6 +72,8 @@ export const conversationSchema = z.object({
   /** Статус в шапке, пока идёт анимация набора у them */
   contactStatusTyping: z.string().optional().default("печатает..."),
   contactAvatar: z.string().default("avatar.svg"),
+  /** Размер текста в пузырях, px в кадре (по умолчанию S(44) ≈ 53) */
+  messageFontSize: z.number().min(36).max(80).optional(),
   wallpaper: z.enum(["default", "dark"]).optional().default("default"),
   myName: z.string().optional().default("You"),
   /** Доп. shortcodes: { "custom": "🦄" } → в тексте :custom: */
@@ -112,7 +122,25 @@ export const conversationSchema = z.object({
       typingVolumeMe: z.number().min(0).max(1).optional(),
     })
     .optional(),
-  /** Глобальные коэффициенты авто-тайминга (можно не указывать) */
+  /** Локальная озвучка реплик (Silero / MMS) */
+  voiceover: z
+    .object({
+      enabled: z.boolean().optional(),
+      provider: z.enum(["silero", "mms"]).optional(),
+      /** Голос собеседника */
+      themVoice: z.enum(["male", "female"]).optional(),
+      /** Голос «я» */
+      meVoice: z.enum(["male", "female"]).optional(),
+      volume: z.number().min(0).max(1).optional(),
+      musicDuck: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+  /**
+   * Множитель длительности переписки: 1 — по умолчанию, меньше — быстрее, больше — медленнее.
+   * Влияет на паузы, набор и задержку после сообщения.
+   */
+  timingSpeed: z.number().min(0.25).max(4).optional(),
+  /** Низкоуровневые коэффициенты авто-тайминга (обычно не нужны; см. timingSpeed) */
   timing: z
     .object({
       pauseBaseMs: z.number().optional(),

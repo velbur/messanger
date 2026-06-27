@@ -271,6 +271,29 @@
               </div>
             </div>
 
+            <div class="row row--message-font">
+              <label class="label" for="messageFontSizeInput">Размер шрифта в чате</label>
+              <p class="dialogue-hint">
+                Текст в пузырях и строка ввода (px в кадре 1080×1920). Пусто — по умолчанию
+                <strong id="messageFontSizeDefaultLabel">53</strong>.
+              </p>
+              <div class="message-font-size-control">
+                <input
+                  id="messageFontSizeInput"
+                  class="input message-font-size-control__input"
+                  type="number"
+                  min="36"
+                  max="80"
+                  step="1"
+                  placeholder="53"
+                  autocomplete="off"
+                />
+                <button type="button" id="btnResetMessageFontSize" class="btn btn-secondary btn-small">
+                  Сброс
+                </button>
+              </div>
+            </div>
+
             <div class="row" id="layoutRow">
               <span class="label">Формат видео</span>
               <div class="theme-options" role="radiogroup" aria-label="Формат видео">
@@ -320,6 +343,55 @@
               </select>
             </div>
 
+            <div class="row row--voiceover" id="voiceoverPanel">
+              <label class="title-cards__row">
+                <input type="checkbox" id="voiceoverEnabled" />
+                <span>Озвучка реплик (локально)</span>
+              </label>
+              <p id="voiceoverEngineHint" class="dialogue-hint" aria-live="polite">
+                Silero: мужской/женский русский. Нужен Python: pip3 install -r scripts/tts/requirements.txt
+              </p>
+              <div class="voiceover-voices">
+                <label class="voiceover-voices__field">
+                  <span class="label">Собеседник</span>
+                  <select id="voiceoverThemVoice" class="select select--compact">
+                    <option value="female">Женский</option>
+                    <option value="male">Мужской</option>
+                  </select>
+                </label>
+                <label class="voiceover-voices__field">
+                  <span class="label">Я</span>
+                  <select id="voiceoverMeVoice" class="select select--compact">
+                    <option value="male">Мужской</option>
+                    <option value="female">Женский</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="row row--timing" id="conversationTimingPanel" hidden>
+              <label class="label" for="timingSpeedInput">Скорость переписки</label>
+              <p class="dialogue-hint">
+                Одно значение на весь диалог: паузы, набор и задержки после сообщений.
+                Меньше — быстрее, больше — медленнее.
+              </p>
+              <div class="timing-speed">
+                <span class="timing-speed__edge" aria-hidden="true">Быстрее</span>
+                <input
+                  type="range"
+                  id="timingSpeedInput"
+                  class="timing-speed__range"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value="1"
+                />
+                <span class="timing-speed__edge" aria-hidden="true">Медленнее</span>
+              </div>
+              <p id="timingSpeedValue" class="timing-speed__value" aria-live="polite">×1.0</p>
+              <p id="conversationTimingTotal" class="timing-panel__total" aria-live="polite"></p>
+            </div>
+
             <div class="row row--render-target" id="renderTargetRow" hidden>
               <label class="label" for="renderTargetSelect">Где рендерить</label>
               <select id="renderTargetSelect" class="select">
@@ -367,7 +439,11 @@
                 <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
                   Сгенерировать изображения
                 </button>
+                <button type="button" id="btnGenerateVoiceover" class="btn btn-secondary" disabled>
+                  Озвучить
+                </button>
                 <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+                <span id="voiceoverGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
             </div>
 
@@ -453,11 +529,17 @@
           <span id="storyStylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
         </div>
       </section>
+    </main>
 
-      <section class="panel status-panel" id="statusPanel" hidden>
-        <h2 class="status-title">Статус</h2>
-        <p id="statusText" class="status-text"></p>
-        <div id="renderProgressBlock" class="render-progress-block" hidden>
+    <div id="renderModal" class="workflow-modal render-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="renderModalTitle">
+      <div class="workflow-modal__backdrop" data-render-modal-dismiss></div>
+      <div class="workflow-modal__dialog" role="document">
+        <header class="workflow-modal__head">
+          <h2 id="renderModalTitle" class="workflow-modal__title">Сборка видео</h2>
+          <button type="button" class="workflow-modal__close" data-render-modal-dismiss aria-label="Закрыть">×</button>
+        </header>
+        <p id="statusText" class="workflow-modal__status status-text"></p>
+        <div id="renderProgressBlock" class="render-progress-block">
           <div
             id="renderProgressTrack"
             class="render-progress"
@@ -469,9 +551,8 @@
             <div id="renderProgressBar" class="render-progress__fill"></div>
           </div>
           <p id="renderProgressLabel" class="render-progress__label"></p>
-          <button type="button" id="btnStopRender" class="btn btn-danger btn-small" hidden>Стоп</button>
         </div>
-        <pre id="statusLog" class="status-log"></pre>
+        <pre id="statusLog" class="workflow-modal__log status-log"></pre>
         <div id="renderCommandBlock" class="render-command-block" hidden>
           <p class="render-command-block__hint">
             Или быстрее на Mac вне Docker — вставьте в терминал (MP4 появится в
@@ -486,8 +567,32 @@
           <a id="downloadLink" class="download-link" href="#" download>Скачать MP4</a>
           <span id="pathsHint" class="paths-hint"></span>
         </p>
-      </section>
-    </main>
+        <footer class="workflow-modal__actions">
+          <button type="button" id="btnStopRender" class="btn btn-danger" hidden>Остановить</button>
+          <button type="button" id="btnRenderModalClose" class="btn btn-secondary" data-render-modal-dismiss hidden>
+            Закрыть
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <div id="textGenModal" class="workflow-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="textGenModalTitle">
+      <div class="workflow-modal__backdrop" data-text-gen-modal-dismiss></div>
+      <div class="workflow-modal__dialog" role="document">
+        <header class="workflow-modal__head">
+          <h2 id="textGenModalTitle" class="workflow-modal__title">Генерация текста</h2>
+          <button type="button" class="workflow-modal__close" data-text-gen-modal-dismiss aria-label="Закрыть">×</button>
+        </header>
+        <p id="textGenModalStatus" class="workflow-modal__status status-text"></p>
+        <div id="textGenModalSpinner" class="workflow-modal__spinner" hidden aria-hidden="true"></div>
+        <pre id="textGenModalLog" class="workflow-modal__log status-log"></pre>
+        <footer class="workflow-modal__actions">
+          <button type="button" id="btnTextGenModalClose" class="btn btn-secondary" data-text-gen-modal-dismiss hidden>
+            Закрыть
+          </button>
+        </footer>
+      </div>
+    </div>
 
     <div id="imageLightbox" class="lightbox" hidden aria-hidden="true">
       <button type="button" class="lightbox__backdrop" aria-label="Закрыть"></button>

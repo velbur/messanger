@@ -1,0 +1,4 @@
+# CPU-only PyTorch + Silero TTS (русские голоса aidar/xenia/…)
+--index-url https://download.pytorch.org/whl/cpu
+torch
+torchaudio

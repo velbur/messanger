@@ -80,7 +80,12 @@ RUN set -eux; \
 
 COPY . .
 
-RUN mkdir -p out
+# Silero TTS на воркере (CPU). Без torch — запасной MMS через Node на воркере.
+RUN pip3 install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch torchaudio
+
+RUN mkdir -p out public/audio
 
 # Скачать Chrome Headless Shell в образ (Linux), чтобы не качать при каждом render
 RUN npx remotion browser ensure

@@ -1,7 +1,14 @@
 const jsonInput = document.getElementById("jsonInput");
 const btnExample = document.getElementById("btnExample");
 const btnRender = document.getElementById("btnRender");
-const statusPanel = document.getElementById("statusPanel");
+const renderModal = document.getElementById("renderModal");
+const btnRenderModalClose = document.getElementById("btnRenderModalClose");
+const textGenModal = document.getElementById("textGenModal");
+const textGenModalTitle = document.getElementById("textGenModalTitle");
+const textGenModalStatus = document.getElementById("textGenModalStatus");
+const textGenModalLog = document.getElementById("textGenModalLog");
+const textGenModalSpinner = document.getElementById("textGenModalSpinner");
+const btnTextGenModalClose = document.getElementById("btnTextGenModalClose");
 const statusText = document.getElementById("statusText");
 const renderProgressBlock = document.getElementById("renderProgressBlock");
 const renderProgressTrack = document.getElementById("renderProgressTrack");
@@ -28,8 +35,17 @@ const introEnabled = document.getElementById("introEnabled");
 const introTextInput = document.getElementById("introTextInput");
 const endCardEnabled = document.getElementById("endCardEnabled");
 const endCardTextInput = document.getElementById("endCardTextInput");
+const messageFontSizeInput = document.getElementById("messageFontSizeInput");
+const btnResetMessageFontSize = document.getElementById("btnResetMessageFontSize");
+const DEFAULT_MESSAGE_FONT_SIZE = 53;
+const MESSAGE_FONT_SIZE_MIN = 36;
+const MESSAGE_FONT_SIZE_MAX = 80;
 const dialoguePanel = document.getElementById("dialoguePanel");
 const dialogueEditor = document.getElementById("dialogueEditor");
+const conversationTimingPanel = document.getElementById("conversationTimingPanel");
+const conversationTimingTotal = document.getElementById("conversationTimingTotal");
+const timingSpeedInput = document.getElementById("timingSpeedInput");
+const timingSpeedValue = document.getElementById("timingSpeedValue");
 const btnRefreshDialogue = document.getElementById("btnRefreshDialogue");
 const tabBtnSeries = document.getElementById("tabBtnSeries");
 const tabBtnShorts = document.getElementById("tabBtnShorts");
@@ -81,7 +97,13 @@ const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
+const btnGenerateVoiceover = document.getElementById("btnGenerateVoiceover");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
+const voiceoverGenerateStatus = document.getElementById("voiceoverGenerateStatus");
+const voiceoverEnabled = document.getElementById("voiceoverEnabled");
+const voiceoverThemVoice = document.getElementById("voiceoverThemVoice");
+const voiceoverMeVoice = document.getElementById("voiceoverMeVoice");
+const voiceoverEngineHint = document.getElementById("voiceoverEngineHint");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
@@ -101,6 +123,7 @@ const lightboxImg = document.getElementById("lightboxImg");
 let scanImagesTimer = null;
 let pollTimer = null;
 let activeRenderJobId = null;
+let textGenBusy = false;
 let openrouterConfigured = false;
 let youtubeConfigured = false;
 let lastPublishOutputFile = null;
@@ -131,6 +154,100 @@ const saveLastShortsPrompt = (prompt) => {
     return;
   }
   localStorage.setItem(SHORTS_PROMPT_STORAGE_KEY, trimmed);
+};
+
+const TIMING_SPEED_STORAGE_KEY = "messanger.timingSpeed";
+const MESSAGE_FONT_SIZE_STORAGE_KEY = "messanger.messageFontSize";
+const DEFAULT_TIMING_SPEED = 1;
+const TIMING_SPEED_UI_MIN = 0.5;
+const TIMING_SPEED_UI_MAX = 2;
+
+const clampTimingSpeed = (value) => {
+  const normalized = Math.round(Number(value) * 10) / 10;
+  if (!Number.isFinite(normalized)) {
+    return DEFAULT_TIMING_SPEED;
+  }
+  return Math.min(TIMING_SPEED_UI_MAX, Math.max(TIMING_SPEED_UI_MIN, normalized));
+};
+
+const readLastTimingSpeed = () => {
+  const raw = localStorage.getItem(TIMING_SPEED_STORAGE_KEY);
+  if (raw == null || raw === "") {
+    return DEFAULT_TIMING_SPEED;
+  }
+  return clampTimingSpeed(raw);
+};
+
+const saveLastTimingSpeed = (speed) => {
+  localStorage.setItem(TIMING_SPEED_STORAGE_KEY, String(clampTimingSpeed(speed)));
+};
+
+const readLastMessageFontSize = () => {
+  const raw = localStorage.getItem(MESSAGE_FONT_SIZE_STORAGE_KEY);
+  if (raw == null || raw === "") {
+    return DEFAULT_MESSAGE_FONT_SIZE;
+  }
+  const size = Number(raw);
+  if (!Number.isFinite(size)) {
+    return DEFAULT_MESSAGE_FONT_SIZE;
+  }
+  return Math.min(MESSAGE_FONT_SIZE_MAX, Math.max(MESSAGE_FONT_SIZE_MIN, Math.round(size)));
+};
+
+const saveLastMessageFontSize = (size) => {
+  const clamped = Math.min(
+    MESSAGE_FONT_SIZE_MAX,
+    Math.max(MESSAGE_FONT_SIZE_MIN, Math.round(Number(size))),
+  );
+  if (!Number.isFinite(clamped)) {
+    return;
+  }
+  localStorage.setItem(MESSAGE_FONT_SIZE_STORAGE_KEY, String(clamped));
+};
+
+const syncEditorPreferencesStorageFromConversation = (parsed) => {
+  if (!parsed || typeof parsed !== "object") {
+    return;
+  }
+  if (parsed.timingSpeed !== undefined) {
+    saveLastTimingSpeed(parsed.timingSpeed);
+  }
+  if (parsed.messageFontSize !== undefined) {
+    saveLastMessageFontSize(parsed.messageFontSize);
+  }
+};
+
+const prepareConversationForEditor = (parsed) => {
+  if (!parsed || typeof parsed !== "object") {
+    return parsed;
+  }
+  const result = {...parsed};
+  syncEditorPreferencesStorageFromConversation(result);
+  if (result.timingSpeed === undefined) {
+    const storedSpeed = readLastTimingSpeed();
+    if (storedSpeed !== DEFAULT_TIMING_SPEED) {
+      result.timingSpeed = storedSpeed;
+    }
+  }
+  if (result.messageFontSize === undefined) {
+    result.messageFontSize = readLastMessageFontSize();
+  }
+  return result;
+};
+
+const formatTimingSpeedLabel = (speed) => `×${Number(speed).toFixed(1)}`;
+
+const initEditorPreferenceControls = () => {
+  const speed = readLastTimingSpeed();
+  if (timingSpeedInput) {
+    timingSpeedInput.value = String(speed);
+  }
+  if (timingSpeedValue) {
+    timingSpeedValue.textContent = formatTimingSpeedLabel(speed);
+  }
+  if (messageFontSizeInput) {
+    messageFontSizeInput.value = String(readLastMessageFontSize());
+  }
 };
 
 const shortsStylesMeta = {
@@ -774,7 +891,8 @@ const updateProjectPathsHint = () => {
 dialogueTitleInput.addEventListener("input", updateProjectPathsHint);
 
 const applyDialogueToEditor = (dialogue) => {
-  jsonInput.value = JSON.stringify(dialogue.conversation, null, 2);
+  const conversation = prepareConversationForEditor(dialogue.conversation ?? {});
+  jsonInput.value = JSON.stringify(conversation, null, 2);
   dialogueTitleInput.value = dialogue.titleDisplay || dialogue.title || "";
   if (dialoguePromptInput) {
     const fromDb = dialogue.dialoguePrompt ?? "";
@@ -805,6 +923,8 @@ const applyDialogueToEditor = (dialogue) => {
       : "",
   );
   syncTitleCardFieldsFromJson();
+  syncMessageFontSizeFromJson();
+  syncVoiceoverFromJson();
   if (editorKind === "shorts") {
     applyMessengerLocaleToJson();
   }
@@ -1491,16 +1611,24 @@ const updatePreRenderChecklistUI = (result) => {
 
 const prepareJsonForRender = () => {
   applyMessengerLocaleToJson();
+  applyMessageFontSizeToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
   }
   try {
-    const parsed = JSON.parse(json);
+    const parsed = prepareConversationForEditor(JSON.parse(json));
+    const speed = clampTimingSpeed(timingSpeedInput?.value ?? readLastTimingSpeed());
+    saveLastTimingSpeed(speed);
+    if (speed === DEFAULT_TIMING_SPEED) {
+      delete parsed.timingSpeed;
+    } else {
+      parsed.timingSpeed = speed;
+    }
     if ("hookText" in parsed) {
       delete parsed.hookText;
-      jsonInput.value = JSON.stringify(parsed, null, 2);
     }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
     return jsonInput.value.trim();
   } catch {
     return json;
@@ -1508,7 +1636,8 @@ const prepareJsonForRender = () => {
 };
 
 const applyGeneratedDialogue = async (data) => {
-  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  const conversation = prepareConversationForEditor(data.conversation);
+  jsonInput.value = JSON.stringify(conversation, null, 2);
   applyMessengerLocaleToJson();
   if (editorKind === "shorts" && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
@@ -1700,6 +1829,174 @@ const syncWallpaperFromJson = () => {
   } catch {
     /* ignore invalid JSON */
   }
+};
+
+const syncMessageFontSizeFromJson = () => {
+  if (!messageFontSizeInput) {
+    return;
+  }
+  const parsed = parseConversationJson();
+  const value =
+    typeof parsed?.messageFontSize === "number" && !Number.isNaN(parsed.messageFontSize)
+      ? parsed.messageFontSize
+      : readLastMessageFontSize();
+  messageFontSizeInput.value = String(value);
+};
+
+const applyMessageFontSizeToJson = () => {
+  if (!messageFontSizeInput) {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  const raw = messageFontSizeInput.value.trim();
+  if (!raw) {
+    delete parsed.messageFontSize;
+    saveLastMessageFontSize(DEFAULT_MESSAGE_FONT_SIZE);
+  } else {
+    const size = Number(raw);
+    if (Number.isNaN(size)) {
+      return;
+    }
+    const clamped = Math.min(MESSAGE_FONT_SIZE_MAX, Math.max(MESSAGE_FONT_SIZE_MIN, Math.round(size)));
+    parsed.messageFontSize = clamped;
+    messageFontSizeInput.value = String(clamped);
+    saveLastMessageFontSize(clamped);
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const syncVoiceoverFromJson = () => {
+  const parsed = parseConversationJson();
+  const voiceover = parsed?.voiceover ?? {};
+  if (voiceoverEnabled) {
+    voiceoverEnabled.checked = Boolean(voiceover.enabled);
+  }
+  if (voiceoverThemVoice) {
+    voiceoverThemVoice.value = voiceover.themVoice === "male" ? "male" : "female";
+  }
+  if (voiceoverMeVoice) {
+    voiceoverMeVoice.value = voiceover.meVoice === "female" ? "female" : "male";
+  }
+};
+
+const applyVoiceoverToJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  const enabled = Boolean(voiceoverEnabled?.checked);
+  if (!enabled) {
+    if (parsed.voiceover) {
+      parsed.voiceover = {...parsed.voiceover, enabled: false};
+    }
+  } else {
+    parsed.voiceover = {
+      ...(parsed.voiceover ?? {}),
+      enabled: true,
+      provider: parsed.voiceover?.provider ?? "silero",
+      themVoice: voiceoverThemVoice?.value === "male" ? "male" : "female",
+      meVoice: voiceoverMeVoice?.value === "female" ? "female" : "male",
+    };
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateGenerateVoiceoverControls(parsed);
+};
+
+const countPendingVoiceover = (conversation) => {
+  if (!conversation?.messages?.length) {
+    return 0;
+  }
+  const enabled = Boolean(conversation.voiceover?.enabled);
+  if (!enabled) {
+    return 0;
+  }
+  let pending = 0;
+  for (const message of conversation.messages) {
+    const text = String(message.text ?? "").trim();
+    if (!text) {
+      continue;
+    }
+    if (!String(message.voiceAudio ?? "").trim()) {
+      pending += 1;
+    }
+  }
+  return pending;
+};
+
+const updateGenerateVoiceoverControls = (conversation = null) => {
+  if (!btnGenerateVoiceover) {
+    return;
+  }
+  const parsed = conversation ?? parseConversationJson();
+  const pending = countPendingVoiceover(parsed);
+  const enabled = Boolean(parsed?.voiceover?.enabled);
+  btnGenerateVoiceover.disabled = !enabled || pending === 0;
+  if (!enabled) {
+    btnGenerateVoiceover.title = "Включите озвучку в левой колонке";
+  } else if (pending === 0) {
+    btnGenerateVoiceover.title = "Все реплики с текстом уже озвучены";
+  } else {
+    btnGenerateVoiceover.title = `Озвучить ${pending} реплик${pending === 1 ? "у" : pending < 5 ? "и" : ""} (локально)`;
+  }
+};
+
+const loadVoiceoverEngineStatus = async () => {
+  if (!voiceoverEngineHint) {
+    return;
+  }
+  try {
+    const res = await fetch("/api/voiceover/status");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "status");
+    }
+    if (data.silero?.ok) {
+      voiceoverEngineHint.textContent =
+        "Движок Silero готов: естественный русский, мужской и женский голоса (aidar, xenia…).";
+    } else if (data.recommended === "mms") {
+      voiceoverEngineHint.textContent =
+        `Silero не установлен — будет запасной MMS (один голос). ${data.installHint ?? ""}`;
+    } else {
+      voiceoverEngineHint.textContent = data.installHint ?? "Проверьте scripts/tts/requirements.txt";
+    }
+  } catch {
+    voiceoverEngineHint.textContent =
+      "Локальная озвучка: pip3 install -r scripts/tts/requirements.txt";
+  }
+};
+
+const generateMissingVoiceover = async () => {
+  applyVoiceoverToJson();
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  const res = await fetch("/api/voiceover/generate-missing", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      audioNamespace: resolveEditorImageNamespace(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка озвучки");
+  }
+  if (data.conversation) {
+    jsonInput.value = JSON.stringify(data.conversation, null, 2);
+    syncVoiceoverFromJson();
+    await refreshDialogue();
+    updateGenerateImagesControls(data.conversation);
+    updateGenerateVoiceoverControls(data.conversation);
+  }
+  return data;
 };
 
 const getMusicId = () => musicSelect.value;
@@ -2027,162 +2324,77 @@ const sanitizeConversationTexts = (conversation) => {
   return changed;
 };
 
-const TIMING_SCALE_UI = 0.5;
-
-const jsonMsToEffective = (jsonMs) => Math.max(1, Math.round(Number(jsonMs) * TIMING_SCALE_UI));
-
-const effectiveMsToJson = (effectiveMs) => Math.max(1, Math.round(Number(effectiveMs) / TIMING_SCALE_UI));
-
 let messageTimingPreview = null;
 
-const setMessageTimingInJson = (messageIndex, field, effectiveMs) => {
+const setTimingSpeedInJson = (speed) => {
   const parsed = parseConversationJson();
-  const message = parsed?.messages?.[messageIndex];
-  if (!message) {
+  if (!parsed) {
     return;
   }
-
-  if (effectiveMs === null || effectiveMs === "" || Number.isNaN(Number(effectiveMs))) {
-    delete message[field];
-  } else {
-    message[field] = effectiveMsToJson(Number(effectiveMs));
+  const normalized = clampTimingSpeed(speed);
+  saveLastTimingSpeed(normalized);
+  if (parsed.timing) {
+    delete parsed.timing;
   }
-
+  for (const message of parsed.messages ?? []) {
+    delete message.pauseBeforeMs;
+    delete message.typingMs;
+    delete message.postRevealMs;
+  }
+  if (normalized === DEFAULT_TIMING_SPEED) {
+    delete parsed.timingSpeed;
+  } else {
+    parsed.timingSpeed = normalized;
+  }
   jsonInput.value = JSON.stringify(parsed, null, 2);
-  updateLogicControls();
-  updateGenerateImagesControls(parsed);
   scheduleRefreshDialogue();
 };
 
-const clearMessageTimingInJson = (messageIndex) => {
-  const parsed = parseConversationJson();
-  const message = parsed?.messages?.[messageIndex];
-  if (!message) {
+timingSpeedInput?.addEventListener("input", () => {
+  const speed = Number(timingSpeedInput.value);
+  if (timingSpeedValue) {
+    timingSpeedValue.textContent = formatTimingSpeedLabel(speed);
+  }
+  setTimingSpeedInJson(speed);
+});
+
+const renderConversationTimingPanel = (conversation, timingPreview) => {
+  if (!conversationTimingPanel) {
     return;
   }
-  delete message.pauseBeforeMs;
-  delete message.typingMs;
-  delete message.postRevealMs;
-  jsonInput.value = JSON.stringify(parsed, null, 2);
-  updateLogicControls();
-  updateGenerateImagesControls(parsed);
-  scheduleRefreshDialogue();
-};
 
-const renderMessageTimingControls = (message, messageIndex, timingInfo, {open = false} = {}) => {
-  const details = document.createElement("details");
-  details.className = "dialogue-msg__timing";
-  details.open =
-    open ||
-    Boolean(
-      message.pauseBeforeMs !== undefined ||
-        message.typingMs !== undefined ||
-        message.postRevealMs !== undefined,
-    );
-
-  const summary = document.createElement("summary");
-  summary.className = "dialogue-msg__timing-summary";
-  const resolved = timingInfo?.resolved;
-  if (resolved) {
-    const segmentMs =
-      (timingInfo.isFirst ? 0 : resolved.pauseBeforeMs + resolved.typingMs) + resolved.postRevealMs;
-    summary.textContent = `Появление в ролике · ~${(segmentMs / 1000).toFixed(1)} с на этом сообщении`;
-  } else {
-    summary.textContent = "Появление в ролике";
+  if (!conversation?.messages?.length) {
+    conversationTimingPanel.hidden = true;
+    return;
   }
-  details.append(summary);
 
-  const grid = document.createElement("div");
-  grid.className = "dialogue-msg__timing-grid";
+  conversationTimingPanel.hidden = false;
 
-  const fields = [
-    {
-      key: "pauseBeforeMs",
-      label: "Пауза перед ответом",
-      hint: "До «печатает…» / набора",
-      disabled: messageIndex === 0,
-      disabledHint: "Не применяется к первому сообщению",
-    },
-    {
-      key: "typingMs",
-      label: "Длительность набора",
-      hint: "«Печатает…» или набор в поле",
-      disabled: messageIndex === 0,
-      disabledHint: "Не применяется к первому сообщению",
-    },
-    {
-      key: "postRevealMs",
-      label: "Пауза после сообщения",
-      hint: "До следующей реплики",
-      disabled: false,
-    },
-  ];
+  const speed = conversation.timingSpeed ?? readLastTimingSpeed();
+  if (timingSpeedInput && document.activeElement !== timingSpeedInput) {
+    timingSpeedInput.value = String(speed);
+  }
+  if (timingSpeedValue && document.activeElement !== timingSpeedInput) {
+    timingSpeedValue.textContent = formatTimingSpeedLabel(speed);
+  }
 
-  for (const field of fields) {
-    const row = document.createElement("label");
-    row.className = "dialogue-msg__timing-field";
-
-    const title = document.createElement("span");
-    title.className = "dialogue-msg__timing-label";
-    title.textContent = field.label;
-    row.append(title);
-
-    const hint = document.createElement("span");
-    hint.className = "dialogue-msg__timing-hint";
-    hint.textContent = field.disabled ? field.disabledHint : field.hint;
-    row.append(hint);
-
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.max = "15000";
-    input.step = "50";
-    input.className = "dialogue-msg__timing-input";
-    input.dataset.messageTimingIndex = String(messageIndex);
-    input.dataset.messageTimingField = field.key;
-    input.disabled = field.disabled;
-
-    const autoMs = timingInfo?.auto?.[field.key];
-    const hasOverride = message[field.key] !== undefined;
-    if (hasOverride) {
-      input.value = String(jsonMsToEffective(message[field.key]));
+  if (conversationTimingTotal) {
+    const videoSec =
+      timingPreview?.totalVideoMs != null
+        ? (timingPreview.totalVideoMs / 1000).toFixed(1)
+        : null;
+    const msgSec =
+      timingPreview?.totalMessagesMs != null
+        ? (timingPreview.totalMessagesMs / 1000).toFixed(1)
+        : null;
+    if (videoSec != null && msgSec != null) {
+      conversationTimingTotal.textContent = `Весь ролик: ~${videoSec} с · переписка ~${msgSec} с`;
+    } else if (msgSec != null) {
+      conversationTimingTotal.textContent = `Переписка в ролике: ~${msgSec} с`;
     } else {
-      input.value = "";
-      input.placeholder = autoMs != null ? `авто ${autoMs}` : "авто";
+      conversationTimingTotal.textContent = "";
     }
-
-    input.addEventListener("change", () => {
-      const raw = input.value.trim();
-      if (!raw) {
-        setMessageTimingInJson(messageIndex, field.key, null);
-        return;
-      }
-      setMessageTimingInJson(messageIndex, field.key, Number(raw));
-    });
-
-    row.append(input);
-    grid.append(row);
   }
-
-  details.append(grid);
-
-  const actions = document.createElement("div");
-  actions.className = "dialogue-msg__timing-actions";
-  const btnReset = document.createElement("button");
-  btnReset.type = "button";
-  btnReset.className = "btn btn-secondary btn-small";
-  btnReset.textContent = "Сбросить на авто";
-  btnReset.disabled =
-    message.pauseBeforeMs === undefined &&
-    message.typingMs === undefined &&
-    message.postRevealMs === undefined;
-  btnReset.addEventListener("click", () => {
-    clearMessageTimingInJson(messageIndex);
-  });
-  actions.append(btnReset);
-  details.append(actions);
-
-  return details;
 };
 
 const setMessageTextInJson = (messageIndex, newText) => {
@@ -3021,7 +3233,7 @@ const buildPendingImageItem = (message, messageIndex) => {
 const resolveImageItem = (message, messageIndex, scannedItem) =>
   enrichImageItem(message, messageIndex, scannedItem);
 
-const renderDialogueMessage = (message, messageIndex, item, contactName, timingInfo, {timingOpen = false} = {}) => {
+const renderDialogueMessage = (message, messageIndex, item, contactName) => {
   const row = document.createElement("article");
   const isMe = message.author === "me";
   const imageState =
@@ -3069,9 +3281,14 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, timingI
     const prevTitle = btnRegen.title;
     btnRegen.title = "Переписываю…";
     try {
-      await regenerateMessageFromIndex(messageIndex);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : String(err));
+      await runTextGenTask({
+        title: `Реплика №${messageIndex + 1}`,
+        runningLabel: "ChatGPT переписывает сообщение…",
+        task: () => regenerateMessageFromIndex(messageIndex),
+        onSuccess: (data) => formatRegenerateMessageResult(data, messageIndex),
+      });
+    } catch {
+      // ошибка уже в модальном окне
     } finally {
       btnRegen.disabled = !openrouterConfigured;
       btnRegen.title = prevTitle;
@@ -3103,7 +3320,6 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, timingI
   });
   bubble.append(textarea);
   inner.append(bubble);
-  inner.append(renderMessageTimingControls(message, messageIndex, timingInfo, {open: timingOpen}));
   requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
 
   const conversation = parseConversationJson();
@@ -3166,14 +3382,10 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, timingI
 const renderDialogueEditor = (conversation, items, timingPreview) => {
   const activeId = document.activeElement?.id;
   const activeTextIndex = document.activeElement?.dataset?.messageTextIndex;
-  const openTimingIndexes = new Set(
-    [...dialogueEditor.querySelectorAll(".dialogue-msg__timing[open]")]
-      .map((el) => el.closest("[data-message-index]")?.dataset?.messageIndex)
-      .filter((value) => value != null),
-  );
   const scrollTop = dialogueEditor.scrollTop;
 
   dialogueEditor.replaceChildren();
+  renderConversationTimingPanel(conversation, timingPreview);
 
   if (!conversation?.messages?.length) {
     const empty = document.createElement("p");
@@ -3185,16 +3397,8 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
 
   const header = document.createElement("div");
   header.className = "dialogue-editor__header";
-  const totalSec =
-    timingPreview?.totalMessagesMs != null
-      ? ` · переписка ~${(timingPreview.totalMessagesMs / 1000).toFixed(1)} с`
-      : "";
-  header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений${totalSec}`;
+  header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений`;
   dialogueEditor.append(header);
-
-  const timingByIndex = new Map(
-    (timingPreview?.messages ?? []).map((entry) => [entry.index, entry]),
-  );
 
   const thread = document.createElement("div");
   thread.className = "dialogue-editor__thread";
@@ -3246,8 +3450,6 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
         i,
         itemsByIndex.get(i),
         conversation.contactName,
-        timingByIndex.get(i),
-        {timingOpen: openTimingIndexes.has(String(i))},
       ),
     );
   }
@@ -3274,11 +3476,12 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
 
 const refreshDialogue = async () => {
   let json = jsonInput.value.trim();
-  const conversation = parseConversationJson();
+  let conversation = parseConversationJson();
 
   if (!json || !conversation) {
     dialoguePanel.hidden = true;
     dialogueEditor.replaceChildren();
+    renderConversationTimingPanel(null, null);
     updateGenerateImagesControls(null);
     return;
   }
@@ -3286,6 +3489,15 @@ const refreshDialogue = async () => {
   if (sanitizeConversationTexts(conversation)) {
     jsonInput.value = JSON.stringify(conversation, null, 2);
     json = jsonInput.value.trim();
+    conversation = parseConversationJson();
+  }
+
+  const prepared = prepareConversationForEditor(conversation);
+  const preparedJson = JSON.stringify(prepared, null, 2);
+  if (preparedJson !== jsonInput.value) {
+    jsonInput.value = preparedJson;
+    json = preparedJson;
+    conversation = prepared;
   }
 
   dialoguePanel.hidden = false;
@@ -3324,11 +3536,15 @@ const refreshDialogue = async () => {
     updateImageProviderControls();
     syncTitleCardFieldsFromJson();
     syncVideoLayoutFromJson();
+    syncMessageFontSizeFromJson();
+    syncVoiceoverFromJson();
     renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
+    updateGenerateVoiceoverControls(conversation);
   } catch {
     renderDialogueEditor(conversation, [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
+    updateGenerateVoiceoverControls(conversation);
   }
 };
 
@@ -3413,9 +3629,25 @@ document.addEventListener("paste", async (e) => {
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncMessageFontSizeFromJson();
   updateGenerateImagesControls();
   updateRefineDialogueControls();
   scheduleRefreshDialogue();
+});
+
+messageFontSizeInput?.addEventListener("change", () => {
+  applyMessageFontSizeToJson();
+});
+
+messageFontSizeInput?.addEventListener("blur", () => {
+  applyMessageFontSizeToJson();
+});
+
+btnResetMessageFontSize?.addEventListener("click", () => {
+  if (messageFontSizeInput) {
+    messageFontSizeInput.value = "";
+  }
+  applyMessageFontSizeToJson();
 });
 
 for (const input of videoLayoutInputs) {
@@ -3465,6 +3697,162 @@ const setBusy = (busy) => {
     btnStopRender.disabled = !busy || !activeRenderJobId;
   }
 };
+
+const syncWorkflowModalBodyClass = () => {
+  const anyOpen =
+    (renderModal && !renderModal.hidden) || (textGenModal && !textGenModal.hidden);
+  document.body.classList.toggle("workflow-modal-open", Boolean(anyOpen));
+};
+
+const openRenderModal = () => {
+  if (!renderModal) {
+    return;
+  }
+  renderModal.hidden = false;
+  renderModal.setAttribute("aria-hidden", "false");
+  syncWorkflowModalBodyClass();
+};
+
+const closeRenderModal = ({force = false} = {}) => {
+  if (!renderModal) {
+    return;
+  }
+  if (!force && activeRenderJobId) {
+    return;
+  }
+  renderModal.hidden = true;
+  renderModal.setAttribute("aria-hidden", "true");
+  syncWorkflowModalBodyClass();
+};
+
+const openTextGenModal = (title) => {
+  if (!textGenModal) {
+    return;
+  }
+  if (textGenModalTitle) {
+    textGenModalTitle.textContent = title;
+  }
+  if (textGenModalStatus) {
+    textGenModalStatus.className = "workflow-modal__status status-text";
+    textGenModalStatus.textContent = "";
+  }
+  if (textGenModalLog) {
+    textGenModalLog.textContent = "";
+  }
+  if (textGenModalSpinner) {
+    textGenModalSpinner.hidden = false;
+    textGenModalSpinner.setAttribute("aria-hidden", "false");
+  }
+  if (btnTextGenModalClose) {
+    btnTextGenModalClose.hidden = true;
+  }
+  textGenModal.hidden = false;
+  textGenModal.setAttribute("aria-hidden", "false");
+  syncWorkflowModalBodyClass();
+};
+
+const closeTextGenModal = () => {
+  if (!textGenModal || textGenBusy) {
+    return;
+  }
+  textGenModal.hidden = true;
+  textGenModal.setAttribute("aria-hidden", "true");
+  if (textGenModalSpinner) {
+    textGenModalSpinner.hidden = true;
+    textGenModalSpinner.setAttribute("aria-hidden", "true");
+  }
+  syncWorkflowModalBodyClass();
+};
+
+const isTextGenModalOpen = () => textGenModal && !textGenModal.hidden;
+
+const runTextGenTask = async ({title, runningLabel, task, onSuccess}) => {
+  openTextGenModal(title);
+  textGenBusy = true;
+  if (textGenModalStatus) {
+    textGenModalStatus.textContent = runningLabel;
+  }
+  try {
+    const data = await task();
+    const result = onSuccess(data);
+    if (textGenModalStatus) {
+      textGenModalStatus.className = "workflow-modal__status status-text status-text--done";
+      textGenModalStatus.textContent = result.title ?? "Готово";
+    }
+    if (textGenModalLog && result.log) {
+      textGenModalLog.textContent = result.log;
+    }
+    return data;
+  } catch (err) {
+    if (textGenModalStatus) {
+      textGenModalStatus.className = "workflow-modal__status status-text status-text--error";
+      textGenModalStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+    throw err;
+  } finally {
+    textGenBusy = false;
+    if (textGenModalSpinner) {
+      textGenModalSpinner.hidden = true;
+      textGenModalSpinner.setAttribute("aria-hidden", "true");
+    }
+    if (btnTextGenModalClose) {
+      btnTextGenModalClose.hidden = false;
+    }
+  }
+};
+
+for (const el of document.querySelectorAll("[data-text-gen-modal-dismiss]")) {
+  el.addEventListener("click", () => {
+    if (textGenBusy) {
+      return;
+    }
+    closeTextGenModal();
+  });
+}
+
+const updateRenderModalActions = (job) => {
+  const busy =
+    job &&
+    (job.status === "queued" ||
+      job.status === "running" ||
+      (job.status === "done" && job.localCopyStatus === "copying"));
+  if (btnStopRender) {
+    btnStopRender.hidden = !busy;
+    btnStopRender.disabled = !busy || !activeRenderJobId;
+  }
+  if (btnRenderModalClose) {
+    btnRenderModalClose.hidden = Boolean(busy);
+  }
+};
+
+const isRenderModalOpen = () => renderModal && !renderModal.hidden;
+
+for (const el of document.querySelectorAll("[data-render-modal-dismiss]")) {
+  el.addEventListener("click", () => {
+    if (activeRenderJobId) {
+      const ok = confirm("Рендер ещё идёт. Закрыть окно? Прогресс можно смотреть снова — нажмите «Собрать видео».");
+      if (!ok) {
+        return;
+      }
+      closeRenderModal({force: true});
+      return;
+    }
+    closeRenderModal({force: true});
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") {
+    return;
+  }
+  if (isRenderModalOpen() && !activeRenderJobId) {
+    closeRenderModal({force: true});
+    return;
+  }
+  if (isTextGenModalOpen() && !textGenBusy) {
+    closeTextGenModal();
+  }
+});
 
 const formatProgressLabel = (job) => {
   const percent = Math.round((job.progress ?? 0) * 100);
@@ -3516,8 +3904,9 @@ const showRenderCommand = (data) => {
 };
 
 const showStatus = (job) => {
-  statusPanel.hidden = false;
-  statusText.className = "status-text";
+  openRenderModal();
+  updateRenderModalActions(job);
+  statusText.className = "status-text workflow-modal__status";
   statusText.textContent =
     job.status === "queued" && job.queuePosition > 0
       ? `${statusLabels.queued} Позиция: ${job.queuePosition}`
@@ -3637,6 +4026,7 @@ const pollJob = (jobId) => {
         pollTimer = null;
         activeRenderJobId = null;
         setBusy(false);
+        updateRenderModalActions(job);
         if (job.status === "done" && job.localCopyStatus === "done") {
           loadDialoguesList(editorKind);
         }
@@ -3655,6 +4045,7 @@ const pollJob = (jobId) => {
         pollTimer = null;
         activeRenderJobId = null;
         setBusy(false);
+        updateRenderModalActions({status: "error"});
       } else {
         // не пугаем пользователя на разовых сбоях — продолжаем опрос
         statusText.className = "status-text";
@@ -3708,13 +4099,15 @@ btnExample.addEventListener("click", async () => {
     if (!res.ok) {
       throw new Error("Не удалось загрузить пример");
     }
-    jsonInput.value = text;
+    const parsed = prepareConversationForEditor(JSON.parse(text));
+    jsonInput.value = JSON.stringify(parsed, null, 2);
     currentDialogueId = null;
     dialogueTitleInput.value = "";
     updateProjectPathsHint();
     setDialogueSaveStatus("Пример загружен — сохраните как новый диалог");
     syncWallpaperFromJson();
     syncVideoLayoutFromJson();
+    syncMessageFontSizeFromJson();
     syncMusicFromJson();
     await refreshDialogue();
   } catch (err) {
@@ -3736,8 +4129,8 @@ btnRender.addEventListener("click", async () => {
   }
 
   setBusy(true);
-  statusPanel.hidden = false;
-  statusText.className = "status-text";
+  openRenderModal();
+  statusText.className = "status-text workflow-modal__status";
   statusText.textContent = "Сохранение JSON и запуск рендера…";
   statusLog.textContent = "";
   if (renderCommandBlock) {
@@ -3745,6 +4138,9 @@ btnRender.addEventListener("click", async () => {
   }
   if (renderProgressBlock) {
     renderProgressBlock.hidden = false;
+  }
+  if (btnRenderModalClose) {
+    btnRenderModalClose.hidden = true;
   }
   if (renderProgressBar) {
     renderProgressBar.style.width = "0%";
@@ -3801,10 +4197,11 @@ btnRender.addEventListener("click", async () => {
     });
     pollJob(data.jobId);
   } catch (err) {
-    statusText.className = "status-text status-text--error";
+    statusText.className = "status-text status-text--error workflow-modal__status";
     statusText.textContent = err instanceof Error ? err.message : String(err);
     activeRenderJobId = null;
     setBusy(false);
+    updateRenderModalActions({status: "error"});
   }
 });
 
@@ -4072,6 +4469,78 @@ const refineDialogueFromPrompt = async () => {
   return data;
 };
 
+const regenerateEndingFromPrompt = async () => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  if (!canGenerateDialogue()) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
+  }
+
+  const res = await fetch("/api/dialogues/regenerate-ending", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      displayTitle: dialogueTitleInput?.value?.trim() ?? "",
+      tailCount: 3,
+      messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()),
+      imageCount: Number(dialogueImageCount?.value ?? 0),
+      language: getDialogueLanguage(),
+      dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
+      model: getDialogueModel(),
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Не удалось перегенерировать финал");
+  }
+  applyGeneratedDialogue(data);
+  return data;
+};
+
+const formatGenerateDialogueResult = (data) => {
+  const mode = formatDialogueGenSummary(getDialogueGenOptions());
+  const via = data.provider === "openrouter" ? "ChatGPT · " : "";
+  const lines = [`Модель: ${via}${data.model}`, `Параметры: ${mode}`];
+  if (editorKind === "series" && data.contextMessageCount) {
+    lines.push(`Контекст серии: ${data.contextMessageCount} сообщ.`);
+  }
+  if (typeof data.messageCount === "number") {
+    lines.push(`Сообщений: ${data.messageCount}`);
+  } else if (data.expandedFrom) {
+    lines.push(`Сообщений: ${data.expandedFrom} → ${data.messageCount ?? "?"}`);
+  }
+  lines.push(`Попыток: ${data.attempts ?? "?"}`);
+  if (editorKind === "shorts" && data.displayTitle) {
+    lines.push(`Название: «${data.displayTitle}»`);
+  }
+  return {title: "Диалог готов", log: lines.join("\n")};
+};
+
+const formatLogicCheckResult = (data) => ({
+  title: data.logicRevised ? "Логика исправлена" : "Логика в порядке",
+  log: `Модель: ${data.model}\nПопыток: ${data.attempts ?? "?"}${
+    data.logicRevised ? "\nВ JSON внесены правки." : "\nПравки не потребовались."
+  }`,
+});
+
+const formatRegenerateEndingResult = (data) => ({
+  title: "Финал обновлён",
+  log: `Модель: ${data.model}\nПопыток: ${data.attempts ?? "?"}`,
+});
+
+const formatRefineDialogueResult = (data) => ({
+  title: "Текст доработан",
+  log: `Модель: ${data.model}\nПопыток: ${data.attempts ?? "?"}`,
+});
+
+const formatRegenerateMessageResult = (data, messageIndex) => ({
+  title: `Реплика №${messageIndex + 1} обновлена`,
+  log: `Модель: ${data.model}\nПопыток: ${data.attempts ?? "?"}`,
+});
+
 const generateMissingImages = async () => {
   const json = jsonInput.value.trim();
   if (!json) {
@@ -4106,31 +4575,17 @@ const generateMissingImages = async () => {
 btnGenerateDialogue?.addEventListener("click", async () => {
   btnGenerateDialogue.disabled = true;
   if (dialogueGenerateStatus) {
-    dialogueGenerateStatus.textContent = "Генерация диалога…";
+    dialogueGenerateStatus.textContent = "";
   }
   try {
-    const data = await generateDialogueFromPrompt();
-    if (dialogueGenerateStatus) {
-      const mode = formatDialogueGenSummary(getDialogueGenOptions());
-      const context =
-        editorKind === "series" && data.contextMessageCount
-          ? `, контекст: ${data.contextMessageCount} сообщ.`
-          : "";
-      const via = data.provider === "openrouter" ? "ChatGPT · " : "";
-      const messages =
-        typeof data.messageCount === "number"
-          ? `, ${data.messageCount} сообщ.`
-          : data.expandedFrom
-            ? `, ${data.expandedFrom}→${data.messageCount ?? "?"} сообщ.`
-            : "";
-      dialogueGenerateStatus.textContent = `Готово (${via}${data.model}, ${mode}${context}${messages}, попыток: ${data.attempts})${
-        editorKind === "shorts" && data.displayTitle ? ` · «${data.displayTitle}»` : ""
-      }`;
-    }
-  } catch (err) {
-    if (dialogueGenerateStatus) {
-      dialogueGenerateStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
+    await runTextGenTask({
+      title: "Генерация диалога",
+      runningLabel: "ChatGPT пишет переписку… Обычно 30–90 секунд.",
+      task: generateDialogueFromPrompt,
+      onSuccess: formatGenerateDialogueResult,
+    });
+  } catch {
+    // ошибка в модальном окне
   } finally {
     btnGenerateDialogue.disabled = false;
   }
@@ -4139,19 +4594,17 @@ btnGenerateDialogue?.addEventListener("click", async () => {
 btnCheckLogic?.addEventListener("click", async () => {
   btnCheckLogic.disabled = true;
   if (dialogueLogicStatus) {
-    dialogueLogicStatus.textContent = "Проверка логики…";
+    dialogueLogicStatus.textContent = "";
   }
   try {
-    const data = await checkDialogueLogicFromPrompt();
-    if (dialogueLogicStatus) {
-      dialogueLogicStatus.textContent = `Готово (${data.model}, попыток: ${data.attempts}${
-        data.logicRevised ? ", исправлено" : ", без правок"
-      })`;
-    }
-  } catch (err) {
-    if (dialogueLogicStatus) {
-      dialogueLogicStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
+    await runTextGenTask({
+      title: "Проверка логики",
+      runningLabel: "ChatGPT проверяет связность и факты…",
+      task: checkDialogueLogicFromPrompt,
+      onSuccess: formatLogicCheckResult,
+    });
+  } catch {
+    // ошибка в модальном окне
   } finally {
     updateLogicControls();
   }
@@ -4160,35 +4613,17 @@ btnCheckLogic?.addEventListener("click", async () => {
 btnRegenerateEnding?.addEventListener("click", async () => {
   btnRegenerateEnding.disabled = true;
   if (dialogueLogicStatus) {
-    dialogueLogicStatus.textContent = "Перегенерация финала…";
+    dialogueLogicStatus.textContent = "";
   }
   try {
-    const res = await fetch("/api/dialogues/regenerate-ending", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        json: jsonInput.value,
-        displayTitle: dialogueTitleInput?.value?.trim() ?? "",
-        tailCount: 3,
-        messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()),
-        imageCount: Number(dialogueImageCount?.value ?? 0),
-        language: getDialogueLanguage(),
-        dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
-        model: getDialogueModel(),
-      }),
+    await runTextGenTask({
+      title: "Перегенерация финала",
+      runningLabel: "ChatGPT переписывает концовку…",
+      task: regenerateEndingFromPrompt,
+      onSuccess: formatRegenerateEndingResult,
     });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "Не удалось перегенерировать финал");
-    }
-    applyGeneratedDialogue(data);
-    if (dialogueLogicStatus) {
-      dialogueLogicStatus.textContent = `Финал обновлён (${data.model}, попыток: ${data.attempts})`;
-    }
-  } catch (err) {
-    if (dialogueLogicStatus) {
-      dialogueLogicStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
+  } catch {
+    // ошибка в модальном окне
   } finally {
     updateLogicControls();
   }
@@ -4197,17 +4632,17 @@ btnRegenerateEnding?.addEventListener("click", async () => {
 btnRefineDialogue?.addEventListener("click", async () => {
   btnRefineDialogue.disabled = true;
   if (dialogueRefineStatus) {
-    dialogueRefineStatus.textContent = "Доработка текста…";
+    dialogueRefineStatus.textContent = "";
   }
   try {
-    const data = await refineDialogueFromPrompt();
-    if (dialogueRefineStatus) {
-      dialogueRefineStatus.textContent = `Готово (${data.model}, попыток: ${data.attempts})`;
-    }
-  } catch (err) {
-    if (dialogueRefineStatus) {
-      dialogueRefineStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
+    await runTextGenTask({
+      title: "Доработка текста",
+      runningLabel: "ChatGPT правит диалог по вашему заданию…",
+      task: refineDialogueFromPrompt,
+      onSuccess: formatRefineDialogueResult,
+    });
+  } catch {
+    // ошибка в модальном окне
   } finally {
     updateRefineDialogueControls();
   }
@@ -4231,8 +4666,36 @@ btnGenerateImages?.addEventListener("click", async () => {
     }
   } finally {
     updateGenerateImagesControls();
+    updateGenerateVoiceoverControls();
   }
 });
+
+btnGenerateVoiceover?.addEventListener("click", async () => {
+  btnGenerateVoiceover.disabled = true;
+  if (voiceoverGenerateStatus) {
+    voiceoverGenerateStatus.textContent = "Озвучка… (локально, может занять минуту)";
+  }
+  try {
+    const data = await generateMissingVoiceover();
+    const lines = Array.isArray(data.logs) ? data.logs : [];
+    if (voiceoverGenerateStatus) {
+      voiceoverGenerateStatus.textContent = lines[lines.length - 1] ?? "Готово";
+    }
+  } catch (err) {
+    if (voiceoverGenerateStatus) {
+      voiceoverGenerateStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  } finally {
+    updateGenerateVoiceoverControls();
+  }
+});
+
+for (const el of [voiceoverEnabled, voiceoverThemVoice, voiceoverMeVoice]) {
+  el?.addEventListener("change", () => {
+    applyVoiceoverToJson();
+    scheduleRefreshDialogue();
+  });
+}
 
 const applyApiStatusToEditor = (data) => {
   if (data?.openrouter) {
@@ -4252,6 +4715,7 @@ const applyApiStatusToEditor = (data) => {
   }
   updateImageProviderControls();
   updateGenerateImagesControls();
+  updateGenerateVoiceoverControls();
   updateDialogueGenerateControls();
   updateMessageRegenControls();
   updateLogicControls();
@@ -4353,7 +4817,7 @@ const publishToYoutube = async () => {
     }
     statusText.className = "status-text status-text--done";
     statusText.textContent = `Опубликовано на YouTube (${privacyStatus})`;
-    statusPanel.hidden = false;
+    setDialogueSaveStatus(`Опубликовано на YouTube (${privacyStatus})`);
   } catch (err) {
     alert(err instanceof Error ? err.message : String(err));
   } finally {
@@ -4469,4 +4933,6 @@ loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
 loadStoryStylePrompt();
 loadShortsStyles();
+loadVoiceoverEngineStatus();
+initEditorPreferenceControls();
 loadBrowseOnStartup();

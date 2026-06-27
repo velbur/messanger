@@ -8,10 +8,12 @@ import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
 import {
   estimateMessagesDurationMs,
+  getTimingSpeed,
   mergeConversationTiming,
   resolveMessageTiming,
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
+import {estimateVideoDurationMs} from "../src/chat/timeline.ts";
 import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
@@ -76,6 +78,16 @@ import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
+import {
+  generateMissingVoiceover,
+  countPendingVoiceover,
+} from "./conversation-voiceover.mjs";
+import {
+  AUDIO_DIR,
+  resolveConversationVoiceover,
+  syncVoiceToRemote,
+} from "./voice-assets.mjs";
+import {getVoiceoverEngineStatus} from "./tts/engine.mjs";
 import {previewImagePrompt, readStylePrompt, readStoryStylePrompt, writeStylePrompt, writeStoryStylePrompt} from "./image-prompt.mjs";
 import {
   initDialogueDb,
@@ -492,13 +504,14 @@ app.post("/api/conversation/timing-preview", (req, res) => {
 
     const conversation = parseConversation(parsed);
     const timing = mergeConversationTiming(conversation);
+    const timingSpeed = getTimingSpeed(conversation);
     const messages = conversation.messages.map((message, index) => {
       const autoMessage = {...message};
       delete autoMessage.pauseBeforeMs;
       delete autoMessage.typingMs;
       delete autoMessage.postRevealMs;
-      const auto = resolveMessageTiming(autoMessage, timing);
-      const resolved = resolveMessageTiming(message, timing);
+      const auto = resolveMessageTiming(autoMessage, timing, timingSpeed);
+      const resolved = resolveMessageTiming(message, timing, timingSpeed);
 
       return {
         index,
@@ -523,7 +536,9 @@ app.post("/api/conversation/timing-preview", (req, res) => {
 
     res.json({
       timingScale: TIMING_SCALE,
+      timingSpeed,
       totalMessagesMs: estimateMessagesDurationMs(conversation),
+      totalVideoMs: estimateVideoDurationMs(conversation),
       messages,
     });
   } catch (error) {
@@ -585,6 +600,7 @@ app.get("/api/status", async (_req, res) => {
     youtube: {
       configured: isYoutubeConfigured(),
     },
+    voiceover: await getVoiceoverEngineStatus(),
   });
 });
 
@@ -1076,6 +1092,72 @@ app.post("/api/images/generate-missing", async (req, res) => {
   } catch (error) {
     const message = formatOpenRouterError(error);
     res.status(400).json({error: message});
+  }
+});
+
+app.get("/api/voiceover/status", async (_req, res) => {
+  try {
+    const status = await getVoiceoverEngineStatus();
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/voiceover/generate-missing", async (req, res) => {
+  try {
+    const {json: jsonText, audioNamespace} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const logs = await generateMissingVoiceover(conversation, {audioNamespace});
+    const pending = countPendingVoiceover(conversation);
+
+    res.json({conversation, logs, pending});
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/voiceover/upload", async (req, res) => {
+  try {
+    const {path: relativePath, dataBase64, contentBase64} = req.body ?? {};
+    const payload = dataBase64 ?? contentBase64;
+    if (!relativePath || typeof relativePath !== "string" || !payload) {
+      res.status(400).json({error: "path и dataBase64/contentBase64 обязательны"});
+      return;
+    }
+    const normalized = relativePath.replace(/^\/+/, "");
+    if (normalized.includes("..") || !normalized.startsWith("audio/")) {
+      res.status(400).json({error: "Недопустимый путь (ожидается audio/…)"});
+      return;
+    }
+    const abs = path.join(PUBLIC_DIR, normalized);
+    if (!abs.startsWith(PUBLIC_DIR)) {
+      res.status(400).json({error: "Недопустимый путь"});
+      return;
+    }
+    const match = String(payload).match(/^data:([^;]+);base64,(.+)$/);
+    const base64 = match ? match[2] : String(payload);
+    const buffer = Buffer.from(base64, "base64");
+    if (buffer.length > 8 * 1024 * 1024) {
+      res.status(400).json({error: "Файл слишком большой (макс. 8 МБ)"});
+      return;
+    }
+    await mkdir(path.dirname(abs), {recursive: true});
+    await writeFile(abs, buffer);
+    res.json({ok: true, path: normalized, bytes: buffer.length});
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
@@ -1604,16 +1686,27 @@ app.post("/api/render", async (req, res) => {
     const conversation = parseConversation(parsed);
     const fileName = resolveName(rawName, conversation, dialogueId);
     const autoGenerateImages = req.body?.autoGenerateImages === true;
+    const autoGenerateVoiceover =
+      req.body?.autoGenerateVoiceover === true || Boolean(conversation.voiceover?.enabled);
     const imageGenLogs = autoGenerateImages
       ? await generateMissingConversationImages(conversation, {
           provider: "openrouter",
           imageNamespace: fileName,
         })
       : [];
+    const voiceGenLogs = autoGenerateVoiceover
+      ? await generateMissingVoiceover(conversation, {audioNamespace: fileName})
+      : [];
     const imageLogs = [
       ...imageGenLogs,
       ...(await resolveConversationImages(conversation, {
         failOnMissingImages: !autoGenerateImages,
+      })),
+    ];
+    const voiceLogs = [
+      ...voiceGenLogs,
+      ...(await resolveConversationVoiceover(conversation, {
+        failOnMissingVoice: Boolean(conversation.voiceover?.enabled),
       })),
     ];
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
@@ -1650,7 +1743,7 @@ app.post("/api/render", async (req, res) => {
       });
     }
 
-    const logs = [`JSON сохранён: ${inputRel}`, ...imageLogs];
+    const logs = [`JSON сохранён: ${inputRel}`, ...imageLogs, ...voiceLogs];
     const nativeProjectRoot = process.env.NATIVE_PROJECT_ROOT?.trim() || ROOT;
     const renderCommand = buildNativeRenderCommand({
       projectRoot: nativeProjectRoot,
@@ -1661,7 +1754,11 @@ app.post("/api/render", async (req, res) => {
     if (target === "remote") {
       logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
+      if (conversation.voiceover?.enabled) {
+        logs.push("Озвучка: WAV-файлы будут загружены на воркер в public/audio/");
+      }
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
+      await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, logs);
 
       const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
         method: "POST",
@@ -1974,6 +2071,7 @@ app.use(
 );
 app.use("/music", express.static(PUBLIC_MUSIC_DIR));
 app.use("/images", express.static(IMAGES_DIR));
+app.use("/audio", express.static(AUDIO_DIR));
 app.use(express.static(UI_DIR));
 
 app.get("/", (_req, res) => {
