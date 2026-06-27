@@ -3,6 +3,7 @@ import {createHash} from "node:crypto";
 import {mkdir, writeFile, access, readFile, unlink, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
 import {ensureStoryDepthForConversation} from "./story-depth.mjs";
+import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const PUBLIC_DIR = path.join(ROOT, "public");
@@ -174,6 +175,60 @@ const hasImagePromptOnly = (message) =>
 const hasStoryImagePromptOnly = (message) =>
   Boolean(message.storyImagePrompt?.trim()) && !hasRenderableStoryImage(message);
 
+/** Все локальные пути картинок переписки (чат, story opening, story-кадры, опционально depth-слои) */
+export const collectConversationImageRefs = (
+  conversation,
+  {includeDepthLayers = false} = {},
+) => {
+  const refs = new Set();
+  const add = (ref) => {
+    const normalized = String(ref ?? "").trim().replace(/^\/+/, "");
+    if (normalized && !isImageUrl(normalized)) {
+      refs.add(normalized);
+    }
+  };
+
+  for (const message of conversation?.messages ?? []) {
+    add(message?.image);
+    if (conversation?.layout === "storySplit") {
+      add(message?.storyImage);
+    }
+  }
+
+  if (conversation?.layout === "storySplit") {
+    add(conversation?.story?.opening?.image);
+    if (includeDepthLayers && conversation?.story?.depthParallax !== false) {
+      const storyImages = [
+        conversation?.story?.opening?.image,
+        ...(conversation?.messages ?? []).map((message) => message?.storyImage),
+      ]
+        .map((ref) => String(ref ?? "").trim())
+        .filter(Boolean);
+      for (const imagePath of storyImages) {
+        const layers = storyLayerPaths(imagePath);
+        add(layers.depth);
+        add(layers.mid);
+        add(layers.near);
+        add(layers.far);
+      }
+    }
+  }
+
+  return [...refs];
+};
+
+const assertLocalImageExists = (ref, errorText, {failOnMissingImages, logs}) => {
+  const {absolute} = safePublicPath(ref);
+  if (existsSync(absolute)) {
+    return true;
+  }
+  if (failOnMissingImages) {
+    throw new Error(errorText);
+  }
+  logs.push(errorText);
+  return false;
+};
+
 /** URL → локальный файл; без файла — убрать image; пустые сообщения не попадают в видео */
 export const resolveConversationImages = async (conversation, {failOnMissingImages = false} = {}) => {
   const logs = [];
@@ -218,6 +273,35 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
       throw new Error(errorText);
     }
     logs.push(errorText);
+  }
+
+  if (conversation.layout === "storySplit") {
+    const openingRef = conversation.story?.opening?.image?.trim();
+    if (openingRef && !isImageUrl(openingRef)) {
+      const ok = assertLocalImageExists(
+        openingRef,
+        `Story opening: файл не найден (${openingRef}). Сгенерируйте картинки или включите удалённый рендер с синхронизацией.`,
+        {failOnMissingImages, logs},
+      );
+      if (!ok && conversation.story?.opening) {
+        delete conversation.story.opening.image;
+      }
+    }
+
+    for (let i = 0; i < conversation.messages.length; i += 1) {
+      const storyRef = conversation.messages[i].storyImage?.trim();
+      if (!storyRef || isImageUrl(storyRef)) {
+        continue;
+      }
+      const ok = assertLocalImageExists(
+        storyRef,
+        `Story-кадр #${i + 1}: файл не найден (${storyRef}). Сгенерируйте картинки или включите удалённый рендер с синхронизацией.`,
+        {failOnMissingImages, logs},
+      );
+      if (!ok) {
+        delete conversation.messages[i].storyImage;
+      }
+    }
   }
 
   for (let i = 0; i < conversation.messages.length; i++) {

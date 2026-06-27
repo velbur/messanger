@@ -35,6 +35,7 @@ import {
   downloadImageToPublic,
   IMAGES_DIR,
   resolveConversationImages,
+  collectConversationImageRefs,
   saveImageBuffer,
   buildImagePreviewUrl,
   scanImagesFromJson,
@@ -1546,20 +1547,18 @@ app.get("/api/render-targets", (_req, res) => {
   res.json({targets: getRenderTargets(), defaultTarget: getDefaultRenderTarget()});
 });
 
-/** Залить локальные картинки переписки на воркер (URL-ссылки пропускаем — они уже резолвятся локально) */
+/** Залить локальные картинки переписки на воркер (чат, story opening, story-кадры, depth-слои) */
 const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
-  const seen = new Set();
-  for (const message of conversation.messages) {
-    const ref = String(message.image ?? "").trim();
-    if (!ref || /^https?:\/\//i.test(ref) || seen.has(ref)) {
-      continue;
-    }
-    seen.add(ref);
-    const abs = path.join(PUBLIC_DIR, ref.replace(/^\/+/, ""));
+  const refs = collectConversationImageRefs(conversation, {includeDepthLayers: true});
+  for (const ref of refs) {
+    const abs = path.join(PUBLIC_DIR, ref);
     let buffer;
     try {
       buffer = await readFile(abs);
     } catch {
+      if (ref.includes(".layer-") || ref.endsWith(".depth.png")) {
+        continue;
+      }
       logs.push(`Картинка не найдена локально, пропущена: ${ref}`);
       continue;
     }
