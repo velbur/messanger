@@ -6,7 +6,9 @@ import {slugifyProjectName} from "./project-slug.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {checkSileroAvailability, synthesizeSpeech} from "./tts/engine.mjs";
-import {mergeConversationVoiceover, pickSileroSpeaker} from "../src/chat/voiceover.ts";
+import {synthesizeOpenRouterSpeech} from "./tts/openrouter-tts.mjs";
+import {isOpenRouterConfigured, getOpenRouterTtsVoices} from "./openrouter-client.mjs";
+import {mergeConversationVoiceover, pickOpenRouterVoice, pickSileroSpeaker} from "../src/chat/voiceover.ts";
 
 const AUDIO_DIR = path.join(PUBLIC_DIR, "audio");
 
@@ -94,13 +96,19 @@ export const saveVoiceBuffer = async (buffer, relativePath) => {
   return relative;
 };
 
-const needsVoiceGeneration = (message) => {
+const needsVoiceGeneration = (message, voiceover) => {
   const text = String(message.text ?? "").trim();
   if (!isSpeechableText(text)) {
     return false;
   }
   const existing = String(message.voiceAudio ?? "").trim();
   if (!existing) {
+    return true;
+  }
+  const provider = voiceover?.provider ?? "openrouter";
+  if (provider === "openrouter" && existing.endsWith(".mp3")) {
+    /* ok */
+  } else if (provider === "openrouter" && !existing.endsWith(".wav") && !existing.endsWith(".mp3")) {
     return true;
   }
   const {absolute} = safePublicPath(existing);
@@ -157,23 +165,33 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   }
 
   const namespace = normalizeAudioNamespace(audioNamespace);
-  const provider = conversation.voiceover?.provider ?? voiceover.provider ?? "auto";
-  let preferredProvider = provider === "mms" ? "mms" : provider === "silero" ? "silero" : "auto";
-  if (preferredProvider !== "mms") {
-    const silero = await checkSileroAvailability();
-    if (!silero.ok) {
-      const reason = silero.error ? `: ${silero.error}` : "";
-      logs.push(
-        `Silero недоступен${reason}. Используется запасной MMS (pip3 install -r scripts/tts/requirements.txt для Silero).`,
+  const provider = conversation.voiceover?.provider ?? voiceover.provider ?? "openrouter";
+  let preferredProvider = provider;
+  if (provider === "openrouter") {
+    if (!isOpenRouterConfigured()) {
+      throw new Error(
+        "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env). Выберите Silero/MMS или задайте ключ.",
       );
-      preferredProvider = "mms";
+    }
+  } else {
+    preferredProvider = provider === "mms" ? "mms" : provider === "silero" ? "silero" : "auto";
+    if (preferredProvider !== "mms") {
+      const silero = await checkSileroAvailability();
+      if (!silero.ok) {
+        const reason = silero.error ? `: ${silero.error}` : "";
+        logs.push(
+          `Silero недоступен${reason}. Используется запасной MMS (pip3 install -r scripts/tts/requirements.txt для Silero).`,
+        );
+        preferredProvider = "mms";
+      }
     }
   }
 
+  const openRouterVoices = provider === "openrouter" ? getOpenRouterTtsVoices() : null;
   let generated = 0;
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
-    if (!needsVoiceGeneration(message)) {
+    if (!needsVoiceGeneration(message, voiceover)) {
       if (message.voiceAudio && !message.voiceDurationMs) {
         try {
           const {absolute} = safePublicPath(message.voiceAudio);
@@ -188,20 +206,39 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
     const text = String(message.text ?? "").trim();
     const targetRef = voiceRefForMessage(namespace, index);
     const {absolute} = safePublicPath(targetRef);
-    const speaker = pickSileroSpeaker(voiceover, message.author);
 
     try {
-      const result = await synthesizeSpeech({
-        text,
-        speaker,
-        outputPath: absolute,
-        preferredProvider,
-      });
-      message.voiceAudio = targetRef;
-      message.voiceDurationMs = await probeAudioDurationMs(absolute);
+      let result;
+      let savedPath = absolute;
+      if (provider === "openrouter") {
+        const voice = pickOpenRouterVoice(voiceover, message.author, openRouterVoices ?? undefined);
+        result = await synthesizeOpenRouterSpeech({
+          text,
+          voice,
+          outputPath: absolute,
+        });
+        savedPath = result.outputPath;
+        message.voiceAudio = path
+          .relative(PUBLIC_DIR, savedPath)
+          .split(path.sep)
+          .join("/");
+      } else {
+        const speaker = pickSileroSpeaker(voiceover, message.author);
+        result = await synthesizeSpeech({
+          text,
+          speaker,
+          outputPath: absolute,
+          preferredProvider,
+        });
+        message.voiceAudio = targetRef;
+        savedPath = absolute;
+      }
+      message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
+      const speakerLabel =
+        provider === "openrouter" ? result.speaker : `${result.provider}/${result.speaker}`;
       logs.push(
-        `Озвучка #${index + 1} (${message.author}, ${result.provider}/${result.speaker}) → ${targetRef} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
+        `Озвучка #${index + 1} (${message.author}, ${speakerLabel}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -213,7 +250,9 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
     logs.push("Все реплики уже озвучены");
   }
 
-  const stillMissing = (conversation.messages ?? []).filter(needsVoiceGeneration).length;
+  const stillMissing = (conversation.messages ?? []).filter((message) =>
+    needsVoiceGeneration(message, voiceover),
+  ).length;
   if (stillMissing > 0) {
     const failures = logs.filter((line) => /ошибка/i.test(line));
     const detail =

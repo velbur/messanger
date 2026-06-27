@@ -5,6 +5,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 const DEFAULT_IMAGE_MODEL = "openai/gpt-5.4-image-2";
+const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";
 const MAX_RETRIES = 3;
@@ -63,6 +64,9 @@ export const getOpenRouterConfig = () => {
     baseUrl: (process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, ""),
     textModel: process.env.OPENROUTER_TEXT_MODEL?.trim() || DEFAULT_TEXT_MODEL,
     imageModel: process.env.OPENROUTER_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL,
+    ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || DEFAULT_TTS_MODEL,
+    ttsVoiceFemale: process.env.OPENROUTER_TTS_VOICE_FEMALE?.trim() || "Kore",
+    ttsVoiceMale: process.env.OPENROUTER_TTS_VOICE_MALE?.trim() || "Charon",
     aspectRatio: process.env.OPENROUTER_IMAGE_ASPECT_RATIO?.trim() || DEFAULT_ASPECT_RATIO,
     imageSize: process.env.OPENROUTER_IMAGE_SIZE?.trim() || DEFAULT_IMAGE_SIZE,
     siteUrl: process.env.OPENROUTER_SITE_URL?.trim() || undefined,
@@ -77,6 +81,17 @@ export const getOpenRouterTextModel = () =>
 
 export const getOpenRouterImageModel = () =>
   getOpenRouterConfig()?.imageModel ?? DEFAULT_IMAGE_MODEL;
+
+export const getOpenRouterTtsModel = () =>
+  getOpenRouterConfig()?.ttsModel ?? DEFAULT_TTS_MODEL;
+
+export const getOpenRouterTtsVoices = () => {
+  const config = getOpenRouterConfig();
+  return {
+    female: config?.ttsVoiceFemale ?? "Kore",
+    male: config?.ttsVoiceMale ?? "Charon",
+  };
+};
 
 export const formatOpenRouterError = (error) => {
   if (!(error instanceof Error)) {
@@ -339,4 +354,70 @@ export const generateImageToFile = async ({
     imageSize: result.imageSize,
     text: result.text,
   };
+};
+
+/**
+ * @param {{
+ *   text: string,
+ *   voice: string,
+ *   model?: string,
+ *   responseFormat?: 'mp3' | 'pcm',
+ *   prompt?: string,
+ *   speed?: number,
+ * }} opts
+ */
+export const createSpeech = async ({
+  text,
+  voice,
+  model,
+  responseFormat = "mp3",
+  prompt,
+  speed,
+}) => {
+  const config = requireConfig();
+  const resolvedModel = model ?? getOpenRouterTtsModel();
+  const body = {
+    model: resolvedModel,
+    input: text,
+    voice,
+    response_format: responseFormat,
+  };
+  if (typeof speed === "number" && Number.isFinite(speed)) {
+    body.speed = speed;
+  }
+  if (prompt?.trim()) {
+    body.prompt = prompt.trim();
+  }
+
+  let lastError;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(`${config.baseUrl}/audio/speech`, {
+        method: "POST",
+        headers: buildHeaders(config),
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const raw = await response.text();
+        let message = raw.slice(0, 400);
+        try {
+          const data = JSON.parse(raw);
+          message = data?.error?.message || data?.message || message;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(`OpenRouter TTS ${response.status}: ${message}`);
+      }
+
+      return Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_RETRIES - 1) {
+        await sleep(1000 * (attempt + 1));
+      }
+    }
+  }
+
+  throw lastError;
 };

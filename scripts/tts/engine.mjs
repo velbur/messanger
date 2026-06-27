@@ -4,6 +4,7 @@ import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {pipeline, env} from "@xenova/transformers";
 import {textForSpeech} from "./text-for-speech.mjs";
+import {isOpenRouterConfigured, getOpenRouterTtsModel} from "../openrouter-client.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TTS_DIR = path.join(ROOT, "scripts/tts");
@@ -172,12 +173,18 @@ export const synthesizeSpeech = async ({
 
 export const getVoiceoverEngineStatus = async () => {
   const silero = await checkSileroAvailability();
+  const openrouter = isOpenRouterConfigured();
   return {
+    openrouter: openrouter
+      ? {ok: true, provider: "openrouter", model: getOpenRouterTtsModel()}
+      : {ok: false, provider: "openrouter"},
     silero,
     mms: {ok: true, provider: "mms", model: MMS_MODEL},
-    recommended: silero.ok ? "silero" : "mms",
-    installHint: silero.ok
+    recommended: openrouter ? "openrouter" : silero.ok ? "silero" : "mms",
+    installHint: openrouter
       ? null
-      : "Для актёрского качества: pip3 install -r scripts/tts/requirements.txt",
+      : silero.ok
+        ? null
+        : "OpenRouter (лучшее качество) или pip3 install -r scripts/tts/requirements.txt для Silero",
   };
 };

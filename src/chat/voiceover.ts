@@ -2,7 +2,7 @@ import type {ConversationInput} from "./schema";
 
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-silero-v1";
 
-export type VoiceoverProvider = "silero" | "mms";
+export type VoiceoverProvider = "openrouter" | "silero" | "mms";
 
 export type VoiceoverGender = "male" | "female";
 
@@ -26,7 +26,7 @@ export type ConversationVoiceover = {
 
 export const DEFAULT_VOICEOVER: ConversationVoiceover = {
   enabled: false,
-  provider: "mms",
+  provider: "openrouter",
   themVoice: "female",
   meVoice: "male",
   volume: 0.92,
@@ -52,6 +52,19 @@ export const pickSileroSpeaker = (
 ): SileroSpeaker => {
   const gender = author === "me" ? voiceover.meVoice : voiceover.themVoice;
   return SILERO_BY_GENDER[gender] ?? (gender === "male" ? "aidar" : "xenia");
+};
+
+/** Голоса Gemini TTS на OpenRouter (Kore, Charon, …) */
+export const pickOpenRouterVoice = (
+  voiceover: ConversationVoiceover,
+  author: "me" | "them",
+  voices?: {female: string; male: string},
+): string => {
+  const gender = author === "me" ? voiceover.meVoice : voiceover.themVoice;
+  if (voices) {
+    return gender === "male" ? voices.male : voices.female;
+  }
+  return gender === "male" ? "Charon" : "Kore";
 };
 
 export const messageHasVoiceover = (

@@ -63,6 +63,7 @@ import {
   isOpenRouterConfigured,
   getOpenRouterTextModel,
   getOpenRouterImageModel,
+  getOpenRouterTtsModel,
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
 import {
@@ -618,6 +619,7 @@ app.get("/api/status", async (_req, res) => {
       configured: isOpenRouterConfigured(),
       textModel: getOpenRouterTextModel(),
       imageModel: getOpenRouterImageModel(),
+      ttsModel: getOpenRouterTtsModel(),
       imageGenerationAvailable: isOpenRouterConfigured(),
     },
     youtube: {
@@ -1120,6 +1122,7 @@ app.post("/api/images/generate-missing", async (req, res) => {
 
 app.get("/api/voiceover/status", async (req, res) => {
   try {
+    await loadOpenRouterEnv();
     const target = String(req.query?.target ?? "local");
     if (target === "remote" && REMOTE_RENDER_URL) {
       const resp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/voiceover/status`, {}, {timeoutMs: 30_000});
@@ -1141,6 +1144,7 @@ app.get("/api/voiceover/status", async (req, res) => {
 
 app.post("/api/voiceover/generate-missing", async (req, res) => {
   try {
+    await loadOpenRouterEnv();
     const {json: jsonText, audioNamespace, target: rawTarget} = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -1714,6 +1718,7 @@ const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
 
 app.post("/api/render", async (req, res) => {
   try {
+    await loadOpenRouterEnv();
     const {
       json: jsonText,
       name: rawName,

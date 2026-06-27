@@ -346,10 +346,18 @@
             <div class="row row--voiceover" id="voiceoverPanel">
               <label class="title-cards__row">
                 <input type="checkbox" id="voiceoverEnabled" />
-                <span>Озвучка реплик (локально)</span>
+                <span>Озвучка реплик</span>
+              </label>
+              <label class="voiceover-voices__field">
+                <span class="label">Движок</span>
+                <select id="voiceoverProvider" class="select select--compact">
+                  <option value="openrouter">OpenRouter (Gemini TTS)</option>
+                  <option value="silero">Silero (локально)</option>
+                  <option value="mms">MMS (запасной)</option>
+                </select>
               </label>
               <p id="voiceoverEngineHint" class="dialogue-hint" aria-live="polite">
-                Silero: мужской/женский русский. Нужен Python: pip3 install -r scripts/tts/requirements.txt
+                OpenRouter: естественный русский через Gemini TTS (нужен OPENROUTER_API_KEY).
               </p>
               <div class="voiceover-voices">
                 <label class="voiceover-voices__field">

@@ -126,7 +126,7 @@ export const conversationSchema = z.object({
   voiceover: z
     .object({
       enabled: z.boolean().optional(),
-      provider: z.enum(["silero", "mms"]).optional(),
+      provider: z.enum(["openrouter", "silero", "mms"]).optional(),
       /** Голос собеседника */
       themVoice: z.enum(["male", "female"]).optional(),
       /** Голос «я» */
