@@ -261,6 +261,8 @@ export const collectConversationImageRefs = (conversation) => {
     add(conversation?.story?.opening?.image);
   }
 
+  add(conversation?.previewCover?.image);
+
   for (const videoRef of collectStoryVideoRefs(conversation)) {
     refs.add(videoRef);
   }

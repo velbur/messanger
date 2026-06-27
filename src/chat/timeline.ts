@@ -1,5 +1,6 @@
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
 import {mergeEndCard, mergeIntro} from "./title-card";
+import {mergePreviewCover, previewCoverDurationFrames, PREVIEW_COVER_BUNDLE_MARKER} from "./preview-cover";
 import {
   getTimingSpeed,
   mergeConversationTiming,
@@ -109,6 +110,9 @@ export type ConversationTimeline = {
   outroDurationFrames: number;
   endCardStartFrame: number;
   endCardDurationFrames: number;
+  /** Обложка-превью вшивается в самый конец видео (после «Подпишись») */
+  previewCoverStartFrame: number;
+  previewCoverDurationFrames: number;
   durationInFrames: number;
   story: StoryTimeline;
 };
@@ -135,6 +139,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   void STORY_VIDEO_BUNDLE_MARKER;
   void SFX_BUNDLE_MARKER;
   void SFX_MIX_BUNDLE_MARKER;
+  void PREVIEW_COVER_BUNDLE_MARKER;
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
   const introFrames = intro.enabled
@@ -216,6 +221,10 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   const outroFrames = outro.enabled ? outroDurationFrames(outro, conversation) : 0;
   const outroStart = endCardStart + endCardFrames;
 
+  const previewCover = mergePreviewCover(conversation);
+  const previewCoverFrames = previewCoverDurationFrames(previewCover);
+  const previewCoverStart = outroStart + outroFrames;
+
   const story = buildStoryTimeline(conversation, events, introFrames, outroStart);
 
   return {
@@ -225,7 +234,9 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     outroDurationFrames: outroFrames,
     endCardStartFrame: endCardStart,
     endCardDurationFrames: endCardFrames,
-    durationInFrames: outroStart + outroFrames,
+    previewCoverStartFrame: previewCoverStart,
+    previewCoverDurationFrames: previewCoverFrames,
+    durationInFrames: previewCoverStart + previewCoverFrames,
     story,
   };
 };

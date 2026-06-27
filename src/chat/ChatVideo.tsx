@@ -4,6 +4,8 @@ import type {ConversationInput} from "./schema";
 import {CHAT_FONT_FAMILY} from "./fonts";
 import {SubscribeOutro} from "./components/SubscribeOutro";
 import {TitleCard} from "./components/TitleCard";
+import {PreviewCover} from "./components/PreviewCover";
+import {mergePreviewCover} from "./preview-cover";
 import {mergeConversationOutro} from "./outro";
 import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
@@ -188,6 +190,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const messengerLocale = useMemo(() => getMessengerLocale(conversation), [conversation]);
   const intro = useMemo(() => mergeIntro(conversation), [conversation]);
   const endCard = useMemo(() => mergeEndCard(conversation), [conversation]);
+  const previewCover = useMemo(() => mergePreviewCover(conversation), [conversation]);
   const theme = getTheme(conversation.wallpaper);
   const story = timeline.story;
 
@@ -466,6 +469,15 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             text={endCard.text}
             startFrame={timeline.endCardStartFrame}
             durationFrames={timeline.endCardDurationFrames}
+          />
+        ) : null}
+
+        {previewCover.enabled ? (
+          <PreviewCover
+            image={previewCover.image}
+            title={previewCover.title}
+            startFrame={timeline.previewCoverStartFrame}
+            durationFrames={timeline.previewCoverDurationFrames}
           />
         ) : null}
 

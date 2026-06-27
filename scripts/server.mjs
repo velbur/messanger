@@ -49,6 +49,11 @@ import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {resolveImageReferences} from "./image-references.mjs";
 import {
+  buildPreviewCoverPrompt,
+  loadPreviewCoverReferenceDataUrl,
+  resolvePreviewCoverSceneHint,
+} from "./preview-cover.mjs";
+import {
   correctFrameImage,
   ImageCorrectionUnchangedError,
 } from "./image-correction.mjs";
@@ -990,6 +995,65 @@ app.post("/api/images/correct", async (req, res) => {
       res.status(400).json({error: error.message});
       return;
     }
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/preview-cover", async (req, res) => {
+  try {
+    const {json: jsonText, title, targetRef, stylePrompt, prompt} = req.body ?? {};
+
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
+      return;
+    }
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+
+    const conversation = JSON.parse(jsonText);
+    const coverTitle = typeof title === "string" ? title.trim() : "";
+
+    const manualPrompt = typeof prompt === "string" ? prompt.trim() : "";
+    const style =
+      typeof stylePrompt === "string" && stylePrompt.trim()
+        ? stylePrompt.trim()
+        : await readStoryStylePrompt();
+
+    const finalPrompt =
+      manualPrompt ||
+      buildPreviewCoverPrompt({
+        title: coverTitle,
+        sceneHint: resolvePreviewCoverSceneHint(conversation),
+        stylePrompt: style,
+      });
+
+    const referenceDataUrl = await loadPreviewCoverReferenceDataUrl(conversation);
+
+    const {buffer} = await generateImageBuffer({
+      prompt: finalPrompt,
+      referenceDataUrl,
+      aspectRatio: "9:16",
+    });
+
+    const refHint =
+      targetRef && typeof targetRef === "string" && !targetRef.startsWith("http")
+        ? targetRef
+        : undefined;
+    const publicPath = await saveImageBuffer(buffer, refHint);
+    const previewUrl = await buildImagePreviewUrl(publicPath);
+
+    res.json({
+      publicPath,
+      previewUrl,
+      promptUsed: finalPrompt,
+      title: coverTitle,
+      provider: "openrouter",
+      imageModel: getOpenRouterImageModel(),
+      usedImageReference: Boolean(referenceDataUrl),
+    });
+  } catch (error) {
     res.status(400).json({error: formatOpenRouterError(error)});
   }
 });

@@ -194,6 +194,23 @@ export const conversationSchema = z.object({
     .optional(),
   /** Текст-хук поверх чата в первые ~2 с (обычно = название ролика) */
   hookText: z.string().max(120).optional(),
+  /**
+   * Обложка-превью: цепляющий кадр с названием ролика, который вшивается
+   * на несколько секунд в самый конец видео (чтобы вручную выбрать как
+   * превью при публикации на YouTube).
+   */
+  previewCover: z
+    .object({
+      enabled: z.boolean().optional(),
+      image: z
+        .string()
+        .min(1)
+        .transform((value) => value.replace(/^\/+/, ""))
+        .optional(),
+      title: z.string().max(160).optional(),
+      durationMs: z.number().min(1000).max(10000).optional().default(3000),
+    })
+    .optional(),
   /** chat — классический чат; storySplit — сюжет сверху + чат снизу; storyOverlay — сюжет на весь экран + чат поверх */
   layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("chat"),
   /** Настройки storySplit / storyOverlay */
