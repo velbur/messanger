@@ -49,6 +49,8 @@ export const messageSchema = z
     storyVideoDurationMs: z.number().min(100).max(60000).optional(),
     /** Профиль видео-модели; при смене MP4 перегенерируется */
     storyVideoProfile: z.string().min(1).optional(),
+    /** true — бесшовный loop; false — один проход и hold на кадре; без поля — эвристика по промпту */
+    storyVideoLoop: z.boolean().optional(),
     /** Правки к уже сгенерированному кадру сюжета */
     storyImageEditPrompt: z.string().min(1).optional(),
     /** Атмосферные звуки сцены (id из sfx-каталога) */
@@ -212,6 +214,7 @@ export const conversationSchema = z.object({
             .optional(),
           storyVideoDurationMs: z.number().min(100).max(60000).optional(),
           storyVideoProfile: z.string().min(1).optional(),
+          storyVideoLoop: z.boolean().optional(),
           durationMs: z.number().min(800).max(8000).optional().default(2500),
           animation: z.enum(["video", "none", "parallax", "kenburns"]).optional().default("video"),
           storySfx: z.array(storySfxCueSchema).max(4).optional(),

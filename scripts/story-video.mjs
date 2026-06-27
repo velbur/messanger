@@ -8,19 +8,24 @@ import {isStoryVisualLayout} from "./image-assets.mjs";
 import {generateImageToVideoFile, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
 import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
+import {resolveStoryVideoLoop} from "../src/chat/story-video-mode.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
-const MOTION_PROMPT_PREFIX =
-  "Subtle cinematic camera movement with gentle ambient motion that can loop seamlessly: the end of the clip should match the start. Preserve the illustrated art style, colors, and composition. Smooth, natural, not dramatic.";
+const LOOP_MOTION_PROMPT =
+  "Subtle cinematic ambient motion designed to loop seamlessly: the last frame must closely match the first frame. Gentle cyclical movement only (breathing light, rain, flicker, sway, smoke drift). No linear travel forward or backward through the scene.";
 
-export const buildStoryMotionPrompt = (imagePrompt) => {
+const HOLD_MOTION_PROMPT =
+  "Subtle cinematic motion over a few seconds: one smooth camera move or ambient effect that completes naturally. End on a stable, composed final frame suitable to hold still afterward. No return to the starting pose.";
+
+export const buildStoryMotionPrompt = (imagePrompt, {loop = true} = {}) => {
+  const prefix = loop ? LOOP_MOTION_PROMPT : HOLD_MOTION_PROMPT;
   const scene = String(imagePrompt ?? "").trim();
   if (!scene) {
-    return MOTION_PROMPT_PREFIX;
+    return prefix;
   }
-  return `${MOTION_PROMPT_PREFIX} Scene: ${scene}`;
+  return `${prefix} Scene: ${scene}`;
 };
 
 const safePublicPath = (relativePath) => {
@@ -130,6 +135,12 @@ export const resolveStoryVideos = async (
           if (!target.holder.storyVideoProfile) {
             target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
           }
+          if (target.holder.storyVideoLoop === undefined) {
+            target.holder.storyVideoLoop = resolveStoryVideoLoop(
+              undefined,
+              target.imagePrompt,
+            );
+          }
           logs.push(`Story-видео (${target.label}): подключено с диска → ${candidate}`);
         }
       } catch {
@@ -206,12 +217,16 @@ export const generateMissingStoryVideos = async (
     const videoRef = storyVideoPathForImage(target.image);
     const {absolute: videoAbsolute} = safePublicPath(videoRef);
     const imageUrl = publicImageUrl(publicBaseUrl, target.image);
+    const videoLoop = resolveStoryVideoLoop(
+      target.holder?.storyVideoLoop,
+      target.imagePrompt,
+    );
 
     try {
       const result = await generateImageToVideoFile({
         imageAbsolutePath: imageAbsolute,
         imagePublicUrl: imageUrl,
-        prompt: buildStoryMotionPrompt(target.imagePrompt),
+        prompt: buildStoryMotionPrompt(target.imagePrompt, {loop: videoLoop}),
         outputPath: videoAbsolute,
         model,
         onPoll: ({attempt, maxAttempts, status}) => {
@@ -233,6 +248,7 @@ export const generateMissingStoryVideos = async (
         .join("/");
       target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
       target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
+      target.holder.storyVideoLoop = videoLoop;
       generated += 1;
       logs.push(
         `Story-видео (${target.label}, OpenRouter/${result.model}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,

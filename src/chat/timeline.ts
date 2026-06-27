@@ -9,6 +9,7 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER} from "./story";
+import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
@@ -69,6 +70,7 @@ export type StorySceneTimelineEvent = {
   image: string;
   video?: string;
   videoDurationMs?: number;
+  videoLoop: boolean;
   startFrame: number;
   endFrame: number;
   sfx: ResolvedStorySfxCue[];
@@ -80,6 +82,7 @@ export type StoryTimeline = {
   openingImage?: string;
   openingVideo?: string;
   openingVideoDurationMs?: number;
+  openingVideoLoop: boolean;
   openingStartFrame: number;
   openingEndFrame: number;
   /** До какого кадра играют loop-SFX заставки (пока на экране opening-кадр) */
@@ -248,6 +251,7 @@ const buildStoryTimeline = (
     sfxMasterVolume: 1,
     sfxMixSrc: undefined,
     sfxEnabled: false,
+    openingVideoLoop: true,
     immediateFirstScene: false,
     sceneEvents: [],
   };
@@ -311,6 +315,7 @@ const buildStoryTimeline = (
       image,
       video: message.storyVideo?.trim() || undefined,
       videoDurationMs: message.storyVideoDurationMs,
+      videoLoop: resolveStoryVideoLoop(message.storyVideoLoop, message.storyImagePrompt),
       startFrame,
       endFrame,
       sfx: sfxConfig.enabled ? resolveStorySfxCues(message.storySfx) : [],
@@ -335,6 +340,10 @@ const buildStoryTimeline = (
     openingImage: storyConfig.opening.image,
     openingVideo: storyConfig.opening.storyVideo,
     openingVideoDurationMs: storyConfig.opening.storyVideoDurationMs,
+    openingVideoLoop: resolveStoryVideoLoop(
+      conversation.story?.opening?.storyVideoLoop,
+      conversation.story?.opening?.imagePrompt,
+    ),
     openingStartFrame,
     openingEndFrame,
     openingSfxEndFrame,
@@ -518,6 +527,33 @@ export const storyVideoDurationMsAtFrame = (
   }
 
   return story.openingVideoDurationMs;
+};
+
+export const storyVideoLoopAtFrame = (story: StoryTimeline, frame: number): boolean => {
+  if (!story.enabled) {
+    return true;
+  }
+
+  if (frame < story.splitStartFrame) {
+    if (story.immediateFirstScene) {
+      return firstSceneMedia(story)?.videoLoop ?? story.openingVideoLoop;
+    }
+    return story.openingVideoLoop;
+  }
+
+  const scene = activeStorySceneAtFrame(story, frame);
+  if (scene) {
+    return scene.videoLoop;
+  }
+
+  const lastSceneBefore = [...story.sceneEvents]
+    .reverse()
+    .find((event) => frame >= event.startFrame);
+  if (lastSceneBefore) {
+    return lastSceneBefore.videoLoop;
+  }
+
+  return story.openingVideoLoop;
 };
 
 export const visibleMessageCountAtFrame = (

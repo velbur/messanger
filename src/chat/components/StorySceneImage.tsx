@@ -8,6 +8,7 @@ type Props = {
   image?: string;
   video?: string;
   videoDurationMs?: number;
+  videoLoop?: boolean;
   localFrame: number;
   durationFrames: number;
   sceneStartFrame: number;
@@ -18,6 +19,7 @@ export const StorySceneImage: React.FC<Props> = ({
   image,
   video,
   videoDurationMs,
+  videoLoop = true,
   localFrame,
   durationFrames,
   sceneStartFrame,
@@ -27,9 +29,11 @@ export const StorySceneImage: React.FC<Props> = ({
     return (
       <StorySceneVideo
         video={video.trim()}
+        image={image?.trim()}
         videoDurationMs={videoDurationMs}
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
+        loop={videoLoop}
       />
     );
   }

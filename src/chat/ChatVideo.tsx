@@ -18,6 +18,7 @@ import {
   storyImageAtFrame,
   storyVideoAtFrame,
   storyVideoDurationMsAtFrame,
+  storyVideoLoopAtFrame,
   STORY_SPLIT_TIMELINE_REV,
   TIMELINE_TAIL_MARKER,
   visibleMessageCountAtFrame,
@@ -343,6 +344,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const currentStoryVideoDurationMs = storyVisualActive
     ? storyVideoDurationMsAtFrame(story, frame)
     : undefined;
+  const currentStoryVideoLoop = storyVisualActive ? storyVideoLoopAtFrame(story, frame) : true;
   const {startFrame: sceneStartFrame, endFrame: sceneEndFrame} = storyVisualActive
     ? resolveStorySceneTiming(story, frame, timeline.outroStartFrame)
     : {startFrame: 0, endFrame: timeline.outroStartFrame};
@@ -373,6 +375,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 image={currentStoryImage}
                 video={currentStoryVideo}
                 videoDurationMs={currentStoryVideoDurationMs}
+                videoLoop={currentStoryVideoLoop}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 sceneStartFrame={sceneStartFrame}
@@ -398,6 +401,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 image={currentStoryImage}
                 video={currentStoryVideo}
                 videoDurationMs={currentStoryVideoDurationMs}
+                videoLoop={currentStoryVideoLoop}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 sceneStartFrame={sceneStartFrame}

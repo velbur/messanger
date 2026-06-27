@@ -10,6 +10,7 @@ type Props = {
   image: string | undefined;
   video?: string;
   videoDurationMs?: number;
+  videoLoop?: boolean;
   height: number;
   animation: StorySceneAnimation;
   sceneStartFrame: number;
@@ -21,6 +22,7 @@ export const StoryPanel: React.FC<Props> = ({
   image,
   video,
   videoDurationMs,
+  videoLoop,
   height,
   animation,
   sceneStartFrame,
@@ -56,6 +58,7 @@ export const StoryPanel: React.FC<Props> = ({
           image={image}
           video={video}
           videoDurationMs={videoDurationMs}
+          videoLoop={videoLoop}
           localFrame={sceneLocalFrame}
           durationFrames={sceneDurationFrames}
           sceneStartFrame={sceneStartFrame}
