@@ -155,7 +155,10 @@ export const uploadVideoToYoutube = async ({
     },
     body: JSON.stringify({
       snippet,
-      status: {privacyStatus},
+      status: {
+        privacyStatus,
+        selfDeclaredMadeForKids: false,
+      },
     }),
   });
 
