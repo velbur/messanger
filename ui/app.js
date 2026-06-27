@@ -4989,7 +4989,7 @@ const publishToYoutube = async () => {
   }
 
   const title = dialogueTitleInput?.value?.trim() || undefined;
-  const privacyStatus = youtubePrivacySelect?.value || "public";
+  const privacyStatus = youtubePrivacySelect?.value || "unlisted";
 
   youtubePublishing = true;
   updateYoutubePublishControls();
