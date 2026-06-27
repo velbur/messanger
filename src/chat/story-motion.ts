@@ -43,18 +43,6 @@ export const STORY_VIDEO_SOURCE_FPS = 24;
 export const storyVideoSourceFrameCount = (videoDurationMs?: number): number =>
   Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * STORY_VIDEO_SOURCE_FPS));
 
-/** startFrom для OffthreadVideo: пинг-понг без отрицательного playbackRate */
-export const storyVideoPingPongStartFrom = (
-  localFrame: number,
-  videoDurationMs: number | undefined,
-  compositionFps: number,
-): number => {
-  const frameCount = storyVideoSourceFrameCount(videoDurationMs);
-  const natural = Math.floor((localFrame / compositionFps) * STORY_VIDEO_SOURCE_FPS);
-  const desired = videoPingPongFrame(natural, frameCount);
-  return Math.round((desired * compositionFps) / STORY_VIDEO_SOURCE_FPS) - localFrame;
-};
-
 /** Бесшовное зацикливание: кадр источника по локальному кадру сцены */
 export const storyVideoLoopFrame = (localFrame: number, videoDurationMs?: number): number => {
   const frameCount = storyVideoSourceFrameCount(videoDurationMs);

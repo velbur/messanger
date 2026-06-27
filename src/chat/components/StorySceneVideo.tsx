@@ -1,13 +1,16 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Loop,
   OffthreadVideo,
   Sequence,
   staticFile,
-  useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import {storyVideoPingPongStartFrom} from "../story-motion";
+import {
+  storyVideoLoopDurationMs,
+  storyVideoLoopPathForVideo,
+} from "../story-video-paths";
 
 type Props = {
   video: string;
@@ -22,10 +25,12 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneStartFrame,
   sceneDurationFrames,
 }) => {
-  const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const localFrame = Math.max(0, frame - sceneStartFrame);
-  const startFrom = storyVideoPingPongStartFrom(localFrame, videoDurationMs, fps);
+  const loopVideo = storyVideoLoopPathForVideo(video);
+  const loopDurationFrames = Math.max(
+    2,
+    Math.round((storyVideoLoopDurationMs(videoDurationMs) / 1000) * fps),
+  );
 
   return (
     <Sequence
@@ -35,16 +40,17 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <OffthreadVideo
-          src={staticFile(video)}
-          muted
-          startFrom={startFrom}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
+        <Loop durationInFrames={loopDurationFrames}>
+          <OffthreadVideo
+            src={staticFile(loopVideo)}
+            muted
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        </Loop>
       </AbsoluteFill>
     </Sequence>
   );

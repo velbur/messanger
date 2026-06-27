@@ -3,6 +3,7 @@ import {createHash} from "node:crypto";
 import {mkdir, writeFile, access, readFile, unlink, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
 import {collectStoryVideoRefs} from "./story-video.mjs";
+import {collectStoryVideoLoopRefs} from "./story-video-loop.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const PUBLIC_DIR = path.join(ROOT, "public");
@@ -260,6 +261,9 @@ export const collectConversationImageRefs = (conversation) => {
 
   for (const videoRef of collectStoryVideoRefs(conversation)) {
     refs.add(videoRef);
+  }
+  for (const loopRef of collectStoryVideoLoopRefs(collectStoryVideoRefs(conversation))) {
+    refs.add(loopRef);
   }
 
   return [...refs];
