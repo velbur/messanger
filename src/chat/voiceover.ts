@@ -1,21 +1,12 @@
 import type {ConversationInput} from "./schema";
 
-export const VOICEOVER_BUNDLE_MARKER = "voiceover-silero-v1";
-
-export type VoiceoverProvider = "openrouter" | "silero" | "mms";
+export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v1";
 
 export type VoiceoverGender = "male" | "female";
 
-export type SileroSpeaker =
-  | "aidar"
-  | "baya"
-  | "kseniya"
-  | "xenia"
-  | "eugene";
-
 export type ConversationVoiceover = {
   enabled: boolean;
-  provider: VoiceoverProvider;
+  provider: "openrouter";
   themVoice: VoiceoverGender;
   meVoice: VoiceoverGender;
   /** Громкость реплик 0–1 */
@@ -33,26 +24,14 @@ export const DEFAULT_VOICEOVER: ConversationVoiceover = {
   musicDuck: 0.28,
 };
 
-const SILERO_BY_GENDER: Record<VoiceoverGender, SileroSpeaker> = {
-  female: "xenia",
-  male: "aidar",
-};
-
 export const mergeConversationVoiceover = (
   conversation: ConversationInput,
 ): ConversationVoiceover => ({
   ...DEFAULT_VOICEOVER,
   ...conversation.voiceover,
   enabled: Boolean(conversation.voiceover?.enabled),
+  provider: "openrouter",
 });
-
-export const pickSileroSpeaker = (
-  voiceover: ConversationVoiceover,
-  author: "me" | "them",
-): SileroSpeaker => {
-  const gender = author === "me" ? voiceover.meVoice : voiceover.themVoice;
-  return SILERO_BY_GENDER[gender] ?? (gender === "male" ? "aidar" : "xenia");
-};
 
 /** Голоса Gemini TTS на OpenRouter (Kore, Charon, …) */
 export const pickOpenRouterVoice = (

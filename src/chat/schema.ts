@@ -122,11 +122,15 @@ export const conversationSchema = z.object({
       typingVolumeMe: z.number().min(0).max(1).optional(),
     })
     .optional(),
-  /** Локальная озвучка реплик (Silero / MMS) */
+  /** Озвучка реплик через OpenRouter (Gemini TTS) */
   voiceover: z
     .object({
       enabled: z.boolean().optional(),
-      provider: z.enum(["openrouter", "silero", "mms"]).optional(),
+      provider: z
+        .union([z.literal("openrouter"), z.literal("silero"), z.literal("mms")])
+        .optional()
+        .transform(() => "openrouter" as const)
+        .default("openrouter"),
       /** Голос собеседника */
       themVoice: z.enum(["male", "female"]).optional(),
       /** Голос «я» */

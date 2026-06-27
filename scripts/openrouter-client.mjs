@@ -76,6 +76,13 @@ export const getOpenRouterConfig = () => {
 
 export const isOpenRouterConfigured = () => Boolean(getOpenRouterConfig());
 
+export const getOpenRouterVoiceoverStatus = () => ({
+  provider: "openrouter",
+  configured: isOpenRouterConfigured(),
+  model: getOpenRouterTtsModel(),
+  voices: getOpenRouterTtsVoices(),
+});
+
 export const getOpenRouterTextModel = () =>
   getOpenRouterConfig()?.textModel ?? DEFAULT_TEXT_MODEL;
 

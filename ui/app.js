@@ -1940,7 +1940,7 @@ const updateVoiceoverControls = (conversation = null) => {
     voiceoverEnabled.title = `При сборке озвучится ${pending} реплик${pending === 1 ? "а" : pending < 5 ? "и" : ""}`;
   } else {
     voiceoverEnabled.title = voiceoverEnabled.checked
-      ? "Озвучка при сборке видео (OpenRouter)"
+      ? "Озвучка через OpenRouter Gemini TTS при сборке видео"
       : "";
   }
 };

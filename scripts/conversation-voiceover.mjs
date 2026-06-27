@@ -1,4 +1,5 @@
-import {mergeConversationVoiceover, pickSileroSpeaker} from "../src/chat/voiceover.ts";
+import {mergeConversationVoiceover, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
+import {getOpenRouterTtsVoices} from "./openrouter-client.mjs";
 import {normalizeAudioNamespace, voiceRefForMessage} from "./voice-assets.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
 
@@ -23,6 +24,7 @@ export const countPendingVoiceover = (conversation) => {
 
 export const describeVoiceoverPlan = (conversation, audioNamespace) => {
   const voiceover = mergeConversationVoiceover(conversation);
+  const voices = getOpenRouterTtsVoices();
   const namespace = normalizeAudioNamespace(audioNamespace);
   return (conversation.messages ?? [])
     .map((message, index) => {
@@ -32,7 +34,7 @@ export const describeVoiceoverPlan = (conversation, audioNamespace) => {
       return {
         index,
         author: message.author,
-        speaker: pickSileroSpeaker(voiceover, message.author),
+        speaker: pickOpenRouterVoice(voiceover, message.author, voices),
         targetRef: voiceRefForMessage(namespace, index),
         hasAudio: Boolean(message.voiceAudio?.trim()),
       };

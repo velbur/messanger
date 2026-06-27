@@ -64,6 +64,7 @@ import {
   getOpenRouterTextModel,
   getOpenRouterImageModel,
   getOpenRouterTtsModel,
+  getOpenRouterVoiceoverStatus,
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
 import {
@@ -88,7 +89,6 @@ import {
   resolveConversationVoiceover,
   syncVoiceToRemote,
 } from "./voice-assets.mjs";
-import {getVoiceoverEngineStatus} from "./tts/engine.mjs";
 import {previewImagePrompt, readStylePrompt, readStoryStylePrompt, writeStylePrompt, writeStoryStylePrompt} from "./image-prompt.mjs";
 import {
   initDialogueDb,
@@ -602,7 +602,7 @@ app.get("/api/status", async (_req, res) => {
     youtube: {
       configured: isYoutubeConfigured(),
     },
-    voiceover: await getVoiceoverEngineStatus(),
+    voiceover: getOpenRouterVoiceoverStatus(),
   });
 });
 
@@ -1100,7 +1100,7 @@ app.post("/api/images/generate-missing", async (req, res) => {
 app.get("/api/voiceover/status", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const status = await getVoiceoverEngineStatus();
+    const status = getOpenRouterVoiceoverStatus();
     res.json(status);
   } catch (error) {
     res.status(500).json({

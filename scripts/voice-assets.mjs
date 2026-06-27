@@ -104,12 +104,6 @@ const needsVoiceGeneration = (message, voiceover) => {
   if (!existing) {
     return true;
   }
-  const provider = voiceover?.provider ?? "openrouter";
-  if (provider === "openrouter" && existing.endsWith(".mp3")) {
-    /* ok */
-  } else if (provider === "openrouter" && !existing.endsWith(".wav") && !existing.endsWith(".mp3")) {
-    return true;
-  }
   const {absolute} = safePublicPath(existing);
   return !existsSync(absolute);
 };
