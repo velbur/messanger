@@ -1,9 +1,7 @@
 /**
- * Параметры кадров сюжета в верхней панели story-split (не пузырь чата).
- * Верхняя панель при ratio 0.45: 1080×864 ≈ 5:4.
+ * Кадры сюжета для storyOverlay / storySplit — вертикальный Shorts 9:16 на весь экран.
  */
-export const STORY_IMAGE_ASPECT_RATIO = "5:4";
+export const STORY_IMAGE_ASPECT_RATIO = "9:16";
 
-/** Пиксели верхней панели при ratio 0.45 */
 export const STORY_IMAGE_DISPLAY_WIDTH = 1080;
-export const STORY_IMAGE_DISPLAY_HEIGHT = 864;
+export const STORY_IMAGE_DISPLAY_HEIGHT = 1920;

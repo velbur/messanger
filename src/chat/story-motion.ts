@@ -1,7 +1,11 @@
 import bezierEasing from "bezier-easing";
 import {interpolate} from "remotion";
+import {FPS} from "./fps";
 
 const cinematicEase = bezierEasing(0.22, 1, 0.36, 1);
+
+/** Длина одного цикла Ken Burns для бесшовного повтора, кадры */
+export const STORY_MOTION_LOOP_FRAMES = 6 * FPS;
 
 export const hashSeed = (value: string): number => {
   let hash = 0;
@@ -18,6 +22,18 @@ export const sceneMotionProgress = (localFrame: number, durationFrames: number):
     extrapolateRight: "clamp",
   });
   return cinematicEase(linear);
+};
+
+/** Пинг-понг 0→1→0 для бесшовного зацикливания статичного кадра */
+export const sceneMotionLoopProgress = (
+  localFrame: number,
+  loopFrames: number = STORY_MOTION_LOOP_FRAMES,
+): number => {
+  const safeLoop = Math.max(2, loopFrames);
+  const pos = ((localFrame % safeLoop) + safeLoop) % safeLoop;
+  const t = pos / safeLoop;
+  const triangle = t < 0.5 ? t * 2 : 2 - t * 2;
+  return cinematicEase(triangle);
 };
 
 export const motionVectors = (directionSeed: string): {panX: number; panY: number} => {

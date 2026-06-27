@@ -217,8 +217,8 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
 const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = ""} = {}) => {
   const style = normalizeSpace(stylePrompt);
   return [
-    "Ты помогаешь генерировать рисованные сюжетные кадры для story-split видео (верхняя панель, переписка снизу).",
-    `Картинка — широкая иллюстрация сцены (${STORY_IMAGE_ASPECT_RATIO}), не UI чата, без текста на картинке.`,
+    "Ты помогаешь генерировать рисованные сюжетные кадры для вертикального Shorts (9:16, полный экран, переписка поверх или снизу).",
+    `Картинка — вертикальная иллюстрация на весь экран (${STORY_IMAGE_ASPECT_RATIO}), не UI чата, без текста на картинке.`,
     style
       ? `Общий стиль всех кадров (обязательно): ${style}`
       : "Стиль: рисованная иллюстрация, сториборд, не фотореализм.",
@@ -326,7 +326,7 @@ export const buildStoryImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
   return [
     scene,
     style ? `Стиль: ${style}` : "",
-    `Рисованная иллюстрация сцены. Формат ${STORY_IMAGE_ASPECT_RATIO}, широкий план, без UI чата и без текста. Запрещены фото, фотореализм и гиперреализм.`,
+    `Рисованная иллюстрация сцены. Вертикальный формат ${STORY_IMAGE_ASPECT_RATIO} на весь экран, без UI чата и без текста. Запрещены фото, фотореализм и гиперреализм.`,
   ]
     .filter(Boolean)
     .join(" ");

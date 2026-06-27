@@ -13,7 +13,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 const MOTION_PROMPT_PREFIX =
-  "Subtle cinematic camera movement with gentle ambient motion. Preserve the illustrated art style, colors, and composition of the source image. Smooth, natural, not dramatic.";
+  "Subtle cinematic camera movement with gentle ambient motion that can loop seamlessly: the end of the clip should match the start. Preserve the illustrated art style, colors, and composition. Smooth, natural, not dramatic.";
 
 export const buildStoryMotionPrompt = (imagePrompt) => {
   const scene = String(imagePrompt ?? "").trim();

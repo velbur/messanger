@@ -1,5 +1,5 @@
 import React from "react";
-import {AbsoluteFill, interpolate} from "remotion";
+import {AbsoluteFill} from "remotion";
 import type {StorySceneAnimation} from "../story";
 import {StorySceneImage} from "./StorySceneImage";
 import {STORY_SPLIT_TIMELINE_REV} from "../timeline";
@@ -10,50 +10,24 @@ type Props = {
   image: string | undefined;
   video?: string;
   videoDurationMs?: number;
-  previousImage?: string;
-  previousVideo?: string;
-  previousVideoDurationMs?: number;
   height: number;
   animation: StorySceneAnimation;
+  sceneStartFrame: number;
   sceneLocalFrame: number;
   sceneDurationFrames: number;
-  crossfadeFrames?: number;
 };
 
 export const StoryPanel: React.FC<Props> = ({
   image,
   video,
   videoDurationMs,
-  previousImage,
-  previousVideo,
-  previousVideoDurationMs,
   height,
   animation,
+  sceneStartFrame,
   sceneLocalFrame,
   sceneDurationFrames,
-  crossfadeFrames = 12,
 }) => {
-  const fade = Math.min(crossfadeFrames, Math.max(4, Math.floor(sceneDurationFrames * 0.08)));
-  const isCrossfade =
-    Boolean(
-      (previousVideo || previousImage) &&
-        (previousVideo || previousImage) !== (video || image) &&
-        sceneLocalFrame < fade,
-    );
-  const previousOpacity = isCrossfade
-    ? interpolate(sceneLocalFrame, [0, fade], [1, 0], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      })
-    : 0;
-  const currentOpacity = isCrossfade
-    ? interpolate(sceneLocalFrame, [0, fade], [0, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      })
-    : 1;
-
-  if (!image && !video && !previousImage && !previousVideo) {
+  if (!image && !video) {
     return (
       <div
         style={{
@@ -77,30 +51,17 @@ export const StoryPanel: React.FC<Props> = ({
         flexShrink: 0,
       }}
     >
-      {(previousImage || previousVideo) && previousOpacity > 0 ? (
-        <AbsoluteFill style={{opacity: previousOpacity}}>
-          <StorySceneImage
-            image={previousImage}
-            video={previousVideo}
-            videoDurationMs={previousVideoDurationMs}
-            localFrame={sceneLocalFrame}
-            durationFrames={sceneDurationFrames}
-            animation={animation}
-          />
-        </AbsoluteFill>
-      ) : null}
-      {image || video ? (
-        <AbsoluteFill style={{opacity: currentOpacity}}>
-          <StorySceneImage
-            image={image}
-            video={video}
-            videoDurationMs={videoDurationMs}
-            localFrame={sceneLocalFrame}
-            durationFrames={sceneDurationFrames}
-            animation={animation}
-          />
-        </AbsoluteFill>
-      ) : null}
+      <AbsoluteFill>
+        <StorySceneImage
+          image={image}
+          video={video}
+          videoDurationMs={videoDurationMs}
+          localFrame={sceneLocalFrame}
+          durationFrames={sceneDurationFrames}
+          sceneStartFrame={sceneStartFrame}
+          animation={animation}
+        />
+      </AbsoluteFill>
     </div>
   );
 };

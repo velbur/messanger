@@ -335,12 +335,6 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const currentStoryVideoDurationMs = storyVisualActive
     ? storyVideoDurationMsAtFrame(story, frame)
     : undefined;
-  const previousStoryImage =
-    storyVisualActive && frame > 0 ? storyImageAtFrame(story, frame - 1) : undefined;
-  const previousStoryVideo =
-    storyVisualActive && frame > 0 ? storyVideoAtFrame(story, frame - 1) : undefined;
-  const previousStoryVideoDurationMs =
-    storyVisualActive && frame > 0 ? storyVideoDurationMsAtFrame(story, frame - 1) : undefined;
   const activeScene = storyVisualActive ? activeStorySceneAtFrame(story, frame) : undefined;
   const sceneStartFrame =
     frame < story.splitCompleteFrame
@@ -377,14 +371,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 image={currentStoryImage}
                 video={currentStoryVideo}
                 videoDurationMs={currentStoryVideoDurationMs}
-                previousImage={previousStoryImage}
-                previousVideo={previousStoryVideo}
-                previousVideoDurationMs={previousStoryVideoDurationMs}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
+                sceneStartFrame={sceneStartFrame}
                 sceneLocalFrame={sceneLocalFrame}
                 sceneDurationFrames={sceneDurationFrames}
-                crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
               />
               <AbsoluteFill
                 style={{
@@ -405,14 +396,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 image={currentStoryImage}
                 video={currentStoryVideo}
                 videoDurationMs={currentStoryVideoDurationMs}
-                previousImage={previousStoryImage}
-                previousVideo={previousStoryVideo}
-                previousVideoDurationMs={previousStoryVideoDurationMs}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
+                sceneStartFrame={sceneStartFrame}
                 sceneLocalFrame={sceneLocalFrame}
                 sceneDurationFrames={sceneDurationFrames}
-                crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
               />
               <div
                 style={{

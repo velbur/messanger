@@ -1,15 +1,15 @@
 import React from "react";
 import {Img, interpolate, staticFile} from "remotion";
-import {motionVectors, sceneMotionProgress} from "../story-motion";
+import {motionVectors, sceneMotionLoopProgress, sceneMotionProgress} from "../story-motion";
 
 type Props = {
   image: string;
-  /** Локальный кадр сцены (от reveal) */
   localFrame: number;
   durationFrames: number;
   animation: "kenburns" | "none";
-  /** Случайное направление движения по hash пути */
   directionSeed?: string;
+  /** Бесшовный цикл движения на всё время сцены */
+  loop?: boolean;
 };
 
 export const KenBurnsImage: React.FC<Props> = ({
@@ -18,21 +18,24 @@ export const KenBurnsImage: React.FC<Props> = ({
   durationFrames,
   animation,
   directionSeed = image,
+  loop = false,
 }) => {
   const safeDuration = Math.max(1, durationFrames);
-  const progress = sceneMotionProgress(localFrame, safeDuration);
+  const progress = loop
+    ? sceneMotionLoopProgress(localFrame)
+    : sceneMotionProgress(localFrame, safeDuration);
   const {panX, panY} = motionVectors(directionSeed);
 
   const scale =
-    animation === "kenburns"
-      ? interpolate(progress, [0, 1], [1, 1.08], {
+    animation === "kenburns" || loop
+      ? interpolate(progress, [0, 1], [1, 1.06], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 1;
 
-  const translateX = animation === "kenburns" ? progress * panX * 2.5 : 0;
-  const translateY = animation === "kenburns" ? progress * panY * 1.8 : 0;
+  const translateX = animation === "kenburns" || loop ? progress * panX * 2 : 0;
+  const translateY = animation === "kenburns" || loop ? progress * panY * 1.5 : 0;
 
   return (
     <Img

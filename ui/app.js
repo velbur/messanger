@@ -2813,7 +2813,7 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
           prompt: promptInput.value.trim() || undefined,
           targetRef:
             messageIndex == null ? buildEditorStoryOpeningRef() : buildEditorStoryRef(messageIndex),
-          aspectRatio: "5:4",
+          aspectRatio: "9:16",
           stylePrompt: getStoryStylePrompt(),
         }),
       });

@@ -22,7 +22,7 @@ export const getOpenRouterStoryVideoStatus = () => ({
   provider: "openrouter",
   configured: isOpenRouterConfigured(),
   model: getOpenRouterStoryVideoModel(),
-  profile: "veo-3.1-lite-v1",
+  profile: "veo-3.1-lite-loop-v1",
 });
 
 const requireConfig = () => {
