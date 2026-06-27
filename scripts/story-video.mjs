@@ -148,7 +148,7 @@ export const resolveStoryVideos = async (
 
 export const generateMissingStoryVideos = async (
   conversation,
-  {publicBaseUrl, force = false} = {},
+  {publicBaseUrl, force = false, onProgress, isCancelled} = {},
 ) => {
   const logs = [];
   if (!isStoryVisualLayout(conversation)) {
@@ -171,7 +171,20 @@ export const generateMissingStoryVideos = async (
   const model = getOpenRouterStoryVideoModel();
   let generated = 0;
 
-  for (const target of targets) {
+  for (let index = 0; index < targets.length; index += 1) {
+    const target = targets[index];
+    if (isCancelled?.()) {
+      throw new Error("Отменено пользователем");
+    }
+
+    const total = targets.length;
+    onProgress?.({
+      done: index,
+      total,
+      label: target.label,
+      stage: "generating",
+    });
+
     const {absolute: imageAbsolute} = safePublicPath(target.image);
     const videoRef = storyVideoPathForImage(target.image);
     const {absolute: videoAbsolute} = safePublicPath(videoRef);
@@ -184,6 +197,17 @@ export const generateMissingStoryVideos = async (
         prompt: buildStoryMotionPrompt(target.imagePrompt),
         outputPath: videoAbsolute,
         model,
+        onPoll: ({attempt, maxAttempts, status}) => {
+          onProgress?.({
+            done: index,
+            total,
+            label: target.label,
+            stage: "polling",
+            attempt,
+            maxAttempts,
+            status,
+          });
+        },
       });
 
       target.holder.storyVideo = path
@@ -196,6 +220,12 @@ export const generateMissingStoryVideos = async (
       logs.push(
         `Story-видео (${target.label}, OpenRouter/${result.model}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
       );
+      onProgress?.({
+        done: index + 1,
+        total,
+        label: target.label,
+        stage: "done",
+      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       logs.push(`Story-видео (${target.label}): ошибка — ${reason}`);

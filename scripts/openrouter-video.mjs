@@ -112,7 +112,7 @@ const parseJobError = async (response) => {
   }
 };
 
-const pollVideoJob = async (job, config) => {
+const pollVideoJob = async (job, config, {onPoll} = {}) => {
   let current = job;
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt += 1) {
     if (current.status === "completed") {
@@ -124,6 +124,8 @@ const pollVideoJob = async (job, config) => {
     if (["cancelled", "expired"].includes(current.status)) {
       throw new Error(current.error ?? `Генерация видео: ${current.status}`);
     }
+
+    onPoll?.({attempt, maxAttempts: MAX_POLL_ATTEMPTS, status: current.status});
 
     await sleep(POLL_INTERVAL_MS);
 
@@ -181,6 +183,7 @@ export const generateImageToVideoFile = async ({
   duration = DEFAULT_STORY_VIDEO_DURATION,
   resolution = DEFAULT_STORY_VIDEO_RESOLUTION,
   aspectRatio = DEFAULT_STORY_VIDEO_ASPECT,
+  onPoll,
 }) => {
   await loadOpenRouterEnv();
   const config = requireConfig();
@@ -212,7 +215,7 @@ export const generateImageToVideoFile = async ({
   }
 
   const job = await response.json();
-  const completed = await pollVideoJob(job, config);
+  const completed = await pollVideoJob(job, config, {onPoll});
   const buffer = await downloadVideoBuffer(completed, config);
 
   await mkdir(path.dirname(outputPath), {recursive: true});

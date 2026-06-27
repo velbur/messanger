@@ -3654,6 +3654,7 @@ for (const el of [introTextInput, endCardTextInput]) {
 }
 
 const statusLabels = {
+  preparing: "Подготовка к рендеру…",
   queued: "В очереди…",
   running: "Рендер идёт (это может занять несколько минут)…",
   done: "Готово!",
@@ -3845,6 +3846,9 @@ const formatProgressLabel = (job) => {
   const rendered = job.renderedFrames ?? 0;
   const total = job.totalFrames ?? 0;
   const framesPart = total > 0 ? ` · кадры ${rendered}/${total}` : "";
+  if (job.status === "preparing" && job.phase) {
+    return `${percent}% · ${job.phase}`;
+  }
   if (job.status === "queued" && job.queuePosition > 0) {
     return `Ожидание в очереди: позиция ${job.queuePosition}`;
   }
@@ -3860,7 +3864,8 @@ const formatProgressLabel = (job) => {
 
 const updateRenderProgress = (job) => {
   const copying = job.status === "done" && job.localCopyStatus === "copying";
-  const active = job.status === "queued" || job.status === "running" || copying;
+  const active =
+    job.status === "preparing" || job.status === "queued" || job.status === "running" || copying;
   if (renderProgressBlock) {
     renderProgressBlock.hidden = !active;
   }
@@ -3894,9 +3899,11 @@ const showStatus = (job) => {
   updateRenderModalActions(job);
   statusText.className = "status-text workflow-modal__status";
   statusText.textContent =
-    job.status === "queued" && job.queuePosition > 0
-      ? `${statusLabels.queued} Позиция: ${job.queuePosition}`
-      : statusLabels[job.status] ?? job.status;
+    job.status === "preparing" && job.phase
+      ? job.phase
+      : job.status === "queued" && job.queuePosition > 0
+        ? `${statusLabels.queued} Позиция: ${job.queuePosition}`
+        : statusLabels[job.status] ?? job.status;
 
   if (job.status === "error") {
     statusText.classList.add("status-text--error");
@@ -4189,9 +4196,10 @@ btnRender.addEventListener("click", async () => {
 
     showStatus({
       ...data,
-      status: "queued",
+      status: data.status ?? "preparing",
       queuePosition: 0,
-      progress: 0,
+      progress: data.progress ?? 0.01,
+      phase: data.phase ?? "Подготовка…",
       renderedFrames: 0,
       encodedFrames: 0,
       totalFrames: 0,

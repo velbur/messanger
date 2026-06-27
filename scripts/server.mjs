@@ -1693,6 +1693,238 @@ const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
   }
 };
 
+const createRenderJobShell = ({
+  fileName,
+  inputPath,
+  inputRel,
+  outputPath,
+  outputRel,
+  outputFile,
+  dialogueId,
+  target,
+}) => {
+  const jobId = String(++jobCounter);
+  const nativeProjectRoot = process.env.NATIVE_PROJECT_ROOT?.trim() || ROOT;
+  const renderCommand = buildNativeRenderCommand({
+    projectRoot: nativeProjectRoot,
+    inputRel,
+    outputRel,
+  });
+
+  const job = {
+    id: jobId,
+    status: "preparing",
+    target,
+    fileName,
+    inputPath,
+    inputRel,
+    outputPath,
+    outputRel,
+    outputFile,
+    dialogueId: typeof dialogueId === "string" ? dialogueId : null,
+    conversation: null,
+    downloadUrl: null,
+    error: null,
+    logs: [],
+    progress: 0.01,
+    renderedFrames: 0,
+    encodedFrames: 0,
+    totalFrames: 0,
+    phase: "Подготовка…",
+    cancel: null,
+    prepCancelled: false,
+    renderCommand,
+    createdAt: Date.now(),
+  };
+
+  jobs.set(jobId, job);
+  pruneFinishedJobs();
+  return job;
+};
+
+const runRenderPreparation = async (
+  job,
+  {
+    conversation,
+    autoGenerateImages,
+    shouldGenerateVoice,
+    isStoryVisual,
+    pendingStoryVideos,
+    voiceoverEnabled,
+    publicBaseUrl,
+    rawWallpaper,
+    rawMusic,
+    dialogueId,
+    target,
+  },
+) => {
+  const fail = (message, logs = []) => {
+    job.status = "error";
+    job.error = message;
+    job.logs.push(...logs, message);
+    job.phase = null;
+  };
+
+  try {
+    if (job.prepCancelled) {
+      throw new Error("Отменено пользователем");
+    }
+
+    if (autoGenerateImages) {
+      job.phase = "Генерация изображений…";
+      job.progress = 0.05;
+      const imageGenLogs = await generateMissingConversationImages(conversation, {
+        provider: "openrouter",
+        imageNamespace: job.fileName,
+      });
+      job.logs.push(...imageGenLogs);
+    }
+
+    if (shouldGenerateVoice) {
+      job.phase = "Озвучка (OpenRouter)…";
+      job.progress = 0.1;
+      const voiceGenLogs = await generateMissingVoiceover(conversation, {
+        audioNamespace: job.fileName,
+      });
+      job.logs.push(...voiceGenLogs);
+    }
+
+    if (isStoryVisual && pendingStoryVideos > 0) {
+      if (!isOpenRouterConfigured()) {
+        throw new Error(
+          "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
+        );
+      }
+
+      const total = pendingStoryVideos;
+      job.phase = `Анимация story-кадров (0/${total})…`;
+      job.progress = 0.12;
+
+      const storyVideoLogs = await generateMissingStoryVideos(conversation, {
+        publicBaseUrl,
+        isCancelled: () => job.prepCancelled,
+        onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
+          const safeTotal = Math.max(clipTotal, 1);
+          if (stage === "polling") {
+            job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
+            job.progress = 0.12 + (done / safeTotal) * 0.38;
+            return;
+          }
+          if (stage === "generating") {
+            job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
+            job.progress = 0.12 + (done / safeTotal) * 0.38;
+            return;
+          }
+          job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
+          job.progress = 0.12 + (done / safeTotal) * 0.38;
+        },
+      });
+      job.logs.push(...storyVideoLogs);
+    }
+
+    job.phase = "Проверка ассетов…";
+    job.progress = 0.52;
+
+    const imageLogs = await resolveConversationImages(conversation, {
+      failOnMissingImages: !autoGenerateImages,
+    });
+    const voiceLogs = await resolveConversationVoiceover(conversation, {
+      failOnMissingVoice: voiceoverEnabled,
+    });
+    const storyVideoResolveLogs = isStoryVisual
+      ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
+      : [];
+
+    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
+
+    if (rawWallpaper === "default" || rawWallpaper === "dark") {
+      conversation.wallpaper = rawWallpaper;
+    }
+
+    if (rawMusic === "none") {
+      conversation.music = {...conversation.music, enabled: false};
+    } else if (rawMusic && typeof rawMusic === "string") {
+      const src = await resolveMusicSrc(rawMusic);
+      conversation.music = {
+        ...conversation.music,
+        enabled: true,
+        src,
+      };
+    }
+
+    await mkdir(JSON_DIR, {recursive: true});
+    await mkdir(OUT_DIR, {recursive: true});
+    await writeFile(job.inputPath, JSON.stringify(conversation, null, 2), "utf8");
+    job.logs.push(`JSON сохранён: ${job.inputRel}`);
+
+    if (dialogueId && typeof dialogueId === "string") {
+      updateDialogue(dialogueId, {
+        conversation,
+        wallpaper: conversation.wallpaper,
+        music: rawMusic ?? "",
+        outputFile: job.outputFile,
+      });
+    }
+
+    if (job.prepCancelled) {
+      throw new Error("Отменено пользователем");
+    }
+
+    if (target === "remote") {
+      job.phase = "Отправка ассетов на воркер…";
+      job.progress = 0.58;
+      job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
+      job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
+      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      if (conversation.voiceover?.enabled) {
+        job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
+        await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      }
+
+      job.phase = "Запуск рендера на воркере…";
+      job.progress = 0.62;
+      const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          json: JSON.stringify(conversation),
+          name: job.fileName,
+          target: "local",
+          autoGenerateVoiceover: false,
+        }),
+      });
+      const forwardData = await forwardResp.json().catch(() => ({}));
+      if (!forwardResp.ok) {
+        throw new Error(forwardData.error ?? `Воркер вернул ошибку (${forwardResp.status})`);
+      }
+
+      job.remote = true;
+      job.remoteUrl = REMOTE_RENDER_URL;
+      job.remoteJobId = forwardData.jobId;
+      job.outputRel = forwardData.outputPath ?? job.outputRel;
+      job.outputFile = forwardData.outputFile ?? job.outputFile;
+      job.status = forwardData.status ?? "queued";
+      job.phase = null;
+      job.progress = forwardData.progress ?? 0.65;
+      return;
+    }
+
+    job.conversation = conversation;
+    job.progress = 0.55;
+    job.phase = null;
+    enqueueRender(job.id);
+  } catch (error) {
+    if (job.prepCancelled) {
+      job.status = "cancelled";
+      job.error = "Отменено пользователем";
+      job.logs.push(job.error);
+      job.phase = null;
+      return;
+    }
+    fail(error instanceof Error ? error.message : String(error));
+  }
+};
+
 app.post("/api/render", async (req, res) => {
   try {
     await loadOpenRouterEnv();
@@ -1732,84 +1964,21 @@ app.post("/api/render", async (req, res) => {
       voiceoverEnabled &&
       (req.body?.autoGenerateVoiceover === true || pendingVoice > 0) &&
       isOpenRouterConfigured();
-    const imageGenLogs = autoGenerateImages
-      ? await generateMissingConversationImages(conversation, {
-          provider: "openrouter",
-          imageNamespace: fileName,
-        })
-      : [];
-    let voiceGenLogs = [];
+
     if (voiceoverEnabled && pendingVoice > 0 && !isOpenRouterConfigured()) {
       res.status(400).json({
         error:
           "Озвучка не готова: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
-        logs: voiceGenLogs,
       });
       return;
     }
-    if (shouldGenerateVoice) {
-      try {
-        voiceGenLogs = await generateMissingVoiceover(conversation, {audioNamespace: fileName});
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        res.status(400).json({
-          error: `Озвучка не готова: ${reason}`,
-          logs: voiceGenLogs,
-        });
-        return;
-      }
-    }
-    let storyVideoLogs = [];
-    if (isStoryVisual && pendingStoryVideos > 0) {
-      if (!isOpenRouterConfigured()) {
-        res.status(400).json({
-          error:
-            "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
-          logs: storyVideoLogs,
-        });
-        return;
-      }
-      try {
-        storyVideoLogs = await generateMissingStoryVideos(conversation, {
-          publicBaseUrl: getPublicBaseUrl(req),
-        });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        res.status(400).json({
-          error: `Story-видео не готово: ${reason}`,
-          logs: storyVideoLogs,
-        });
-        return;
-      }
-    }
-    const imageLogs = [
-      ...imageGenLogs,
-      ...(await resolveConversationImages(conversation, {
-        failOnMissingImages: !autoGenerateImages,
-      })),
-    ];
-    const voiceLogs = [
-      ...voiceGenLogs,
-      ...(await resolveConversationVoiceover(conversation, {
-        failOnMissingVoice: voiceoverEnabled,
-      })),
-    ];
-    const storyVideoResolveLogs = isStoryVisual
-      ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
-      : [];
-    if (rawWallpaper === "default" || rawWallpaper === "dark") {
-      conversation.wallpaper = rawWallpaper;
-    }
 
-    if (rawMusic === "none") {
-      conversation.music = {...conversation.music, enabled: false};
-    } else if (rawMusic && typeof rawMusic === "string") {
-      const src = await resolveMusicSrc(rawMusic);
-      conversation.music = {
-        ...conversation.music,
-        enabled: true,
-        src,
-      };
+    if (isStoryVisual && pendingStoryVideos > 0 && !isOpenRouterConfigured()) {
+      res.status(400).json({
+        error:
+          "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
+      });
+      return;
     }
 
     const inputRel = `json/${fileName}.json`;
@@ -1818,127 +1987,45 @@ app.post("/api/render", async (req, res) => {
     const inputPath = path.join(ROOT, inputRel);
     const outputPath = path.join(ROOT, outputRel);
 
-    await mkdir(JSON_DIR, {recursive: true});
-    await mkdir(OUT_DIR, {recursive: true});
-    await writeFile(inputPath, JSON.stringify(conversation, null, 2), "utf8");
-
-    if (dialogueId && typeof dialogueId === "string") {
-      updateDialogue(dialogueId, {
-        conversation,
-        wallpaper: conversation.wallpaper,
-        music: rawMusic ?? "",
-        outputFile,
-      });
-    }
-
-    const logs = [`JSON сохранён: ${inputRel}`, ...imageLogs, ...storyVideoLogs, ...storyVideoResolveLogs, ...voiceLogs];
-    const nativeProjectRoot = process.env.NATIVE_PROJECT_ROOT?.trim() || ROOT;
-    const renderCommand = buildNativeRenderCommand({
-      projectRoot: nativeProjectRoot,
-      inputRel,
-      outputRel,
-    });
-
-    if (target === "remote") {
-      logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
-      logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
-      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
-      if (conversation.voiceover?.enabled) {
-        logs.push("Озвучка: WAV с Mac отправляются на воркер");
-        await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, logs);
-      }
-
-      const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          json: JSON.stringify(conversation),
-          name: fileName,
-          target: "local",
-          autoGenerateVoiceover: false,
-        }),
-      });
-      const forwardData = await forwardResp.json().catch(() => ({}));
-      if (!forwardResp.ok) {
-        throw new Error(forwardData.error ?? `Воркер вернул ошибку (${forwardResp.status})`);
-      }
-
-      const jobId = String(++jobCounter);
-      const job = {
-        id: jobId,
-        status: "queued",
-        remote: true,
-        remoteUrl: REMOTE_RENDER_URL,
-        remoteJobId: forwardData.jobId,
-        fileName,
-        inputRel,
-        outputRel: forwardData.outputPath ?? outputRel,
-        outputFile: forwardData.outputFile ?? outputFile,
-        dialogueId: typeof dialogueId === "string" ? dialogueId : null,
-        downloadUrl: null,
-        localCopyStatus: null,
-        localCopyPromise: null,
-        error: null,
-        logs: [...logs],
-        renderCommand,
-        createdAt: Date.now(),
-      };
-      jobs.set(jobId, job);
-      pruneFinishedJobs();
-
-      res.json({
-        jobId,
-        fileName,
-        inputPath: inputRel,
-        outputPath: job.outputRel,
-        outputFile: job.outputFile,
-        dialogueId: job.dialogueId,
-        target: "remote",
-        renderCommand,
-        logs: job.logs,
-      });
-      return;
-    }
-
-    const jobId = String(++jobCounter);
-    const job = {
-      id: jobId,
-      status: "queued",
+    const job = createRenderJobShell({
       fileName,
       inputPath,
       inputRel,
       outputPath,
       outputRel,
       outputFile,
-      dialogueId: typeof dialogueId === "string" ? dialogueId : null,
-      conversation,
-      downloadUrl: null,
-      error: null,
-      logs: [...logs],
-      progress: 0,
-      renderedFrames: 0,
-      encodedFrames: 0,
-      totalFrames: 0,
-      phase: null,
-      cancel: null,
-      renderCommand,
-      createdAt: Date.now(),
-    };
+      dialogueId,
+      target,
+    });
 
-    jobs.set(jobId, job);
-    enqueueRender(jobId);
+    void runRenderPreparation(job, {
+      conversation,
+      autoGenerateImages,
+      shouldGenerateVoice,
+      isStoryVisual,
+      pendingStoryVideos,
+      voiceoverEnabled,
+      publicBaseUrl: getPublicBaseUrl(req),
+      rawWallpaper,
+      rawMusic,
+      dialogueId,
+      target,
+    });
 
     res.json({
-      jobId,
+      jobId: job.id,
+      status: job.status,
       fileName,
       inputPath: inputRel,
       outputPath: outputRel,
       outputFile,
       dialogueId: job.dialogueId,
-      target: "local",
-      renderCommand,
+      target,
+      renderCommand: job.renderCommand,
       renderConcurrency: getRenderConcurrency(),
       logs: job.logs,
+      phase: job.phase,
+      progress: job.progress,
     });
   } catch (error) {
     const message =
@@ -2024,7 +2111,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     renderCommand: job.renderCommand,
     renderConcurrency: getRenderConcurrency(),
     queuePosition: job.status === "queued" ? renderQueue.indexOf(job.id) + 1 : 0,
-    canCancel: job.status === "queued" || job.status === "running",
+    canCancel: job.status === "preparing" || job.status === "queued" || job.status === "running",
   });
 });
 
@@ -2126,6 +2213,15 @@ app.post("/api/jobs/:id/cancel", async (req, res) => {
         error: `Воркер недоступен: ${error instanceof Error ? error.message : String(error)}`,
       });
     }
+    return;
+  }
+
+  if (job.status === "preparing") {
+    job.prepCancelled = true;
+    job.status = "cancelled";
+    job.error = "Отменено пользователем";
+    job.logs.push(job.error);
+    res.json({ok: true, status: job.status});
     return;
   }
 
