@@ -13,7 +13,7 @@ export type PreviewCoverConfig = {
 export const DEFAULT_PREVIEW_COVER_MS = 3000;
 
 /** Маркер обложки в bundle — обновить в scripts/bundle-cache.mjs */
-export const PREVIEW_COVER_BUNDLE_MARKER = "preview-cover-v1";
+export const PREVIEW_COVER_BUNDLE_MARKER = "preview-cover-baked-v2";
 
 export const mergePreviewCover = (conversation: ConversationInput): PreviewCoverConfig => {
   const cover = conversation.previewCover;

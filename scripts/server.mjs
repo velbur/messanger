@@ -14,7 +14,12 @@ import {
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs} from "../src/chat/timeline.ts";
-import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
+import {
+  buildNativeRenderCommand,
+  getRenderConcurrency,
+  renderChatVideo,
+  renderPreviewCover,
+} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
 const isUserCancelledRender = (error) => {
@@ -1037,15 +1042,28 @@ app.post("/api/preview-cover", async (req, res) => {
       aspectRatio: "9:16",
     });
 
-    const refHint =
+    const finalRef =
       targetRef && typeof targetRef === "string" && !targetRef.startsWith("http")
-        ? targetRef
-        : undefined;
-    const publicPath = await saveImageBuffer(buffer, refHint);
-    const previewUrl = await buildImagePreviewUrl(publicPath);
+        ? targetRef.replace(/^\/+/, "")
+        : `images/preview-covers/preview-cover-${Date.now().toString(36)}.png`;
+    // Фон сохраняем во временный файл, затем запекаем поверх название ролика
+    const backgroundRef = finalRef.replace(/\.png$/i, "").concat(".src.png");
+    await saveImageBuffer(buffer, backgroundRef);
+
+    const finalAbs = path.join(PUBLIC_DIR, finalRef);
+    await renderPreviewCover({image: backgroundRef, title: coverTitle, outputPath: finalAbs});
+
+    // Подчищаем промежуточный фон — в видео и как превью нужен только готовый кадр
+    try {
+      await deletePublicImage(backgroundRef);
+    } catch {
+      /* ignore */
+    }
+
+    const previewUrl = await buildImagePreviewUrl(finalRef);
 
     res.json({
-      publicPath,
+      publicPath: finalRef,
       previewUrl,
       promptUsed: finalPrompt,
       title: coverTitle,

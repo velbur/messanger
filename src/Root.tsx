@@ -2,6 +2,7 @@ import React from "react";
 import {Composition} from "remotion";
 import {ChatVideo} from "./chat/ChatVideo";
 import {PHOTO_THUMBNAIL_MARKER, PhotoThumbnail} from "./chat/PhotoThumbnail";
+import {PreviewCoverArt, PREVIEW_COVER_ART_MARKER} from "./chat/components/PreviewCoverArt";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
@@ -15,7 +16,13 @@ type PhotoThumbnailProps = {
   image: string;
 };
 
+type PreviewCoverProps = {
+  image: string;
+  title: string;
+};
+
 void PHOTO_THUMBNAIL_MARKER;
+void PREVIEW_COVER_ART_MARKER;
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -50,6 +57,18 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={1}
         defaultProps={{
           image: "images/msg-15.png",
+        }}
+      />
+      <Composition
+        id="PreviewCover"
+        component={PreviewCoverArt as React.ComponentType<PreviewCoverProps>}
+        width={1080}
+        height={1920}
+        fps={FPS}
+        durationInFrames={1}
+        defaultProps={{
+          image: "images/msg-15.png",
+          title: "Заголовок ролика",
         }}
       />
     </>

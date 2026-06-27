@@ -124,6 +124,41 @@ export async function renderChatVideo({
 }
 
 /**
+ * Запечь обложку-превью: фон (картинка) + название ролика → готовый PNG.
+ * Текст рисуется тем же шрифтом (Inter + кириллица), что и в видео.
+ * @param {{
+ *   image: string,
+ *   title: string,
+ *   outputPath: string,
+ *   onBundleStatus?: (message: string) => void,
+ * }} opts
+ */
+export async function renderPreviewCover({image, title, outputPath, onBundleStatus}) {
+  const outputAbs = path.resolve(outputPath);
+  await mkdir(path.dirname(outputAbs), {recursive: true});
+
+  const bundleLocation = await getBundleLocation({onStatus: onBundleStatus ?? (() => {})});
+  const inputProps = {image, title: String(title ?? "")};
+
+  const composition = await selectComposition({
+    serveUrl: bundleLocation,
+    id: "PreviewCover",
+    inputProps,
+  });
+
+  await renderStill({
+    composition,
+    serveUrl: bundleLocation,
+    output: outputAbs,
+    inputProps,
+    frame: 0,
+    imageFormat: "png",
+  });
+
+  return outputAbs;
+}
+
+/**
  * @param {{
  *   conversation: object,
  *   outputPath: string,

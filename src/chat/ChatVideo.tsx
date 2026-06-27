@@ -475,7 +475,6 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         {previewCover.enabled ? (
           <PreviewCover
             image={previewCover.image}
-            title={previewCover.title}
             startFrame={timeline.previewCoverStartFrame}
             durationFrames={timeline.previewCoverDurationFrames}
           />
