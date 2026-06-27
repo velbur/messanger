@@ -97,9 +97,7 @@ const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
-const btnGenerateVoiceover = document.getElementById("btnGenerateVoiceover");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
-const voiceoverGenerateStatus = document.getElementById("voiceoverGenerateStatus");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
@@ -1906,7 +1904,7 @@ const applyVoiceoverToJson = () => {
     };
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
-  updateGenerateVoiceoverControls(parsed);
+  updateVoiceoverControls(parsed);
 };
 
 const countPendingVoiceover = (conversation) => {
@@ -1930,22 +1928,20 @@ const countPendingVoiceover = (conversation) => {
   return pending;
 };
 
-const updateGenerateVoiceoverControls = (conversation = null) => {
-  if (!btnGenerateVoiceover) {
+const updateVoiceoverControls = (conversation = null) => {
+  if (!voiceoverEnabled) {
     return;
   }
   const parsed = conversation ?? parseConversationJson();
   const pending = countPendingVoiceover(parsed);
-  const enabled = Boolean(parsed?.voiceover?.enabled);
-  btnGenerateVoiceover.disabled = !enabled || pending === 0 || !openrouterConfigured;
-  if (!enabled) {
-    btnGenerateVoiceover.title = "Включите озвучку в левой колонке";
-  } else if (!openrouterConfigured) {
-    btnGenerateVoiceover.title = "Задайте OPENROUTER_API_KEY в docs/.env";
-  } else if (pending === 0) {
-    btnGenerateVoiceover.title = "Все реплики с текстом уже озвучены";
+  if (!openrouterConfigured) {
+    voiceoverEnabled.title = "Нужен OPENROUTER_API_KEY в docs/.env";
+  } else if (voiceoverEnabled.checked && pending > 0) {
+    voiceoverEnabled.title = `При сборке озвучится ${pending} реплик${pending === 1 ? "а" : pending < 5 ? "и" : ""}`;
   } else {
-    btnGenerateVoiceover.title = `Озвучить ${pending} реплик${pending === 1 ? "у" : pending < 5 ? "и" : ""} (OpenRouter)`;
+    voiceoverEnabled.title = voiceoverEnabled.checked
+      ? "Озвучка при сборке видео (OpenRouter)"
+      : "";
   }
 };
 
@@ -1974,7 +1970,7 @@ const generateMissingVoiceover = async () => {
     syncVoiceoverFromJson();
     await refreshDialogue();
     updateGenerateImagesControls(data.conversation);
-    updateGenerateVoiceoverControls(data.conversation);
+    updateVoiceoverControls(data.conversation);
   }
   return data;
 };
@@ -2134,7 +2130,7 @@ const loadRenderTargets = async () => {
     renderTargetSelect.value = data.defaultTarget ?? "local";
     renderTargetRow.hidden = false;
     renderTargetSelect.addEventListener("change", () => {
-      updateGenerateVoiceoverControls();
+      updateVoiceoverControls();
     });
   } catch {
     renderTargetRow.hidden = true;
@@ -3523,11 +3519,11 @@ const refreshDialogue = async () => {
     syncVoiceoverFromJson();
     renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
-    updateGenerateVoiceoverControls(conversation);
+    updateVoiceoverControls(conversation);
   } catch {
     renderDialogueEditor(conversation, [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
-    updateGenerateVoiceoverControls(conversation);
+    updateVoiceoverControls(conversation);
   }
 };
 
@@ -4669,36 +4665,14 @@ btnGenerateImages?.addEventListener("click", async () => {
     }
   } finally {
     updateGenerateImagesControls();
-    updateGenerateVoiceoverControls();
-  }
-});
-
-btnGenerateVoiceover?.addEventListener("click", async () => {
-  btnGenerateVoiceover.disabled = true;
-  if (voiceoverGenerateStatus) {
-    voiceoverGenerateStatus.textContent =
-      getRenderTarget() === "remote"
-        ? "Озвучка… OpenRouter на воркере"
-        : "Озвучка… OpenRouter, может занять минуту";
-  }
-  try {
-    const data = await generateMissingVoiceover();
-    const lines = Array.isArray(data.logs) ? data.logs : [];
-    if (voiceoverGenerateStatus) {
-      voiceoverGenerateStatus.textContent = lines[lines.length - 1] ?? "Готово";
-    }
-  } catch (err) {
-    if (voiceoverGenerateStatus) {
-      voiceoverGenerateStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
-  } finally {
-    updateGenerateVoiceoverControls();
+    updateVoiceoverControls();
   }
 });
 
 voiceoverEnabled?.addEventListener("change", () => {
   applyVoiceoverToJson();
   scheduleRefreshDialogue();
+  updateVoiceoverControls();
 });
 
 const applyApiStatusToEditor = (data) => {
@@ -4719,7 +4693,7 @@ const applyApiStatusToEditor = (data) => {
   }
   updateImageProviderControls();
   updateGenerateImagesControls();
-  updateGenerateVoiceoverControls();
+  updateVoiceoverControls();
   updateDialogueGenerateControls();
   updateMessageRegenControls();
   updateLogicControls();
@@ -4935,7 +4909,7 @@ const loadOpenRouterStatus = async () => {
 
 loadOpenRouterStatus().then(() => {
   loadDialogueModels();
-  updateGenerateVoiceoverControls();
+  updateVoiceoverControls();
 });
 initEditorPreferenceControls();
 loadBrowseOnStartup();

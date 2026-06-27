@@ -258,6 +258,24 @@ body {
   margin-top: 12px;
 }
 
+.workflow-actions__voiceover {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 14px;
+  color: #aebac1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.workflow-actions__voiceover input {
+  accent-color: #00a884;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
 .workflow-actions__publish {
   display: inline-flex;
   align-items: center;
@@ -844,11 +862,6 @@ body.workflow-modal-open {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.row--voiceover {
-  border-top: 1px solid #2a3942;
-  padding-top: 14px;
 }
 
 .row--timing {

@@ -347,12 +347,6 @@
               </select>
             </div>
 
-            <div class="row row--voiceover" id="voiceoverPanel">
-              <label class="title-cards__row">
-                <input type="checkbox" id="voiceoverEnabled" />
-                <span>Озвучка реплик</span>
-              </label>
-            </div>
 
             <div class="row row--timing" id="conversationTimingPanel" hidden>
               <label class="label" for="timingSpeedInput">Скорость переписки</label>
@@ -398,6 +392,10 @@
                   Финал
                 </button>
                 <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
+                <label class="workflow-actions__voiceover" for="voiceoverEnabled">
+                  <input type="checkbox" id="voiceoverEnabled" />
+                  <span>Озвучка</span>
+                </label>
                 <span class="workflow-actions__publish">
                   <div class="publish-split" id="youtubePublishControl">
                     <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
@@ -424,11 +422,7 @@
                 <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
                   Сгенерировать изображения
                 </button>
-                <button type="button" id="btnGenerateVoiceover" class="btn btn-secondary" disabled>
-                  Озвучить
-                </button>
                 <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
-                <span id="voiceoverGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
             </div>
 
