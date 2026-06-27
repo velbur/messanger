@@ -69,21 +69,23 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
-/** Медленный монотонный zoom на hold — без пинг-понга (нет подёргивания) */
+/** Цикл лёгкого Ken Burns на hold (~9 с) — не зависит от длины сцены */
+export const STORY_VIDEO_HOLD_CYCLE_FRAMES = 9 * FPS;
+
+/** Плавное «дыхание» на hold: медленный zoom/pan без привязки к длине сцены */
 export const storyVideoHoldMotion = (
   directionSeed: string,
   holdLocalFrame: number,
-  holdDurationFrames: number,
 ): {scale: number; translateX: number; translateY: number} => {
-  const progress = sceneMotionProgress(holdLocalFrame, Math.max(1, holdDurationFrames));
+  const progress = sceneMotionLoopProgress(holdLocalFrame, STORY_VIDEO_HOLD_CYCLE_FRAMES);
   const {panX, panY} = motionVectors(directionSeed);
   return {
-    scale: interpolate(progress, [0, 1], [1, 1.028], {
+    scale: interpolate(progress, [0, 1], [1, 1.045], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     }),
-    translateX: progress * panX * 0.25,
-    translateY: progress * panY * 0.15,
+    translateX: progress * panX * 0.5,
+    translateY: progress * panY * 0.3,
   };
 };
 

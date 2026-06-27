@@ -45,10 +45,8 @@ export const StorySceneVideo: React.FC<Props> = ({
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
-  const holdFrames = Math.max(0, sceneDurationFrames - playFrames);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
-  const motionDurationFrames = Math.max(1, holdFrames + HOLD_CROSSFADE_FRAMES);
   const motionLocalFrame = Math.max(0, localFrame - crossfadeStart);
   const inCrossfade = localFrame >= crossfadeStart && localFrame < playFrames;
   const inHold = localFrame >= playFrames;
@@ -78,7 +76,7 @@ export const StorySceneVideo: React.FC<Props> = ({
 
   const motion =
     inCrossfade || inHold
-      ? storyVideoHoldMotion(video, motionLocalFrame, motionDurationFrames)
+      ? storyVideoHoldMotion(video, motionLocalFrame)
       : {scale: 1, translateX: 0, translateY: 0};
 
   return (
