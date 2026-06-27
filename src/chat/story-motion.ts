@@ -43,6 +43,12 @@ export const STORY_VIDEO_SOURCE_FPS = 24;
 export const storyVideoSourceFrameCount = (videoDurationMs?: number): number =>
   Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * STORY_VIDEO_SOURCE_FPS));
 
+/** Длительность одного цикла loop в кадрах композиции */
+export const storyVideoForwardDurationFrames = (
+  videoDurationMs: number | undefined,
+  compositionFps: number,
+): number => Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * compositionFps));
+
 /** Бесшовное зацикливание: кадр источника по локальному кадру сцены */
 export const storyVideoLoopFrame = (localFrame: number, videoDurationMs?: number): number => {
   const frameCount = storyVideoSourceFrameCount(videoDurationMs);

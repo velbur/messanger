@@ -7,10 +7,7 @@ import {
   staticFile,
   useVideoConfig,
 } from "remotion";
-import {
-  storyVideoLoopDurationMs,
-  storyVideoLoopPathForVideo,
-} from "../story-video-paths";
+import {storyVideoForwardDurationFrames} from "../story-motion";
 
 type Props = {
   video: string;
@@ -26,11 +23,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneDurationFrames,
 }) => {
   const {fps} = useVideoConfig();
-  const loopVideo = storyVideoLoopPathForVideo(video);
-  const loopDurationFrames = Math.max(
-    2,
-    Math.round((storyVideoLoopDurationMs(videoDurationMs) / 1000) * fps),
-  );
+  const loopDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
 
   return (
     <Sequence
@@ -42,7 +35,7 @@ export const StorySceneVideo: React.FC<Props> = ({
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
         <Loop durationInFrames={loopDurationFrames}>
           <OffthreadVideo
-            src={staticFile(loopVideo)}
+            src={staticFile(video)}
             muted
             style={{
               width: "100%",

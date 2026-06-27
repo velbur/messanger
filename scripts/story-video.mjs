@@ -8,7 +8,6 @@ import {isStoryVisualLayout} from "./image-assets.mjs";
 import {generateImageToVideoFile, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
 import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
-import {ensureStoryVideoLoopFiles, collectStoryVideoLoopRefs} from "./story-video-loop.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -161,8 +160,6 @@ export const resolveStoryVideos = async (
     }
   }
 
-  await ensureStoryVideoLoopFiles(collectStoryVideoRefs(conversation), {logs});
-
   return logs;
 };
 
@@ -266,8 +263,6 @@ export const generateMissingStoryVideos = async (
     logs.push("Все story-кадры уже анимированы");
   }
 
-  await ensureStoryVideoLoopFiles(collectStoryVideoRefs(conversation), {logs});
-
   return logs;
 };
 
@@ -291,7 +286,5 @@ export const collectStoryVideoRefs = (conversation) => {
 
   return [...refs];
 };
-
-export {collectStoryVideoLoopRefs} from "./story-video-loop.mjs";
 
 export {PUBLIC_DIR};

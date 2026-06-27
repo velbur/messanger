@@ -4,9 +4,7 @@ import {parseConversation} from "../src/chat/schema.ts";
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
-import {assignStorySfxIfNeeded, resolveStorySfxFiles, stripStorySfxFromConversation} from "./story-sfx.mjs";
-import {buildStorySfxMix} from "./story-sfx-mix.mjs";
-import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
+import {stripStorySfxFromConversation} from "./story-sfx.mjs";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
@@ -30,25 +28,13 @@ const run = async () => {
   const conversation = parseConversation(JSON.parse(rawInput));
   await resolveConversationImages(conversation, {failOnMissingImages: true});
   if (isStoryVisualLayout(conversation)) {
+    stripStorySfxFromConversation(conversation);
     if (isOpenRouterConfigured()) {
       await generateMissingStoryVideos(conversation, {
         publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),
       });
     }
     await resolveStoryVideos(conversation, {failOnMissingVideos: true});
-    const storySfxEnabled = mergeStorySfxConfig(conversation).enabled;
-    if (storySfxEnabled) {
-      await assignStorySfxIfNeeded(conversation, {force: true});
-      await resolveStorySfxFiles(conversation, {failOnMissing: true});
-      const mixRef = await buildStorySfxMix(conversation, {
-        namespace: path.basename(inputAbs, path.extname(inputAbs)),
-      });
-      if (mixRef) {
-        console.log(`SFX-mix: ${mixRef}`);
-      }
-    } else if (conversation.story) {
-      stripStorySfxFromConversation(conversation);
-    }
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }
   assertVoiceoverReadyForRender(conversation);

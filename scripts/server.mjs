@@ -76,15 +76,8 @@ import {
   resolveStoryVideos,
 } from "./story-video.mjs";
 import {
-  assignStorySfxIfNeeded,
-  needsStorySfxAssignment,
-  collectStorySfxRefs,
-  resolveStorySfxFiles,
-  syncStorySfxToRemote,
   stripStorySfxFromConversation,
 } from "./story-sfx.mjs";
-import {buildStorySfxMix} from "./story-sfx-mix.mjs";
-import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {
   generateDialogue,
@@ -1836,20 +1829,7 @@ const runRenderPreparation = async (
       job.logs.push(...storyVideoLogs);
     }
 
-    const storySfxEnabled = mergeStorySfxConfig(conversation).enabled;
-
-    if (isStoryVisual && storySfxEnabled) {
-      job.phase = "Подбор звуков story-сцен…";
-      job.progress = 0.48;
-      const storySfxLogs = await assignStorySfxIfNeeded(conversation, {
-        force: needsStorySfxAssignment(conversation),
-      });
-      job.logs.push(...storySfxLogs);
-      const sfxRefs = collectStorySfxRefs(conversation);
-      if (sfxRefs.length > 0) {
-        job.logs.push(`SFX в ролике: ${sfxRefs.map((ref) => path.basename(ref, ".wav")).join(", ")}`);
-      }
-    } else if (isStoryVisual) {
+    if (isStoryVisual) {
       stripStorySfxFromConversation(conversation);
     }
 
@@ -1873,25 +1853,8 @@ const runRenderPreparation = async (
     const storyVideoResolveLogs = isStoryVisual
       ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
       : [];
-    const storySfxResolveLogs =
-      isStoryVisual && storySfxEnabled
-        ? await resolveStorySfxFiles(conversation, {failOnMissing: true})
-        : [];
 
-    if (isStoryVisual && storySfxEnabled) {
-      try {
-        const mixRef = await buildStorySfxMix(conversation, {namespace: job.fileName});
-        if (mixRef) {
-          job.logs.push(`SFX-mix: ${mixRef}`);
-        }
-      } catch (error) {
-        throw new Error(
-          `SFX-mix: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-
-    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...storySfxResolveLogs, ...voiceLogs);
+    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
 
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
@@ -1937,14 +1900,6 @@ const runRenderPreparation = async (
       job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
-      if (storySfxEnabled) {
-        await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
-      }
-      if (storySfxEnabled && conversation.story?.sfxMix) {
-        job.logs.push(
-          `SFX-mix (${conversation.story.sfxMix}): соберётся на воркере при prep — WAV не отправляем`,
-        );
-      }
       if (conversation.voiceover?.enabled) {
         job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
