@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Easing,
   Img,
   OffthreadVideo,
   Sequence,
@@ -25,8 +26,8 @@ type Props = {
   sceneDurationFrames: number;
 };
 
-/** Видео поверх hold-PNG гаснет за 6 кадров; hold с zoom сразу под ним */
-const VIDEO_FADE_OUT_FRAMES = 6;
+/** Плавный crossfade: видео 1→0, hold+zoom 0→1 */
+const HOLD_CROSSFADE_FRAMES = 15;
 
 const baseCoverStyle: React.CSSProperties = {
   width: "100%",
@@ -57,25 +58,29 @@ export const StorySceneVideo: React.FC<Props> = ({
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
-  const holdStart = Math.max(0, playFrames - VIDEO_FADE_OUT_FRAMES);
-  const holdLocalFrame = Math.max(0, localFrame - holdStart);
-  const inHoldPhase = localFrame >= holdStart;
+  const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
+  const inCrossfadeOrHold = localFrame >= crossfadeStart;
+  const holdLocalFrame = Math.max(0, localFrame - crossfadeStart);
 
-  const videoOpacity =
-    !inHoldPhase
-      ? 1
+  const crossfadeProgress =
+    localFrame < crossfadeStart
+      ? 0
       : localFrame < playFrames
-        ? interpolate(localFrame, [holdStart, playFrames], [1, 0], {
+        ? interpolate(localFrame, [crossfadeStart, playFrames], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
+            easing: Easing.inOut(Easing.quad),
           })
-        : 0;
+        : 1;
 
-  const sourceFrame = inHoldPhase
+  const videoOpacity = 1 - crossfadeProgress;
+  const holdOpacity = crossfadeProgress;
+
+  const sourceFrame = inCrossfadeOrHold
     ? lastSourceFrame
     : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
 
-  const motion = inHoldPhase
+  const motion = inCrossfadeOrHold
     ? storyVideoHoldMotion(video, holdLocalFrame)
     : {scale: 1, translateX: 0, translateY: 0};
 
@@ -87,22 +92,20 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        {inHoldPhase ? (
-          <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, 1)} />
+        {holdOpacity > 0 ? (
+          <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
         ) : null}
-        {localFrame < playFrames && videoOpacity > 0 ? (
-          <AbsoluteFill style={{opacity: videoOpacity}}>
-            <OffthreadVideo
-              src={staticFile(video)}
-              muted
-              startFrom={sourceFrame}
-              style={
-                inHoldPhase
-                  ? withMotionStyle(motion, 1)
-                  : baseCoverStyle
-              }
-            />
-          </AbsoluteFill>
+        {videoOpacity > 0 && localFrame < playFrames ? (
+          <OffthreadVideo
+            src={staticFile(video)}
+            muted
+            startFrom={sourceFrame}
+            style={
+              inCrossfadeOrHold
+                ? withMotionStyle(motion, videoOpacity)
+                : {...baseCoverStyle, opacity: videoOpacity}
+            }
+          />
         ) : null}
       </AbsoluteFill>
     </Sequence>
