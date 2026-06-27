@@ -69,31 +69,36 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
-/** За ~5 с до ~8.5% zoom; дальше медленный drift */
-export const STORY_VIDEO_HOLD_RAMP_FRAMES = 5 * FPS;
+/**
+ * Непрерывный Ken Burns на всю story-сцену (видео + hold-кадр).
+ * Зум идёт с первого кадра, поэтому когда Veo-клип «замирает» в конце,
+ * камера продолжает плавно наезжать — нет ощущения паузы.
+ */
+export const STORY_VIDEO_ZOOM_RAMP_FRAMES = 12 * FPS;
 
-export const storyVideoHoldMotion = (
+export const storyVideoSceneMotion = (
   directionSeed: string,
-  holdLocalFrame: number,
+  sceneLocalFrame: number,
 ): {scale: number; translateX: number; translateY: number} => {
   const {panX, panY} = motionVectors(directionSeed);
   const seed = hashSeed(directionSeed);
-  const t = holdLocalFrame / FPS;
-  const progress = sceneMotionProgress(holdLocalFrame, STORY_VIDEO_HOLD_RAMP_FRAMES);
-  const rampScale = interpolate(progress, [0, 1], [1.035, 1.085], {
+  const t = sceneLocalFrame / FPS;
+  // cinematicEase — быстрый старт, поэтому движение заметно уже в первые секунды
+  const progress = sceneMotionProgress(sceneLocalFrame, STORY_VIDEO_ZOOM_RAMP_FRAMES);
+  const rampScale = interpolate(progress, [0, 1], [1.0, 1.1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const extraDrift = Math.min(
-    0.028,
-    (Math.max(0, holdLocalFrame - STORY_VIDEO_HOLD_RAMP_FRAMES) / (20 * FPS)) * 0.028,
+    0.04,
+    (Math.max(0, sceneLocalFrame - STORY_VIDEO_ZOOM_RAMP_FRAMES) / (30 * FPS)) * 0.04,
   );
-  const breathe = 0.018 * Math.sin(t * 0.85 + seed * 0.013);
-  const panPhase = t * 0.68 + seed * 0.019;
+  const breathe = 0.01 * Math.sin(t * 0.6 + seed * 0.013);
+  const panPhase = t * 0.5 + seed * 0.019;
   return {
     scale: rampScale + extraDrift + breathe,
-    translateX: panX * (0.85 * Math.sin(panPhase) + progress * 1.05),
-    translateY: panY * (0.55 * Math.cos(panPhase * 0.9) + progress * 0.7),
+    translateX: panX * (progress * 1.6 + 0.5 * Math.sin(panPhase)),
+    translateY: panY * (progress * 1.0 + 0.32 * Math.cos(panPhase * 0.9)),
   };
 };
 

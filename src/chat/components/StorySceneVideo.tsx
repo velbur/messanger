@@ -12,7 +12,7 @@ import {
 } from "remotion";
 import {
   storyVideoForwardDurationFrames,
-  storyVideoHoldMotion,
+  storyVideoSceneMotion,
   storyVideoSourceFrameAtPlayFrame,
   storyVideoSourceFrameCount,
 } from "../story-motion";
@@ -26,8 +26,8 @@ type Props = {
   sceneDurationFrames: number;
 };
 
-/** Hold плавно накрывает видео сверху (видео не гасим — иначе чёрный кадр в OffthreadVideo) */
-const HOLD_CROSSFADE_FRAMES = 18;
+/** Hold-кадр плавно проявляется поверх замершего видео (видео не гасим — иначе чёрный кадр) */
+const HOLD_CROSSFADE_FRAMES = 12;
 
 const baseCoverStyle: React.CSSProperties = {
   width: "100%",
@@ -59,9 +59,10 @@ export const StorySceneVideo: React.FC<Props> = ({
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
-  const inCrossfadeOrHold = localFrame >= crossfadeStart;
-  const holdLocalFrame = Math.max(0, localFrame - crossfadeStart);
   const showVideo = localFrame < playFrames;
+
+  // Зум идёт непрерывно через всю сцену — поэтому паузы при замирании клипа нет
+  const motion = storyVideoSceneMotion(video, localFrame);
 
   const holdOpacity =
     localFrame < crossfadeStart
@@ -70,21 +71,18 @@ export const StorySceneVideo: React.FC<Props> = ({
         ? interpolate(localFrame, [crossfadeStart, playFrames], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.out(Easing.quad),
+            easing: Easing.inOut(Easing.quad),
           })
         : 1;
 
-  const sourceFrame = inCrossfadeOrHold
-    ? lastSourceFrame
-    : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
-
-  const motion = inCrossfadeOrHold
-    ? storyVideoHoldMotion(video, holdLocalFrame)
-    : {scale: 1, translateX: 0, translateY: 0};
+  const sourceFrame =
+    localFrame >= crossfadeStart
+      ? lastSourceFrame
+      : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
 
   return (
     <Sequence
-      key={`hold-${video}-${sceneStartFrame}`}
+      key={`scene-${video}-${sceneStartFrame}`}
       from={sceneStartFrame}
       durationInFrames={sceneDurationFrames}
       layout="none"
@@ -95,16 +93,11 @@ export const StorySceneVideo: React.FC<Props> = ({
             src={staticFile(video)}
             muted
             startFrom={sourceFrame}
-            style={
-              inCrossfadeOrHold ? withMotionStyle(motion, 1) : baseCoverStyle
-            }
+            style={withMotionStyle(motion, 1)}
           />
         ) : null}
-        {/* Всегда в дереве — preload; opacity 0 до crossfade */}
-        <Img
-          src={staticFile(holdFrame)}
-          style={withMotionStyle(motion, holdOpacity)}
-        />
+        {/* Всегда в дереве для preload; виден только с crossfade */}
+        <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
       </AbsoluteFill>
     </Sequence>
   );

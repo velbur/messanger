@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-video-hold-overlay-v9";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-video-continuous-zoom-v10";
 
 export type StorySceneAnimation = "video" | "none";
 
