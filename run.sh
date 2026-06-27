@@ -198,6 +198,9 @@ cmd_build() {
   local lock_hash
   lock_hash="$(lock_file_hash)"
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
+  if [[ "$CONTAINER" == podman ]]; then
+    echo "Podman: если npm ci падает с OOM — podman machine set --memory 8192 && podman machine stop && podman machine start"
+  fi
   "$CONTAINER" build \
     --build-arg "LOCK_HASH=${lock_hash}" \
     -t "$IMAGE" .

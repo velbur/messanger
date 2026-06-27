@@ -1,10 +1,14 @@
 FROM node:22-bookworm-slim
 
 # Chromium (Remotion headless) + ffmpeg + шрифты (в т.ч. кириллица)
+# python3/make/g++ — запасной путь, если prebuilt-бинарники sharp/onnx не подойдут
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     wget \
+    python3 \
+    make \
+    g++ \
     fonts-dejavu-core \
     fonts-noto-core \
     fonts-noto-color-emoji \
@@ -43,10 +47,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+ENV NODE_OPTIONS=--max-old-space-size=4096
+ENV NPM_CONFIG_FETCH_RETRIES=5
+ENV NPM_CONFIG_FETCH_TIMEOUT=300000
+ENV NPM_CONFIG_MAXSOCKETS=2
+
 COPY package.json package-lock.json ./
 ARG LOCK_HASH=unknown
 LABEL lock_hash=$LOCK_HASH
-RUN npm ci --no-audit --no-fund
+RUN npm cache clean --force \
+  && npm ci --no-audit --no-fund \
+  || (echo "npm ci failed — retry after cache clean" \
+      && npm cache clean --force \
+      && npm ci --no-audit --no-fund)
 
 COPY . .
 
