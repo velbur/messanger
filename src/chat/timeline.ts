@@ -93,6 +93,7 @@ export type StoryTimeline = {
   sfxMasterVolume: number;
   /** Premix всех story-SFX для Remotion */
   sfxMixSrc?: string;
+  sfxEnabled: boolean;
   /** Первое сообщение со story-кадром — без отдельной заставки opening */
   immediateFirstScene: boolean;
   sceneEvents: StorySceneTimelineEvent[];
@@ -246,6 +247,7 @@ const buildStoryTimeline = (
     openingSfx: [],
     sfxMasterVolume: 1,
     sfxMixSrc: undefined,
+    sfxEnabled: false,
     immediateFirstScene: false,
     sceneEvents: [],
   };
@@ -346,6 +348,7 @@ const buildStoryTimeline = (
     sfxMixSrc: sfxConfig.enabled
       ? conversation.story?.sfxMix?.trim() || undefined
       : undefined,
+    sfxEnabled: sfxConfig.enabled,
     immediateFirstScene,
     sceneEvents,
   };

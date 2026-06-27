@@ -253,7 +253,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     voiceFrameRanges.some((range) => f >= range.start && f < range.end);
 
   const storySfxActiveAtFrame = (f: number): boolean => {
-    if (!story.enabled) {
+    if (!story.enabled || !story.sfxEnabled) {
       return false;
     }
     if (
@@ -268,7 +268,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   };
 
   const storyAmbienceAtFrame = (f: number): boolean => {
-    if (!story.enabled) {
+    if (!story.enabled || !story.sfxEnabled) {
       return false;
     }
     const inOpening =
@@ -479,11 +479,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
         ) : null}
 
-        {story.enabled && story.sfxMixSrc ? (
+        {story.enabled && story.sfxEnabled && story.sfxMixSrc ? (
           <Audio src={staticFile(story.sfxMixSrc)} volume={0.8} />
         ) : null}
 
-        {story.enabled && !story.sfxMixSrc && story.openingSfx.length > 0 ? (
+        {story.enabled && story.sfxEnabled && !story.sfxMixSrc && story.openingSfx.length > 0 ? (
           <StorySfxLayer
             keyPrefix="opening-sfx"
             cues={story.openingSfx}
@@ -493,7 +493,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           />
         ) : null}
 
-        {story.enabled && !story.sfxMixSrc
+        {story.enabled && story.sfxEnabled && !story.sfxMixSrc
           ? story.sceneEvents.map((scene) =>
               scene.sfx.length > 0 ? (
                 <StorySfxLayer

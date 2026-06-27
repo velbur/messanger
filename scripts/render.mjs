@@ -4,7 +4,7 @@ import {parseConversation} from "../src/chat/schema.ts";
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
-import {assignStorySfxIfNeeded, resolveStorySfxFiles} from "./story-sfx.mjs";
+import {assignStorySfxIfNeeded, resolveStorySfxFiles, stripStorySfxFromConversation} from "./story-sfx.mjs";
 import {buildStorySfxMix} from "./story-sfx-mix.mjs";
 import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
@@ -47,7 +47,7 @@ const run = async () => {
         console.log(`SFX-mix: ${mixRef}`);
       }
     } else if (conversation.story) {
-      delete conversation.story.sfxMix;
+      stripStorySfxFromConversation(conversation);
     }
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }

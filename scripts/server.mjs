@@ -81,6 +81,7 @@ import {
   collectStorySfxRefs,
   resolveStorySfxFiles,
   syncStorySfxToRemote,
+  stripStorySfxFromConversation,
 } from "./story-sfx.mjs";
 import {buildStorySfxMix} from "./story-sfx-mix.mjs";
 import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
@@ -1848,8 +1849,8 @@ const runRenderPreparation = async (
       if (sfxRefs.length > 0) {
         job.logs.push(`SFX в ролике: ${sfxRefs.map((ref) => path.basename(ref, ".wav")).join(", ")}`);
       }
-    } else if (isStoryVisual && conversation.story) {
-      delete conversation.story.sfxMix;
+    } else if (isStoryVisual) {
+      stripStorySfxFromConversation(conversation);
     }
 
     if (isStoryVisual) {

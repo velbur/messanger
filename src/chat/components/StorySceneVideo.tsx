@@ -3,10 +3,15 @@ import {
   AbsoluteFill,
   Loop,
   OffthreadVideo,
+  Series,
   Sequence,
   staticFile,
   useVideoConfig,
 } from "remotion";
+import {
+  storyVideoForwardDurationFrames,
+  storyVideoSourceFrameCount,
+} from "../story-motion";
 
 type Props = {
   video: string;
@@ -22,10 +27,9 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneDurationFrames,
 }) => {
   const {fps} = useVideoConfig();
-  const loopDurationFrames = Math.max(
-    2,
-    Math.round(((videoDurationMs ?? 4000) / 1000) * fps),
-  );
+  const sourceFrameCount = storyVideoSourceFrameCount(videoDurationMs);
+  const forwardDuration = storyVideoForwardDurationFrames(videoDurationMs, fps);
+  const pingPongPeriod = forwardDuration * 2;
 
   return (
     <Sequence
@@ -35,16 +39,33 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <Loop durationInFrames={loopDurationFrames}>
-          <OffthreadVideo
-            src={staticFile(video)}
-            muted
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
+        <Loop durationInFrames={pingPongPeriod}>
+          <Series>
+            <Series.Sequence durationInFrames={forwardDuration}>
+              <OffthreadVideo
+                src={staticFile(video)}
+                muted
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            </Series.Sequence>
+            <Series.Sequence durationInFrames={forwardDuration}>
+              <OffthreadVideo
+                src={staticFile(video)}
+                muted
+                startFrom={sourceFrameCount - 1}
+                playbackRate={-1}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            </Series.Sequence>
+          </Series>
         </Loop>
       </AbsoluteFill>
     </Sequence>

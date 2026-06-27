@@ -424,6 +424,23 @@ export const assignStorySfxIfNeeded = async (conversation, {force = false} = {})
   return logs;
 };
 
+export const stripStorySfxFromConversation = (conversation) => {
+  if (!conversation.story) {
+    return;
+  }
+  delete conversation.story.sfxMix;
+  if (conversation.story.opening) {
+    delete conversation.story.opening.storySfx;
+  }
+  if (!conversation.story.sfx) {
+    conversation.story.sfx = {};
+  }
+  conversation.story.sfx.enabled = false;
+  for (const message of conversation.messages ?? []) {
+    delete message.storySfx;
+  }
+};
+
 export const collectStorySfxRefs = (conversation) => {
   const ids = new Set();
   const opening = conversation.story?.opening?.storySfx ?? [];
