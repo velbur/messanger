@@ -61,10 +61,41 @@ const mimeForImagePath = (absolutePath) => {
   return "image/jpeg";
 };
 
+/** OpenRouter не скачивает localhost и приватные IP — только публичные URL */
+export const isOpenRouterFetchableImageUrl = (url) => {
+  try {
+    const parsed = new URL(String(url).trim());
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return false;
+    }
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host.endsWith(".local")
+    ) {
+      return false;
+    }
+    if (
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+      /^169\.254\./.test(host)
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /** Публичный URL или data URL для OpenRouter frame_images */
 export const resolveFrameImageUrl = async ({imageAbsolutePath, imagePublicUrl}) => {
-  if (imagePublicUrl?.trim()) {
-    return imagePublicUrl.trim();
+  const candidate = String(imagePublicUrl ?? "").trim();
+  if (candidate && isOpenRouterFetchableImageUrl(candidate)) {
+    return candidate;
   }
   const buffer = await readFile(imageAbsolutePath);
   const mime = mimeForImagePath(imageAbsolutePath);
