@@ -13,7 +13,7 @@ import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
 const execFileAsync = promisify(execFile);
 
 /** Исходные WAV из sfx:generate очень тихие (~−37 dB); mystic.mp3 ~0 dB */
-const SFX_MIX_LINEAR_GAIN = 55;
+const SFX_MIX_LINEAR_GAIN = 20;
 
 /** @typedef {{ wavPath: string, startSec: number, durationSec: number, volume: number, loop: boolean }} SfxMixEvent */
 

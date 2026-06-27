@@ -11,8 +11,8 @@ import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
 import {mergeConversationVoiceover} from "./voiceover";
 import {
-  activeStorySceneAtFrame,
   buildTimeline,
+  resolveStorySceneTiming,
   FULLSCREEN_TIMELINE_REV,
   getStatusBarTime,
   storyImageAtFrame,
@@ -288,12 +288,10 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     if (voiceover.enabled && isVoiceActiveAtFrame(f)) {
       volume *= voiceover.musicDuck;
     }
-    if (story.enabled && story.sfxMixSrc) {
-      volume *= 0.22;
-    } else if (storySfxActiveAtFrame(f)) {
-      volume *= 0.42;
+    if (storySfxActiveAtFrame(f)) {
+      volume *= 0.55;
     } else if (storyAmbienceAtFrame(f)) {
-      volume *= 0.7;
+      volume *= 0.75;
     }
     return volume;
   };
@@ -379,21 +377,9 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const currentStoryVideoDurationMs = storyVisualActive
     ? storyVideoDurationMsAtFrame(story, frame)
     : undefined;
-  const activeScene = storyVisualActive ? activeStorySceneAtFrame(story, frame) : undefined;
-  const sceneStartFrame = story.immediateFirstScene
-    ? (activeScene?.startFrame ??
-        story.sceneEvents.find((event) => event.messageIndex === 0)?.startFrame ??
-        story.openingStartFrame)
-    : frame < story.splitCompleteFrame
-      ? story.openingStartFrame
-      : (activeScene?.startFrame ?? story.splitCompleteFrame);
-  const sceneEndFrame = story.immediateFirstScene
-    ? (activeScene?.endFrame ??
-        story.sceneEvents.find((event) => event.messageIndex === 0)?.endFrame ??
-        timeline.outroStartFrame)
-    : frame < story.splitCompleteFrame
-      ? story.splitCompleteFrame
-      : (activeScene?.endFrame ?? timeline.outroStartFrame);
+  const {startFrame: sceneStartFrame, endFrame: sceneEndFrame} = storyVisualActive
+    ? resolveStorySceneTiming(story, frame, timeline.outroStartFrame)
+    : {startFrame: 0, endFrame: timeline.outroStartFrame};
   const sceneLocalFrame = Math.max(0, frame - sceneStartFrame);
   const sceneDurationFrames = Math.max(1, sceneEndFrame - sceneStartFrame);
 
@@ -494,7 +480,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         ) : null}
 
         {story.enabled && story.sfxMixSrc ? (
-          <Audio src={staticFile(story.sfxMixSrc)} volume={1} />
+          <Audio src={staticFile(story.sfxMixSrc)} volume={0.8} />
         ) : null}
 
         {story.enabled && !story.sfxMixSrc && story.openingSfx.length > 0 ? (

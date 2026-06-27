@@ -370,6 +370,64 @@ export const activeStorySceneAtFrame = (
   return active[active.length - 1];
 };
 
+/** Окно Sequence для story-видео/анимации — совпадает с тем, что реально на экране */
+export const resolveStorySceneTiming = (
+  story: StoryTimeline,
+  frame: number,
+  outroStartFrame: number,
+): {startFrame: number; endFrame: number} => {
+  if (!story.enabled) {
+    return {startFrame: 0, endFrame: outroStartFrame};
+  }
+
+  if (story.immediateFirstScene) {
+    const scene =
+      activeStorySceneAtFrame(story, frame) ??
+      story.sceneEvents.find((event) => event.messageIndex === 0);
+    return {
+      startFrame: scene?.startFrame ?? story.openingStartFrame,
+      endFrame: scene?.endFrame ?? outroStartFrame,
+    };
+  }
+
+  const activeScene = activeStorySceneAtFrame(story, frame);
+  if (activeScene) {
+    return {startFrame: activeScene.startFrame, endFrame: activeScene.endFrame};
+  }
+
+  const firstStoryScene = story.sceneEvents[0];
+  const firstSceneStart = firstStoryScene?.startFrame ?? outroStartFrame;
+
+  if (frame < firstSceneStart && (story.openingVideo || story.openingImage)) {
+    return {startFrame: story.openingStartFrame, endFrame: firstSceneStart};
+  }
+
+  const lastSceneBefore = [...story.sceneEvents]
+    .reverse()
+    .find((event) => frame >= event.startFrame);
+  if (lastSceneBefore) {
+    const nextScene = story.sceneEvents.find(
+      (event) => event.startFrame > lastSceneBefore.startFrame,
+    );
+    return {
+      startFrame: lastSceneBefore.startFrame,
+      endFrame: nextScene?.startFrame ?? outroStartFrame,
+    };
+  }
+
+  if (frame < story.splitCompleteFrame) {
+    return {
+      startFrame: story.openingStartFrame,
+      endFrame: story.splitCompleteFrame,
+    };
+  }
+
+  return {
+    startFrame: story.splitCompleteFrame,
+    endFrame: outroStartFrame,
+  };
+};
+
 const firstSceneMedia = (story: StoryTimeline) =>
   story.sceneEvents.find((event) => event.messageIndex === 0);
 
