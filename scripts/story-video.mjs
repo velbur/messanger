@@ -3,18 +3,20 @@ import path from "node:path";
 import {
   OPENROUTER_STORY_VIDEO_PROFILE,
   storyVideoPathForImage,
+  storyVideoSeamlessPathForVideo,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {generateImageToVideoFile, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
 import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {resolveStoryVideoLoop} from "../src/chat/story-video-mode.ts";
+import {ensureStoryVideoSeamlessFile} from "./story-video-seamless.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 const LOOP_MOTION_PROMPT =
-  "Subtle cinematic ambient motion designed to loop seamlessly: the last frame must closely match the first frame. Gentle cyclical movement only (breathing light, rain, flicker, sway, smoke drift). No linear travel forward or backward through the scene.";
+  "Very subtle ambient motion that forms a perfect seamless loop: the final frame must be visually identical to the first frame (same pose, light, smoke, rain position). Only tiny cyclical effects — breathing light, flicker, gentle sway. Absolutely no camera travel, zoom, or drift forward/backward.";
 
 const HOLD_MOTION_PROMPT =
   "Subtle cinematic motion over a few seconds: one smooth camera move or ambient effect that completes naturally. End on a stable, composed final frame suitable to hold still afterward. No return to the starting pose.";
@@ -158,6 +160,11 @@ export const resolveStoryVideos = async (
       if (!existsSync(absolute)) {
         throw new Error("файл не найден");
       }
+      const videoLoop = resolveStoryVideoLoop(
+        target.holder?.storyVideoLoop,
+        target.imagePrompt,
+      );
+      await ensureStoryVideoSeamlessFile(videoRef, videoLoop, logs);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const errorText = `Story-видео (${target.label}): ${reason} (${videoRef})`;
@@ -249,6 +256,7 @@ export const generateMissingStoryVideos = async (
       target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
       target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
       target.holder.storyVideoLoop = videoLoop;
+      await ensureStoryVideoSeamlessFile(target.holder.storyVideo, videoLoop, logs);
       generated += 1;
       logs.push(
         `Story-видео (${target.label}, OpenRouter/${result.model}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
@@ -298,6 +306,13 @@ export const collectStoryVideoRefs = (conversation) => {
   add(conversation?.story?.opening?.storyVideo);
   for (const message of conversation?.messages ?? []) {
     add(message?.storyVideo);
+  }
+
+  for (const ref of [...refs]) {
+    const seamless = storyVideoSeamlessPathForVideo(ref);
+    if (existsSync(path.join(PUBLIC_DIR, seamless))) {
+      refs.add(seamless);
+    }
   }
 
   return [...refs];

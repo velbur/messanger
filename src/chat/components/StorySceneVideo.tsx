@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {storyVideoPlaybackPath} from "../story-video-paths";
 import {storyVideoForwardDurationFrames} from "../story-motion";
 import {KenBurnsImage} from "./KenBurnsImage";
 
@@ -43,6 +44,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   loop,
 }) => {
   const {fps} = useVideoConfig();
+  const playbackVideo = storyVideoPlaybackPath(video, loop);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrames = Math.max(0, sceneDurationFrames - playFrames);
@@ -59,7 +61,7 @@ export const StorySceneVideo: React.FC<Props> = ({
         <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
           <Loop durationInFrames={videoDurationFrames}>
             <OffthreadVideo
-              src={staticFile(video)}
+              src={staticFile(playbackVideo)}
               muted
               style={{
                 width: "100%",

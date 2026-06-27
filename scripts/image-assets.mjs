@@ -189,6 +189,8 @@ export const collectStoryImageAssetRefs = (imagePublicPath) => {
     `${base}.layer-near.png`,
     `${base}.depth-meta.json`,
     `${base}.video.mp4`,
+    `${base}.video.seamless.mp4`,
+    `${base}.video.loop.mp4`,
   ];
 };
 
