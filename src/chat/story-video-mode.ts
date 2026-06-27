@@ -1,11 +1,7 @@
-/** Сцены с линейным движением — loop выглядит нелепо; держим последний кадр + лёгкий Ken Burns */
-const FORWARD_MOTION_RE =
-  /(лестниц|ступен|подним|спуск|ид[ёе]т|шаг|вперёд|проход|коридор|подход|walk|climb|stair|forward|ascend|descend|approach)/i;
-
-export const inferStoryVideoLoop = (imagePrompt?: string): boolean =>
-  !FORWARD_MOTION_RE.test(String(imagePrompt ?? "").trim());
+/** Loop только по явному storyVideoLoop: true — иначе один проход + лёгкий Ken Burns на кадре */
+export const inferStoryVideoLoop = (_imagePrompt?: string): boolean => false;
 
 export const resolveStoryVideoLoop = (
   explicit: boolean | undefined,
-  imagePrompt?: string,
-): boolean => (explicit === undefined ? inferStoryVideoLoop(imagePrompt) : explicit);
+  _imagePrompt?: string,
+): boolean => explicit === true;

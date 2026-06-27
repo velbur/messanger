@@ -19,7 +19,7 @@ const LOOP_MOTION_PROMPT =
   "Very subtle ambient motion that forms a perfect seamless loop: the final frame must be visually identical to the first frame (same pose, light, smoke, rain position). Only tiny cyclical effects — breathing light, flicker, gentle sway. Absolutely no camera travel, zoom, or drift forward/backward.";
 
 const HOLD_MOTION_PROMPT =
-  "Subtle cinematic motion over a few seconds: one smooth camera move or ambient effect that completes naturally. End on a stable, composed final frame suitable to hold still afterward. No return to the starting pose.";
+  "One short subtle motion (2–4 seconds): a small natural movement or ambient effect, then settle on a stable final pose. The last frame must be calm and holdable — suitable to pause with a gentle zoom afterward. No repeating motion, no return to the starting pose.";
 
 export const buildStoryMotionPrompt = (imagePrompt, {loop = true} = {}) => {
   const prefix = loop ? LOOP_MOTION_PROMPT : HOLD_MOTION_PROMPT;

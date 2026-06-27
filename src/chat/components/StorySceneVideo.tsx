@@ -29,7 +29,7 @@ const HoldMotionImage: React.FC<{image: string}> = ({image}) => {
       image={image}
       localFrame={localFrame}
       durationFrames={1}
-      animation="kenburns"
+      animation="hold"
       loop
     />
   );

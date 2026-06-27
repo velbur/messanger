@@ -49,7 +49,7 @@ export const messageSchema = z
     storyVideoDurationMs: z.number().min(100).max(60000).optional(),
     /** Профиль видео-модели; при смене MP4 перегенерируется */
     storyVideoProfile: z.string().min(1).optional(),
-    /** true — бесшовный loop; false — один проход и hold на кадре; без поля — эвристика по промпту */
+    /** true — бесшовный loop (редко); false/нет поля — один проход + hold на PNG */
     storyVideoLoop: z.boolean().optional(),
     /** Правки к уже сгенерированному кадру сюжета */
     storyImageEditPrompt: z.string().min(1).optional(),

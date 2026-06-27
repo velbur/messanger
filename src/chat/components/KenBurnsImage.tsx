@@ -6,7 +6,7 @@ type Props = {
   image: string;
   localFrame: number;
   durationFrames: number;
-  animation: "kenburns" | "none";
+  animation: "kenburns" | "none" | "hold";
   directionSeed?: string;
   /** Бесшовный цикл движения на всё время сцены */
   loop?: boolean;
@@ -27,15 +27,30 @@ export const KenBurnsImage: React.FC<Props> = ({
   const {panX, panY} = motionVectors(directionSeed);
 
   const scale =
-    animation === "kenburns" || loop
-      ? interpolate(progress, [0, 1], [1, 1.06], {
+    animation === "hold"
+      ? interpolate(progress, [0, 1], [1, 1.035], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
-      : 1;
+      : animation === "kenburns" || loop
+        ? interpolate(progress, [0, 1], [1, 1.06], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : 1;
 
-  const translateX = animation === "kenburns" || loop ? progress * panX * 2 : 0;
-  const translateY = animation === "kenburns" || loop ? progress * panY * 1.5 : 0;
+  const translateX =
+    animation === "hold"
+      ? progress * panX * 0.8
+      : animation === "kenburns" || loop
+        ? progress * panX * 2
+        : 0;
+  const translateY =
+    animation === "hold"
+      ? progress * panY * 0.6
+      : animation === "kenburns" || loop
+        ? progress * panY * 1.5
+        : 0;
 
   return (
     <Img

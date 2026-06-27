@@ -251,7 +251,7 @@ const buildStoryTimeline = (
     sfxMasterVolume: 1,
     sfxMixSrc: undefined,
     sfxEnabled: false,
-    openingVideoLoop: true,
+    openingVideoLoop: false,
     immediateFirstScene: false,
     sceneEvents: [],
   };
