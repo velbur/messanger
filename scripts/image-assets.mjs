@@ -14,6 +14,25 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]);
 
 export const isImageUrl = (value) => URL_RE.test(String(value).trim());
 
+/** Лимит тела upload (base64) по типу ассета */
+export const resolveUploadMaxBytes = (targetRef, fileName) => {
+  const ref = String(targetRef ?? fileName ?? "")
+    .trim()
+    .replace(/^\/+/, "");
+  if (ref.includes(".video.mp4") || ref.endsWith(".mp4")) {
+    return 50 * 1024 * 1024;
+  }
+  if (
+    ref.includes("story-sfx-mix") ||
+    ref.startsWith("audio/") ||
+    ref.endsWith(".wav") ||
+    ref.endsWith(".mp3")
+  ) {
+    return 32 * 1024 * 1024;
+  }
+  return 12 * 1024 * 1024;
+};
+
 export const isStoryVisualLayout = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
 

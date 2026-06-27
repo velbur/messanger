@@ -151,31 +151,6 @@ export const collectStorySfxMixRef = (conversation) => {
   return ref ? [ref] : [];
 };
 
-export const syncStorySfxMixToRemote = async (conversation, remoteBaseUrl, logs) => {
-  const refs = collectStorySfxMixRef(conversation);
-  for (const ref of refs) {
-    const abs = path.join(PUBLIC_DIR, ref);
-    let buffer;
-    try {
-      const {readFile} = await import("node:fs/promises");
-      buffer = await readFile(abs);
-    } catch {
-      logs.push(`SFX-mix не найден локально: ${ref}`);
-      continue;
-    }
-    const resp = await fetch(`${remoteBaseUrl}/api/images/upload`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({targetRef: ref, contentBase64: buffer.toString("base64")}),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(`Не удалось отправить SFX-mix на воркер: ${data.error ?? resp.status}`);
-    }
-    logs.push(`SFX-mix отправлен на воркер: ${ref}`);
-  }
-};
-
 const isMain =
   process.argv[1] &&
   path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);

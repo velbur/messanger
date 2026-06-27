@@ -43,6 +43,7 @@ import {
   scanImagesFromJson,
   deletePublicImage,
   deleteStoryImageAssets,
+  resolveUploadMaxBytes,
 } from "./image-assets.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
@@ -81,7 +82,7 @@ import {
   resolveStorySfxFiles,
   syncStorySfxToRemote,
 } from "./story-sfx.mjs";
-import {buildStorySfxMix, syncStorySfxMixToRemote} from "./story-sfx-mix.mjs";
+import {buildStorySfxMix} from "./story-sfx-mix.mjs";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {
   generateDialogue,
@@ -1027,9 +1028,7 @@ app.post("/api/images/upload", async (req, res) => {
     const match = contentBase64.match(/^data:([^;]+);base64,(.+)$/);
     const base64 = match ? match[2] : contentBase64;
     const buffer = Buffer.from(base64, "base64");
-    const maxBytes = String(targetRef ?? fileName ?? "").includes(".video.mp4") || String(targetRef ?? fileName ?? "").endsWith(".mp4")
-      ? 50 * 1024 * 1024
-      : 12 * 1024 * 1024;
+    const maxBytes = resolveUploadMaxBytes(targetRef, fileName);
     if (buffer.length > maxBytes) {
       res.status(400).json({error: `Файл слишком большой (макс. ${Math.round(maxBytes / (1024 * 1024))} МБ)`});
       return;
@@ -1932,7 +1931,11 @@ const runRenderPreparation = async (
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
       await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
-      await syncStorySfxMixToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      if (conversation.story?.sfxMix) {
+        job.logs.push(
+          `SFX-mix (${conversation.story.sfxMix}): соберётся на воркере при prep — WAV не отправляем`,
+        );
+      }
       if (conversation.voiceover?.enabled) {
         job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
