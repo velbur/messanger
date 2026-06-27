@@ -1703,9 +1703,12 @@ app.post("/api/render", async (req, res) => {
     const conversation = parseConversation(parsed);
     const fileName = resolveName(rawName, conversation, dialogueId);
     const autoGenerateImages = req.body?.autoGenerateImages === true;
-    const wantsVoiceover =
-      req.body?.autoGenerateVoiceover === true || Boolean(conversation.voiceover?.enabled);
-    const autoGenerateVoiceover = wantsVoiceover && isOpenRouterConfigured();
+    const voiceoverEnabled = Boolean(conversation.voiceover?.enabled);
+    const pendingVoice = voiceoverEnabled ? countPendingVoiceover(conversation) : 0;
+    const shouldGenerateVoice =
+      voiceoverEnabled &&
+      (req.body?.autoGenerateVoiceover === true || pendingVoice > 0) &&
+      isOpenRouterConfigured();
     const imageGenLogs = autoGenerateImages
       ? await generateMissingConversationImages(conversation, {
           provider: "openrouter",
@@ -1713,7 +1716,7 @@ app.post("/api/render", async (req, res) => {
         })
       : [];
     let voiceGenLogs = [];
-    if (wantsVoiceover && !isOpenRouterConfigured()) {
+    if (voiceoverEnabled && pendingVoice > 0 && !isOpenRouterConfigured()) {
       res.status(400).json({
         error:
           "Озвучка не готова: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
@@ -1721,7 +1724,7 @@ app.post("/api/render", async (req, res) => {
       });
       return;
     }
-    if (autoGenerateVoiceover) {
+    if (shouldGenerateVoice) {
       try {
         voiceGenLogs = await generateMissingVoiceover(conversation, {audioNamespace: fileName});
       } catch (error) {
@@ -1742,7 +1745,7 @@ app.post("/api/render", async (req, res) => {
     const voiceLogs = [
       ...voiceGenLogs,
       ...(await resolveConversationVoiceover(conversation, {
-        failOnMissingVoice: wantsVoiceover,
+        failOnMissingVoice: voiceoverEnabled,
       })),
     ];
     if (rawWallpaper === "default" || rawWallpaper === "dark") {

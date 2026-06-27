@@ -497,6 +497,16 @@ run_server_container() {
   local -a volume_args=("${APP_VOLUMES[@]}")
   if [[ -f "${ROOT}/docs/.env" ]]; then
     volume_args+=(-v "${ROOT}/docs/.env:/app/docs/.env:ro")
+    local openrouter_key
+    openrouter_key="$(
+      grep -E '^OPENROUTER_API_KEY=' "${ROOT}/docs/.env" 2>/dev/null \
+        | head -1 \
+        | cut -d= -f2- \
+        | sed -e 's/^["'\'' ]*//' -e 's/["'\'' ]*$//' -e 's/\r$//'
+    )"
+    if [[ -n "$openrouter_key" ]]; then
+      env_args+=(-e "OPENROUTER_API_KEY=${openrouter_key}")
+    fi
   fi
 
   "$CONTAINER" rm -f "$container_name" >/dev/null 2>&1 || true

@@ -11,7 +11,9 @@ const DEFAULT_IMAGE_SIZE = "1K";
 const MAX_RETRIES = 3;
 
 export const loadOpenRouterEnv = async () => {
+  const nativeRoot = process.env.NATIVE_PROJECT_ROOT?.trim();
   const files = [
+    ...(nativeRoot ? [path.join(nativeRoot, ".env"), path.join(nativeRoot, "docs", ".env")] : []),
     path.join(ROOT, ".env"),
     path.join(ROOT, "docs", ".env"),
     path.join(ROOT, "story", ".env"),
@@ -21,7 +23,7 @@ export const loadOpenRouterEnv = async () => {
 
   for (const file of files) {
     try {
-      const text = await readFile(file, "utf8");
+      const text = (await readFile(file, "utf8")).replace(/^\uFEFF/, "");
       for (const line of text.split("\n")) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith("#")) {
