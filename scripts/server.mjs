@@ -83,6 +83,7 @@ import {
   syncStorySfxToRemote,
 } from "./story-sfx.mjs";
 import {buildStorySfxMix} from "./story-sfx-mix.mjs";
+import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {
   generateDialogue,
@@ -1834,7 +1835,9 @@ const runRenderPreparation = async (
       job.logs.push(...storyVideoLogs);
     }
 
-    if (isStoryVisual) {
+    const storySfxEnabled = mergeStorySfxConfig(conversation).enabled;
+
+    if (isStoryVisual && storySfxEnabled) {
       job.phase = "Подбор звуков story-сцен…";
       job.progress = 0.48;
       const storySfxLogs = await assignStorySfxIfNeeded(conversation, {
@@ -1845,6 +1848,8 @@ const runRenderPreparation = async (
       if (sfxRefs.length > 0) {
         job.logs.push(`SFX в ролике: ${sfxRefs.map((ref) => path.basename(ref, ".wav")).join(", ")}`);
       }
+    } else if (isStoryVisual && conversation.story) {
+      delete conversation.story.sfxMix;
     }
 
     if (isStoryVisual) {
@@ -1867,11 +1872,12 @@ const runRenderPreparation = async (
     const storyVideoResolveLogs = isStoryVisual
       ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
       : [];
-    const storySfxResolveLogs = isStoryVisual
-      ? await resolveStorySfxFiles(conversation, {failOnMissing: true})
-      : [];
+    const storySfxResolveLogs =
+      isStoryVisual && storySfxEnabled
+        ? await resolveStorySfxFiles(conversation, {failOnMissing: true})
+        : [];
 
-    if (isStoryVisual) {
+    if (isStoryVisual && storySfxEnabled) {
       try {
         const mixRef = await buildStorySfxMix(conversation, {namespace: job.fileName});
         if (mixRef) {
@@ -1930,8 +1936,10 @@ const runRenderPreparation = async (
       job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
-      await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
-      if (conversation.story?.sfxMix) {
+      if (storySfxEnabled) {
+        await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      }
+      if (storySfxEnabled && conversation.story?.sfxMix) {
         job.logs.push(
           `SFX-mix (${conversation.story.sfxMix}): соберётся на воркере при prep — WAV не отправляем`,
         );

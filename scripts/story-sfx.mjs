@@ -215,7 +215,6 @@ const applyAssignment = (conversation, assignment) => {
     conversation.story.sfx = {};
   }
   conversation.story.sfx.profile = STORY_SFX_PROFILE;
-  conversation.story.sfx.enabled = conversation.story.sfx.enabled !== false;
 
   const hasOpening =
     conversation.story.opening?.image?.trim() || conversation.story.opening?.imagePrompt?.trim();

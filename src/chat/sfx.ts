@@ -48,7 +48,7 @@ export type StorySfxConfig = {
 };
 
 const DEFAULT_STORY_SFX: StorySfxConfig = {
-  enabled: true,
+  enabled: false,
   masterVolume: 2.4,
 };
 
@@ -62,7 +62,7 @@ export const mergeStorySfxConfig = (
 ): StorySfxConfig => {
   const raw = conversation.story?.sfx;
   return {
-    enabled: raw?.enabled !== false,
+    enabled: raw?.enabled === true,
     profile: raw?.profile?.trim() || undefined,
     masterVolume: raw?.masterVolume ?? DEFAULT_STORY_SFX.masterVolume,
   };

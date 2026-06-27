@@ -6,6 +6,7 @@ import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voi
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
 import {assignStorySfxIfNeeded, resolveStorySfxFiles} from "./story-sfx.mjs";
 import {buildStorySfxMix} from "./story-sfx-mix.mjs";
+import {mergeStorySfxConfig} from "../src/chat/sfx.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
@@ -35,13 +36,18 @@ const run = async () => {
       });
     }
     await resolveStoryVideos(conversation, {failOnMissingVideos: true});
-    await assignStorySfxIfNeeded(conversation, {force: true});
-    await resolveStorySfxFiles(conversation, {failOnMissing: true});
-    const mixRef = await buildStorySfxMix(conversation, {
-      namespace: path.basename(inputAbs, path.extname(inputAbs)),
-    });
-    if (mixRef) {
-      console.log(`SFX-mix: ${mixRef}`);
+    const storySfxEnabled = mergeStorySfxConfig(conversation).enabled;
+    if (storySfxEnabled) {
+      await assignStorySfxIfNeeded(conversation, {force: true});
+      await resolveStorySfxFiles(conversation, {failOnMissing: true});
+      const mixRef = await buildStorySfxMix(conversation, {
+        namespace: path.basename(inputAbs, path.extname(inputAbs)),
+      });
+      if (mixRef) {
+        console.log(`SFX-mix: ${mixRef}`);
+      }
+    } else if (conversation.story) {
+      delete conversation.story.sfxMix;
     }
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }

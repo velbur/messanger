@@ -343,7 +343,9 @@ const buildStoryTimeline = (
     openingAnimation: storyConfig.opening.animation,
     openingSfx,
     sfxMasterVolume: sfxConfig.masterVolume,
-    sfxMixSrc: conversation.story?.sfxMix?.trim() || undefined,
+    sfxMixSrc: sfxConfig.enabled
+      ? conversation.story?.sfxMix?.trim() || undefined
+      : undefined,
     immediateFirstScene,
     sceneEvents,
   };
