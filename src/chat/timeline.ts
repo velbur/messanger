@@ -82,6 +82,8 @@ export type StoryTimeline = {
   openingVideoDurationMs?: number;
   openingStartFrame: number;
   openingEndFrame: number;
+  /** До какого кадра играют loop-SFX заставки (пока на экране opening-кадр) */
+  openingSfxEndFrame: number;
   splitStartFrame: number;
   splitCompleteFrame: number;
   splitTransitionFrames: number;
@@ -232,6 +234,7 @@ const buildStoryTimeline = (
     presentation: "split",
     openingStartFrame: 0,
     openingEndFrame: 0,
+    openingSfxEndFrame: 0,
     splitStartFrame: 0,
     splitCompleteFrame: 0,
     splitTransitionFrames: 0,
@@ -313,6 +316,13 @@ const buildStoryTimeline = (
       ? resolveStorySfxCues(conversation.story.opening.storySfx)
       : [];
 
+  const openingSfxEndFrame =
+    sceneEvents.length > 0
+      ? sceneEvents[0].startFrame
+      : immediateFirstScene
+        ? openingEndFrame
+        : Math.max(openingEndFrame, splitCompleteFrame);
+
   return {
     enabled: true,
     presentation,
@@ -321,6 +331,7 @@ const buildStoryTimeline = (
     openingVideoDurationMs: storyConfig.opening.storyVideoDurationMs,
     openingStartFrame,
     openingEndFrame,
+    openingSfxEndFrame,
     splitStartFrame,
     splitCompleteFrame,
     splitTransitionFrames,

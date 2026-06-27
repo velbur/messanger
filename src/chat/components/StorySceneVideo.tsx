@@ -1,7 +1,5 @@
 import React from "react";
-import {AbsoluteFill, OffthreadVideo, Sequence, staticFile, useCurrentFrame} from "remotion";
-import {msToFrames} from "../fps";
-import {videoPingPongFrame} from "../story-motion";
+import {AbsoluteFill, Sequence, staticFile, Video} from "remotion";
 
 type Props = {
   video: string;
@@ -12,22 +10,16 @@ type Props = {
 
 export const StorySceneVideo: React.FC<Props> = ({
   video,
-  videoDurationMs,
   sceneStartFrame,
   sceneDurationFrames,
 }) => {
-  const frame = useCurrentFrame();
-  const localFrame = Math.max(0, frame - sceneStartFrame);
-  const videoDurationFrames = Math.max(2, msToFrames(videoDurationMs ?? 4000));
-  const sourceFrame = videoPingPongFrame(localFrame, videoDurationFrames);
-
   return (
     <Sequence from={sceneStartFrame} durationInFrames={sceneDurationFrames} layout="none">
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <OffthreadVideo
+        <Video
           src={staticFile(video)}
           muted
-          startFrom={sourceFrame}
+          loop
           style={{
             width: "100%",
             height: "100%",

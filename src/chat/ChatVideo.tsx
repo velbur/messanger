@@ -256,7 +256,8 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     if (!story.enabled) {
       return false;
     }
-    const inOpening = f >= story.openingStartFrame && f < story.openingEndFrame;
+    const inOpening =
+      f >= story.openingStartFrame && f < story.openingSfxEndFrame;
     if (inOpening && story.openingSfx.some((cue) => cue.loop)) {
       return true;
     }
@@ -478,7 +479,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             keyPrefix="opening-sfx"
             cues={story.openingSfx}
             startFrame={story.openingStartFrame}
-            endFrame={story.openingEndFrame}
+            endFrame={story.openingSfxEndFrame}
             masterVolume={story.sfxMasterVolume}
           />
         ) : null}

@@ -28,6 +28,9 @@ const TAG_KEYWORDS = [
   ["звон", "ring"],
   ["шаг", "footsteps"],
   ["скрип", "creak"],
+  ["скреж", "scratch"],
+  ["царап", "scratch"],
+  ["шкатул", "clock"],
   ["дом", "house"],
   ["квартир", "home"],
   ["кухн", "kitchen"],
@@ -139,7 +142,7 @@ const buildCatalogSummary = () =>
 const scoreItem = (item, matchedTags) =>
   item.tags.reduce((sum, tag) => sum + (matchedTags.has(tag) ? 1 : 0), 0);
 
-const buildHeuristicCues = (sceneText) => {
+const buildHeuristicCues = (sceneText, {minScore = MIN_HEURISTIC_SCORE} = {}) => {
   const lower = sceneText.toLowerCase();
   const matchedTags = new Set();
   for (const [keyword, tag] of TAG_KEYWORDS) {
@@ -156,7 +159,7 @@ const buildHeuristicCues = (sceneText) => {
     item,
     score: scoreItem(item, matchedTags),
   }))
-    .filter((entry) => entry.score >= MIN_HEURISTIC_SCORE)
+    .filter((entry) => entry.score >= minScore)
     .sort((a, b) => b.score - a.score);
 
   if (scored.length === 0) {
@@ -349,6 +352,47 @@ const assignWithLlm = async (conversation, logs) => {
   );
 };
 
+const refillEmptyStorySfxFromHeuristic = (conversation, logs) => {
+  const scenes = collectSceneBriefs(conversation);
+  let filled = 0;
+  for (const scene of scenes) {
+    const text = `${scene.imagePrompt} ${scene.messageText}`;
+    const cues = buildHeuristicCues(text, {minScore: 1});
+    if (cues.length === 0) {
+      continue;
+    }
+
+    if (scene.key === "opening") {
+      const existing = conversation.story?.opening?.storySfx;
+      if (Array.isArray(existing) && existing.length > 0) {
+        continue;
+      }
+      if (!conversation.story.opening) {
+        conversation.story.opening = {};
+      }
+      conversation.story.opening.storySfx = cues;
+      filled += 1;
+      continue;
+    }
+
+    const index = scene.messageIndex;
+    const message = conversation.messages?.[index];
+    if (!message) {
+      continue;
+    }
+    const existing = message.storySfx;
+    if (Array.isArray(existing) && existing.length > 0) {
+      continue;
+    }
+    message.storySfx = cues;
+    filled += 1;
+  }
+
+  if (filled > 0) {
+    logs.push(`SFX: эвристика заполнила ${filled} сцен без звука`);
+  }
+};
+
 export const assignStorySfxIfNeeded = async (conversation, {force = false} = {}) => {
   const logs = [];
   if (!isStoryVisualLayout(conversation)) {
@@ -358,12 +402,14 @@ export const assignStorySfxIfNeeded = async (conversation, {force = false} = {})
     return logs;
   }
   if (!force && !needsStorySfxAssignment(conversation)) {
+    refillEmptyStorySfxFromHeuristic(conversation, logs);
     return logs;
   }
 
   if (isOpenRouterConfigured()) {
     try {
       await assignWithLlm(conversation, logs);
+      refillEmptyStorySfxFromHeuristic(conversation, logs);
       return logs;
     } catch (error) {
       logs.push(
@@ -375,6 +421,7 @@ export const assignStorySfxIfNeeded = async (conversation, {force = false} = {})
   }
 
   assignHeuristic(conversation, logs);
+  refillEmptyStorySfxFromHeuristic(conversation, logs);
   return logs;
 };
 
