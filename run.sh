@@ -166,13 +166,41 @@ parse_render_args() {
 ensure_image() {
   if ! "$CONTAINER" image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Образ '$IMAGE' не найден. Собираю..."
-    "$CONTAINER" build -t "$IMAGE" .
+    cmd_build
+    return
+  fi
+
+  local current_hash image_hash
+  current_hash="$(lock_file_hash)"
+  image_hash="$("$CONTAINER" image inspect "$IMAGE" --format '{{ index .Config.Labels "lock_hash" }}' 2>/dev/null || true)"
+
+  if [[ -z "$image_hash" || "$current_hash" != "$image_hash" ]]; then
+    echo "package-lock.json изменился — пересборка образа (npm ci)…"
+    cmd_build
+    return
+  fi
+
+  if ! "$CONTAINER" run --rm "$IMAGE" node -e "import('sharp')" >/dev/null 2>&1; then
+    echo "В образе нет актуальных зависимостей (sharp) — пересборка…"
+    cmd_build
+  fi
+}
+
+lock_file_hash() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${ROOT}/package-lock.json" | awk '{print $1}'
+  else
+    sha256sum "${ROOT}/package-lock.json" | awk '{print $1}'
   fi
 }
 
 cmd_build() {
+  local lock_hash
+  lock_hash="$(lock_file_hash)"
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
-  "$CONTAINER" build -t "$IMAGE" .
+  "$CONTAINER" build \
+    --build-arg "LOCK_HASH=${lock_hash}" \
+    -t "$IMAGE" .
   echo "Готово: образ $IMAGE"
 }
 
@@ -353,6 +381,7 @@ cmd_worker() {
   echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
   echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
+  echo "При изменении package-lock.json образ пересоберётся автоматически."
   echo "Если рендер падает на conversation.json — на этой машине: git pull && перезапуск воркера."
   echo "Остановка: Ctrl+C"
 

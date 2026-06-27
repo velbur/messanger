@@ -86,9 +86,9 @@ export const WA = LIGHT_THEME;
 
 /** Типографика и пузыри переписки */
 export const CHAT = {
-  messageFontSize: S(40),
+  messageFontSize: S(44),
   messageLineHeight: 1.28,
-  messageTimeFontSize: S(24),
+  messageTimeFontSize: S(26),
   messageMaxWidth: S(800),
   bubblePadding: `${S(12)}px ${S(16)}px ${S(10)}px ${S(18)}px`,
   bubbleRadius: S(18),

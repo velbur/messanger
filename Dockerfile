@@ -44,6 +44,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+ARG LOCK_HASH=unknown
+LABEL lock_hash=$LOCK_HASH
 RUN npm ci --no-audit --no-fund
 
 COPY . .
