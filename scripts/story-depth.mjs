@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
+import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -234,7 +235,7 @@ export const generateStoryDepthAssets = async (imagePublicPath, {force = false} 
 };
 
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {
-  if (conversation?.layout !== "storySplit") {
+  if (!isStoryVisualLayout(conversation)) {
     return [];
   }
 

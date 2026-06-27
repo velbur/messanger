@@ -5,7 +5,7 @@
   "locale": "ru",
   "contactStatus": "в сети",
   "contactStatusTyping": "печатает...",
-  "layout": "storySplit",
+  "layout": "storyOverlay",
   "hookText": "Ночное сообщение",
   "story": {
     "opening": {

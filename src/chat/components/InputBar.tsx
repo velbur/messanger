@@ -7,11 +7,12 @@ import {MicIcon, PlusIcon, SmileIcon} from "./icons";
 
 type Props = {
   placeholder?: string;
+  overlayChrome?: boolean;
 };
 
 const I = CHROME.input;
 
-export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) => {
+export const InputBar: React.FC<Props> = ({placeholder = "Сообщение", overlayChrome = false}) => {
   const theme = useChatTheme();
   const typography = useChatTypography();
 
@@ -20,7 +21,7 @@ export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) 
       style={{
         minHeight: LAYOUT.inputBarH,
         flexShrink: 0,
-        background: theme.inputBarBg,
+        background: overlayChrome ? "rgba(11, 20, 26, 0.62)" : theme.inputBarBg,
         padding: I.padding,
         display: "flex",
         alignItems: "center",
@@ -45,7 +46,7 @@ export const InputBar: React.FC<Props> = ({placeholder = "Сообщение"}) 
         style={{
           flex: 1,
           borderRadius: I.fieldRadius,
-          background: theme.inputFieldBg,
+          background: overlayChrome ? "rgba(255, 255, 255, 0.14)" : theme.inputFieldBg,
           minHeight: I.fieldMinH,
           display: "flex",
           alignItems: "center",

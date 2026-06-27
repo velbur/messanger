@@ -51,13 +51,31 @@ export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig =
 export const isStorySplitLayout = (conversation: ConversationInput): boolean =>
   conversation.layout === "storySplit";
 
+export const isStoryOverlayLayout = (conversation: ConversationInput): boolean =>
+  conversation.layout === "storyOverlay";
+
+export const isStoryVisualLayout = (conversation: ConversationInput): boolean =>
+  isStorySplitLayout(conversation) || isStoryOverlayLayout(conversation);
+
+export type StoryPresentation = "split" | "overlay";
+
+export const getStoryPresentation = (conversation: ConversationInput): StoryPresentation | null => {
+  if (isStoryOverlayLayout(conversation)) {
+    return "overlay";
+  }
+  if (isStorySplitLayout(conversation)) {
+    return "split";
+  }
+  return null;
+};
+
 export const messageHasStoryImage = (
   message: ConversationInput["messages"][number],
 ): boolean => Boolean(message.storyImage?.trim() || message.storyImagePrompt?.trim());
 
-/** В storySplit визуал только сверху — убираем фото из пузырей чата. */
+/** В story-режимах визуал в сюжете — убираем фото из пузырей чата. */
 export const stripChatBubbleImages = (conversation: ConversationInput): ConversationInput => {
-  if (!isStorySplitLayout(conversation)) {
+  if (!isStoryVisualLayout(conversation)) {
     return conversation;
   }
 

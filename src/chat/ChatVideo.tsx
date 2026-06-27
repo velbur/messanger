@@ -52,6 +52,7 @@ type ChatBodyProps = {
   messengerLocale: ReturnType<typeof getMessengerLocale>;
   theme: ReturnType<typeof getTheme>;
   opacity: number;
+  overlayChrome?: boolean;
 };
 
 const ChatBody: React.FC<ChatBodyProps> = ({
@@ -64,6 +65,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   messengerLocale,
   theme,
   opacity,
+  overlayChrome = false,
 }) => (
   <div
     style={{
@@ -77,11 +79,12 @@ const ChatBody: React.FC<ChatBodyProps> = ({
       opacity,
     }}
   >
-    <StatusBar time={statusBarTime} />
+    <StatusBar time={statusBarTime} overlayChrome={overlayChrome} />
     <ChatHeader
       contactName={conversation.contactName}
       contactStatus={headerStatus}
       contactAvatar={conversation.contactAvatar}
+      overlayChrome={overlayChrome}
     />
 
     <div
@@ -120,13 +123,13 @@ const ChatBody: React.FC<ChatBodyProps> = ({
     <div
       style={{
         flexShrink: 0,
-        background: theme.inputBarBg,
+        background: overlayChrome ? "transparent" : theme.inputBarBg,
         paddingLeft: LAYOUT.chatPaddingLeft,
         paddingRight: LAYOUT.chatPaddingRight,
         paddingBottom: LAYOUT.shortsSafeAreaBottom,
       }}
     >
-      <InputBar placeholder={messengerLocale.inputPlaceholder} />
+      <InputBar placeholder={messengerLocale.inputPlaceholder} overlayChrome={overlayChrome} />
     </div>
   </div>
 );
@@ -152,6 +155,9 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const inTitleCard = inIntro || inEndCard;
 
   const inOutro = !inTitleCard && outro.enabled && frame >= timeline.outroStartFrame;
+
+  const storyVisualActive = story.enabled && !inTitleCard && !inOutro;
+  const storyOverlayMode = story.presentation === "overlay";
 
   const activeFullscreenEvent = timeline.events.find(
     (event) =>
@@ -242,37 +248,48 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
       statusBarTime={statusBarTime}
       messengerLocale={messengerLocale}
       theme={theme}
-      opacity={inTitleCard ? 0 : chatDim}
+      opacity={storyOverlayMode ? chatDim : inTitleCard ? 0 : chatDim}
+      overlayChrome={storyOverlayMode}
     />
   );
 
-  const storySplitActive = story.enabled && !inTitleCard && !inOutro;
   const targetTopH = Math.round(story.topPanelRatio * SPLIT_LAYOUT.frameHeight);
-  const storyPanelHeight = storySplitActive
-    ? interpolate(
-        frame,
-        [story.openingStartFrame, story.splitStartFrame, story.splitCompleteFrame],
-        [SPLIT_LAYOUT.frameHeight, SPLIT_LAYOUT.frameHeight, targetTopH],
-        {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-          easing: Easing.out(Easing.cubic),
-        },
-      )
+  const storyPanelHeight = storyVisualActive
+    ? storyOverlayMode
+      ? SPLIT_LAYOUT.frameHeight
+      : interpolate(
+          frame,
+          [story.openingStartFrame, story.splitStartFrame, story.splitCompleteFrame],
+          [SPLIT_LAYOUT.frameHeight, SPLIT_LAYOUT.frameHeight, targetTopH],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          },
+        )
     : 0;
-  const bottomPanelHeight = storySplitActive
+  const bottomPanelHeight = storyVisualActive && !storyOverlayMode
     ? Math.max(0, SPLIT_LAYOUT.frameHeight - storyPanelHeight)
     : 0;
   const chatScale = splitChatScale(bottomPanelHeight);
   const targetBottomPanelHeight = Math.round(
     (1 - story.topPanelRatio) * SPLIT_LAYOUT.frameHeight,
   );
-  const typographyLayoutScale = storySplitActive ? splitChatScale(targetBottomPanelHeight) : 1;
+  const typographyLayoutScale =
+    storyVisualActive && !storyOverlayMode ? splitChatScale(targetBottomPanelHeight) : 1;
+  const chatRevealOpacity = storyVisualActive
+    ? interpolate(
+        frame,
+        [story.splitStartFrame, story.splitCompleteFrame],
+        [0, 1],
+        {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+      )
+    : 1;
 
-  const currentStoryImage = storySplitActive ? storyImageAtFrame(story, frame) : undefined;
+  const currentStoryImage = storyVisualActive ? storyImageAtFrame(story, frame) : undefined;
   const previousStoryImage =
-    storySplitActive && frame > 0 ? storyImageAtFrame(story, frame - 1) : undefined;
-  const activeScene = storySplitActive ? activeStorySceneAtFrame(story, frame) : undefined;
+    storyVisualActive && frame > 0 ? storyImageAtFrame(story, frame - 1) : undefined;
+  const activeScene = storyVisualActive ? activeStorySceneAtFrame(story, frame) : undefined;
   const sceneStartFrame =
     frame < story.splitCompleteFrame
       ? story.openingStartFrame
@@ -297,53 +314,89 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           fontFamily: CHAT_FONT_FAMILY,
           display: "flex",
           flexDirection: "column",
-          backgroundColor: theme.statusBarBg,
+          backgroundColor: storyVisualActive ? "#000000" : theme.statusBarBg,
         }}
       >
-        {storySplitActive ? (
-          <>
-            <StoryPanel
-              image={currentStoryImage}
-              previousImage={previousStoryImage}
-              height={storyPanelHeight}
-              animation={story.openingAnimation}
-              sceneLocalFrame={sceneLocalFrame}
-              sceneDurationFrames={sceneDurationFrames}
-              crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
-              depthParallax={story.depthParallax}
-            />
-            <div
-              style={{
-                position: "relative",
-                height: bottomPanelHeight,
-                overflow: "hidden",
-                flexShrink: 0,
-                opacity: interpolate(
-                  frame,
-                  [story.splitStartFrame, story.splitCompleteFrame],
-                  [0, 1],
-                  {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
-                ),
-              }}
-            >
-              <Wallpaper />
-              <div
+        {storyVisualActive ? (
+          storyOverlayMode ? (
+            <>
+              <StoryPanel
+                image={currentStoryImage}
+                previousImage={previousStoryImage}
+                height={storyPanelHeight}
+                animation={story.openingAnimation}
+                sceneLocalFrame={sceneLocalFrame}
+                sceneDurationFrames={sceneDurationFrames}
+                crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
+                depthParallax={story.depthParallax}
+              />
+              <AbsoluteFill
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  left: "50%",
-                  width: SPLIT_LAYOUT.frameWidth / chatScale,
-                  height: SPLIT_LAYOUT.frameHeight,
-                  transform: `translateX(-50%) scale(${chatScale})`,
-                  transformOrigin: "top center",
+                  zIndex: 2,
+                  pointerEvents: "none",
+                  opacity: chatRevealOpacity,
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 36%, rgba(0, 0, 0, 0.12) 58%, transparent 72%)",
+                  }}
+                />
+              </AbsoluteFill>
+              <AbsoluteFill
+                style={{
+                  zIndex: 3,
                   display: "flex",
                   flexDirection: "column",
+                  opacity: chatRevealOpacity,
                 }}
               >
                 {chatBody}
+              </AbsoluteFill>
+            </>
+          ) : (
+            <>
+              <StoryPanel
+                image={currentStoryImage}
+                previousImage={previousStoryImage}
+                height={storyPanelHeight}
+                animation={story.openingAnimation}
+                sceneLocalFrame={sceneLocalFrame}
+                sceneDurationFrames={sceneDurationFrames}
+                crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
+                depthParallax={story.depthParallax}
+              />
+              <div
+                style={{
+                  position: "relative",
+                  height: bottomPanelHeight,
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  opacity: chatRevealOpacity,
+                }}
+              >
+                <Wallpaper />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: "50%",
+                    width: SPLIT_LAYOUT.frameWidth / chatScale,
+                    height: SPLIT_LAYOUT.frameHeight,
+                    transform: `translateX(-50%) scale(${chatScale})`,
+                    transformOrigin: "top center",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {chatBody}
+                </div>
               </div>
-            </div>
-          </>
+            </>
+          )
         ) : (
           <>
             <Wallpaper />

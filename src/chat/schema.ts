@@ -162,9 +162,9 @@ export const conversationSchema = z.object({
     .optional(),
   /** Текст-хук поверх чата в первые ~2 с (обычно = название ролика) */
   hookText: z.string().max(120).optional(),
-  /** chat — классический полноэкранный чат; storySplit — сюжет сверху + чат снизу */
-  layout: z.enum(["chat", "storySplit"]).optional().default("chat"),
-  /** Настройки режима storySplit */
+  /** chat — классический чат; storySplit — сюжет сверху + чат снизу; storyOverlay — сюжет на весь экран + чат поверх */
+  layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("chat"),
+  /** Настройки storySplit / storyOverlay */
   story: z
     .object({
       opening: z

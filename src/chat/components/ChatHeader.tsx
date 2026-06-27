@@ -9,11 +9,17 @@ type Props = {
   contactName: string;
   contactStatus: string;
   contactAvatar?: string;
+  overlayChrome?: boolean;
 };
 
 const H = CHROME.header;
 
-export const ChatHeader: React.FC<Props> = ({contactName, contactStatus, contactAvatar}) => {
+export const ChatHeader: React.FC<Props> = ({
+  contactName,
+  contactStatus,
+  contactAvatar,
+  overlayChrome = false,
+}) => {
   const theme = useChatTheme();
   const avatarSrc = contactAvatar ? staticFile(contactAvatar) : null;
 
@@ -21,7 +27,7 @@ export const ChatHeader: React.FC<Props> = ({contactName, contactStatus, contact
     <div
       style={{
         height: LAYOUT.headerH,
-        background: theme.headerBg,
+        background: overlayChrome ? "rgba(11, 20, 26, 0.55)" : theme.headerBg,
         color: theme.headerText,
         display: "flex",
         alignItems: "center",

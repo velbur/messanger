@@ -15,6 +15,9 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]);
 
 export const isImageUrl = (value) => URL_RE.test(String(value).trim());
 
+export const isStoryVisualLayout = (conversation) =>
+  conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
+
 export const collectImageRefs = (parsed) => {
   const messages = Array.isArray(parsed?.messages) ? parsed.messages : [];
   return messages
@@ -190,12 +193,12 @@ export const collectConversationImageRefs = (
 
   for (const message of conversation?.messages ?? []) {
     add(message?.image);
-    if (conversation?.layout === "storySplit") {
+    if (isStoryVisualLayout(conversation)) {
       add(message?.storyImage);
     }
   }
 
-  if (conversation?.layout === "storySplit") {
+  if (isStoryVisualLayout(conversation)) {
     add(conversation?.story?.opening?.image);
     if (includeDepthLayers && conversation?.story?.depthParallax !== false) {
       const storyImages = [
@@ -237,15 +240,14 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
     .map((message, index) => ({message, index}))
     .filter(({message}) => hasImagePromptOnly(message));
 
-  const missingStoryPromptOnly =
-    conversation.layout === "storySplit"
+  const missingStoryPromptOnly = isStoryVisualLayout(conversation)
       ? conversation.messages
           .map((message, index) => ({message, index}))
           .filter(({message}) => hasStoryImagePromptOnly(message))
       : [];
 
   const missingOpening =
-    conversation.layout === "storySplit" &&
+    isStoryVisualLayout(conversation) &&
     Boolean(conversation.story?.opening?.imagePrompt?.trim()) &&
     !Boolean(conversation.story?.opening?.image?.trim());
 
@@ -275,7 +277,7 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
     logs.push(errorText);
   }
 
-  if (conversation.layout === "storySplit") {
+  if (isStoryVisualLayout(conversation)) {
     const openingRef = conversation.story?.opening?.image?.trim();
     if (openingRef && !isImageUrl(openingRef)) {
       const ok = assertLocalImageExists(
@@ -348,7 +350,7 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
     logs.push(`В видео: ${conversation.messages.length} из ${before} сообщений`);
   }
 
-  if (conversation.layout === "storySplit" && conversation.story?.depthParallax !== false) {
+  if (isStoryVisualLayout(conversation) && conversation.story?.depthParallax !== false) {
     logs.push(...(await ensureStoryDepthForConversation(conversation)));
   }
 

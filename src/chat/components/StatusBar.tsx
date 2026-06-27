@@ -6,11 +6,12 @@ import {BatteryIcon, SignalIcon} from "./icons";
 
 type Props = {
   time: string;
+  overlayChrome?: boolean;
 };
 
 const S = CHROME.statusBar;
 
-export const StatusBar: React.FC<Props> = ({time}) => {
+export const StatusBar: React.FC<Props> = ({time, overlayChrome = false}) => {
   const theme = useChatTheme();
 
   return (
@@ -26,7 +27,7 @@ export const StatusBar: React.FC<Props> = ({time}) => {
         fontSize: S.timeFontSize,
         fontWeight: 600,
         fontFamily: CHAT_FONT_FAMILY,
-        background: theme.statusBarBg,
+        background: overlayChrome ? "rgba(11, 20, 26, 0.45)" : theme.statusBarBg,
         letterSpacing: 0.2,
       }}
     >

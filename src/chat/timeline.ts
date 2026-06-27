@@ -8,7 +8,7 @@ import {
   scaleTimingMs,
   TIMING_BUNDLE_MARKER,
 } from "./timing";
-import {isStorySplitLayout, mergeStoryConfig, messageHasStoryImage} from "./story";
+import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage} from "./story";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
@@ -72,6 +72,7 @@ export type StorySceneTimelineEvent = {
 
 export type StoryTimeline = {
   enabled: boolean;
+  presentation: "split" | "overlay";
   openingImage?: string;
   openingStartFrame: number;
   openingEndFrame: number;
@@ -119,9 +120,9 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   const introFrames = intro.enabled
     ? msToFrames(scaleConversationMs(conversation, intro.durationMs))
     : 0;
-  const storySplit = isStorySplitLayout(conversation);
+  const storyVisual = isStoryVisualLayout(conversation);
   const storyConfig = mergeStoryConfig(conversation);
-  const disableMessageFullscreen = storySplit && storyConfig.disableMessageFullscreen;
+  const disableMessageFullscreen = storyVisual && storyConfig.disableMessageFullscreen;
 
   const events: MessageTimelineEvent[] = [];
   let cursor = introFrames;
@@ -217,6 +218,7 @@ const buildStoryTimeline = (
 ): StoryTimeline => {
   const disabled: StoryTimeline = {
     enabled: false,
+    presentation: "split",
     openingStartFrame: 0,
     openingEndFrame: 0,
     splitStartFrame: 0,
@@ -228,9 +230,11 @@ const buildStoryTimeline = (
     sceneEvents: [],
   };
 
-  if (!isStorySplitLayout(conversation)) {
+  if (!isStoryVisualLayout(conversation)) {
     return disabled;
   }
+
+  const presentation = getStoryPresentation(conversation) ?? "split";
 
   const storyConfig = mergeStoryConfig(conversation);
   const openingStartFrame = introFrames;
@@ -273,6 +277,7 @@ const buildStoryTimeline = (
 
   return {
     enabled: true,
+    presentation,
     openingImage: storyConfig.opening.image,
     openingStartFrame,
     openingEndFrame,

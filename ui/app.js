@@ -1767,13 +1767,21 @@ const setWallpaper = (mode) => {
   }
 };
 
+const isStoryVisualLayout = (conversation) =>
+  conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
+
 const getVideoLayout = () => {
   const checked = [...videoLayoutInputs].find((input) => input.checked);
-  return checked?.value === "storySplit" ? "storySplit" : "chat";
+  const value = checked?.value;
+  if (value === "storySplit" || value === "storyOverlay") {
+    return value;
+  }
+  return "chat";
 };
 
 const setVideoLayout = (layout) => {
-  const value = layout === "storySplit" ? "storySplit" : "chat";
+  const value =
+    layout === "storySplit" || layout === "storyOverlay" ? layout : "chat";
   for (const input of videoLayoutInputs) {
     input.checked = input.value === value;
   }
@@ -1784,8 +1792,8 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   if (!parsed) {
     return;
   }
-  if (layout === "storySplit") {
-    parsed.layout = "storySplit";
+  if (layout === "storySplit" || layout === "storyOverlay") {
+    parsed.layout = layout;
     if (!parsed.story) {
       parsed.story = {};
     }
@@ -1815,7 +1823,11 @@ const syncVideoLayoutFromJson = () => {
   if (!parsed) {
     return;
   }
-  setVideoLayout(parsed.layout === "storySplit" ? "storySplit" : "chat");
+  setVideoLayout(
+    parsed.layout === "storySplit" || parsed.layout === "storyOverlay"
+      ? parsed.layout
+      : "chat",
+  );
 };
 
 const syncWallpaperFromJson = () => {
@@ -3294,9 +3306,9 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
   requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
 
   const conversation = parseConversationJson();
-  const isStorySplit = conversation?.layout === "storySplit";
+  const isStoryVisual = isStoryVisualLayout(conversation);
 
-  if (!isStorySplit) {
+  if (!isStoryVisual) {
     if (message.image?.trim() || message.imagePrompt?.trim()) {
       const resolved = resolveImageItem(message, messageIndex, item);
       if (resolved) {
@@ -3318,7 +3330,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
     }
   }
 
-  if (isStorySplit) {
+  if (isStoryVisual) {
     if (message.storyImage?.trim() || message.storyImagePrompt?.trim()) {
       inner.append(
         renderStoryImageSlot({
@@ -3377,7 +3389,7 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
   const itemsByIndex = new Map((items ?? []).map((item) => [item.messageIndex, item]));
 
   const needsImageIndexes = [];
-  if (conversation.layout !== "storySplit") {
+  if (conversation.layout !== "storySplit" && conversation.layout !== "storyOverlay") {
     for (let i = 0; i < conversation.messages.length; i++) {
       const message = conversation.messages[i];
       if (!message.image?.trim() && !message.imagePrompt?.trim()) {
@@ -3410,7 +3422,7 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
     dialogueEditor.append(summary);
   }
 
-  if (conversation.layout === "storySplit") {
+  if (isStoryVisualLayout(conversation)) {
     dialogueEditor.append(renderStoryOpeningPanel(conversation));
   }
 
@@ -4198,7 +4210,7 @@ btnRender.addEventListener("click", async () => {
 
 const countPendingImages = (conversation) => {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
-  if (conversation?.layout === "storySplit") {
+  if (isStoryVisualLayout(conversation)) {
     let pending = messages.filter((message) => {
       const hasPrompt = Boolean(String(message.storyImagePrompt ?? "").trim());
       const hasImage = Boolean(String(message.storyImage ?? "").trim());

@@ -29,7 +29,8 @@ const normalizeImageNamespace = (value) => {
   return slug === "render" ? defaultImageNamespace() : slug;
 };
 
-const isStorySplit = (conversation) => conversation?.layout === "storySplit";
+const isStoryVisual = (conversation) =>
+  conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
 
 const ensureDepthForStoryImage = async (publicPath, logs) => {
   if (!publicPath?.trim()) {
@@ -60,7 +61,7 @@ const ensureStoryObject = (conversation) => {
 
 export const generateMissingStoryImages = async (conversation, {stylePrompt, imageNamespace} = {}) => {
   const logs = [];
-  if (!isOpenRouterConfigured() || !isStorySplit(conversation)) {
+  if (!isOpenRouterConfigured() || !isStoryVisual(conversation)) {
     return logs;
   }
 
