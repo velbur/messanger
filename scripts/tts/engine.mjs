@@ -151,20 +151,23 @@ export const synthesizeSpeech = async ({
   await fs.mkdir(path.dirname(outputPath), {recursive: true});
 
   const silero = await checkSileroAvailability();
-  const trySilero = preferredProvider !== "mms" && silero.ok;
-  if (trySilero) {
-    return synthesizeWithSilero({text: spoken, speaker, outputPath});
+  const wantsSilero = preferredProvider !== "mms";
+  if (wantsSilero && silero.ok) {
+    try {
+      return await synthesizeWithSilero({text: spoken, speaker, outputPath});
+    } catch (error) {
+      if (preferredProvider === "mms") {
+        throw error;
+      }
+      /* silero / auto: запасной MMS */
+    }
   }
 
-  if (preferredProvider === "silero") {
-    throw new Error(
-      silero.error
-        ? `Silero недоступен: ${silero.error}. Установите: pip3 install -r scripts/tts/requirements.txt`
-        : "Silero недоступен",
-    );
+  if (preferredProvider === "mms" || wantsSilero) {
+    return synthesizeWithMms({text: spoken, outputPath});
   }
 
-  return synthesizeWithMms({text: spoken, outputPath});
+  throw new Error("Нет доступного движка озвучки");
 };
 
 export const getVoiceoverEngineStatus = async () => {

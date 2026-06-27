@@ -1612,6 +1612,7 @@ const updatePreRenderChecklistUI = (result) => {
 const prepareJsonForRender = () => {
   applyMessengerLocaleToJson();
   applyMessageFontSizeToJson();
+  applyVoiceoverToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
@@ -1896,7 +1897,6 @@ const applyVoiceoverToJson = () => {
     parsed.voiceover = {
       ...(parsed.voiceover ?? {}),
       enabled: true,
-      provider: parsed.voiceover?.provider ?? "silero",
       themVoice: voiceoverThemVoice?.value === "male" ? "male" : "female",
       meVoice: voiceoverMeVoice?.value === "female" ? "female" : "male",
     };
@@ -1948,23 +1948,27 @@ const loadVoiceoverEngineStatus = async () => {
     return;
   }
   try {
-    const res = await fetch("/api/voiceover/status");
+    const target = getRenderTarget();
+    const res = await fetch(
+      `/api/voiceover/status?target=${encodeURIComponent(target)}`,
+    );
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error ?? "status");
     }
+    const where = data.remote ? "на воркере" : "локально";
     if (data.silero?.ok) {
       voiceoverEngineHint.textContent =
-        "Движок Silero готов: естественный русский, мужской и женский голоса (aidar, xenia…).";
+        `Движок Silero готов ${where}: естественный русский, мужской и женский голоса (aidar, xenia…).`;
     } else if (data.recommended === "mms") {
       voiceoverEngineHint.textContent =
-        `Silero не установлен — будет запасной MMS (один голос). ${data.installHint ?? ""}`;
+        `Silero недоступен ${where} — будет запасной MMS (один голос). ${data.installHint ?? ""}`;
     } else {
       voiceoverEngineHint.textContent = data.installHint ?? "Проверьте scripts/tts/requirements.txt";
     }
   } catch {
     voiceoverEngineHint.textContent =
-      "Локальная озвучка: pip3 install -r scripts/tts/requirements.txt";
+      "Озвучка: при цели «Мощная машина» — на воркере; локально: pip3 install -r scripts/tts/requirements.txt";
   }
 };
 
@@ -1974,12 +1978,14 @@ const generateMissingVoiceover = async () => {
   if (!json) {
     throw new Error("Сначала нужен JSON переписки");
   }
+  const target = getRenderTarget();
   const res = await fetch("/api/voiceover/generate-missing", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       json,
       audioNamespace: resolveEditorImageNamespace(),
+      target,
     }),
   });
   const data = await res.json();
@@ -2150,6 +2156,10 @@ const loadRenderTargets = async () => {
     }
     renderTargetSelect.value = data.defaultTarget ?? "local";
     renderTargetRow.hidden = false;
+    renderTargetSelect.addEventListener("change", () => {
+      loadVoiceoverEngineStatus();
+      updateGenerateVoiceoverControls();
+    });
   } catch {
     renderTargetRow.hidden = true;
   }
@@ -4113,7 +4123,7 @@ btnExample.addEventListener("click", async () => {
 });
 
 btnRender.addEventListener("click", async () => {
-  const json = prepareJsonForRender();
+  let json = prepareJsonForRender();
   if (!json) {
     alert("Вставьте JSON переписки");
     return;
@@ -4160,6 +4170,26 @@ btnRender.addEventListener("click", async () => {
         alert(err instanceof Error ? err.message : String(err));
         setBusy(false);
         return;
+      }
+    }
+
+    const parsedForVoice = parseConversationJson();
+    if (parsedForVoice?.voiceover?.enabled && countPendingVoiceover(parsedForVoice) > 0) {
+      const voiceTarget = getRenderTarget();
+      statusText.textContent =
+        voiceTarget === "remote"
+          ? "Озвучка реплик на воркере перед рендером…"
+          : "Озвучка реплик перед рендером…";
+      const voiceData = await generateMissingVoiceover();
+      json = jsonInput.value.trim();
+      if (voiceData.logs?.length) {
+        statusLog.textContent = voiceData.logs.join("\n");
+      }
+      if ((voiceData.pending ?? countPendingVoiceover(parseConversationJson())) > 0) {
+        throw new Error(
+          voiceData.error ??
+            "Не удалось озвучить все реплики. Проверьте лог и нажмите «Озвучить».",
+        );
       }
     }
 
@@ -4670,7 +4700,10 @@ btnGenerateImages?.addEventListener("click", async () => {
 btnGenerateVoiceover?.addEventListener("click", async () => {
   btnGenerateVoiceover.disabled = true;
   if (voiceoverGenerateStatus) {
-    voiceoverGenerateStatus.textContent = "Озвучка… (локально, может занять минуту)";
+    voiceoverGenerateStatus.textContent =
+      getRenderTarget() === "remote"
+        ? "Озвучка… на воркере (Silero), может занять минуту"
+        : "Озвучка… локально, может занять минуту";
   }
   try {
     const data = await generateMissingVoiceover();

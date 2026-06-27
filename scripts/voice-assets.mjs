@@ -5,7 +5,7 @@ import {PUBLIC_DIR} from "./image-assets.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
-import {synthesizeSpeech} from "./tts/engine.mjs";
+import {checkSileroAvailability, synthesizeSpeech} from "./tts/engine.mjs";
 import {mergeConversationVoiceover, pickSileroSpeaker} from "../src/chat/voiceover.ts";
 
 const AUDIO_DIR = path.join(PUBLIC_DIR, "audio");
@@ -42,6 +42,22 @@ export const collectVoiceRefs = (conversation) => {
     }
   }
   return [...new Set(refs)];
+};
+
+/** Все voiceAudio из JSON лежат в local public/audio */
+export const conversationHasLocalVoiceFiles = (conversation) => {
+  const refs = collectVoiceRefs(conversation);
+  if (refs.length === 0) {
+    return false;
+  }
+  return refs.every((ref) => {
+    try {
+      const {absolute} = safePublicPath(ref);
+      return existsSync(absolute);
+    } catch {
+      return false;
+    }
+  });
 };
 
 /** Проверка перед рендером / отправкой на воркер */
@@ -142,7 +158,17 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
 
   const namespace = normalizeAudioNamespace(audioNamespace);
   const provider = conversation.voiceover?.provider ?? voiceover.provider ?? "auto";
-  const preferredProvider = provider === "mms" ? "mms" : provider === "silero" ? "silero" : "auto";
+  let preferredProvider = provider === "mms" ? "mms" : provider === "silero" ? "silero" : "auto";
+  if (preferredProvider !== "mms") {
+    const silero = await checkSileroAvailability();
+    if (!silero.ok) {
+      const reason = silero.error ? `: ${silero.error}` : "";
+      logs.push(
+        `Silero недоступен${reason}. Используется запасной MMS (pip3 install -r scripts/tts/requirements.txt для Silero).`,
+      );
+      preferredProvider = "mms";
+    }
+  }
 
   let generated = 0;
   for (let index = 0; index < conversation.messages.length; index += 1) {
@@ -185,6 +211,16 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
 
   if (generated === 0 && logs.length === 0) {
     logs.push("Все реплики уже озвучены");
+  }
+
+  const stillMissing = (conversation.messages ?? []).filter(needsVoiceGeneration).length;
+  if (stillMissing > 0) {
+    const failures = logs.filter((line) => /ошибка/i.test(line));
+    const detail =
+      failures.length > 0
+        ? failures.join("; ")
+        : `${stillMissing} реплик без озвучки после генерации`;
+    throw new Error(detail);
   }
 
   return logs;

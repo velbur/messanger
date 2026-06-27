@@ -26,7 +26,7 @@ export type ConversationVoiceover = {
 
 export const DEFAULT_VOICEOVER: ConversationVoiceover = {
   enabled: false,
-  provider: "silero",
+  provider: "mms",
   themVoice: "female",
   meVoice: "male",
   volume: 0.92,

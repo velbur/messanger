@@ -552,7 +552,7 @@ cmd_worker() {
   echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
   echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
-  echo "Озвучка: WAV из public/audio/ синхронизируется с Mac перед рендером; на воркере — MMS/Silero для генерации."
+  echo "Озвучка: при REMOTE_RENDER_URL генерация идёт на воркере (Silero/torch в Docker); локальные WAV синхронизируются при рендере."
   echo "При изменении package-lock.json образ пересоберётся автоматически."
   echo "Если рендер падает на conversation.json — на этой машине: git pull && перезапуск воркера."
   echo "Остановка: Ctrl+C"
