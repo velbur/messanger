@@ -91,9 +91,62 @@ container_runtime_ready() {
   return 1
 }
 
+podman_machine_state() {
+  podman machine inspect --format '{{.State}}' 2>/dev/null | head -1 || true
+}
+
+podman_machine_memory_mib() {
+  local mem listed
+  mem="$(podman machine inspect --format '{{.Resources.Memory}}' 2>/dev/null | head -1 || true)"
+  if [[ "$mem" =~ ^[0-9]+$ && "$mem" -gt 0 ]]; then
+    echo "$mem"
+    return 0
+  fi
+  listed="$(podman machine list --format '{{.Memory}}' 2>/dev/null | head -1 | tr -d ' ' || true)"
+  if [[ "$listed" =~ ^([0-9.]+)GiB$ ]] && command -v awk >/dev/null 2>&1; then
+    awk "BEGIN { printf \"%d\", ${BASH_REMATCH[1]} * 1024 }"
+    return 0
+  fi
+  if [[ "$listed" =~ ^([0-9.]+)GB$ ]] && command -v awk >/dev/null 2>&1; then
+    awk "BEGIN { printf \"%d\", ${BASH_REMATCH[1]} * 1000 }"
+    return 0
+  fi
+  return 1
+}
+
+podman_connection_ready() {
+  container_runtime_ready podman && podman ps >/dev/null 2>&1
+}
+
+wait_for_podman_ready() {
+  local attempt last_msg="" state
+  for attempt in $(seq 1 90); do
+    state="$(podman_machine_state)"
+    if [[ "$state" == "running" ]] && podman_connection_ready; then
+      sleep 1
+      podman_connection_ready && return 0
+    fi
+    local msg="Жду Podman VM (${state:-starting}, ${attempt}/90)…"
+    if [[ "$msg" != "$last_msg" ]] || (( attempt % 15 == 0 )); then
+      echo "$msg" >&2
+      last_msg="$msg"
+    fi
+    sleep 2
+  done
+  echo "Podman VM не готова: state=$(podman_machine_state), podman info/ps не отвечают." >&2
+  return 1
+}
+
+ensure_podman_connection() {
+  [[ "${CONTAINER:-}" == podman ]] || return 0
+  podman_connection_ready && return 0
+  echo "Подключение к Podman нестабильно — жду VM…" >&2
+  wait_for_podman_ready
+}
+
 try_start_podman() {
   command -v podman >/dev/null 2>&1 || return 1
-  if container_runtime_ready podman; then
+  if podman_connection_ready; then
     return 0
   fi
 
@@ -107,15 +160,8 @@ try_start_podman() {
         return 1
       fi
     fi
-    local attempt
-    for attempt in $(seq 1 60); do
-      if container_runtime_ready podman; then
-        return 0
-      fi
-      sleep 1
-    done
-    echo "Podman VM запущена, но podman info не отвечает." >&2
-    return 1
+    wait_for_podman_ready
+    return $?
   fi
 
   if [[ "$(uname -s)" != Darwin ]] && command -v systemctl >/dev/null 2>&1; then
@@ -123,7 +169,7 @@ try_start_podman() {
       || systemctl start podman.socket >/dev/null 2>&1 \
       || true
     sleep 1
-    container_runtime_ready podman && return 0
+    podman_connection_ready && return 0
   fi
 
   return 1
@@ -226,6 +272,7 @@ parse_render_args() {
 }
 
 ensure_image() {
+  ensure_podman_connection
   if ! "$CONTAINER" image inspect "$IMAGE" >/dev/null 2>&1; then
     echo "Образ '$IMAGE' не найден. Собираю..."
     cmd_build
@@ -285,17 +332,18 @@ warn_clock_skew() {
 }
 
 cmd_build() {
-  local lock_hash build_args=()
+  local lock_hash build_args=() attempt rc=1
   lock_hash="$(lock_file_hash)"
   warn_clock_skew
+  ensure_podman_connection
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
   if [[ "$CONTAINER" == podman ]]; then
-    local vm_mem=""
-    vm_mem="$(podman machine inspect --format '{{.Resources.Memory}}' 2>/dev/null || true)"
-    if [[ -n "$vm_mem" && "$vm_mem" -lt 6000000000 ]]; then
+    local vm_mem_mib=""
+    vm_mem_mib="$(podman_machine_memory_mib || true)"
+    if [[ -n "$vm_mem_mib" && "$vm_mem_mib" -lt 6000 ]]; then
       local vm_gib="?"
       if command -v awk >/dev/null 2>&1; then
-        vm_gib="$(awk "BEGIN { printf \"%.1f\", ${vm_mem}/1024/1024/1024 }")"
+        vm_gib="$(awk "BEGIN { printf \"%.1f\", ${vm_mem_mib}/1024 }")"
       fi
       echo "ВНИМАНИЕ: Podman VM ~${vm_gib} GiB RAM — npm ci может падать с OOM." >&2
       echo "  podman machine set --memory 8192 && podman machine stop && podman machine start" >&2
@@ -309,7 +357,19 @@ cmd_build() {
   if [[ "${BUILD_NO_CACHE:-0}" == 1 ]]; then
     build_args+=(--no-cache)
   fi
-  "$CONTAINER" build "${build_args[@]}" .
+  for attempt in 1 2 3; do
+    ensure_podman_connection || break
+    if "$CONTAINER" build "${build_args[@]}" .; then
+      rc=0
+      break
+    fi
+    [[ "$CONTAINER" != podman || "$attempt" -eq 3 ]] && break
+    echo "podman build: обрыв соединения, повтор ${attempt}/3…" >&2
+    sleep 5
+  done
+  if (( rc != 0 )); then
+    exit 1
+  fi
   echo "Готово: образ $IMAGE"
 }
 
