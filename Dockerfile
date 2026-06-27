@@ -13,6 +13,7 @@ RUN printf '%s\n' \
     ca-certificates \
     wget \
     python3 \
+    python3-pip \
     make \
     g++ \
     fonts-dejavu-core \
@@ -81,7 +82,7 @@ RUN set -eux; \
 COPY . .
 
 # Silero TTS на воркере (CPU). Без torch — запасной MMS через Node на воркере.
-RUN pip3 install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
     --index-url https://download.pytorch.org/whl/cpu \
     torch torchaudio
 
