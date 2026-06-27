@@ -1895,6 +1895,13 @@ const applyVoiceoverToJson = () => {
       parsed.voiceover = {...parsed.voiceover, enabled: false};
     }
   } else {
+    for (const message of parsed.messages ?? []) {
+      if (message.voiceTtsProvider !== "openrouter") {
+        delete message.voiceAudio;
+        delete message.voiceDurationMs;
+        delete message.voiceTtsProvider;
+      }
+    }
     parsed.voiceover = {
       ...(parsed.voiceover ?? {}),
       enabled: true,
@@ -1921,7 +1928,8 @@ const countPendingVoiceover = (conversation) => {
     if (!text) {
       continue;
     }
-    if (!String(message.voiceAudio ?? "").trim()) {
+    const hasAudio = Boolean(String(message.voiceAudio ?? "").trim());
+    if (!hasAudio || message.voiceTtsProvider !== "openrouter") {
       pending += 1;
     }
   }
@@ -4838,6 +4846,7 @@ const renderApiStatusPanel = (data) => {
       `Изображения: ${openrouter.imageModel ?? openrouterImageModel}${
         openrouter.imageGenerationAvailable ? " (доступно)" : ""
       }`,
+      `Озвучка: ${openrouter.ttsModel ?? data.voiceover?.model ?? "google/gemini-3.1-flash-tts-preview"}`,
     ].join("\n");
   }
   apiStatusContent.append(appendApiStatusSection("OpenRouter (ChatGPT)", openrouterText));

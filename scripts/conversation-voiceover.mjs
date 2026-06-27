@@ -1,9 +1,8 @@
 import {mergeConversationVoiceover, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
 import {getOpenRouterTtsVoices} from "./openrouter-client.mjs";
-import {normalizeAudioNamespace, voiceRefForMessage} from "./voice-assets.mjs";
-import {isSpeechableText} from "./tts/text-for-speech.mjs";
+import {messageNeedsOpenRouterVoice, normalizeAudioNamespace, voiceRefForMessage} from "./voice-assets.mjs";
 
-export {generateMissingVoiceover} from "./voice-assets.mjs";
+export {generateMissingVoiceover, messageNeedsOpenRouterVoice} from "./voice-assets.mjs";
 
 export const countPendingVoiceover = (conversation) => {
   const voiceover = mergeConversationVoiceover(conversation);
@@ -12,10 +11,7 @@ export const countPendingVoiceover = (conversation) => {
   }
   let pending = 0;
   for (const message of conversation.messages ?? []) {
-    if (!isSpeechableText(message.text)) {
-      continue;
-    }
-    if (!String(message.voiceAudio ?? "").trim()) {
+    if (messageNeedsOpenRouterVoice(message)) {
       pending += 1;
     }
   }

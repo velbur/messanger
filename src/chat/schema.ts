@@ -46,6 +46,8 @@ export const messageSchema = z
       .optional(),
     /** Длительность voiceAudio, мс (заполняется при генерации) */
     voiceDurationMs: z.number().min(50).max(120000).optional(),
+    /** Движок озвучки; openrouter — Gemini TTS через OpenRouter */
+    voiceTtsProvider: z.literal("openrouter").optional(),
     sentAt: z.string().optional().default("12:34"),
   })
   .superRefine((message, ctx) => {

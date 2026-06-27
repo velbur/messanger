@@ -95,17 +95,31 @@ export const saveVoiceBuffer = async (buffer, relativePath) => {
   return relative;
 };
 
-const needsVoiceGeneration = (message, voiceover) => {
-  const text = String(message.text ?? "").trim();
+const isOpenRouterVoiceMessage = (message) => message?.voiceTtsProvider === "openrouter";
+
+export const messageNeedsOpenRouterVoice = (message) => {
+  const text = String(message?.text ?? "").trim();
   if (!isSpeechableText(text)) {
     return false;
   }
-  const existing = String(message.voiceAudio ?? "").trim();
+  const existing = String(message?.voiceAudio ?? "").trim();
   if (!existing) {
     return true;
   }
-  const {absolute} = safePublicPath(existing);
-  return !existsSync(absolute);
+  if (!isOpenRouterVoiceMessage(message)) {
+    return true;
+  }
+  try {
+    const {absolute} = safePublicPath(existing);
+    return !existsSync(absolute);
+  } catch {
+    return true;
+  }
+};
+
+const needsVoiceGeneration = (message, voiceover) => {
+  void voiceover;
+  return messageNeedsOpenRouterVoice(message);
 };
 
 export const resolveConversationVoiceover = async (
@@ -204,10 +218,11 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
         .relative(PUBLIC_DIR, savedPath)
         .split(path.sep)
         .join("/");
+      message.voiceTtsProvider = "openrouter";
       message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
       logs.push(
-        `Озвучка #${index + 1} (${message.author}, ${result.speaker}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
+        `Озвучка #${index + 1} (${message.author}, OpenRouter/${result.model}, ${result.speaker}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
