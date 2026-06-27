@@ -165,7 +165,15 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   conversation.voiceover = {...mergeConversationVoiceover(conversation), provider: "openrouter"};
   const activeVoiceover = mergeConversationVoiceover(conversation);
 
+  const pendingCount = (conversation.messages ?? []).filter((message) =>
+    needsVoiceGeneration(message, activeVoiceover),
+  ).length;
+
   if (!isOpenRouterConfigured()) {
+    if (pendingCount === 0) {
+      logs.push("Все реплики уже озвучены");
+      return logs;
+    }
     throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
   }
 

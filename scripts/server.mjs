@@ -129,6 +129,13 @@ const getDefaultRenderTarget = () => (REMOTE_RENDER_URL ? "remote" : "local");
 
 const VOICEOVER_REMOTE_TIMEOUT_MS = 600_000;
 
+/** Озвучка на воркере только если локально нет OPENROUTER_API_KEY */
+const shouldGenerateVoiceoverOnRemote = (renderTarget, autoGenerateVoiceover) =>
+  renderTarget === "remote" &&
+  Boolean(REMOTE_RENDER_URL) &&
+  autoGenerateVoiceover &&
+  !isOpenRouterConfigured();
+
 const proxyVoiceoverRequest = async (remotePath, body, {timeoutMs = VOICEOVER_REMOTE_TIMEOUT_MS} = {}) => {
   if (!REMOTE_RENDER_URL) {
     throw new Error("REMOTE_RENDER_URL не настроен");
@@ -1151,7 +1158,7 @@ app.post("/api/voiceover/generate-missing", async (req, res) => {
       return;
     }
 
-    const target = rawTarget === "remote" && REMOTE_RENDER_URL ? "remote" : "local";
+    const target = rawTarget === "remote" && REMOTE_RENDER_URL && !isOpenRouterConfigured() ? "remote" : "local";
     if (target === "remote") {
       const data = await proxyVoiceoverRequest("/api/voiceover/generate-missing", {
         json: jsonText,
@@ -1748,7 +1755,7 @@ app.post("/api/render", async (req, res) => {
     const autoGenerateImages = req.body?.autoGenerateImages === true;
     const autoGenerateVoiceover =
       req.body?.autoGenerateVoiceover === true || Boolean(conversation.voiceover?.enabled);
-    const voiceOnRemote = target === "remote" && REMOTE_RENDER_URL && autoGenerateVoiceover;
+    const voiceOnRemote = shouldGenerateVoiceoverOnRemote(target, autoGenerateVoiceover);
     const imageGenLogs = autoGenerateImages
       ? await generateMissingConversationImages(conversation, {
           provider: "openrouter",
@@ -1776,10 +1783,13 @@ app.post("/api/render", async (req, res) => {
     ];
     const voiceLogs = voiceOnRemote
       ? [
-          "Озвучка: генерация на воркере (Silero/torch в Docker, public/audio/ на воркере)",
+          "Озвучка: генерация на воркере (нужен OPENROUTER_API_KEY в docs/.env на воркере)",
         ]
       : [
           ...voiceGenLogs,
+          ...(autoGenerateVoiceover && isOpenRouterConfigured() && target === "remote"
+            ? ["Озвучка: OpenRouter локально (ключ в docs/.env на этой машине)"]
+            : []),
           ...(await resolveConversationVoiceover(conversation, {
             failOnMissingVoice: Boolean(conversation.voiceover?.enabled),
           })),
