@@ -85,7 +85,6 @@ import {
 } from "./conversation-voiceover.mjs";
 import {
   AUDIO_DIR,
-  conversationHasLocalVoiceFiles,
   resolveConversationVoiceover,
   syncVoiceToRemote,
 } from "./voice-assets.mjs";
@@ -126,35 +125,6 @@ const getRenderTargets = () => {
 };
 
 const getDefaultRenderTarget = () => (REMOTE_RENDER_URL ? "remote" : "local");
-
-const VOICEOVER_REMOTE_TIMEOUT_MS = 600_000;
-
-/** Озвучка на воркере только если локально нет OPENROUTER_API_KEY */
-const shouldGenerateVoiceoverOnRemote = (renderTarget, autoGenerateVoiceover) =>
-  renderTarget === "remote" &&
-  Boolean(REMOTE_RENDER_URL) &&
-  autoGenerateVoiceover &&
-  !isOpenRouterConfigured();
-
-const proxyVoiceoverRequest = async (remotePath, body, {timeoutMs = VOICEOVER_REMOTE_TIMEOUT_MS} = {}) => {
-  if (!REMOTE_RENDER_URL) {
-    throw new Error("REMOTE_RENDER_URL не настроен");
-  }
-  const resp = await fetchWithRetry(
-    `${REMOTE_RENDER_URL}${remotePath}`,
-    {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body),
-    },
-    {timeoutMs, retries: 1},
-  );
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    throw new Error(data.error ?? `Воркер вернул ошибку (${resp.status})`);
-  }
-  return data;
-};
 
 const jobs = new Map();
 let jobCounter = 0;
@@ -1130,16 +1100,6 @@ app.post("/api/images/generate-missing", async (req, res) => {
 app.get("/api/voiceover/status", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const target = String(req.query?.target ?? "local");
-    if (target === "remote" && REMOTE_RENDER_URL) {
-      const resp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/voiceover/status`, {}, {timeoutMs: 30_000});
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        throw new Error(data.error ?? `Воркер вернул ошибку (${resp.status})`);
-      }
-      res.json({...data, remote: true, workerUrl: REMOTE_RENDER_URL});
-      return;
-    }
     const status = await getVoiceoverEngineStatus();
     res.json(status);
   } catch (error) {
@@ -1152,19 +1112,9 @@ app.get("/api/voiceover/status", async (req, res) => {
 app.post("/api/voiceover/generate-missing", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {json: jsonText, audioNamespace, target: rawTarget} = req.body ?? {};
+    const {json: jsonText, audioNamespace} = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
-      return;
-    }
-
-    const target = rawTarget === "remote" && REMOTE_RENDER_URL && !isOpenRouterConfigured() ? "remote" : "local";
-    if (target === "remote") {
-      const data = await proxyVoiceoverRequest("/api/voiceover/generate-missing", {
-        json: jsonText,
-        audioNamespace,
-      });
-      res.json({...data, remote: true, workerUrl: REMOTE_RENDER_URL});
       return;
     }
 
@@ -1753,9 +1703,9 @@ app.post("/api/render", async (req, res) => {
     const conversation = parseConversation(parsed);
     const fileName = resolveName(rawName, conversation, dialogueId);
     const autoGenerateImages = req.body?.autoGenerateImages === true;
-    const autoGenerateVoiceover =
+    const wantsVoiceover =
       req.body?.autoGenerateVoiceover === true || Boolean(conversation.voiceover?.enabled);
-    const voiceOnRemote = shouldGenerateVoiceoverOnRemote(target, autoGenerateVoiceover);
+    const autoGenerateVoiceover = wantsVoiceover && isOpenRouterConfigured();
     const imageGenLogs = autoGenerateImages
       ? await generateMissingConversationImages(conversation, {
           provider: "openrouter",
@@ -1763,7 +1713,15 @@ app.post("/api/render", async (req, res) => {
         })
       : [];
     let voiceGenLogs = [];
-    if (autoGenerateVoiceover && !voiceOnRemote) {
+    if (wantsVoiceover && !isOpenRouterConfigured()) {
+      res.status(400).json({
+        error:
+          "Озвучка не готова: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
+        logs: voiceGenLogs,
+      });
+      return;
+    }
+    if (autoGenerateVoiceover) {
       try {
         voiceGenLogs = await generateMissingVoiceover(conversation, {audioNamespace: fileName});
       } catch (error) {
@@ -1781,19 +1739,12 @@ app.post("/api/render", async (req, res) => {
         failOnMissingImages: !autoGenerateImages,
       })),
     ];
-    const voiceLogs = voiceOnRemote
-      ? [
-          "Озвучка: генерация на воркере (нужен OPENROUTER_API_KEY в docs/.env на воркере)",
-        ]
-      : [
-          ...voiceGenLogs,
-          ...(autoGenerateVoiceover && isOpenRouterConfigured() && target === "remote"
-            ? ["Озвучка: OpenRouter локально (ключ в docs/.env на этой машине)"]
-            : []),
-          ...(await resolveConversationVoiceover(conversation, {
-            failOnMissingVoice: Boolean(conversation.voiceover?.enabled),
-          })),
-        ];
+    const voiceLogs = [
+      ...voiceGenLogs,
+      ...(await resolveConversationVoiceover(conversation, {
+        failOnMissingVoice: wantsVoiceover,
+      })),
+    ];
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
     }
@@ -1841,14 +1792,8 @@ app.post("/api/render", async (req, res) => {
       logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, logs);
       if (conversation.voiceover?.enabled) {
-        if (conversationHasLocalVoiceFiles(conversation)) {
-          logs.push("Озвучка: локальные WAV отправляются на воркер");
-          await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, logs);
-        } else {
-          logs.push(
-            "Озвучка: WAV будут созданы на воркере (нажмите «Озвучить» с целью «Мощная машина» или дождитесь авто-генерации при рендере)",
-          );
-        }
+        logs.push("Озвучка: WAV с Mac отправляются на воркер");
+        await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, logs);
       }
 
       const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
@@ -1858,7 +1803,7 @@ app.post("/api/render", async (req, res) => {
           json: JSON.stringify(conversation),
           name: fileName,
           target: "local",
-          autoGenerateVoiceover: Boolean(conversation.voiceover?.enabled),
+          autoGenerateVoiceover: false,
         }),
       });
       const forwardData = await forwardResp.json().catch(() => ({}));

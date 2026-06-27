@@ -1951,14 +1951,12 @@ const generateMissingVoiceover = async () => {
   if (!json) {
     throw new Error("Сначала нужен JSON переписки");
   }
-  const target = getRenderTarget();
   const res = await fetch("/api/voiceover/generate-missing", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
       json,
       audioNamespace: resolveEditorImageNamespace(),
-      target,
     }),
   });
   const data = await res.json();
@@ -4147,11 +4145,7 @@ btnRender.addEventListener("click", async () => {
 
     const parsedForVoice = parseConversationJson();
     if (parsedForVoice?.voiceover?.enabled && countPendingVoiceover(parsedForVoice) > 0) {
-      const voiceTarget = getRenderTarget();
-      statusText.textContent =
-        voiceTarget === "remote"
-          ? "Озвучка реплик на воркере (OpenRouter)…"
-          : "Озвучка реплик (OpenRouter)…";
+      statusText.textContent = "Озвучка реплик (OpenRouter на этой машине)…";
       const voiceData = await generateMissingVoiceover();
       json = jsonInput.value.trim();
       if (voiceData.logs?.length) {
@@ -4160,7 +4154,7 @@ btnRender.addEventListener("click", async () => {
       if ((voiceData.pending ?? countPendingVoiceover(parseConversationJson())) > 0) {
         throw new Error(
           voiceData.error ??
-            "Не удалось озвучить все реплики. Проверьте лог и нажмите «Озвучить».",
+            "Не удалось озвучить все реплики. Проверьте OPENROUTER_API_KEY в docs/.env и лог.",
         );
       }
     }

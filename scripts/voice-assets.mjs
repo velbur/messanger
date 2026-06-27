@@ -76,7 +76,7 @@ export const assertVoiceoverReadyForRender = (conversation) => {
     const ref = String(message.voiceAudio ?? "").trim();
     if (!ref) {
       throw new Error(
-        `Озвучка сообщения #${index + 1}: нет файла. Нажмите «Озвучить» перед сборкой видео.`,
+        `Озвучка сообщения #${index + 1}: нет файла. Включите озвучку и соберите видео на Mac.`,
       );
     }
     const {absolute} = safePublicPath(ref);
@@ -126,7 +126,7 @@ export const resolveConversationVoiceover = async (
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
     if (isSpeechableText(message.text) && !String(message.voiceAudio ?? "").trim()) {
-      const errorText = `Озвучка #${index + 1}: нет voiceAudio. Нажмите «Озвучить».`;
+      const errorText = `Озвучка #${index + 1}: нет voiceAudio. Соберите видео с включённой озвучкой на Mac.`;
       if (failOnMissingVoice) {
         throw new Error(errorText);
       }
@@ -140,7 +140,7 @@ export const resolveConversationVoiceover = async (
     }
     const {absolute} = safePublicPath(ref);
     if (!existsSync(absolute)) {
-      const errorText = `Озвучка #${index + 1}: файл не найден (${ref}). Нажмите «Озвучить».`;
+      const errorText = `Озвучка #${index + 1}: файл не найден (${ref}). Соберите видео с озвучкой на Mac.`;
       if (failOnMissingVoice) {
         throw new Error(errorText);
       }
