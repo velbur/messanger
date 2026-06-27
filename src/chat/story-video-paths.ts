@@ -4,6 +4,9 @@ export const STORY_VIDEO_SUFFIX = ".video.mp4";
 /** MP4 с crossfade end→start для Remotion Loop */
 export const STORY_VIDEO_SEAMLESS_SUFFIX = ".video.seamless.mp4";
 
+/** Последний кадр MP4 для фазы hold (извлекается ffmpeg при prep) */
+export const STORY_VIDEO_HOLD_SUFFIX = ".video-hold.png";
+
 export const OPENROUTER_STORY_VIDEO_PROFILE = "veo-3.1-lite-loop-v1";
 
 export const storyVideoPathForImage = (imagePublicPath: string): string => {
@@ -14,8 +17,19 @@ export const storyVideoPathForImage = (imagePublicPath: string): string => {
 export const storyVideoSeamlessPathForVideo = (videoPublicPath: string): string => {
   const base = String(videoPublicPath)
     .replace(/\.video\.seamless\.mp4$/i, "")
+    .replace(/\.video\.hold\.png$/i, "")
+    .replace(/\.video-hold\.png$/i, "")
     .replace(/\.video\.mp4$/i, "");
   return `${base}${STORY_VIDEO_SEAMLESS_SUFFIX}`;
+};
+
+export const storyVideoHoldFramePathForVideo = (videoPublicPath: string): string => {
+  const base = String(videoPublicPath)
+    .replace(/\.video\.seamless\.mp4$/i, "")
+    .replace(/\.video\.hold\.png$/i, "")
+    .replace(/\.video-hold\.png$/i, "")
+    .replace(/\.video\.mp4$/i, "");
+  return `${base}${STORY_VIDEO_HOLD_SUFFIX}`;
 };
 
 /** Файл для воспроизведения: seamless-версия для loop-сцен */

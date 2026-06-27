@@ -69,6 +69,39 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
+/** Медленный цикл лёгкого движения на замороженном последнем кадре видео */
+export const STORY_VIDEO_HOLD_LOOP_FRAMES = 8 * FPS;
+
+export const storyVideoHoldMotion = (
+  directionSeed: string,
+  holdLocalFrame: number,
+): {scale: number; translateX: number; translateY: number} => {
+  const progress = sceneMotionLoopProgress(holdLocalFrame, STORY_VIDEO_HOLD_LOOP_FRAMES);
+  const {panX, panY} = motionVectors(directionSeed);
+  return {
+    scale: interpolate(progress, [0, 1], [1, 1.022], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
+    translateX: progress * panX * 0.4,
+    translateY: progress * panY * 0.25,
+  };
+};
+
+export const storyVideoSourceFrameAtPlayFrame = (
+  playLocalFrame: number,
+  playFrames: number,
+  lastVideoFrame: number,
+): number =>
+  Math.round(
+    interpolate(
+      Math.max(0, playLocalFrame),
+      [0, Math.max(1, playFrames - 1)],
+      [0, lastVideoFrame],
+      {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+    ),
+  );
+
 export const motionVectors = (directionSeed: string): {panX: number; panY: number} => {
   const seed = hashSeed(directionSeed);
   return {

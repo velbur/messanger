@@ -5,6 +5,7 @@ import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
 import {stripStorySfxFromConversation} from "./story-sfx.mjs";
+import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
@@ -29,6 +30,7 @@ const run = async () => {
   await resolveConversationImages(conversation, {failOnMissingImages: true});
   if (isStoryVisualLayout(conversation)) {
     stripStorySfxFromConversation(conversation);
+    normalizeStoryVideoLoopFlags(conversation);
     if (isOpenRouterConfigured()) {
       await generateMissingStoryVideos(conversation, {
         publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),

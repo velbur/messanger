@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-video-hold-default-v1";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-video-hold-png-v2";
 
 export type StorySceneAnimation = "video" | "none";
 

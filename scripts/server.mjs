@@ -78,6 +78,7 @@ import {
 import {
   stripStorySfxFromConversation,
 } from "./story-sfx.mjs";
+import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {
   generateDialogue,
@@ -1831,6 +1832,7 @@ const runRenderPreparation = async (
 
     if (isStoryVisual) {
       stripStorySfxFromConversation(conversation);
+      normalizeStoryVideoLoopFlags(conversation);
     }
 
     if (isStoryVisual) {

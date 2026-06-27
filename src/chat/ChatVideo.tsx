@@ -344,7 +344,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const currentStoryVideoDurationMs = storyVisualActive
     ? storyVideoDurationMsAtFrame(story, frame)
     : undefined;
-  const currentStoryVideoLoop = storyVisualActive ? storyVideoLoopAtFrame(story, frame) : true;
+  const currentStoryVideoLoop = storyVisualActive ? storyVideoLoopAtFrame(story, frame) : false;
   const {startFrame: sceneStartFrame, endFrame: sceneEndFrame} = storyVisualActive
     ? resolveStorySceneTiming(story, frame, timeline.outroStartFrame)
     : {startFrame: 0, endFrame: timeline.outroStartFrame};

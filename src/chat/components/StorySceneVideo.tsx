@@ -1,7 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
-  Loop,
+  Img,
   OffthreadVideo,
   Sequence,
   Series,
@@ -9,9 +9,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import {storyVideoPlaybackPath} from "../story-video-paths";
-import {storyVideoForwardDurationFrames} from "../story-motion";
-import {KenBurnsImage} from "./KenBurnsImage";
+import {storyVideoForwardDurationFrames, storyVideoHoldMotion} from "../story-motion";
+import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
 
 type Props = {
   video: string;
@@ -19,61 +18,49 @@ type Props = {
   videoDurationMs?: number;
   sceneStartFrame: number;
   sceneDurationFrames: number;
-  loop: boolean;
 };
 
-const HoldMotionImage: React.FC<{image: string}> = ({image}) => {
-  const localFrame = useCurrentFrame();
+const videoStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+};
+
+const StoryVideoHold: React.FC<{
+  holdFrame: string;
+  video: string;
+  holdStartFrame: number;
+}> = ({holdFrame, video, holdStartFrame}) => {
+  const frame = useCurrentFrame();
+  const holdLocalFrame = Math.max(0, frame - holdStartFrame);
+  const motion = storyVideoHoldMotion(video, holdLocalFrame);
+
   return (
-    <KenBurnsImage
-      image={image}
-      localFrame={localFrame}
-      durationFrames={1}
-      animation="hold"
-      loop
-    />
+    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
+      <AbsoluteFill
+        style={{
+          transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
+          transformOrigin: "center center",
+        }}
+      >
+        <Img src={staticFile(holdFrame)} style={videoStyle} />
+      </AbsoluteFill>
+    </AbsoluteFill>
   );
 };
 
 export const StorySceneVideo: React.FC<Props> = ({
   video,
-  image,
   videoDurationMs,
   sceneStartFrame,
   sceneDurationFrames,
-  loop,
 }) => {
   const {fps} = useVideoConfig();
-  const playbackVideo = storyVideoPlaybackPath(video, loop);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrames = Math.max(0, sceneDurationFrames - playFrames);
-  const holdImage = image?.trim();
-
-  if (loop) {
-    return (
-      <Sequence
-        key={`loop-${video}-${sceneStartFrame}`}
-        from={sceneStartFrame}
-        durationInFrames={sceneDurationFrames}
-        layout="none"
-      >
-        <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-          <Loop durationInFrames={videoDurationFrames}>
-            <OffthreadVideo
-              src={staticFile(playbackVideo)}
-              muted
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          </Loop>
-        </AbsoluteFill>
-      </Sequence>
-    );
-  }
+  const holdFrame = storyVideoHoldFramePathForVideo(video);
+  const holdStartFrame = sceneStartFrame + playFrames;
 
   return (
     <Sequence
@@ -82,26 +69,22 @@ export const StorySceneVideo: React.FC<Props> = ({
       durationInFrames={sceneDurationFrames}
       layout="none"
     >
-      <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <Series>
-          <Series.Sequence durationInFrames={playFrames}>
-            <OffthreadVideo
-              src={staticFile(video)}
-              muted
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
+      <Series>
+        <Series.Sequence durationInFrames={playFrames}>
+          <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
+            <OffthreadVideo src={staticFile(video)} muted style={videoStyle} />
+          </AbsoluteFill>
+        </Series.Sequence>
+        {holdFrames > 0 ? (
+          <Series.Sequence durationInFrames={holdFrames}>
+            <StoryVideoHold
+              holdFrame={holdFrame}
+              video={video}
+              holdStartFrame={holdStartFrame}
             />
           </Series.Sequence>
-          {holdImage && holdFrames > 0 ? (
-            <Series.Sequence durationInFrames={holdFrames}>
-              <HoldMotionImage image={holdImage} />
-            </Series.Sequence>
-          ) : null}
-        </Series>
-      </AbsoluteFill>
+        ) : null}
+      </Series>
     </Sequence>
   );
 };

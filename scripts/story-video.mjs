@@ -2,15 +2,15 @@ import {existsSync} from "node:fs";
 import path from "node:path";
 import {
   OPENROUTER_STORY_VIDEO_PROFILE,
+  storyVideoHoldFramePathForVideo,
   storyVideoPathForImage,
-  storyVideoSeamlessPathForVideo,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {generateImageToVideoFile, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
 import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
-import {resolveStoryVideoLoop} from "../src/chat/story-video-mode.ts";
-import {ensureStoryVideoSeamlessFile} from "./story-video-seamless.mjs";
+import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
+import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -21,7 +21,7 @@ const LOOP_MOTION_PROMPT =
 const HOLD_MOTION_PROMPT =
   "One short subtle motion (2–4 seconds): a small natural movement or ambient effect, then settle on a stable final pose. The last frame must be calm and holdable — suitable to pause with a gentle zoom afterward. No repeating motion, no return to the starting pose.";
 
-export const buildStoryMotionPrompt = (imagePrompt, {loop = true} = {}) => {
+export const buildStoryMotionPrompt = (imagePrompt, {loop = false} = {}) => {
   const prefix = loop ? LOOP_MOTION_PROMPT : HOLD_MOTION_PROMPT;
   const scene = String(imagePrompt ?? "").trim();
   if (!scene) {
@@ -121,6 +121,8 @@ export const resolveStoryVideos = async (
     return logs;
   }
 
+  normalizeStoryVideoLoopFlags(conversation);
+
   for (const target of collectStoryVideoTargets(conversation)) {
     let videoRef = String(target.holder?.storyVideo ?? "").trim();
 
@@ -136,12 +138,6 @@ export const resolveStoryVideos = async (
           }
           if (!target.holder.storyVideoProfile) {
             target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
-          }
-          if (target.holder.storyVideoLoop === undefined) {
-            target.holder.storyVideoLoop = resolveStoryVideoLoop(
-              undefined,
-              target.imagePrompt,
-            );
           }
           logs.push(`Story-видео (${target.label}): подключено с диска → ${candidate}`);
         }
@@ -160,11 +156,7 @@ export const resolveStoryVideos = async (
       if (!existsSync(absolute)) {
         throw new Error("файл не найден");
       }
-      const videoLoop = resolveStoryVideoLoop(
-        target.holder?.storyVideoLoop,
-        target.imagePrompt,
-      );
-      await ensureStoryVideoSeamlessFile(videoRef, videoLoop, logs);
+      await ensureStoryVideoHoldFrameFile(videoRef, logs);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const errorText = `Story-видео (${target.label}): ${reason} (${videoRef})`;
@@ -189,6 +181,8 @@ export const generateMissingStoryVideos = async (
   if (!isStoryVisualLayout(conversation)) {
     return logs;
   }
+
+  normalizeStoryVideoLoopFlags(conversation);
 
   const targets = collectStoryVideoTargets(conversation).filter(
     (target) => force || needsStoryVideo(target.image, target.holder),
@@ -224,16 +218,12 @@ export const generateMissingStoryVideos = async (
     const videoRef = storyVideoPathForImage(target.image);
     const {absolute: videoAbsolute} = safePublicPath(videoRef);
     const imageUrl = publicImageUrl(publicBaseUrl, target.image);
-    const videoLoop = resolveStoryVideoLoop(
-      target.holder?.storyVideoLoop,
-      target.imagePrompt,
-    );
 
     try {
       const result = await generateImageToVideoFile({
         imageAbsolutePath: imageAbsolute,
         imagePublicUrl: imageUrl,
-        prompt: buildStoryMotionPrompt(target.imagePrompt, {loop: videoLoop}),
+        prompt: buildStoryMotionPrompt(target.imagePrompt, {loop: false}),
         outputPath: videoAbsolute,
         model,
         onPoll: ({attempt, maxAttempts, status}) => {
@@ -255,8 +245,7 @@ export const generateMissingStoryVideos = async (
         .join("/");
       target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
       target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
-      target.holder.storyVideoLoop = videoLoop;
-      await ensureStoryVideoSeamlessFile(target.holder.storyVideo, videoLoop, logs);
+      await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
       generated += 1;
       logs.push(
         `Story-видео (${target.label}, OpenRouter/${result.model}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
@@ -309,10 +298,7 @@ export const collectStoryVideoRefs = (conversation) => {
   }
 
   for (const ref of [...refs]) {
-    const seamless = storyVideoSeamlessPathForVideo(ref);
-    if (existsSync(path.join(PUBLIC_DIR, seamless))) {
-      refs.add(seamless);
-    }
+    add(storyVideoHoldFramePathForVideo(ref));
   }
 
   return [...refs];

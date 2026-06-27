@@ -19,7 +19,7 @@ export const StorySceneImage: React.FC<Props> = ({
   image,
   video,
   videoDurationMs,
-  videoLoop = true,
+  videoLoop: _videoLoop = false,
   localFrame,
   durationFrames,
   sceneStartFrame,
@@ -33,7 +33,6 @@ export const StorySceneImage: React.FC<Props> = ({
         videoDurationMs={videoDurationMs}
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
-        loop={videoLoop}
       />
     );
   }
