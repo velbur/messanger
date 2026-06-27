@@ -199,6 +199,16 @@ cmd_build() {
   lock_hash="$(lock_file_hash)"
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
   if [[ "$CONTAINER" == podman ]]; then
+    local vm_mem=""
+    vm_mem="$(podman machine inspect --format '{{.Resources.Memory}}' 2>/dev/null || true)"
+    if [[ -n "$vm_mem" && "$vm_mem" -lt 6000000000 ]]; then
+      local vm_gib="?"
+      if command -v awk >/dev/null 2>&1; then
+        vm_gib="$(awk "BEGIN { printf \"%.1f\", ${vm_mem}/1024/1024/1024 }")"
+      fi
+      echo "ВНИМАНИЕ: Podman VM ~${vm_gib} GiB RAM — npm ci часто падает с «Exit handler never called!» (OOM)." >&2
+      echo "  podman machine set --memory 8192 && podman machine stop && podman machine start" >&2
+    fi
     echo "Podman: если npm ci падает с OOM — podman machine set --memory 8192 && podman machine stop && podman machine start"
     echo "Podman: если apt «not valid yet» — часы VM отстают: sudo sntp -sS time.apple.com && podman machine stop && podman machine start"
   fi
