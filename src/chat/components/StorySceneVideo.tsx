@@ -26,8 +26,8 @@ type Props = {
   sceneDurationFrames: number;
 };
 
-/** Плавный crossfade: видео 1→0, hold+zoom 0→1 */
-const HOLD_CROSSFADE_FRAMES = 15;
+/** Hold плавно накрывает видео сверху (видео не гасим — иначе чёрный кадр в OffthreadVideo) */
+const HOLD_CROSSFADE_FRAMES = 18;
 
 const baseCoverStyle: React.CSSProperties = {
   width: "100%",
@@ -61,20 +61,18 @@ export const StorySceneVideo: React.FC<Props> = ({
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
   const inCrossfadeOrHold = localFrame >= crossfadeStart;
   const holdLocalFrame = Math.max(0, localFrame - crossfadeStart);
+  const showVideo = localFrame < playFrames;
 
-  const crossfadeProgress =
+  const holdOpacity =
     localFrame < crossfadeStart
       ? 0
       : localFrame < playFrames
         ? interpolate(localFrame, [crossfadeStart, playFrames], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.inOut(Easing.quad),
+            easing: Easing.out(Easing.quad),
           })
         : 1;
-
-  const videoOpacity = 1 - crossfadeProgress;
-  const holdOpacity = crossfadeProgress;
 
   const sourceFrame = inCrossfadeOrHold
     ? lastSourceFrame
@@ -92,21 +90,21 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        {holdOpacity > 0 ? (
-          <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
-        ) : null}
-        {videoOpacity > 0 && localFrame < playFrames ? (
+        {showVideo ? (
           <OffthreadVideo
             src={staticFile(video)}
             muted
             startFrom={sourceFrame}
             style={
-              inCrossfadeOrHold
-                ? withMotionStyle(motion, videoOpacity)
-                : {...baseCoverStyle, opacity: videoOpacity}
+              inCrossfadeOrHold ? withMotionStyle(motion, 1) : baseCoverStyle
             }
           />
         ) : null}
+        {/* Всегда в дереве — preload; opacity 0 до crossfade */}
+        <Img
+          src={staticFile(holdFrame)}
+          style={withMotionStyle(motion, holdOpacity)}
+        />
       </AbsoluteFill>
     </Sequence>
   );
