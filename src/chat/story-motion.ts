@@ -69,8 +69,8 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
-/** За ~7 с выходим на полный hold-zoom; дальше медленный drift */
-export const STORY_VIDEO_HOLD_RAMP_FRAMES = 7 * FPS;
+/** За ~5 с до ~8.5% zoom; дальше медленный drift */
+export const STORY_VIDEO_HOLD_RAMP_FRAMES = 5 * FPS;
 
 export const storyVideoHoldMotion = (
   directionSeed: string,
@@ -80,20 +80,20 @@ export const storyVideoHoldMotion = (
   const seed = hashSeed(directionSeed);
   const t = holdLocalFrame / FPS;
   const progress = sceneMotionProgress(holdLocalFrame, STORY_VIDEO_HOLD_RAMP_FRAMES);
-  const rampScale = interpolate(progress, [0, 1], [1.018, 1.048], {
+  const rampScale = interpolate(progress, [0, 1], [1.035, 1.085], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const extraDrift = Math.min(
-    0.022,
-    (Math.max(0, holdLocalFrame - STORY_VIDEO_HOLD_RAMP_FRAMES) / (24 * FPS)) * 0.022,
+    0.028,
+    (Math.max(0, holdLocalFrame - STORY_VIDEO_HOLD_RAMP_FRAMES) / (20 * FPS)) * 0.028,
   );
-  const breathe = 0.014 * Math.sin(t * 0.82 + seed * 0.013);
-  const panPhase = t * 0.62 + seed * 0.019;
+  const breathe = 0.018 * Math.sin(t * 0.85 + seed * 0.013);
+  const panPhase = t * 0.68 + seed * 0.019;
   return {
     scale: rampScale + extraDrift + breathe,
-    translateX: panX * (0.55 * Math.sin(panPhase) + progress * 0.65),
-    translateY: panY * (0.38 * Math.cos(panPhase * 0.9) + progress * 0.42),
+    translateX: panX * (0.85 * Math.sin(panPhase) + progress * 1.05),
+    translateY: panY * (0.55 * Math.cos(panPhase * 0.9) + progress * 0.7),
   };
 };
 
