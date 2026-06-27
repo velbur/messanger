@@ -17,6 +17,7 @@ import {
   storyVideoSourceFrameCount,
 } from "../story-motion";
 import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
+import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
 
 type Props = {
   video: string;
@@ -80,6 +81,14 @@ export const StorySceneVideo: React.FC<Props> = ({
       ? lastSourceFrame
       : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
 
+  // Частицы тоньше во время живого видео, ярче на hold-кадре
+  const particleIntensity = interpolate(
+    localFrame,
+    [crossfadeStart, playFrames],
+    [0.5, 1],
+    {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+  );
+
   return (
     <Sequence
       key={`scene-${video}-${sceneStartFrame}`}
@@ -98,6 +107,7 @@ export const StorySceneVideo: React.FC<Props> = ({
         ) : null}
         {/* Всегда в дереве для preload; виден только с crossfade */}
         <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
+        <StoryAtmosphereParticles seed={video} intensity={particleIntensity} />
       </AbsoluteFill>
     </Sequence>
   );
