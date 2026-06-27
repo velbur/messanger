@@ -153,6 +153,47 @@ export const deletePublicImage = async (targetRef) => {
   }
 };
 
+/** PNG story-кадра и соседние depth / video-файлы */
+export const collectStoryImageAssetRefs = (imagePublicPath) => {
+  const ref = String(imagePublicPath ?? "")
+    .trim()
+    .replace(/^\/+/, "");
+  if (!ref || isImageUrl(ref)) {
+    return [];
+  }
+  const base = ref.replace(/\.(png|jpe?g|webp)$/i, "");
+  return [
+    ref,
+    `${base}.depth.png`,
+    `${base}.layer-far.png`,
+    `${base}.layer-mid.png`,
+    `${base}.layer-near.png`,
+    `${base}.depth-meta.json`,
+    `${base}.video.mp4`,
+  ];
+};
+
+/** Удалить story-кадр и связанные parallax / video ассеты */
+export const deleteStoryImageAssets = async (targetRef) => {
+  const refs = collectStoryImageAssetRefs(targetRef);
+  if (refs.length === 0) {
+    throw new Error("Можно удалить только локальный story-кадр");
+  }
+
+  const deleted = [];
+  const missing = [];
+  for (const ref of refs) {
+    const result = await deletePublicImage(ref);
+    if (result.deleted) {
+      deleted.push(result.publicPath);
+    } else {
+      missing.push(result.publicPath);
+    }
+  }
+
+  return {deleted, missing, publicPath: refs[0]};
+};
+
 export const saveImageBuffer = async (buffer, targetRef) => {
   let relative;
   if (targetRef && !isImageUrl(targetRef)) {

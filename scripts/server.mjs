@@ -42,6 +42,7 @@ import {
   buildImagePreviewUrl,
   scanImagesFromJson,
   deletePublicImage,
+  deleteStoryImageAssets,
 } from "./image-assets.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
@@ -996,12 +997,15 @@ app.post("/api/images/correct", async (req, res) => {
 
 app.post("/api/images/delete", async (req, res) => {
   try {
-    const {targetRef} = req.body ?? {};
+    const {targetRef, cascadeStoryAssets} = req.body ?? {};
     if (!targetRef || typeof targetRef !== "string") {
       res.status(400).json({error: "Поле targetRef обязательно"});
       return;
     }
-    const result = await deletePublicImage(targetRef);
+    const result =
+      cascadeStoryAssets === true
+        ? await deleteStoryImageAssets(targetRef)
+        : await deletePublicImage(targetRef);
     res.json(result);
   } catch (error) {
     res.status(400).json({

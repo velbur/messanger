@@ -376,6 +376,19 @@ const updateImageProviderControls = () => {
         : "Задайте OPENROUTER_API_KEY в docs/.env";
     }
   }
+  for (const slot of document.querySelectorAll("[data-story-slot-index]")) {
+    const available = canGenerateImages();
+    const hasFile = Boolean(slot.querySelector(".image-slot__preview"));
+    for (const btn of slot.querySelectorAll("[data-action='generate-story-image']")) {
+      btn.disabled = !available;
+      btn.textContent = hasFile ? "Перегенерировать" : "Сгенерировать";
+      btn.title = available
+        ? hasFile
+          ? `Заменить story-кадр через OpenRouter (${openrouterImageModel})`
+          : `Генерация story-кадра через OpenRouter (${openrouterImageModel})`
+        : getImageProviderUnavailableHint();
+    }
+  }
 };
 let defaultMusicId = "romantic.mp3";
 let currentDialogueId = null;
@@ -2554,6 +2567,57 @@ const deleteLocalImage = async (targetRef) => {
   return data;
 };
 
+const deleteLocalStoryImage = async (targetRef) => {
+  const res = await fetch("/api/images/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({targetRef, cascadeStoryAssets: true}),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка удаления");
+  }
+  return data;
+};
+
+const clearStoryImageHolderFields = (holder) => {
+  if (!holder) {
+    return;
+  }
+  delete holder.image;
+  delete holder.storyImage;
+  delete holder.storyVideo;
+  delete holder.storyVideoDurationMs;
+  delete holder.storyVideoProfile;
+};
+
+const removeStoryImageFromSlot = async (messageIndex, {deleteFile = true} = {}) => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+
+  const holder =
+    messageIndex == null ? parsed.story?.opening : parsed.messages?.[messageIndex];
+  if (!holder) {
+    return;
+  }
+
+  const imageRef = String(
+    messageIndex == null ? holder.image ?? "" : holder.storyImage ?? "",
+  ).trim();
+  if (!imageRef) {
+    return;
+  }
+
+  clearStoryImageHolderFields(holder);
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+
+  if (deleteFile && !isImageUrl(imageRef)) {
+    await deleteLocalStoryImage(imageRef);
+  }
+};
+
 const suggestImagePrompt = async (item, {force = false} = {}) => {
   const json = jsonInput.value.trim();
   if (!json) {
@@ -2803,9 +2867,13 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
   const btnGenerate = document.createElement("button");
   btnGenerate.type = "button";
   btnGenerate.className = "btn btn-primary btn-small";
-  btnGenerate.textContent = "Сгенерировать";
+  btnGenerate.dataset.action = "generate-story-image";
+  btnGenerate.textContent = imagePath ? "Перегенерировать" : "Сгенерировать";
   btnGenerate.disabled = !canGenerateImages();
   btnGenerate.addEventListener("click", async () => {
+    if (imagePath && !window.confirm("Перегенерировать story-кадр? Текущий файл будет заменён.")) {
+      return;
+    }
     btnGenerate.disabled = true;
     try {
       const res = await fetch("/api/images/generate", {
@@ -2843,10 +2911,36 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
-      btnGenerate.disabled = !canGenerateImages();
+      updateImageProviderControls();
     }
   });
   actions.append(btnGenerate);
+
+  if (imagePath) {
+    const btnDelete = document.createElement("button");
+    btnDelete.type = "button";
+    btnDelete.className = "btn btn-danger btn-small";
+    btnDelete.textContent = "Удалить";
+    btnDelete.addEventListener("click", async () => {
+      const isLocal = !isImageUrl(imagePath);
+      const msg = isLocal
+        ? "Удалить story-кадр с диска? Промпт останется — можно сгенерировать заново."
+        : "Убрать story-кадр из JSON? Промпт останется — можно сгенерировать заново.";
+      if (!window.confirm(msg)) {
+        return;
+      }
+      btnDelete.disabled = true;
+      try {
+        await removeStoryImageFromSlot(messageIndex, {deleteFile: isLocal});
+        await refreshDialogue();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : String(err));
+      } finally {
+        btnDelete.disabled = false;
+      }
+    });
+    actions.append(btnDelete);
+  }
 
   if (messageIndex != null) {
     const btnAdd = document.createElement("button");
