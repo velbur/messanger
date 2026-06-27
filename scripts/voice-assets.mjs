@@ -7,7 +7,7 @@ import {isSpeechableText} from "./tts/text-for-speech.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {synthesizeOpenRouterSpeech} from "./tts/openrouter-tts.mjs";
 import {isOpenRouterConfigured, getOpenRouterTtsVoices} from "./openrouter-client.mjs";
-import {mergeConversationVoiceover, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
+import {mergeConversationVoiceover, OPENROUTER_TTS_PROFILE, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
 
 const AUDIO_DIR = path.join(PUBLIC_DIR, "audio");
 
@@ -109,6 +109,9 @@ export const messageNeedsOpenRouterVoice = (message) => {
   if (!isOpenRouterVoiceMessage(message)) {
     return true;
   }
+  if (message.voiceTtsProfile !== OPENROUTER_TTS_PROFILE) {
+    return true;
+  }
   try {
     const {absolute} = safePublicPath(existing);
     return !existsSync(absolute);
@@ -155,6 +158,8 @@ export const resolveConversationVoiceover = async (
       logs.push(errorText);
       delete message.voiceAudio;
       delete message.voiceDurationMs;
+      delete message.voiceTtsProvider;
+      delete message.voiceTtsProfile;
     }
   }
 
@@ -219,6 +224,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
         .split(path.sep)
         .join("/");
       message.voiceTtsProvider = "openrouter";
+      message.voiceTtsProfile = OPENROUTER_TTS_PROFILE;
       message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
       logs.push(

@@ -1,6 +1,8 @@
 import type {ConversationInput} from "./schema";
 
-export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v1";
+export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
+/** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
+export const OPENROUTER_TTS_PROFILE = "young-emotional-v1";
 
 export type VoiceoverGender = "male" | "female";
 
@@ -33,7 +35,7 @@ export const mergeConversationVoiceover = (
   provider: "openrouter",
 });
 
-/** Голоса Gemini TTS на OpenRouter (Kore, Charon, …) */
+/** Голоса Gemini TTS на OpenRouter (Leda — youthful, Puck — upbeat, …) */
 export const pickOpenRouterVoice = (
   voiceover: ConversationVoiceover,
   author: "me" | "them",
@@ -43,7 +45,7 @@ export const pickOpenRouterVoice = (
   if (voices) {
     return gender === "male" ? voices.male : voices.female;
   }
-  return gender === "male" ? "Charon" : "Kore";
+  return gender === "male" ? "Puck" : "Leda";
 };
 
 export const messageHasVoiceover = (

@@ -1896,10 +1896,11 @@ const applyVoiceoverToJson = () => {
     }
   } else {
     for (const message of parsed.messages ?? []) {
-      if (message.voiceTtsProvider !== "openrouter") {
+      if (message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v1") {
         delete message.voiceAudio;
         delete message.voiceDurationMs;
         delete message.voiceTtsProvider;
+        delete message.voiceTtsProfile;
       }
     }
     parsed.voiceover = {
@@ -1929,7 +1930,7 @@ const countPendingVoiceover = (conversation) => {
       continue;
     }
     const hasAudio = Boolean(String(message.voiceAudio ?? "").trim());
-    if (!hasAudio || message.voiceTtsProvider !== "openrouter") {
+    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v1") {
       pending += 1;
     }
   }

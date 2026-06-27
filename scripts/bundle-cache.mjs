@@ -164,7 +164,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("ParallaxStoryImage") &&
       bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("timing-speed-v1") &&
-      bundleJs.includes("voiceover-openrouter-v1") &&
+      bundleJs.includes("voiceover-openrouter-v2") &&
       bundleJs.includes("hook-overlay-2s-v1") &&
       bundleJs.includes("tail-8000-story-split-v1") &&
       bundleJs.includes("thumb-photo-composition-v1") &&

@@ -7,7 +7,9 @@ import {
 import {textForSpeech} from "./text-for-speech.mjs";
 
 const RUSSIAN_STYLE_PROMPT =
-  "Читай по-русски естественно, с правильными ударениями и интонацией живой переписки в мессенджере.";
+  "Озвучь как молодого человека в живой переписке в мессенджере: по-русски, естественно и эмоционально, с выразительной интонацией и правильными ударениями. Не монотонно и не как диктор — как реальный диалог между друзьями, с лёгкой экспрессией под настроение фразы.";
+
+const CHAT_SPEECH_SPEED = 1.06;
 
 const writePcmWav = async (outputPath, pcm, sampleRate) => {
   const header = Buffer.alloc(44);
@@ -52,6 +54,7 @@ export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model
     model: resolvedModel,
     responseFormat,
     prompt: isGemini ? RUSSIAN_STYLE_PROMPT : undefined,
+    speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
   });
 
   await fs.mkdir(path.dirname(outputPath), {recursive: true});

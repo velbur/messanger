@@ -67,8 +67,8 @@ export const getOpenRouterConfig = () => {
     textModel: process.env.OPENROUTER_TEXT_MODEL?.trim() || DEFAULT_TEXT_MODEL,
     imageModel: process.env.OPENROUTER_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL,
     ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || DEFAULT_TTS_MODEL,
-    ttsVoiceFemale: process.env.OPENROUTER_TTS_VOICE_FEMALE?.trim() || "Kore",
-    ttsVoiceMale: process.env.OPENROUTER_TTS_VOICE_MALE?.trim() || "Charon",
+    ttsVoiceFemale: process.env.OPENROUTER_TTS_VOICE_FEMALE?.trim() || "Leda",
+    ttsVoiceMale: process.env.OPENROUTER_TTS_VOICE_MALE?.trim() || "Puck",
     aspectRatio: process.env.OPENROUTER_IMAGE_ASPECT_RATIO?.trim() || DEFAULT_ASPECT_RATIO,
     imageSize: process.env.OPENROUTER_IMAGE_SIZE?.trim() || DEFAULT_IMAGE_SIZE,
     siteUrl: process.env.OPENROUTER_SITE_URL?.trim() || undefined,
@@ -97,8 +97,8 @@ export const getOpenRouterTtsModel = () =>
 export const getOpenRouterTtsVoices = () => {
   const config = getOpenRouterConfig();
   return {
-    female: config?.ttsVoiceFemale ?? "Kore",
-    male: config?.ttsVoiceMale ?? "Charon",
+    female: config?.ttsVoiceFemale ?? "Leda",
+    male: config?.ttsVoiceMale ?? "Puck",
   };
 };
 
