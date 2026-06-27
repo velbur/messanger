@@ -14,13 +14,13 @@ const renderCommandEl = document.getElementById("renderCommand");
 const btnCopyRenderCommand = document.getElementById("btnCopyRenderCommand");
 const downloadBlock = document.getElementById("downloadBlock");
 const downloadLink = document.getElementById("downloadLink");
-const thumbnailLink = document.getElementById("thumbnailLink");
 const btnPublishYoutube = document.getElementById("btnPublishYoutube");
 const youtubePrivacySelect = document.getElementById("youtubePrivacySelect");
 const youtubePublishControl = document.getElementById("youtubePublishControl");
 const youtubeLink = document.getElementById("youtubeLink");
 const pathsHint = document.getElementById("pathsHint");
 const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
+const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
 const musicSelect = document.getElementById("musicSelect");
 const renderTargetRow = document.getElementById("renderTargetRow");
 const renderTargetSelect = document.getElementById("renderTargetSelect");
@@ -78,10 +78,7 @@ const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
 const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
 const btnCheckLogic = document.getElementById("btnCheckLogic");
 const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
-const btnYoutubeMetadata = document.getElementById("btnYoutubeMetadata");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
-const youtubeDescriptionInput = document.getElementById("youtubeDescriptionInput");
-const youtubeTitleVariants = document.getElementById("youtubeTitleVariants");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
@@ -95,6 +92,9 @@ const btnNewDialogue = document.getElementById("btnNewDialogue");
 const stylePromptInput = document.getElementById("stylePromptInput");
 const btnSaveStylePrompt = document.getElementById("btnSaveStylePrompt");
 const stylePromptStatus = document.getElementById("stylePromptStatus");
+const storyStylePromptInput = document.getElementById("storyStylePromptInput");
+const btnSaveStoryStylePrompt = document.getElementById("btnSaveStoryStylePrompt");
+const storyStylePromptStatus = document.getElementById("storyStylePromptStatus");
 const imageLightbox = document.getElementById("imageLightbox");
 const lightboxImg = document.getElementById("lightboxImg");
 
@@ -119,10 +119,9 @@ const DEFAULT_SERIES_MESSAGE_COUNT = 20;
 const SHORTS_STYLE_PRESETS = {
   fun: {messageCount: 10, imageCount: 0},
   mystic: {messageCount: 20, imageCount: 1},
+  story: {messageCount: 12, imageCount: 0},
 };
 const SHORTS_PROMPT_STORAGE_KEY = "messanger.shortsPrompt";
-let lastThumbnailFile = null;
-let youtubeMetadataCache = null;
 
 const readLastShortsPrompt = () => localStorage.getItem(SHORTS_PROMPT_STORAGE_KEY) ?? "";
 
@@ -135,8 +134,9 @@ const saveLastShortsPrompt = (prompt) => {
 };
 
 const shortsStylesMeta = {
-  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
-  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
+  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
+  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
+  story: {label: "Сюжет+чат", wallpaper: "dark", music: "mystic.mp3", layout: "storySplit"},
 };
 
 const getDialogueLanguage = () => (dialogueLanguage?.value === "en" ? "en" : "ru");
@@ -267,6 +267,7 @@ const updateImageProviderControls = () => {
 };
 let defaultMusicId = "romantic.mp3";
 let currentDialogueId = null;
+let editorImageDraftNamespace = `shorts-draft-${Date.now().toString(36)}`;
 let editorKind = "series";
 let editorVisible = false;
 let activeMainTab = "series";
@@ -280,6 +281,7 @@ const editorSnapshots = {
 let currentDialogueOutputFile = null;
 
 const getStylePrompt = () => stylePromptInput.value.trim();
+const getStoryStylePrompt = () => storyStylePromptInput?.value.trim() ?? "";
 
 const setDialogueSaveStatus = (text, isError = false) => {
   if (!dialogueSaveStatus) {
@@ -399,9 +401,6 @@ const updateLogicControls = () => {
       : hasJson
         ? "Переписать только последние 3 реплики"
         : "Сначала нужен JSON переписки";
-  }
-  if (btnYoutubeMetadata) {
-    btnYoutubeMetadata.disabled = !hasJson || !llmReady;
   }
 };
 
@@ -909,21 +908,14 @@ const saveCurrentDialogue = async () => {
   }
   updateProjectPathsHint();
   editorSnapshots[editorKind] = captureEditorSnapshot();
-  let corpusNote = "";
-  if (editorKind === "shorts" && data.corpusUpdate) {
-    corpusNote = data.corpusUpdate.updated
-      ? " · сводка корпуса обновлена"
-      : data.corpusUpdate.reason === "openrouter_not_configured"
-        ? ""
-        : " · сводка корпуса не обновлена";
-  }
-  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}${corpusNote}`);
+  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}`);
   return data;
 };
 
 const newDialogue = async ({openEditor = false} = {}) => {
   currentDialogueId = null;
   currentDialogueOutputFile = null;
+  resetEditorImageDraftNamespace();
   dialogueTitleInput.value = "";
   if (dialoguePromptInput) {
     dialoguePromptInput.value =
@@ -1409,6 +1401,57 @@ const saveStylePrompt = async () => {
 
 btnSaveStylePrompt.addEventListener("click", saveStylePrompt);
 
+const loadStoryStylePrompt = async () => {
+  try {
+    const res = await fetch("/api/prompts/story-image-style");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить промпт сюжета");
+    }
+    if (storyStylePromptInput) {
+      storyStylePromptInput.value = data.content ?? "";
+    }
+    if (storyStylePromptStatus) {
+      storyStylePromptStatus.textContent =
+        res.ok && data.content ? "Промпт сюжета загружен" : "";
+    }
+  } catch (err) {
+    if (storyStylePromptStatus) {
+      storyStylePromptStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  }
+};
+
+const saveStoryStylePrompt = async () => {
+  const content = getStoryStylePrompt();
+  if (!content) {
+    storyStylePromptStatus.textContent = "Промпт не может быть пустым";
+    return;
+  }
+  btnSaveStoryStylePrompt.disabled = true;
+  storyStylePromptStatus.textContent = "Сохранение…";
+  try {
+    const res = await fetch("/api/prompts/story-image-style", {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({content}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Ошибка сохранения");
+    }
+    storyStylePromptInput.value = data.content ?? content;
+    storyStylePromptStatus.textContent =
+      res.ok && data.content ? "Промпт сюжета сохранён" : "Сохранено";
+  } catch (err) {
+    storyStylePromptStatus.textContent = err instanceof Error ? err.message : String(err);
+  } finally {
+    btnSaveStoryStylePrompt.disabled = false;
+  }
+};
+
+btnSaveStoryStylePrompt?.addEventListener("click", saveStoryStylePrompt);
+
 const loadShortsStyles = async () => {
   try {
     const res = await fetch("/api/shorts/styles");
@@ -1597,6 +1640,57 @@ const setWallpaper = (mode) => {
   }
 };
 
+const getVideoLayout = () => {
+  const checked = [...videoLayoutInputs].find((input) => input.checked);
+  return checked?.value === "storySplit" ? "storySplit" : "chat";
+};
+
+const setVideoLayout = (layout) => {
+  const value = layout === "storySplit" ? "storySplit" : "chat";
+  for (const input of videoLayoutInputs) {
+    input.checked = input.value === value;
+  }
+};
+
+const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (layout === "storySplit") {
+    parsed.layout = "storySplit";
+    if (!parsed.story) {
+      parsed.story = {};
+    }
+    if (!parsed.story.opening) {
+      parsed.story.opening = {};
+    }
+    if (!parsed.story.opening.animation) {
+      parsed.story.opening.animation = "parallax";
+    }
+    if (Array.isArray(parsed.messages)) {
+      for (const message of parsed.messages) {
+        delete message.image;
+        delete message.imagePrompt;
+        delete message.imageEditPrompt;
+      }
+    }
+  } else {
+    parsed.layout = "chat";
+    delete parsed.story;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateGenerateImagesControls(parsed);
+};
+
+const syncVideoLayoutFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  setVideoLayout(parsed.layout === "storySplit" ? "storySplit" : "chat");
+};
+
 const syncWallpaperFromJson = () => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -1656,6 +1750,10 @@ const applyShortsStyleDefaults = () => {
   }
   if (meta.music) {
     setMusicId(meta.music);
+  }
+  if (meta.layout) {
+    setVideoLayout(meta.layout);
+    applyVideoLayoutToJson(meta.layout);
   }
 };
 
@@ -1763,6 +1861,19 @@ const loadRenderTargets = async () => {
   }
 };
 
+const resetEditorImageDraftNamespace = () => {
+  editorImageDraftNamespace = `shorts-draft-${Date.now().toString(36)}`;
+};
+
+const resolveEditorImageNamespace = () => {
+  const raw = dialogueTitleInput?.value?.trim() || currentDialogueId || editorImageDraftNamespace;
+  const slug = slugifyProjectName(raw);
+  return slug === "render" ? editorImageDraftNamespace : slug;
+};
+
+const buildEditorImageRef = (messageIndex) =>
+  `images/${resolveEditorImageNamespace()}/msg-${messageIndex + 1}.png`;
+
 const setJsonImage = (messageIndex, publicPath) => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -1812,6 +1923,83 @@ const setJsonImageEditPrompt = (messageIndex, imageEditPrompt) => {
   }
 };
 
+const buildEditorStoryRef = (messageIndex) =>
+  `images/${resolveEditorImageNamespace()}/story-msg-${messageIndex + 1}.png`;
+
+const buildEditorStoryOpeningRef = () =>
+  `images/${resolveEditorImageNamespace()}/story-opening.png`;
+
+const setJsonStoryImage = (messageIndex, publicPath) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!Array.isArray(parsed.messages) || !parsed.messages[messageIndex]) {
+      return;
+    }
+    parsed.messages[messageIndex].storyImage = publicPath;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
+const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!Array.isArray(parsed.messages) || !parsed.messages[messageIndex]) {
+      return;
+    }
+    const trimmed = String(storyImagePrompt ?? "").trim();
+    if (trimmed) {
+      parsed.messages[messageIndex].storyImagePrompt = trimmed;
+    } else {
+      delete parsed.messages[messageIndex].storyImagePrompt;
+    }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
+const setJsonStoryOpeningImage = (publicPath) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!parsed.story) {
+      parsed.story = {};
+    }
+    if (!parsed.story.opening) {
+      parsed.story.opening = {};
+    }
+    parsed.story.opening.image = publicPath;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
+const setJsonStoryOpeningPrompt = (imagePrompt) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!parsed.story) {
+      parsed.story = {};
+    }
+    if (!parsed.story.opening) {
+      parsed.story.opening = {};
+    }
+    const trimmed = String(imagePrompt ?? "").trim();
+    if (trimmed) {
+      parsed.story.opening.imagePrompt = trimmed;
+    } else {
+      delete parsed.story.opening.imagePrompt;
+    }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
+const storyImagePromptSaveTimers = new Map();
+const storyOpeningPromptSaveTimer = {id: null};
+
 const imagePromptSaveTimers = new Map();
 const imageEditPromptSaveTimers = new Map();
 
@@ -1837,6 +2025,164 @@ const sanitizeConversationTexts = (conversation) => {
     }
   }
   return changed;
+};
+
+const TIMING_SCALE_UI = 0.5;
+
+const jsonMsToEffective = (jsonMs) => Math.max(1, Math.round(Number(jsonMs) * TIMING_SCALE_UI));
+
+const effectiveMsToJson = (effectiveMs) => Math.max(1, Math.round(Number(effectiveMs) / TIMING_SCALE_UI));
+
+let messageTimingPreview = null;
+
+const setMessageTimingInJson = (messageIndex, field, effectiveMs) => {
+  const parsed = parseConversationJson();
+  const message = parsed?.messages?.[messageIndex];
+  if (!message) {
+    return;
+  }
+
+  if (effectiveMs === null || effectiveMs === "" || Number.isNaN(Number(effectiveMs))) {
+    delete message[field];
+  } else {
+    message[field] = effectiveMsToJson(Number(effectiveMs));
+  }
+
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateLogicControls();
+  updateGenerateImagesControls(parsed);
+  scheduleRefreshDialogue();
+};
+
+const clearMessageTimingInJson = (messageIndex) => {
+  const parsed = parseConversationJson();
+  const message = parsed?.messages?.[messageIndex];
+  if (!message) {
+    return;
+  }
+  delete message.pauseBeforeMs;
+  delete message.typingMs;
+  delete message.postRevealMs;
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateLogicControls();
+  updateGenerateImagesControls(parsed);
+  scheduleRefreshDialogue();
+};
+
+const renderMessageTimingControls = (message, messageIndex, timingInfo, {open = false} = {}) => {
+  const details = document.createElement("details");
+  details.className = "dialogue-msg__timing";
+  details.open =
+    open ||
+    Boolean(
+      message.pauseBeforeMs !== undefined ||
+        message.typingMs !== undefined ||
+        message.postRevealMs !== undefined,
+    );
+
+  const summary = document.createElement("summary");
+  summary.className = "dialogue-msg__timing-summary";
+  const resolved = timingInfo?.resolved;
+  if (resolved) {
+    const segmentMs =
+      (timingInfo.isFirst ? 0 : resolved.pauseBeforeMs + resolved.typingMs) + resolved.postRevealMs;
+    summary.textContent = `Появление в ролике · ~${(segmentMs / 1000).toFixed(1)} с на этом сообщении`;
+  } else {
+    summary.textContent = "Появление в ролике";
+  }
+  details.append(summary);
+
+  const grid = document.createElement("div");
+  grid.className = "dialogue-msg__timing-grid";
+
+  const fields = [
+    {
+      key: "pauseBeforeMs",
+      label: "Пауза перед ответом",
+      hint: "До «печатает…» / набора",
+      disabled: messageIndex === 0,
+      disabledHint: "Не применяется к первому сообщению",
+    },
+    {
+      key: "typingMs",
+      label: "Длительность набора",
+      hint: "«Печатает…» или набор в поле",
+      disabled: messageIndex === 0,
+      disabledHint: "Не применяется к первому сообщению",
+    },
+    {
+      key: "postRevealMs",
+      label: "Пауза после сообщения",
+      hint: "До следующей реплики",
+      disabled: false,
+    },
+  ];
+
+  for (const field of fields) {
+    const row = document.createElement("label");
+    row.className = "dialogue-msg__timing-field";
+
+    const title = document.createElement("span");
+    title.className = "dialogue-msg__timing-label";
+    title.textContent = field.label;
+    row.append(title);
+
+    const hint = document.createElement("span");
+    hint.className = "dialogue-msg__timing-hint";
+    hint.textContent = field.disabled ? field.disabledHint : field.hint;
+    row.append(hint);
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = "15000";
+    input.step = "50";
+    input.className = "dialogue-msg__timing-input";
+    input.dataset.messageTimingIndex = String(messageIndex);
+    input.dataset.messageTimingField = field.key;
+    input.disabled = field.disabled;
+
+    const autoMs = timingInfo?.auto?.[field.key];
+    const hasOverride = message[field.key] !== undefined;
+    if (hasOverride) {
+      input.value = String(jsonMsToEffective(message[field.key]));
+    } else {
+      input.value = "";
+      input.placeholder = autoMs != null ? `авто ${autoMs}` : "авто";
+    }
+
+    input.addEventListener("change", () => {
+      const raw = input.value.trim();
+      if (!raw) {
+        setMessageTimingInJson(messageIndex, field.key, null);
+        return;
+      }
+      setMessageTimingInJson(messageIndex, field.key, Number(raw));
+    });
+
+    row.append(input);
+    grid.append(row);
+  }
+
+  details.append(grid);
+
+  const actions = document.createElement("div");
+  actions.className = "dialogue-msg__timing-actions";
+  const btnReset = document.createElement("button");
+  btnReset.type = "button";
+  btnReset.className = "btn btn-secondary btn-small";
+  btnReset.textContent = "Сбросить на авто";
+  btnReset.disabled =
+    message.pauseBeforeMs === undefined &&
+    message.typingMs === undefined &&
+    message.postRevealMs === undefined;
+  btnReset.addEventListener("click", () => {
+    clearMessageTimingInJson(messageIndex);
+  });
+  actions.append(btnReset);
+  details.append(actions);
+
+  return details;
 };
 
 const setMessageTextInJson = (messageIndex, newText) => {
@@ -1965,7 +2311,7 @@ const addImageToMessage = (messageIndex) => {
     if (parsed.messages[messageIndex].image?.trim()) {
       return;
     }
-    parsed.messages[messageIndex].image = `images/msg-${messageIndex + 1}.png`;
+    parsed.messages[messageIndex].image = buildEditorImageRef(messageIndex);
     jsonInput.value = JSON.stringify(parsed, null, 2);
   } catch {
     /* ignore */
@@ -2038,7 +2384,7 @@ const generateFrameImage = async (item) => {
   if (!json) {
     throw new Error("Сначала вставьте JSON переписки");
   }
-  const targetRef = item.kind === "local" ? item.ref : undefined;
+  const targetRef = item.kind === "local" && item.hasImagePath ? item.ref : buildEditorImageRef(item.messageIndex);
   const res = await fetch("/api/images/generate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -2187,6 +2533,152 @@ const enrichImageItem = (message, messageIndex, item) => {
   return {...base, ...state};
 };
 
+const renderStoryImageSlot = ({messageIndex, message, title}) => {
+  const slot = document.createElement("div");
+  slot.className = "image-slot image-slot--story";
+  slot.dataset.storySlotIndex = String(messageIndex ?? "opening");
+
+  const head = document.createElement("div");
+  head.className = "image-slot__head";
+  head.innerHTML = `<strong>${title}</strong>`;
+  slot.append(head);
+
+  const promptInput = document.createElement("textarea");
+  promptInput.className = "image-slot__prompt textarea";
+  promptInput.rows = 3;
+  promptInput.placeholder = "Описание кадра сюжета для верхней панели…";
+  const promptValue =
+    messageIndex == null
+      ? String(message?.story?.opening?.imagePrompt ?? "").trim()
+      : String(message?.storyImagePrompt ?? "").trim();
+  promptInput.value = promptValue;
+  promptInput.addEventListener("input", () => {
+    const timerKey = messageIndex == null ? "opening" : messageIndex;
+    if (messageIndex == null) {
+      if (storyOpeningPromptSaveTimer.id) {
+        clearTimeout(storyOpeningPromptSaveTimer.id);
+      }
+      storyOpeningPromptSaveTimer.id = setTimeout(() => {
+        storyOpeningPromptSaveTimer.id = null;
+        setJsonStoryOpeningPrompt(promptInput.value);
+        updateGenerateImagesControls();
+      }, 400);
+    } else {
+      if (storyImagePromptSaveTimers.has(timerKey)) {
+        clearTimeout(storyImagePromptSaveTimers.get(timerKey));
+      }
+      storyImagePromptSaveTimers.set(
+        timerKey,
+        setTimeout(() => {
+          storyImagePromptSaveTimers.delete(timerKey);
+          setJsonStoryImagePrompt(messageIndex, promptInput.value);
+          updateGenerateImagesControls();
+        }, 400),
+      );
+    }
+  });
+  slot.append(promptInput);
+
+  const imagePath =
+    messageIndex == null
+      ? String(message?.story?.opening?.image ?? "").trim()
+      : String(message?.storyImage ?? "").trim();
+
+  if (imagePath) {
+    const preview = document.createElement("img");
+    preview.className = "image-slot__preview";
+    preview.alt = title;
+    preview.loading = "lazy";
+    preview.src = `/${imagePath.replace(/^\/+/, "")}`;
+    preview.addEventListener("click", () => openImageLightbox(preview.src));
+    slot.append(preview);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "image-slot__actions";
+
+  const btnGenerate = document.createElement("button");
+  btnGenerate.type = "button";
+  btnGenerate.className = "btn btn-primary btn-small";
+  btnGenerate.textContent = "Сгенерировать";
+  btnGenerate.disabled = !canGenerateImages();
+  btnGenerate.addEventListener("click", async () => {
+    btnGenerate.disabled = true;
+    try {
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          json: jsonInput.value,
+          messageIndex: messageIndex ?? undefined,
+          imageKind: messageIndex == null ? "story-opening" : "story",
+          prompt: promptInput.value.trim() || undefined,
+          targetRef:
+            messageIndex == null ? buildEditorStoryOpeningRef() : buildEditorStoryRef(messageIndex),
+          aspectRatio: "5:4",
+          stylePrompt: getStoryStylePrompt(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Ошибка генерации");
+      }
+      if (messageIndex == null) {
+        setJsonStoryOpeningImage(data.publicPath);
+      } else {
+        setJsonStoryImage(messageIndex, data.publicPath);
+      }
+      if (data.imagePrompt) {
+        promptInput.value = data.imagePrompt;
+        if (messageIndex == null) {
+          setJsonStoryOpeningPrompt(data.imagePrompt);
+        } else {
+          setJsonStoryImagePrompt(messageIndex, data.imagePrompt);
+        }
+      }
+      await refreshDialogue();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      btnGenerate.disabled = !canGenerateImages();
+    }
+  });
+  actions.append(btnGenerate);
+
+  if (messageIndex != null) {
+    const btnAdd = document.createElement("button");
+    btnAdd.type = "button";
+    btnAdd.className = "btn btn-secondary btn-small";
+    btnAdd.textContent = "+ Сюжетный кадр";
+    btnAdd.hidden = Boolean(promptValue);
+    btnAdd.addEventListener("click", () => {
+      setJsonStoryImagePrompt(messageIndex, "Рисованный кадр сцены в момент этой реплики.");
+      refreshDialogue();
+    });
+    actions.append(btnAdd);
+  }
+
+  slot.append(actions);
+  return slot;
+};
+
+const renderStoryOpeningPanel = (conversation) => {
+  const panel = document.createElement("section");
+  panel.className = "dialogue-editor__story-opening";
+  const title = document.createElement("h3");
+  title.className = "dialogue-editor__story-title";
+  title.textContent = "Opening scene (полный экран до чата)";
+  panel.append(title);
+  panel.append(
+    renderStoryImageSlot({
+      messageIndex: null,
+      message: conversation,
+      title: "story.opening",
+    }),
+  );
+  return panel;
+};
+
 const renderImageControls = (item) => {
   const slot = document.createElement("div");
   const slotClasses = ["image-slot", `image-slot--${item.status}`];
@@ -2221,7 +2713,7 @@ const renderImageControls = (item) => {
 
   const ref = document.createElement("span");
   ref.className = "image-slot__ref";
-  ref.textContent = item.hasImagePath ? item.ref : `images/msg-${messageNum}.png`;
+  ref.textContent = item.hasImagePath ? item.ref : buildEditorImageRef(item.messageIndex);
   slot.append(ref);
 
   if (item.previewUrl) {
@@ -2519,7 +3011,7 @@ const buildPendingImageItem = (message, messageIndex) => {
     text: String(message.text ?? "").trim(),
     imagePrompt,
     imageEditPrompt: String(message.imageEditPrompt ?? "").trim() || undefined,
-    ref: `images/msg-${messageIndex + 1}.png`,
+    ref: buildEditorImageRef(messageIndex),
     kind: "local",
     status: "pending",
     previewUrl: null,
@@ -2529,7 +3021,7 @@ const buildPendingImageItem = (message, messageIndex) => {
 const resolveImageItem = (message, messageIndex, scannedItem) =>
   enrichImageItem(message, messageIndex, scannedItem);
 
-const renderDialogueMessage = (message, messageIndex, item, contactName) => {
+const renderDialogueMessage = (message, messageIndex, item, contactName, timingInfo, {timingOpen = false} = {}) => {
   const row = document.createElement("article");
   const isMe = message.author === "me";
   const imageState =
@@ -2611,35 +3103,74 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
   });
   bubble.append(textarea);
   inner.append(bubble);
+  inner.append(renderMessageTimingControls(message, messageIndex, timingInfo, {open: timingOpen}));
   requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
 
-  if (message.image?.trim() || message.imagePrompt?.trim()) {
-    const resolved = resolveImageItem(message, messageIndex, item);
-    if (resolved) {
-      inner.append(renderImageControls(resolved));
+  const conversation = parseConversationJson();
+  const isStorySplit = conversation?.layout === "storySplit";
+
+  if (!isStorySplit) {
+    if (message.image?.trim() || message.imagePrompt?.trim()) {
+      const resolved = resolveImageItem(message, messageIndex, item);
+      if (resolved) {
+        inner.append(renderImageControls(resolved));
+      }
+    } else {
+      const addRow = document.createElement("div");
+      addRow.className = "dialogue-msg__add-image";
+      const btnAdd = document.createElement("button");
+      btnAdd.type = "button";
+      btnAdd.className = "btn btn-secondary btn-small";
+      btnAdd.textContent = "+ Добавить изображение";
+      btnAdd.addEventListener("click", () => {
+        addImageToMessage(messageIndex);
+        refreshDialogue();
+      });
+      addRow.append(btnAdd);
+      inner.append(addRow);
     }
-  } else {
-    const addRow = document.createElement("div");
-    addRow.className = "dialogue-msg__add-image";
-    const btnAdd = document.createElement("button");
-    btnAdd.type = "button";
-    btnAdd.className = "btn btn-secondary btn-small";
-    btnAdd.textContent = "+ Добавить изображение";
-    btnAdd.addEventListener("click", () => {
-      addImageToMessage(messageIndex);
-      refreshDialogue();
-    });
-    addRow.append(btnAdd);
-    inner.append(addRow);
+  }
+
+  if (isStorySplit) {
+    if (message.storyImage?.trim() || message.storyImagePrompt?.trim()) {
+      inner.append(
+        renderStoryImageSlot({
+          messageIndex,
+          message,
+          title: `Сюжет сверху · №${messageIndex + 1}`,
+        }),
+      );
+    } else {
+      const addStoryRow = document.createElement("div");
+      addStoryRow.className = "dialogue-msg__add-image";
+      const btnAddStory = document.createElement("button");
+      btnAddStory.type = "button";
+      btnAddStory.className = "btn btn-secondary btn-small";
+      btnAddStory.textContent = "+ Сюжетный кадр сверху";
+      btnAddStory.addEventListener("click", () => {
+        setJsonStoryImagePrompt(
+          messageIndex,
+          "Рисованный кадр сцены в момент этой реплики.",
+        );
+        refreshDialogue();
+      });
+      addStoryRow.append(btnAddStory);
+      inner.append(addStoryRow);
+    }
   }
 
   row.append(inner);
   return row;
 };
 
-const renderDialogueEditor = (conversation, items) => {
+const renderDialogueEditor = (conversation, items, timingPreview) => {
   const activeId = document.activeElement?.id;
   const activeTextIndex = document.activeElement?.dataset?.messageTextIndex;
+  const openTimingIndexes = new Set(
+    [...dialogueEditor.querySelectorAll(".dialogue-msg__timing[open]")]
+      .map((el) => el.closest("[data-message-index]")?.dataset?.messageIndex)
+      .filter((value) => value != null),
+  );
   const scrollTop = dialogueEditor.scrollTop;
 
   dialogueEditor.replaceChildren();
@@ -2654,8 +3185,16 @@ const renderDialogueEditor = (conversation, items) => {
 
   const header = document.createElement("div");
   header.className = "dialogue-editor__header";
-  header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений`;
+  const totalSec =
+    timingPreview?.totalMessagesMs != null
+      ? ` · переписка ~${(timingPreview.totalMessagesMs / 1000).toFixed(1)} с`
+      : "";
+  header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений${totalSec}`;
   dialogueEditor.append(header);
+
+  const timingByIndex = new Map(
+    (timingPreview?.messages ?? []).map((entry) => [entry.index, entry]),
+  );
 
   const thread = document.createElement("div");
   thread.className = "dialogue-editor__thread";
@@ -2663,14 +3202,16 @@ const renderDialogueEditor = (conversation, items) => {
   const itemsByIndex = new Map((items ?? []).map((item) => [item.messageIndex, item]));
 
   const needsImageIndexes = [];
-  for (let i = 0; i < conversation.messages.length; i++) {
-    const message = conversation.messages[i];
-    if (!message.image?.trim() && !message.imagePrompt?.trim()) {
-      continue;
-    }
-    const state = getMessageImageState(message, itemsByIndex.get(i));
-    if (state.needsImageFile) {
-      needsImageIndexes.push(i);
+  if (conversation.layout !== "storySplit") {
+    for (let i = 0; i < conversation.messages.length; i++) {
+      const message = conversation.messages[i];
+      if (!message.image?.trim() && !message.imagePrompt?.trim()) {
+        continue;
+      }
+      const state = getMessageImageState(message, itemsByIndex.get(i));
+      if (state.needsImageFile) {
+        needsImageIndexes.push(i);
+      }
     }
   }
 
@@ -2694,6 +3235,10 @@ const renderDialogueEditor = (conversation, items) => {
     dialogueEditor.append(summary);
   }
 
+  if (conversation.layout === "storySplit") {
+    dialogueEditor.append(renderStoryOpeningPanel(conversation));
+  }
+
   for (let i = 0; i < conversation.messages.length; i++) {
     thread.append(
       renderDialogueMessage(
@@ -2701,6 +3246,8 @@ const renderDialogueEditor = (conversation, items) => {
         i,
         itemsByIndex.get(i),
         conversation.contactName,
+        timingByIndex.get(i),
+        {timingOpen: openTimingIndexes.has(String(i))},
       ),
     );
   }
@@ -2744,14 +3291,27 @@ const refreshDialogue = async () => {
   dialoguePanel.hidden = false;
 
   try {
-    const res = await fetch("/api/images/scan", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({json, stylePrompt: getStylePrompt()}),
-    });
-    const data = await res.json();
-    if (!res.ok) {
+    const [scanRes, timingRes] = await Promise.all([
+      fetch("/api/images/scan", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({json, stylePrompt: getStylePrompt()}),
+      }),
+      fetch("/api/conversation/timing-preview", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({json}),
+      }),
+    ]);
+    const data = await scanRes.json();
+    if (!scanRes.ok) {
       throw new Error(data.error ?? "Ошибка сканирования");
+    }
+
+    if (timingRes.ok) {
+      messageTimingPreview = await timingRes.json();
+    } else {
+      messageTimingPreview = null;
     }
 
     if (typeof data.openrouterConfigured === "boolean") {
@@ -2763,10 +3323,11 @@ const refreshDialogue = async () => {
 
     updateImageProviderControls();
     syncTitleCardFieldsFromJson();
-    renderDialogueEditor(conversation, data.items ?? []);
+    syncVideoLayoutFromJson();
+    renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
   } catch {
-    renderDialogueEditor(conversation, []);
+    renderDialogueEditor(conversation, [], messageTimingPreview);
     updateGenerateImagesControls(conversation);
   }
 };
@@ -2851,10 +3412,18 @@ document.addEventListener("paste", async (e) => {
 
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
+  syncVideoLayoutFromJson();
   updateGenerateImagesControls();
   updateRefineDialogueControls();
   scheduleRefreshDialogue();
 });
+
+for (const input of videoLayoutInputs) {
+  input.addEventListener("change", () => {
+    applyVideoLayoutToJson(getVideoLayout());
+    scheduleRefreshDialogue();
+  });
+}
 stylePromptInput.addEventListener("input", scheduleRefreshDialogue);
 btnRefreshDialogue.addEventListener("click", refreshDialogue);
 
@@ -3034,15 +3603,6 @@ const showStatus = (job) => {
     } else {
       downloadBlock.hidden = true;
     }
-    if (thumbnailLink) {
-      if (job.status === "done" && job.thumbnailFile) {
-        thumbnailLink.hidden = false;
-        thumbnailLink.href = withCacheBust(`/out/${job.thumbnailFile}`, job.finishedAt);
-        thumbnailLink.textContent = `Превью out/${job.thumbnailFile}`;
-      } else {
-        thumbnailLink.hidden = true;
-      }
-    }
     updateYoutubePublishControls();
   }
 };
@@ -3154,6 +3714,7 @@ btnExample.addEventListener("click", async () => {
     updateProjectPathsHint();
     setDialogueSaveStatus("Пример загружен — сохраните как новый диалог");
     syncWallpaperFromJson();
+    syncVideoLayoutFromJson();
     syncMusicFromJson();
     await refreshDialogue();
   } catch (err) {
@@ -3193,10 +3754,6 @@ btnRender.addEventListener("click", async () => {
   }
   downloadBlock.hidden = true;
   lastPublishOutputFile = null;
-  lastThumbnailFile = null;
-  if (thumbnailLink) {
-    thumbnailLink.hidden = true;
-  }
   if (youtubeLink) {
     youtubeLink.hidden = true;
   }
@@ -3253,6 +3810,20 @@ btnRender.addEventListener("click", async () => {
 
 const countPendingImages = (conversation) => {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  if (conversation?.layout === "storySplit") {
+    let pending = messages.filter((message) => {
+      const hasPrompt = Boolean(String(message.storyImagePrompt ?? "").trim());
+      const hasImage = Boolean(String(message.storyImage ?? "").trim());
+      return hasPrompt && !hasImage;
+    }).length;
+    const openingPrompt = Boolean(String(conversation?.story?.opening?.imagePrompt ?? "").trim());
+    const openingImage = Boolean(String(conversation?.story?.opening?.image ?? "").trim());
+    if (openingPrompt && !openingImage) {
+      pending += 1;
+    }
+    return pending;
+  }
+
   return messages.filter((message) => {
     const hasPrompt = Boolean(String(message.imagePrompt ?? "").trim());
     const hasImage = Boolean(String(message.image ?? "").trim());
@@ -3282,6 +3853,11 @@ const updateGenerateImagesControls = (conversation = null) => {
 };
 
 const clearShortsJsonBeforeGenerate = () => {
+  currentDialogueId = null;
+  currentDialogueOutputFile = null;
+  dialogueTitleInput.value = "";
+  resetEditorImageDraftNamespace();
+  updateProjectPathsHint();
   if (!jsonInput.value.trim()) {
     return;
   }
@@ -3511,7 +4087,9 @@ const generateMissingImages = async () => {
     body: JSON.stringify({
       json,
       stylePrompt: getStylePrompt(),
+      storyStylePrompt: getStoryStylePrompt(),
       provider: "openrouter",
+      imageNamespace: resolveEditorImageNamespace(),
     }),
   });
   const data = await res.json();
@@ -3616,50 +4194,6 @@ btnRegenerateEnding?.addEventListener("click", async () => {
   }
 });
 
-btnYoutubeMetadata?.addEventListener("click", async () => {
-  btnYoutubeMetadata.disabled = true;
-  try {
-    const res = await fetch("/api/youtube/metadata", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        json: jsonInput.value,
-        displayTitle: dialogueTitleInput?.value?.trim() ?? "",
-        language: getDialogueLanguage(),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "Не удалось сгенерировать описание");
-    }
-    youtubeMetadataCache = data;
-    if (youtubeDescriptionInput) {
-      youtubeDescriptionInput.hidden = false;
-      youtubeDescriptionInput.value = data.description ?? "";
-    }
-    if (youtubeTitleVariants) {
-      youtubeTitleVariants.replaceChildren();
-      for (const title of data.titleVariants ?? []) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "btn btn-secondary btn-small title-variants__btn";
-        btn.textContent = title;
-        btn.addEventListener("click", () => {
-          if (dialogueTitleInput) {
-            dialogueTitleInput.value = title;
-          }
-        });
-        youtubeTitleVariants.append(btn);
-      }
-      youtubeTitleVariants.hidden = !(data.titleVariants?.length > 0);
-    }
-  } catch (err) {
-    alert(err instanceof Error ? err.message : String(err));
-  } finally {
-    updateLogicControls();
-  }
-});
-
 btnRefineDialogue?.addEventListener("click", async () => {
   btnRefineDialogue.disabled = true;
   if (dialogueRefineStatus) {
@@ -3748,9 +4282,6 @@ const syncPublishOutputFromJob = (job) => {
       currentDialogueOutputFile = file;
     }
   }
-  if (job.thumbnailFile) {
-    lastThumbnailFile = job.thumbnailFile;
-  }
 };
 
 const getPublishOutputFile = () => lastPublishOutputFile || currentDialogueOutputFile || null;
@@ -3791,9 +4322,6 @@ const publishToYoutube = async () => {
 
   const title = dialogueTitleInput?.value?.trim() || undefined;
   const privacyStatus = youtubePrivacySelect?.value || "public";
-  const description =
-    youtubeDescriptionInput?.value?.trim() || youtubeMetadataCache?.description || "";
-  const tags = Array.isArray(youtubeMetadataCache?.tags) ? youtubeMetadataCache.tags : [];
 
   youtubePublishing = true;
   updateYoutubePublishControls();
@@ -3811,9 +4339,6 @@ const publishToYoutube = async () => {
         dialogueId: currentDialogueId ?? undefined,
         title,
         privacyStatus,
-        description,
-        tags,
-        thumbnailFile: lastThumbnailFile ?? undefined,
       }),
     });
     const data = await res.json();
@@ -3942,5 +4467,6 @@ const loadOpenRouterStatus = async () => {
 
 loadOpenRouterStatus().then(() => loadDialogueModels());
 loadStylePrompt();
+loadStoryStylePrompt();
 loadShortsStyles();
 loadBrowseOnStartup();

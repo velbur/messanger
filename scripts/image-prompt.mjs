@@ -4,8 +4,11 @@ import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const STYLE_PROMPT_PATH = path.join(ROOT, "prompts", "image-style.txt");
+export const STORY_STYLE_PROMPT_PATH = path.join(ROOT, "prompts", "story-image-style.txt");
 
 export const DEFAULT_STYLE_PROMPT = `Нарисованная иллюстрация, детальная, не фотореализм. Без текста на картинке.`;
+
+export const DEFAULT_STORY_STYLE_PROMPT = `Цифровая иллюстрация, рисованный сториборд: чёткие контуры, мягкая живописная заливка, выразительный свет. Не фото, не фотореализм. Без текста на картинке.`;
 
 export const SCENE_PROMPT_MAX = 500;
 
@@ -346,6 +349,26 @@ export const writeStylePrompt = async (content) => {
   }
   await mkdir(path.dirname(STYLE_PROMPT_PATH), {recursive: true});
   await writeFile(STYLE_PROMPT_PATH, `${trimmed}\n`, "utf8");
+  return trimmed;
+};
+
+export const readStoryStylePrompt = async () => {
+  try {
+    const text = await readFile(STORY_STYLE_PROMPT_PATH, "utf8");
+    const trimmed = text.trim();
+    return trimmed || DEFAULT_STORY_STYLE_PROMPT;
+  } catch {
+    return DEFAULT_STORY_STYLE_PROMPT;
+  }
+};
+
+export const writeStoryStylePrompt = async (content) => {
+  const trimmed = String(content ?? "").trim();
+  if (!trimmed) {
+    throw new Error("Промпт не может быть пустым");
+  }
+  await mkdir(path.dirname(STORY_STYLE_PROMPT_PATH), {recursive: true});
+  await writeFile(STORY_STYLE_PROMPT_PATH, `${trimmed}\n`, "utf8");
   return trimmed;
 };
 

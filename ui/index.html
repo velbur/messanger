@@ -121,279 +121,284 @@
             ← К списку
           </button>
         </div>
-        <div class="row editor-save-row">
-          <label class="label" for="dialogueTitleInput">Название</label>
-          <p id="dialogueTitleHint" class="editor-paths-hint">
-            Для сериала — латиница, например poka_v_sssr_part3
-          </p>
-          <div class="editor-save-row__line">
-            <input
-              id="dialogueTitleInput"
-              class="input editor-save-row__input"
-              type="text"
-              placeholder="vagon"
-              autocomplete="off"
-            />
-            <div class="editor-save-row__actions">
-              <button type="button" id="btnSaveDialogue" class="btn btn-secondary">Сохранить</button>
-              <button type="button" id="btnNewDialogue" class="btn btn-secondary">Новый</button>
+
+        <div class="editor-layout">
+          <div class="editor-sidebar">
+            <div class="row editor-save-row">
+              <label class="label" for="dialogueTitleInput">Название</label>
+              <p id="dialogueTitleHint" class="editor-paths-hint">
+                Для сериала — латиница, например poka_v_sssr_part3
+              </p>
+              <div class="editor-save-row__line">
+                <input
+                  id="dialogueTitleInput"
+                  class="input editor-save-row__input"
+                  type="text"
+                  placeholder="vagon"
+                  autocomplete="off"
+                />
+                <div class="editor-save-row__actions">
+                  <button type="button" id="btnSaveDialogue" class="btn btn-secondary">Сохранить</button>
+                  <button type="button" id="btnNewDialogue" class="btn btn-secondary">Новый</button>
+                </div>
+              </div>
+              <p id="dialoguePathsHint" class="editor-paths-hint">
+                В базе и в файлах рендера: json/&lt;имя&gt;.json, out/&lt;имя&gt;.mp4
+              </p>
             </div>
-          </div>
-          <p id="dialoguePathsHint" class="editor-paths-hint">
-            В базе и в файлах рендера: json/<имя>.json, out/<имя>.mp4
-          </p>
-        </div>
-        <p id="dialogueSaveStatus" class="editor-save-status" aria-live="polite"></p>
+            <p id="dialogueSaveStatus" class="editor-save-status" aria-live="polite"></p>
 
-        <div class="row editor-series-fields" id="seriesFieldsRow">
-          <span class="label">Серия</span>
-          <p class="dialogue-hint">
-            Части одной большой истории с общим контекстом. Номер части назначается автоматически при создании
-            из списка серии.
-          </p>
-          <label class="editor-series-fields__item">
-            <span class="editor-series-fields__label">ID серии</span>
-            <input
-              id="seriesIdInput"
-              class="input"
-              type="text"
-              value="usssr"
-              placeholder="usssr"
-              autocomplete="off"
-            />
-          </label>
-          <p id="seriesPartHint" class="editor-paths-hint" hidden></p>
-          <label class="title-cards__row">
-            <input type="checkbox" id="seriesUseContext" checked />
-            <span>Учитывать предыдущие части серии из базы</span>
-          </label>
-        </div>
+            <div class="row editor-series-fields" id="seriesFieldsRow">
+              <span class="label">Серия</span>
+              <p class="dialogue-hint">
+                Части одной большой истории с общим контекстом. Номер части назначается автоматически при создании
+                из списка серии.
+              </p>
+              <label class="editor-series-fields__item">
+                <span class="editor-series-fields__label">ID серии</span>
+                <input
+                  id="seriesIdInput"
+                  class="input"
+                  type="text"
+                  value="usssr"
+                  placeholder="usssr"
+                  autocomplete="off"
+                />
+              </label>
+              <p id="seriesPartHint" class="editor-paths-hint" hidden></p>
+              <label class="title-cards__row">
+                <input type="checkbox" id="seriesUseContext" checked />
+                <span>Учитывать предыдущие части серии из базы</span>
+              </label>
+            </div>
 
-        <div class="row">
-          <label class="label" for="dialoguePromptInput">Промпт диалога</label>
-          <p class="dialogue-hint" id="dialoguePromptHint">
-            Задание для генерации переписки через ChatGPT (OpenRouter). Например: «Часть 3: Даня палится
-            современными словами, Алиса учит советскому языку».
-          </p>
-          <textarea
-            id="dialoguePromptInput"
-            class="textarea textarea--prompt"
-            spellcheck="false"
-            placeholder="Опишите часть истории, героев и финал сцены…"
-          ></textarea>
-          <div id="preRenderChecklist" class="pre-render-checklist" hidden></div>
-          <div class="actions actions--inline">
-            <button type="button" id="btnSaveDialoguePrompt" class="btn btn-secondary btn-small">
-              Сохранить промпт
-            </button>
-            <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
-          </div>
-          <div class="dialogue-gen-options">
-            <label class="dialogue-gen-option" id="dialogueStyleOption">
-              <span class="dialogue-gen-option__label">Стиль</span>
-              <select id="dialogueStyle" class="select select--compact" title="Готовый стиль промпта для Shorts">
-                <option value="fun" selected>Весёлая</option>
-                <option value="mystic">Мистика</option>
-              </select>
-            </label>
-            <label class="dialogue-gen-option">
-              <span class="dialogue-gen-option__label">Сообщений</span>
-              <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
-                <option value="10" selected>до 10</option>
-                <option value="15">до 15</option>
-                <option value="20">до 20</option>
-                <option value="25">до 25</option>
-                <option value="30">до 30</option>
-                <option value="40">до 40</option>
-              </select>
-            </label>
-            <label class="dialogue-gen-option">
-              <span class="dialogue-gen-option__label">Фото</span>
-              <select id="dialogueImageCount" class="select select--compact" title="Сколько фото-сообщений с imagePrompt">
-                <option value="0" selected>0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-              </select>
-            </label>
-            <label class="dialogue-gen-option">
-              <span class="dialogue-gen-option__label">Язык</span>
-              <select id="dialogueLanguage" class="select select--compact">
-                <option value="ru" selected>Русский</option>
-                <option value="en">English</option>
-              </select>
-            </label>
-            <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
-              <span class="dialogue-gen-option__label">Модель</span>
-              <select id="dialogueModel" class="select select--compact" title="OpenRouter — для генерации и проверки диалога">
+            <div class="row">
+              <label class="label" for="dialoguePromptInput">Промпт диалога</label>
+              <p class="dialogue-hint" id="dialoguePromptHint">
+                Задание для генерации переписки через ChatGPT (OpenRouter). Например: «Часть 3: Даня палится
+                современными словами, Алиса учит советскому языку».
+              </p>
+              <textarea
+                id="dialoguePromptInput"
+                class="textarea textarea--prompt"
+                spellcheck="false"
+                placeholder="Опишите часть истории, героев и финал сцены…"
+              ></textarea>
+              <div id="preRenderChecklist" class="pre-render-checklist" hidden></div>
+              <div class="actions actions--inline">
+                <button type="button" id="btnSaveDialoguePrompt" class="btn btn-secondary btn-small">
+                  Сохранить промпт
+                </button>
+                <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
+              <div class="dialogue-gen-options">
+                <label class="dialogue-gen-option" id="dialogueStyleOption">
+                  <span class="dialogue-gen-option__label">Стиль</span>
+                  <select id="dialogueStyle" class="select select--compact" title="Готовый стиль промпта для Shorts">
+                    <option value="fun" selected>Весёлая</option>
+                    <option value="mystic">Мистика</option>
+                  </select>
+                </label>
+                <label class="dialogue-gen-option">
+                  <span class="dialogue-gen-option__label">Сообщений</span>
+                  <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
+                    <option value="10" selected>до 10</option>
+                    <option value="15">до 15</option>
+                    <option value="20">до 20</option>
+                    <option value="25">до 25</option>
+                    <option value="30">до 30</option>
+                    <option value="40">до 40</option>
+                  </select>
+                </label>
+                <label class="dialogue-gen-option">
+                  <span class="dialogue-gen-option__label">Фото</span>
+                  <select id="dialogueImageCount" class="select select--compact" title="Сколько фото-сообщений с imagePrompt">
+                    <option value="0" selected>0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                </label>
+                <label class="dialogue-gen-option">
+                  <span class="dialogue-gen-option__label">Язык</span>
+                  <select id="dialogueLanguage" class="select select--compact">
+                    <option value="ru" selected>Русский</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
+                <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
+                  <span class="dialogue-gen-option__label">Модель</span>
+                  <select id="dialogueModel" class="select select--compact" title="OpenRouter — для генерации и проверки диалога">
+                    <option value="">Загрузка…</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="row">
+              <label class="label" for="dialogueRefinePromptInput">Доработка текста</label>
+              <p class="dialogue-hint">
+                Когда диалог уже есть, опишите что изменить: тон, финал, конкретные реплики. Текущий JSON уйдёт в
+                модель как основа.
+              </p>
+              <textarea
+                id="dialogueRefinePromptInput"
+                class="textarea textarea--prompt"
+                spellcheck="false"
+                placeholder="Например: финал сделай смешнее, убери повтор «окей», добавь twist в конце…"
+              ></textarea>
+              <div class="actions actions--inline">
+                <button type="button" id="btnRefineDialogue" class="btn btn-secondary" disabled>
+                  Доработать текст
+                </button>
+                <span id="dialogueRefineStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
+            </div>
+
+            <div class="row">
+              <span class="label">Тема мессенджера</span>
+              <div class="theme-options" role="radiogroup" aria-label="Тема мессенджера">
+                <label class="theme-option">
+                  <input type="radio" name="wallpaper" value="default" checked />
+                  <span>Светлая</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="wallpaper" value="dark" />
+                  <span>Тёмная</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="row" id="layoutRow">
+              <span class="label">Формат видео</span>
+              <div class="theme-options" role="radiogroup" aria-label="Формат видео">
+                <label class="theme-option">
+                  <input type="radio" name="videoLayout" value="chat" checked />
+                  <span>Чат</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="videoLayout" value="storySplit" />
+                  <span>Сюжет+чат</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">
+              <span class="label">Заставки</span>
+              <div class="title-cards">
+                <label class="title-cards__row">
+                  <input type="checkbox" id="introEnabled" />
+                  <span>Начало (5 сек)</span>
+                </label>
+                <input
+                  id="introTextInput"
+                  class="input title-cards__input"
+                  type="text"
+                  placeholder="История началась: Часть 1"
+                  autocomplete="off"
+                />
+                <label class="title-cards__row">
+                  <input type="checkbox" id="endCardEnabled" />
+                  <span>Конец (5 сек)</span>
+                </label>
+                <input
+                  id="endCardTextInput"
+                  class="input title-cards__input"
+                  type="text"
+                  placeholder="Продолжение следует..."
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <div class="row row--music">
+              <label class="label" for="musicSelect">Фоновая музыка</label>
+              <select id="musicSelect" class="select">
                 <option value="">Загрузка…</option>
               </select>
-            </label>
+            </div>
+
+            <div class="row row--render-target" id="renderTargetRow" hidden>
+              <label class="label" for="renderTargetSelect">Где рендерить</label>
+              <select id="renderTargetSelect" class="select">
+                <option value="local">Локально (эта машина)</option>
+              </select>
+            </div>
           </div>
-          <div class="actions actions--inline workflow-actions">
-            <button type="button" id="btnGenerateDialogue" class="btn btn-generate">
-              Сгенерировать диалог
-            </button>
-            <button type="button" id="btnCheckLogic" class="btn btn-secondary" disabled>
-              Логика
-            </button>
-            <button type="button" id="btnRegenerateEnding" class="btn btn-secondary" disabled>
-              Финал
-            </button>
-            <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
-            <span class="workflow-actions__publish">
-              <div class="publish-split" id="youtubePublishControl">
-                <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
-                  Опубликовать на YouTube
+
+          <div class="editor-main">
+            <div class="editor-main-actions">
+              <div class="actions actions--inline workflow-actions">
+                <button type="button" id="btnGenerateDialogue" class="btn btn-generate">
+                  Сгенерировать диалог
                 </button>
-                <select
-                  id="youtubePrivacySelect"
-                  class="publish-split__select"
-                  title="Видимость на YouTube"
-                  disabled
-                >
-                  <option value="public" selected>Публичное</option>
-                  <option value="unlisted">По ссылке</option>
-                  <option value="private">Приватное</option>
-                </select>
+                <button type="button" id="btnCheckLogic" class="btn btn-secondary" disabled>
+                  Логика
+                </button>
+                <button type="button" id="btnRegenerateEnding" class="btn btn-secondary" disabled>
+                  Финал
+                </button>
+                <button type="button" id="btnRender" class="btn btn-primary">Собрать видео</button>
+                <span class="workflow-actions__publish">
+                  <div class="publish-split" id="youtubePublishControl">
+                    <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
+                      Опубликовать на YouTube
+                    </button>
+                    <select
+                      id="youtubePrivacySelect"
+                      class="publish-split__select"
+                      title="Видимость на YouTube"
+                      disabled
+                    >
+                      <option value="public" selected>Публичное</option>
+                      <option value="unlisted">По ссылке</option>
+                      <option value="private">Приватное</option>
+                    </select>
+                  </div>
+                  <a id="youtubeLink" class="youtube-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+                </span>
+                <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+                <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
-              <a id="youtubeLink" class="youtube-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
-            </span>
-            <button type="button" id="btnYoutubeMetadata" class="btn btn-secondary btn-small" disabled>
-              Описание для YouTube
-            </button>
-            <textarea
-              id="youtubeDescriptionInput"
-              class="textarea textarea--compact"
-              rows="3"
-              hidden
-              spellcheck="false"
-              placeholder="Описание и вопрос для комментариев…"
-            ></textarea>
-            <div id="youtubeTitleVariants" class="title-variants" hidden></div>
-            <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
-            <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
+
+              <div class="actions actions--inline">
+                <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
+                  Сгенерировать изображения
+                </button>
+                <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
+            </div>
+
+            <div class="row dialogue-panel" id="dialoguePanel" hidden>
+              <div class="dialogue-panel__head">
+                <span class="label">Диалог</span>
+                <button type="button" id="btnRefreshDialogue" class="btn btn-secondary btn-small">
+                  Обновить
+                </button>
+              </div>
+              <p class="dialogue-hint">
+                Сообщения как в видео. Там, где в JSON есть <code>image</code>, — блок фото: генерация через
+                OpenRouter (ChatGPT). Клик по превью — полный размер.
+              </p>
+              <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
+            </div>
+
+            <details class="json-panel row">
+              <summary class="json-panel__summary">JSON переписки</summary>
+              <textarea
+                id="jsonInput"
+                class="textarea textarea--json"
+                spellcheck="false"
+                placeholder='{ "contactName": "...", "messages": [...] }'
+              ></textarea>
+            </details>
+
+            <div class="actions actions--example">
+              <button type="button" id="btnExample" class="btn btn-secondary">Пример</button>
+            </div>
           </div>
-        </div>
-
-        <div class="row">
-          <label class="label" for="dialogueRefinePromptInput">Доработка текста</label>
-          <p class="dialogue-hint">
-            Когда диалог уже есть, опишите что изменить: тон, финал, конкретные реплики. Текущий JSON уйдёт в
-            модель как основа.
-          </p>
-          <textarea
-            id="dialogueRefinePromptInput"
-            class="textarea textarea--prompt"
-            spellcheck="false"
-            placeholder="Например: финал сделай смешнее, убери повтор «окей», добавь twist в конце…"
-          ></textarea>
-          <div class="actions actions--inline">
-            <button type="button" id="btnRefineDialogue" class="btn btn-secondary" disabled>
-              Доработать текст
-            </button>
-            <span id="dialogueRefineStatus" class="style-prompt-status" aria-live="polite"></span>
-          </div>
-        </div>
-
-        <div class="row">
-          <span class="label">Изображения</span>
-          <p class="dialogue-hint">
-            Кнопка активна, если в JSON есть фото-сообщения с <code>imagePrompt</code>, но без прикреплённого
-            файла <code>image</code>. Промпт каждой сцены строится по контексту всей переписки.
-          </p>
-          <div class="actions actions--inline">
-            <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
-              Сгенерировать изображения
-            </button>
-            <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
-          </div>
-        </div>
-
-        <div class="row">
-          <span class="label">Тема мессенджера</span>
-          <div class="theme-options" role="radiogroup" aria-label="Тема мессенджера">
-            <label class="theme-option">
-              <input type="radio" name="wallpaper" value="default" checked />
-              <span>Светлая</span>
-            </label>
-            <label class="theme-option">
-              <input type="radio" name="wallpaper" value="dark" />
-              <span>Тёмная</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="row dialogue-panel" id="dialoguePanel" hidden>
-          <div class="dialogue-panel__head">
-            <span class="label">Диалог</span>
-            <button type="button" id="btnRefreshDialogue" class="btn btn-secondary btn-small">
-              Обновить
-            </button>
-          </div>
-          <p class="dialogue-hint">
-            Сообщения как в видео. Там, где в JSON есть <code>image</code>, — блок фото: генерация через
-            OpenRouter (ChatGPT). Клик по превью — полный размер.
-          </p>
-          <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
-        </div>
-
-        <details class="json-panel row">
-          <summary class="json-panel__summary">JSON переписки</summary>
-          <textarea
-            id="jsonInput"
-            class="textarea textarea--json"
-            spellcheck="false"
-            placeholder='{ "contactName": "...", "messages": [...] }'
-          ></textarea>
-        </details>
-
-        <div class="actions actions--example">
-          <button type="button" id="btnExample" class="btn btn-secondary">Пример</button>
-        </div>
-
-        <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">
-          <span class="label">Заставки</span>
-          <div class="title-cards">
-            <label class="title-cards__row">
-              <input type="checkbox" id="introEnabled" />
-              <span>Начало (5 сек)</span>
-            </label>
-            <input
-              id="introTextInput"
-              class="input title-cards__input"
-              type="text"
-              placeholder="История началась: Часть 1"
-              autocomplete="off"
-            />
-            <label class="title-cards__row">
-              <input type="checkbox" id="endCardEnabled" />
-              <span>Конец (5 сек)</span>
-            </label>
-            <input
-              id="endCardTextInput"
-              class="input title-cards__input"
-              type="text"
-              placeholder="Продолжение следует..."
-              autocomplete="off"
-            />
-          </div>
-        </div>
-
-        <div class="row row--music">
-          <label class="label" for="musicSelect">Фоновая музыка</label>
-          <select id="musicSelect" class="select">
-            <option value="">Загрузка…</option>
-          </select>
-        </div>
-
-        <div class="row row--render-target" id="renderTargetRow" hidden>
-          <label class="label" for="renderTargetSelect">Где рендерить</label>
-          <select id="renderTargetSelect" class="select">
-            <option value="local">Локально (эта машина)</option>
-          </select>
         </div>
       </section>
 
@@ -412,10 +417,10 @@
 
       <section class="panel tab-panel" id="tabPanelPrompt" role="tabpanel" hidden>
         <div class="row">
-          <label class="label" for="stylePromptInput">Базовый промпт для изображений</label>
+          <label class="label" for="stylePromptInput">Промпт для фото в переписке</label>
           <p class="prompt-tab-hint">
-            Общий стиль для всех кадров (генерация и автопромпт через ChatGPT). После смены стиля у уже заполненных
-            кадров сгенерируйте промпт заново или очистите «Промпт для этого кадра».
+            Стиль фото-сообщений в чате (генерация и автопромпт). После смены стиля у уже заполненных кадров
+            сгенерируйте промпт заново или очистите «Промпт для этого кадра».
           </p>
           <textarea
             id="stylePromptInput"
@@ -428,6 +433,24 @@
             Сохранить промпт
           </button>
           <span id="stylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
+        </div>
+        <div class="row">
+          <label class="label" for="storyStylePromptInput">Промпт для сюжетных кадров (story-split)</label>
+          <p class="prompt-tab-hint">
+            Рисованный стиль верхней панели. Отдельно от фото в переписке — иллюстрация лучше сочетается с
+            depth-параллаксом.
+          </p>
+          <textarea
+            id="storyStylePromptInput"
+            class="textarea textarea--prompt"
+            spellcheck="false"
+          ></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" id="btnSaveStoryStylePrompt" class="btn btn-secondary">
+            Сохранить промпт сюжета
+          </button>
+          <span id="storyStylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
         </div>
       </section>
 
@@ -461,16 +484,6 @@
         </div>
         <p id="downloadBlock" class="download-block" hidden>
           <a id="downloadLink" class="download-link" href="#" download>Скачать MP4</a>
-          <a
-            id="thumbnailLink"
-            class="download-link download-link--thumb"
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            hidden
-          >
-            Превью JPG
-          </a>
           <span id="pathsHint" class="paths-hint"></span>
         </p>
       </section>

@@ -2,6 +2,7 @@ import path from "node:path";
 import {createHash} from "node:crypto";
 import {mkdir, writeFile, access, readFile, unlink, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
+import {ensureStoryDepthForConversation} from "./story-depth.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const PUBLIC_DIR = path.join(ROOT, "public");
@@ -167,8 +168,11 @@ export const saveImageBuffer = async (buffer, targetRef) => {
 
 const hasRenderableText = (message) => (message.text ?? "").trim().length > 0;
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
+const hasRenderableStoryImage = (message) => Boolean(message.storyImage?.trim());
 const hasImagePromptOnly = (message) =>
   Boolean(message.imagePrompt?.trim()) && !hasRenderableImage(message);
+const hasStoryImagePromptOnly = (message) =>
+  Boolean(message.storyImagePrompt?.trim()) && !hasRenderableStoryImage(message);
 
 /** URL → локальный файл; без файла — убрать image; пустые сообщения не попадают в видео */
 export const resolveConversationImages = async (conversation, {failOnMissingImages = false} = {}) => {
@@ -178,9 +182,38 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
     .map((message, index) => ({message, index}))
     .filter(({message}) => hasImagePromptOnly(message));
 
+  const missingStoryPromptOnly =
+    conversation.layout === "storySplit"
+      ? conversation.messages
+          .map((message, index) => ({message, index}))
+          .filter(({message}) => hasStoryImagePromptOnly(message))
+      : [];
+
+  const missingOpening =
+    conversation.layout === "storySplit" &&
+    Boolean(conversation.story?.opening?.imagePrompt?.trim()) &&
+    !Boolean(conversation.story?.opening?.image?.trim());
+
   if (missingPromptOnly.length > 0) {
     const indices = missingPromptOnly.map(({index}) => index + 1).join(", ");
     const errorText = `Сообщения без image, только imagePrompt: №${indices}. Сгенерируйте картинки или включите autoGenerateImages.`;
+    if (failOnMissingImages) {
+      throw new Error(errorText);
+    }
+    logs.push(errorText);
+  }
+
+  if (missingStoryPromptOnly.length > 0) {
+    const indices = missingStoryPromptOnly.map(({index}) => index + 1).join(", ");
+    const errorText = `Story-кадры без storyImage, только storyImagePrompt: №${indices}. Сгенерируйте картинки.`;
+    if (failOnMissingImages) {
+      throw new Error(errorText);
+    }
+    logs.push(errorText);
+  }
+
+  if (missingOpening) {
+    const errorText = "Story opening без image, только imagePrompt. Сгенерируйте картинки.";
     if (failOnMissingImages) {
       throw new Error(errorText);
     }
@@ -216,10 +249,10 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
 
   const before = conversation.messages.length;
   conversation.messages = conversation.messages.filter((message, index) => {
-    if (hasRenderableText(message) || hasRenderableImage(message)) {
+    if (hasRenderableText(message) || hasRenderableImage(message) || hasRenderableStoryImage(message)) {
       return true;
     }
-    logs.push(`Сообщение #${index + 1} пропущено: нет текста и изображения`);
+    logs.push(`Сообщение #${index + 1} пропущено: нет текста, изображения и story-кадра`);
     return false;
   });
 
@@ -229,6 +262,10 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
 
   if (conversation.messages.length < before) {
     logs.push(`В видео: ${conversation.messages.length} из ${before} сообщений`);
+  }
+
+  if (conversation.layout === "storySplit" && conversation.story?.depthParallax !== false) {
+    logs.push(...(await ensureStoryDepthForConversation(conversation)));
   }
 
   return logs;

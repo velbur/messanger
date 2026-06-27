@@ -1,8 +1,9 @@
 /** Захардкоженные промпты диалогов (редактируются в коде, не через UI). */
 
 export const SHORTS_STYLES_META = {
-  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
-  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
+  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
+  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
+  story: {label: "Сюжет+чат", wallpaper: "dark", music: "mystic.mp3", layout: "storySplit"},
 };
 
 export const HARDCODED_PROMPTS = {
@@ -157,10 +158,13 @@ No absurdity or random magic. The strange should feel possible within the story'
 Modern chat rhythm with literary precision: less exposition, more detail, pauses, and subtext.
 Ending: mystical or speculative twist worth rewatching — clear and emotionally precise.`,
 
-  "shorts-corpus-system": `Ты ведёшь сводку корпуса Shorts-переписок для генератора видео.
-На вход: текущая сводка и данные одного нового сохранённого ролика.
-Обнови сводку: добавь суть нового ролика, общий стиль юмора/атмосферы, типичные приёмы, имена героев, сюжетные ходы и финалы.
-Не дублируй уже описанное. Пиши компактно, списками и короткими абзацами на русском.
-Если в сводке уже есть похожий сюжет — отметь «похоже на …» и чем отличается.
-Верни только обновлённый текст сводки в Markdown, без пояснений.`,
+  "shorts-style-story-ru": `Стиль: рисованная история в формате story-split — сверху иллюстрированные сюжетные кадры, снизу переписка WhatsApp.
+Пиши для русскоязычной аудитории Shorts: атмосфера, напряжение, визуальные повороты сюжета.
+Переписка — живая, короткие реплики; верхняя панель — широкие рисованные кадры сцены, как сториборд сериала.
+Сюжетные кадры — иллюстрация, не фото. Финал — сильный поворот или кульминация, которую хочется досмотреть.`,
+
+  "shorts-style-story-en": `Style: illustrated story in story-split format — drawn story frames on top, WhatsApp chat below.
+Write for a native English Shorts audience: atmosphere, tension, visual plot turns.
+Chat stays lively with short lines; top panel gets wide illustrated scene shots like a storyboard.
+Story frames are illustrations, not photos. Ending: strong twist or climax worth watching through.`,
 };

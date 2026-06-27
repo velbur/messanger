@@ -1,5 +1,5 @@
 import React, {useMemo} from "react";
-import {AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame} from "remotion";
+import {AbsoluteFill, Audio, Easing, interpolate, Sequence, staticFile, useCurrentFrame} from "remotion";
 import type {ConversationInput} from "./schema";
 import {CHAT_FONT_FAMILY} from "./fonts";
 import {SubscribeOutro} from "./components/SubscribeOutro";
@@ -9,9 +9,18 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildTimeline, FULLSCREEN_TIMELINE_REV, getStatusBarTime, TIMELINE_TAIL_MARKER, visibleMessageCountAtFrame} from "./timeline";
+import {
+  activeStorySceneAtFrame,
+  buildTimeline,
+  FULLSCREEN_TIMELINE_REV,
+  getStatusBarTime,
+  storyImageAtFrame,
+  STORY_SPLIT_TIMELINE_REV,
+  TIMELINE_TAIL_MARKER,
+  visibleMessageCountAtFrame,
+} from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatHeader} from "./components/ChatHeader";
 import {InputBar} from "./components/InputBar";
@@ -19,6 +28,7 @@ import {FullscreenImage} from "./components/FullscreenImage";
 import {HookOverlay} from "./components/HookOverlay";
 import {MessageBubble} from "./components/MessageBubble";
 import {StatusBar} from "./components/StatusBar";
+import {StoryPanel} from "./components/StoryPanel";
 import {TypingIndicator} from "./components/TypingIndicator";
 import {Wallpaper} from "./components/Wallpaper";
 
@@ -28,6 +38,96 @@ type Props = {
 
 void VIDEO_FEATURE_BUNDLE_MARKER;
 void TIMELINE_TAIL_MARKER;
+void STORY_SPLIT_TIMELINE_REV;
+
+type ChatBodyProps = {
+  conversation: ConversationInput;
+  visibleEvents: ReturnType<typeof buildTimeline>["events"];
+  activeEvent: ReturnType<typeof buildTimeline>["events"][number] | undefined;
+  lastEventIndex: number;
+  headerStatus: string;
+  statusBarTime: string;
+  messengerLocale: ReturnType<typeof getMessengerLocale>;
+  theme: ReturnType<typeof getTheme>;
+  opacity: number;
+};
+
+const ChatBody: React.FC<ChatBodyProps> = ({
+  conversation,
+  visibleEvents,
+  activeEvent,
+  lastEventIndex,
+  headerStatus,
+  statusBarTime,
+  messengerLocale,
+  theme,
+  opacity,
+}) => (
+  <div
+    style={{
+      position: "relative",
+      zIndex: 1,
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+      minHeight: 0,
+      width: "100%",
+      opacity,
+    }}
+  >
+    <StatusBar time={statusBarTime} />
+    <ChatHeader
+      contactName={conversation.contactName}
+      contactStatus={headerStatus}
+      contactAvatar={conversation.contactAvatar}
+    />
+
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        padding: `${LAYOUT.chatPaddingTop}px ${LAYOUT.chatPaddingRight}px ${LAYOUT.chatPaddingBottom}px ${LAYOUT.chatPaddingLeft}px`,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+        }}
+      >
+        {visibleEvents.map((event) => (
+          <MessageBubble
+            key={event.index}
+            author={event.author}
+            text={event.text}
+            image={event.image}
+            sentAt={event.sentAt}
+            revealFrame={event.revealFrame}
+            emphasizeFinale={event.index === lastEventIndex}
+          />
+        ))}
+        {activeEvent?.author === "them" ? <TypingIndicator /> : null}
+      </div>
+    </div>
+
+    <div
+      style={{
+        flexShrink: 0,
+        background: theme.inputBarBg,
+        paddingLeft: LAYOUT.chatPaddingLeft,
+        paddingRight: LAYOUT.chatPaddingRight,
+        paddingBottom: LAYOUT.shortsSafeAreaBottom,
+      }}
+    >
+      <InputBar placeholder={messengerLocale.inputPlaceholder} />
+    </div>
+  </div>
+);
 
 export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const frame = useCurrentFrame();
@@ -39,6 +139,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const intro = useMemo(() => mergeIntro(conversation), [conversation]);
   const endCard = useMemo(() => mergeEndCard(conversation), [conversation]);
   const theme = getTheme(conversation.wallpaper);
+  const story = timeline.story;
 
   const inIntro = intro.enabled && frame < timeline.introDurationFrames;
   const inEndCard =
@@ -90,6 +191,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     timeline.events,
     frame,
     timeline.introDurationFrames,
+    story,
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
   const lastEventIndex = timeline.events.length - 1;
@@ -101,6 +203,59 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
 
   const statusBarTime = getStatusBarTime(timeline.events, visibleCount, activeEvent);
 
+  const chatBody = (
+    <ChatBody
+      conversation={conversation}
+      visibleEvents={visibleEvents}
+      activeEvent={activeEvent}
+      lastEventIndex={lastEventIndex}
+      headerStatus={headerStatus}
+      statusBarTime={statusBarTime}
+      messengerLocale={messengerLocale}
+      theme={theme}
+      opacity={inTitleCard ? 0 : chatDim}
+    />
+  );
+
+  const storySplitActive = story.enabled && !inTitleCard && !inOutro;
+  const targetTopH = Math.round(story.topPanelRatio * SPLIT_LAYOUT.frameHeight);
+  const storyPanelHeight = storySplitActive
+    ? interpolate(
+        frame,
+        [story.openingStartFrame, story.splitStartFrame, story.splitCompleteFrame],
+        [SPLIT_LAYOUT.frameHeight, SPLIT_LAYOUT.frameHeight, targetTopH],
+        {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+          easing: Easing.out(Easing.cubic),
+        },
+      )
+    : 0;
+  const bottomPanelHeight = storySplitActive
+    ? Math.max(0, SPLIT_LAYOUT.frameHeight - storyPanelHeight)
+    : 0;
+  const chatScale = splitChatScale(bottomPanelHeight);
+
+  const currentStoryImage = storySplitActive ? storyImageAtFrame(story, frame) : undefined;
+  const previousStoryImage =
+    storySplitActive && frame > 0 ? storyImageAtFrame(story, frame - 1) : undefined;
+  const activeScene = storySplitActive ? activeStorySceneAtFrame(story, frame) : undefined;
+  const sceneStartFrame =
+    frame < story.splitCompleteFrame
+      ? story.openingStartFrame
+      : (activeScene?.startFrame ?? story.splitCompleteFrame);
+  const sceneEndFrame =
+    frame < story.splitCompleteFrame
+      ? story.splitCompleteFrame
+      : (activeScene?.endFrame ?? timeline.outroStartFrame);
+  const sceneLocalFrame = Math.max(0, frame - sceneStartFrame);
+  const sceneDurationFrames = Math.max(1, sceneEndFrame - sceneStartFrame);
+
+  const showHook =
+    conversation.hookText?.trim() &&
+    !inTitleCard &&
+    (!story.enabled || frame >= story.openingStartFrame);
+
   return (
     <ChatThemeProvider mode={conversation.wallpaper}>
       <AbsoluteFill
@@ -111,76 +266,58 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           backgroundColor: theme.statusBarBg,
         }}
       >
-        <Wallpaper />
-
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-            opacity: inTitleCard ? 0 : chatDim,
-          }}
-        >
-          <StatusBar time={statusBarTime} />
-          <ChatHeader
-            contactName={conversation.contactName}
-            contactStatus={headerStatus}
-            contactAvatar={conversation.contactAvatar}
-          />
-
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              overflow: "hidden",
-              padding: `${LAYOUT.chatPaddingTop}px ${LAYOUT.chatPaddingRight}px ${LAYOUT.chatPaddingBottom}px ${LAYOUT.chatPaddingLeft}px`,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-            }}
-          >
+        {storySplitActive ? (
+          <>
+            <StoryPanel
+              image={currentStoryImage}
+              previousImage={previousStoryImage}
+              height={storyPanelHeight}
+              animation={story.openingAnimation}
+              sceneLocalFrame={sceneLocalFrame}
+              sceneDurationFrames={sceneDurationFrames}
+              crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
+              depthParallax={story.depthParallax}
+            />
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
+                position: "relative",
+                height: bottomPanelHeight,
+                overflow: "hidden",
+                flexShrink: 0,
+                opacity: interpolate(
+                  frame,
+                  [story.splitStartFrame, story.splitCompleteFrame],
+                  [0, 1],
+                  {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+                ),
               }}
             >
-              {visibleEvents.map((event) => (
-                <MessageBubble
-                  key={event.index}
-                  author={event.author}
-                  text={event.text}
-                  image={event.image}
-                  sentAt={event.sentAt}
-                  revealFrame={event.revealFrame}
-                  emphasizeFinale={event.index === lastEventIndex}
-                />
-              ))}
-              {activeEvent?.author === "them" ? <TypingIndicator /> : null}
+              <Wallpaper />
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: "50%",
+                  width: SPLIT_LAYOUT.frameWidth / chatScale,
+                  height: SPLIT_LAYOUT.frameHeight,
+                  transform: `translateX(-50%) scale(${chatScale})`,
+                  transformOrigin: "top center",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {chatBody}
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          <>
+            <Wallpaper />
+            {chatBody}
+          </>
+        )}
 
-          <div
-            style={{
-              flexShrink: 0,
-              background: theme.inputBarBg,
-              paddingLeft: LAYOUT.chatPaddingLeft,
-              paddingRight: LAYOUT.chatPaddingRight,
-              paddingBottom: LAYOUT.shortsSafeAreaBottom,
-            }}
-          >
-            <InputBar placeholder={messengerLocale.inputPlaceholder} />
-          </div>
-        </div>
-
-        {conversation.hookText?.trim() && !inTitleCard ? (
-          <HookOverlay text={conversation.hookText} />
-        ) : null}
+        {showHook ? <HookOverlay text={conversation.hookText ?? ""} /> : null}
 
         {music.enabled ? (
           <Audio src={staticFile(music.src)} volume={music.volume} loop />

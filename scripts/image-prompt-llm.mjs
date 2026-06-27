@@ -1,4 +1,5 @@
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
+import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {
   resolveImageReferences,
   formatPriorFramesText,
@@ -8,6 +9,7 @@ import {
   buildHeuristicScenePrompt,
   buildFullDialogueTranscriptForLlm,
   readStylePrompt,
+  readStoryStylePrompt,
 } from "./image-prompt.mjs";
 import {
   chatCompletionJson as openRouterChatJson,
@@ -207,6 +209,124 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
     scene,
     style ? `Стиль: ${style}` : "",
     `Реалистичное фото с телефона. Формат ${CHAT_IMAGE_ASPECT_RATIO}, вложение в чат, одна сцена, без UI чата и без текста на картинке.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
+
+const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = ""} = {}) => {
+  const style = normalizeSpace(stylePrompt);
+  return [
+    "Ты помогаешь генерировать рисованные сюжетные кадры для story-split видео (верхняя панель, переписка снизу).",
+    `Картинка — широкая иллюстрация сцены (${STORY_IMAGE_ASPECT_RATIO}), не UI чата, без текста на картинке.`,
+    style
+      ? `Общий стиль всех кадров (обязательно): ${style}`
+      : "Стиль: рисованная иллюстрация, сториборд, не фотореализм.",
+    "Опиши establishing shot / атмосферу момента истории, как кадр художника-иллюстратора.",
+    "Запрещены формулировки «фото», «фотореализм», «снято на камеру», «как в кино».",
+    hasReferences
+      ? "- Есть предыдущие кадры сюжета: сохраняй интерьер, персонажей и палитру."
+      : "",
+    "- imagePrompt: 2–4 предложения на русском, конкретная сцена для иллюстратора.",
+    'Ответ строго JSON: {"imagePrompt":"..."}',
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+export const resolveStoryFramePrompts = async ({
+  conversation,
+  messageIndex = null,
+  stylePrompt,
+  kind = "message",
+}) => {
+  const style = normalizeSpace(stylePrompt) || normalizeSpace(await readStoryStylePrompt());
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+
+  if (kind === "opening") {
+    const manual = normalizeSpace(conversation?.story?.opening?.imagePrompt);
+    if (manual) {
+      return {imagePrompt: manual, promptSource: "manual", imageReferences: null};
+    }
+
+    const contactName = conversation?.contactName?.trim() || "Собеседник";
+    const dialogue = buildFullDialogueTranscriptForLlm(
+      messages,
+      Math.min(2, Math.max(0, messages.length - 1)),
+      contactName,
+    );
+    const imagePrompt = [
+      "Рисованная establishing-сцена до начала переписки.",
+      dialogue.text ? `Контекст будущей переписки:\n${dialogue.text}` : "",
+      "Покажи обстановку и настроение иллюстрацией, без UI телефона и без текста на кадре.",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    return {imagePrompt, promptSource: "heuristic", imageReferences: null};
+  }
+
+  if (messageIndex == null || messageIndex < 0 || messageIndex >= messages.length) {
+    throw new Error("Некорректный индекс сообщения для story-кадра");
+  }
+
+  const message = messages[messageIndex];
+  const manual = normalizeSpace(message.storyImagePrompt);
+  if (manual) {
+    return {imagePrompt: manual, promptSource: "manual", imageReferences: null};
+  }
+
+  if (isOpenRouterConfigured()) {
+    const contactName = conversation?.contactName?.trim() || "Собеседник";
+    const dialogue = buildFullDialogueTranscriptForLlm(messages, messageIndex, contactName);
+    const {data, model} = await openRouterChatJson({
+      messages: [
+        {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
+        {
+          role: "user",
+          content: [
+            `Контакт: ${contactName}`,
+            `Целевое сообщение №${messageIndex + 1}`,
+            dialogue.text,
+            "Опиши кинематографичный кадр сцены для верхней панели в момент этого сообщения.",
+          ].join("\n\n"),
+        },
+      ],
+      temperature: 0.25,
+      maxTokens: 1200,
+    });
+    const imagePrompt = normalizeSpace(data?.imagePrompt);
+    if (!imagePrompt) {
+      throw new Error("LLM не вернул story imagePrompt");
+    }
+    return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+  }
+
+  const frame = buildFrameBrief({message, messageIndex, messages, contactName: conversation?.contactName});
+  return {
+    imagePrompt: buildHeuristicScenePrompt({
+      stylePrompt: style,
+      contactName: conversation?.contactName,
+      messages,
+      messageIndex,
+      sceneOverride: frame.caption,
+    }),
+    promptSource: "heuristic",
+    imageReferences: null,
+  };
+};
+
+export const buildStoryImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
+  const style = normalizeSpace(stylePrompt);
+  const scene = normalizeSpace(imagePrompt);
+  if (!scene) {
+    return "";
+  }
+
+  return [
+    scene,
+    style ? `Стиль: ${style}` : "",
+    `Рисованная иллюстрация сцены. Формат ${STORY_IMAGE_ASPECT_RATIO}, широкий план, без UI чата и без текста. Запрещены фото, фотореализм и гиперреализм.`,
   ]
     .filter(Boolean)
     .join(" ");

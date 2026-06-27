@@ -1,0 +1,76 @@
+{
+  "contactName": "Неизвестный",
+  "myName": "Я",
+  "wallpaper": "dark",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "layout": "storySplit",
+  "hookText": "Ночное сообщение",
+  "story": {
+    "opening": {
+      "image": "images/story-split-demo/story-opening.png",
+      "imagePrompt": "Рисованная ночная спальня: парень просыпается от света экрана телефона на подушке, мягкий синий свет, атмосфера тревоги",
+      "durationMs": 2500,
+      "animation": "parallax"
+    },
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true
+  },
+  "music": {
+    "enabled": false
+  },
+  "messages": [
+    {
+      "author": "them",
+      "text": "Ты спишь?",
+      "sentAt": "02:14",
+      "storyImage": "images/story-split-demo/story-msg-1.png",
+      "storyImagePrompt": "Иллюстрация: крупный кадр телефона в темноте, на экране новое сообщение, синий свет на лице"
+    },
+    {
+      "author": "me",
+      "text": "Нет. Что случилось?",
+      "sentAt": "02:14"
+    },
+    {
+      "author": "them",
+      "text": "Я стою у твоего подъезда.",
+      "sentAt": "02:15",
+      "storyImage": "images/story-split-demo/story-msg-3.png",
+      "storyImagePrompt": "Рисованный ночной двор, подъезд с тёплым светом в окнах, силуэт человека у двери, дождь"
+    },
+    {
+      "author": "me",
+      "text": "Ты же в другом городе…",
+      "sentAt": "02:15"
+    },
+    {
+      "author": "them",
+      "text": "Посмотри в окно.",
+      "sentAt": "02:16",
+      "storyImage": "images/story-split-demo/story-msg-5.png",
+      "storyImagePrompt": "Иллюстрация: вид из окна квартиры на пустой двор ночью, внизу фигура смотрит вверх"
+    },
+    {
+      "author": "them",
+      "text": "Вот что я вижу снизу.",
+      "sentAt": "02:16",
+      "storyImage": "images/story-split-demo/story-msg-6.png",
+      "storyImagePrompt": "Рисованный вид снизу: двор ночью, силуэт у подъезда, дождь, мрачная атмосфера"
+    },
+    {
+      "author": "me",
+      "text": "Откуда ты это знаешь?",
+      "sentAt": "02:17"
+    },
+    {
+      "author": "them",
+      "text": "Я же сказал — я уже здесь.",
+      "sentAt": "02:17",
+      "storyImage": "images/story-split-demo/story-msg-8.png",
+      "storyImagePrompt": "Иллюстрация: коридор подъезда, дверь квартиры крупным планом, тень за матовым стеклом"
+    }
+  ]
+}

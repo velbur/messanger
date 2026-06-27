@@ -1,0 +1,74 @@
+import type {ConversationInput} from "./schema";
+
+export type StorySceneAnimation = "parallax" | "kenburns" | "none";
+
+export type StoryOpeningConfig = {
+  image?: string;
+  imagePrompt?: string;
+  durationMs: number;
+  animation: StorySceneAnimation;
+};
+
+export type StoryConfig = {
+  opening: StoryOpeningConfig;
+  splitTransitionMs: number;
+  topPanelRatio: number;
+  disableMessageFullscreen: boolean;
+  depthParallax: boolean;
+};
+
+const DEFAULT_OPENING: StoryOpeningConfig = {
+  durationMs: 2500,
+  animation: "parallax",
+};
+
+const DEFAULT_STORY: StoryConfig = {
+  opening: DEFAULT_OPENING,
+  splitTransitionMs: 600,
+  topPanelRatio: 0.45,
+  disableMessageFullscreen: true,
+  depthParallax: true,
+};
+
+export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig => {
+  const raw = conversation.story;
+  const openingRaw = raw?.opening;
+
+  return {
+    opening: {
+      ...DEFAULT_OPENING,
+      ...openingRaw,
+      image: openingRaw?.image?.trim() || undefined,
+      imagePrompt: openingRaw?.imagePrompt?.trim() || undefined,
+    },
+    splitTransitionMs: raw?.splitTransitionMs ?? DEFAULT_STORY.splitTransitionMs,
+    topPanelRatio: raw?.topPanelRatio ?? DEFAULT_STORY.topPanelRatio,
+    disableMessageFullscreen: raw?.disableMessageFullscreen ?? DEFAULT_STORY.disableMessageFullscreen,
+    depthParallax: raw?.depthParallax ?? DEFAULT_STORY.depthParallax,
+  };
+};
+
+export const isStorySplitLayout = (conversation: ConversationInput): boolean =>
+  conversation.layout === "storySplit";
+
+export const messageHasStoryImage = (
+  message: ConversationInput["messages"][number],
+): boolean => Boolean(message.storyImage?.trim() || message.storyImagePrompt?.trim());
+
+/** В storySplit визуал только сверху — убираем фото из пузырей чата. */
+export const stripChatBubbleImages = (conversation: ConversationInput): ConversationInput => {
+  if (!isStorySplitLayout(conversation)) {
+    return conversation;
+  }
+
+  return {
+    ...conversation,
+    messages: conversation.messages.map((message) => {
+      const next = {...message};
+      delete next.image;
+      delete next.imagePrompt;
+      delete next.imageEditPrompt;
+      return next;
+    }),
+  };
+};

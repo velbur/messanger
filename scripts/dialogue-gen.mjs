@@ -15,7 +15,6 @@ import {
   promptKeyForLogicRules,
   promptKeyForShortsStyle,
 } from "./dialogue-prompts.mjs";
-import {readShortsCorpusSummary} from "./shorts-corpus.mjs";
 import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
@@ -54,6 +53,7 @@ const buildJsonFormatBlock = ({
   myName = "Алиса",
   fullConversation = false,
   language = "ru",
+  withStorySplit = false,
 } = {}) => {
   const resolvedMyName =
     language === "en" && (myName === "Алиса" || myName === "Я") ? "Me" : myName;
@@ -67,18 +67,41 @@ const buildJsonFormatBlock = ({
       '  "contactName": "contact name in chat header",',
       `  "myName": "${resolvedMyName}",`,
       '  "wallpaper": "default" | "dark",',
+    );
+    if (withStorySplit) {
+      lines.push('  "layout": "storySplit",');
+      lines.push('  "story": {');
+      lines.push('    "opening": {');
+      lines.push('      "imagePrompt": "illustrated establishing scene before the chat starts"');
+      lines.push("    }");
+      lines.push("  },");
+    }
+    lines.push(
       '  "messages": [',
       "    {",
       '      "author": "me" | "them",',
       '      "text": "message text",',
       '      "sentAt": "HH:MM"',
       "    },",
-      "    {",
-      '      "author": "them",',
-      '      "imagePrompt": "photo description for the artist",',
-      '      "sentAt": "HH:MM"',
-      "    },",
     );
+    if (withStorySplit) {
+      lines.push(
+        "    {",
+        '      "author": "them",',
+        '      "text": "plot turn line",',
+        '      "storyImagePrompt": "illustrated scene for the top panel at this beat",',
+        '      "sentAt": "HH:MM"',
+        "    },",
+      );
+    } else {
+      lines.push(
+        "    {",
+        '      "author": "them",',
+        '      "imagePrompt": "photo description for the artist",',
+        '      "sentAt": "HH:MM"',
+        "    },",
+      );
+    }
     if (fullConversation) {
       lines.push(
         "    /* …continue messages: full chat from start to finish,",
@@ -97,18 +120,41 @@ const buildJsonFormatBlock = ({
     '  "contactName": "имя собеседника в шапке чата",',
     `  "myName": "${resolvedMyName}",`,
     '  "wallpaper": "default" | "dark",',
+  );
+  if (withStorySplit) {
+    lines.push('  "layout": "storySplit",');
+    lines.push('  "story": {');
+    lines.push('    "opening": {');
+    lines.push('      "imagePrompt": "рисованный establishing shot до начала переписки"');
+    lines.push("    }");
+    lines.push("  },");
+  }
+  lines.push(
     '  "messages": [',
     "    {",
     '      "author": "me" | "them",',
     '      "text": "текст сообщения",',
     '      "sentAt": "HH:MM"',
     "    },",
-    "    {",
-    '      "author": "them",',
-    '      "imagePrompt": "описание фото для художника",',
-    '      "sentAt": "HH:MM"',
-    "    },",
   );
+  if (withStorySplit) {
+    lines.push(
+      "    {",
+      '      "author": "them",',
+      '      "text": "реплика на повороте сюжета",',
+      '      "storyImagePrompt": "рисованный кадр для верхней панели в этот момент",',
+      '      "sentAt": "HH:MM"',
+      "    },",
+    );
+  } else {
+    lines.push(
+      "    {",
+      '      "author": "them",',
+      '      "imagePrompt": "описание фото для художника",',
+      '      "sentAt": "HH:MM"',
+      "    },",
+    );
+  }
   if (fullConversation) {
     lines.push(
       "    /* …продолжай messages: вся переписка от начала до финала,",
@@ -122,25 +168,32 @@ const buildJsonFormatBlock = ({
 const buildEmojiRules = (language = "ru", dialogueStyle = "fun", mode = "shorts") => {
   const isFunShorts = dialogueStyle === "fun" && mode === "shorts";
   const isMysticShorts = dialogueStyle === "mystic" && mode === "shorts";
+  const noSkullRule =
+    language === "en"
+      ? "- Never use skull emoji (💀 ☠️)."
+      : "- Не используй череп в emoji (💀 ☠️).";
 
   if (language === "en") {
     if (isMysticShorts) {
       return [
+        noSkullRule,
         "- Use emoji sparingly: uneasy reactions (😬 👀), almost never joke emoji.",
         "- Skip emoji in the scariest or most serious beats.",
       ];
     }
     if (isFunShorts) {
       return [
+        noSkullRule,
         "- Make the chat visually rich like real WhatsApp: emoji in reactions, jokes, and surprise.",
         "- Aim for emoji in about half of text messages — not every line, but often enough to feel alive on screen.",
-        "- Mix reactions: 😂 🤣 😅 💀 🙈 😭 🔥 👀 ❤️ 🤦 🤷 plus light text laugh (lol, lmao) where natural.",
+        "- Mix reactions: 😂 🤣 😅 🙈 😭 🔥 👀 ❤️ 🤦 🤷 plus light text laugh (lol, lmao) where natural.",
         "- Max 2–3 emoji per message; don't stack unrelated emoji.",
         "- CAPS ok for comic emphasis (WHAT, NO WAY) — sparingly.",
         "- Skip emoji only in dead-serious beats right before a punchline lands.",
       ];
     }
     return [
+      noSkullRule,
       "- Use emoji in text where it fits messaging: irony, softening, warm reaction, quick joke.",
       "- Don't put emoji in every line; skip them in tense, scary, or desperate moments.",
     ];
@@ -148,21 +201,24 @@ const buildEmojiRules = (language = "ru", dialogueStyle = "fun", mode = "shorts"
 
   if (isMysticShorts) {
     return [
+      noSkullRule,
       "- Emoji редко: только нервные реакции (😬 👀), без комедийных смайлов.",
       "- В самых тревожных репликах — без emoji.",
     ];
   }
   if (isFunShorts) {
     return [
+      noSkullRule,
       "- Переписка должна выглядеть живой и богатой, как в реальном WhatsApp: emoji в реакциях, шутках, удивлении.",
       "- В весёлом стиле — emoji примерно в половине текстовых реплик: не в каждой строке, но регулярно, чтобы на видео было «живее».",
-      "- Чередуй: 😂 🤣 😅 💀 🙈 😭 🔥 👀 ❤️ 🤦 🤷 и текстовый смех (ахах, ору, блин) где уместно.",
+      "- Чередуй: 😂 🤣 😅 🙈 😭 🔥 👀 ❤️ 🤦 🤷 и текстовый смех (ахах, ору, блин) где уместно.",
       "- Не больше 2–3 emoji в одной реплике; не ставь несвязанные подряд.",
       "- КАПС для комического акцента (ЧТО, НЕТ) — изредка, не в каждой реплике.",
       "- Без emoji только в по-настоящему серьёзных моментах перед панчлайном.",
     ];
   }
   return [
+    noSkullRule,
     "- Используй emoji в text там, где это уместно в переписке: ирония, смягчение, тёплая реакция, короткая шутка.",
     "- Не ставь emoji в каждой реплике и не используй их в напряжённых, страшных или отчаянных моментах.",
   ];
@@ -246,6 +302,39 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
       ? "- Вставляй фото там, где герой присылает доказательство: ценник, улица, еда, билет и т.п."
       : "- Вставляй фото-сообщения там, где это усиливает сюжет по заданию пользователя.",
     ...mysticExtras,
+  ];
+};
+
+const buildStoryImageRules = ({language = "ru"} = {}) => {
+  const noBubbleRule =
+    language === "en"
+      ? "- Text-only chat: never use image, imagePrompt, or imageEditPrompt in messages."
+      : "- Только текст в переписке: никогда не используй image, imagePrompt и imageEditPrompt в messages.";
+
+  if (language === "en") {
+    return [
+      '- layout must be "storySplit".',
+      "- story.opening.imagePrompt: illustrated establishing scene before messages appear (night, location, mood).",
+      "- story.opening.animation: parallax (default).",
+      "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide illustrated scene for the top panel.",
+      "- storyImagePrompt changes on plot beats, not on every line. Hold previous frame between beats.",
+      "- storyImagePrompt describes the scene/environment as a drawn illustration, not a photo. No chat UI or text overlays.",
+      "- Never use words like photo, photorealistic, cinematic, shot on camera in storyImagePrompt.",
+      noBubbleRule,
+      "- Never put frame descriptions in square brackets in text.",
+    ];
+  }
+
+  return [
+    '- layout обязательно "storySplit".',
+    "- story.opening.imagePrompt: рисованный establishing shot до появления сообщений (ночь, место, настроение).",
+    "- story.opening.animation: parallax (по умолчанию).",
+    "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий рисованный кадр для верхней панели.",
+    "- storyImagePrompt меняется на поворотах сюжета, не на каждой реплике.",
+    "- storyImagePrompt описывает сцену/обстановку как иллюстрацию, не как фото. Без UI чата и без текста на кадре.",
+    "- Не пиши в storyImagePrompt слова «фото», «фотореализм», «кинематографичный», «снято на камеру».",
+    noBubbleRule,
+    "- В text не пиши описание кадра в квадратных скобках.",
   ];
 };
 
@@ -346,23 +435,27 @@ const buildTemplateVars = async ({
   dialogueStyle = "fun",
 } = {}) => {
   const logicRules = await readPromptFile(promptKeyForLogicRules(language));
+  const isStoryStyle = dialogueStyle === "story";
   return {
     JSON_FORMAT: buildJsonFormatBlock({
       withDisplayTitle: mode === "shorts",
       myName: mode === "shorts" ? (language === "en" ? "Me" : "Я") : language === "en" ? "Alice" : "Алиса",
       fullConversation: mode === "shorts",
       language,
+      withStorySplit: isStoryStyle,
     }).join("\n"),
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
     MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language, dialogueStyle, mode).join("\n"),
-    IMAGE_RULES: buildImageRules(imageCount, {
-      ussrStyle: ussrStyle || mode === "series",
-      language,
-      dialogueStyle,
-    }).join("\n"),
+    IMAGE_RULES: isStoryStyle
+      ? buildStoryImageRules({language}).join("\n")
+      : buildImageRules(imageCount, {
+          ussrStyle: ussrStyle || mode === "series",
+          language,
+          dialogueStyle,
+        }).join("\n"),
     SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
     STORY_PLAN: "",
     LITERARY_EDITOR: "",
@@ -533,16 +626,6 @@ const buildUserPrompt = async ({
   }
 
   if (mode === "shorts") {
-    const corpus = await readShortsCorpusSummary();
-    if (corpus) {
-      parts.push(
-        "",
-        language === "en"
-          ? "Corpus of existing Shorts (avoid repeating plots, names, and punchline patterns):"
-          : "Сводка уже снятых Shorts (не повторяй сюжеты, имена и приёмы):",
-        corpus,
-      );
-    }
     parts.push(
       "",
       language === "en"
@@ -707,7 +790,43 @@ const validateConversation = (input) => {
   }
 };
 
-const parseGeneratedPayload = (data, mode) => {
+const GENERIC_MESSAGE_IMAGE_RE = /^images\/msg-\d+\.(png|jpe?g|webp|gif)$/i;
+
+const removeGenericGeneratedImageRefs = (conversation) => {
+  for (const message of conversation?.messages ?? []) {
+    const image = String(message.image ?? "").trim();
+    if (GENERIC_MESSAGE_IMAGE_RE.test(image)) {
+      delete message.image;
+    }
+  }
+  return conversation;
+};
+
+const applyStorySplitDefaults = (conversation) => {
+  if (!conversation || typeof conversation !== "object") {
+    return conversation;
+  }
+  conversation.layout = "storySplit";
+  if (!conversation.story) {
+    conversation.story = {};
+  }
+  if (!conversation.story.opening) {
+    conversation.story.opening = {};
+  }
+  if (!conversation.story.opening.animation) {
+    conversation.story.opening.animation = "parallax";
+  }
+  if (Array.isArray(conversation.messages)) {
+    for (const message of conversation.messages) {
+      delete message.image;
+      delete message.imagePrompt;
+      delete message.imageEditPrompt;
+    }
+  }
+  return conversation;
+};
+
+const parseGeneratedPayload = (data, mode, dialogueStyle = "fun") => {
   if (mode !== "shorts" || !data || typeof data !== "object") {
     return {conversation: validateConversation(data), displayTitle: ""};
   }
@@ -715,7 +834,10 @@ const parseGeneratedPayload = (data, mode) => {
   const raw = {...data};
   const displayTitle = String(raw.displayTitle ?? "").trim();
   delete raw.displayTitle;
-  const conversation = validateConversation(raw);
+  let conversation = removeGenericGeneratedImageRefs(validateConversation(raw));
+  if (dialogueStyle === "story" || conversation.layout === "storySplit") {
+    conversation = applyStorySplitDefaults(conversation);
+  }
   return {conversation, displayTitle};
 };
 
@@ -876,6 +998,7 @@ const expandShortsDialogue = async ({
   imageCount,
   messageCount,
   language,
+  dialogueStyle = "fun",
   system,
   completeJson,
   maxAttempts,
@@ -897,7 +1020,11 @@ const expandShortsDialogue = async ({
       {role: "user", content: user},
     ],
     parseResult: (data) => {
-      const {conversation: expanded, displayTitle: expandedTitle} = parseGeneratedPayload(data, "shorts");
+      const {conversation: expanded, displayTitle: expandedTitle} = parseGeneratedPayload(
+        data,
+        "shorts",
+        dialogueStyle,
+      );
       return {conversation: expanded, displayTitle: expandedTitle, mode: "shorts"};
     },
   });
@@ -964,7 +1091,7 @@ export const generateDialogue = async ({
       {role: "user", content: user},
     ],
     parseResult: (data) => {
-      const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode);
+      const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode, dialogueStyle);
       return {conversation, displayTitle, mode: normalizedMode};
     },
   });
@@ -981,6 +1108,7 @@ export const generateDialogue = async ({
         imageCount: gen.imageCount,
         messageCount: gen.messageCount,
         language: gen.language,
+        dialogueStyle,
         system,
         completeJson: llm.completeJson,
         maxAttempts,
@@ -1054,7 +1182,11 @@ export const refineDialogue = async ({
       {role: "user", content: user},
     ],
     parseResult: (data) => {
-      const {conversation: updated, displayTitle} = parseGeneratedPayload(data, normalizedMode);
+      const {conversation: updated, displayTitle} = parseGeneratedPayload(
+        data,
+        normalizedMode,
+        dialogueStyle,
+      );
       return {conversation: updated, displayTitle, mode: normalizedMode};
     },
   });

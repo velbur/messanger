@@ -137,7 +137,10 @@ export const resolveMessageTiming = (
       pauseBeforeMs:
         message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause,
       typingMs: message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping,
-      postRevealMs: autoPostReveal,
+      postRevealMs:
+        message.postRevealMs !== undefined
+          ? scaleTimingValue(message.postRevealMs)
+          : autoPostReveal,
       charLength: chars,
     };
   }
@@ -169,7 +172,8 @@ export const resolveMessageTiming = (
     pauseBeforeMs:
       message.pauseBeforeMs !== undefined ? scaleTimingValue(message.pauseBeforeMs) : autoPause,
     typingMs: message.typingMs !== undefined ? scaleTimingValue(message.typingMs) : autoTyping,
-    postRevealMs: autoPostReveal,
+    postRevealMs:
+      message.postRevealMs !== undefined ? scaleTimingValue(message.postRevealMs) : autoPostReveal,
     charLength: chars,
   };
 };

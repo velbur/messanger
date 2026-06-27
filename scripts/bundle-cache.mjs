@@ -158,13 +158,17 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
   try {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
     return (
-      bundleJs.includes("fs-delay-2000-v2") &&
+      bundleJs.includes("fs-story-split-v1") &&
+      bundleJs.includes("story-depth-parallax-v2") &&
+      bundleJs.includes("DepthParallaxImage") &&
+      bundleJs.includes("ParallaxStoryImage") &&
       bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("hook-overlay-2s-v1") &&
-      bundleJs.includes("tail-8000-instant-hook-v1") &&
+      bundleJs.includes("tail-8000-story-split-v1") &&
       bundleJs.includes("thumb-photo-composition-v1") &&
       bundleJs.includes("fullscreenStartFrame") &&
       bundleJs.includes("FullscreenImage") &&
+      bundleJs.includes("StoryPanel") &&
       bundleJs.includes("default-conversation.json")
     );
   } catch {

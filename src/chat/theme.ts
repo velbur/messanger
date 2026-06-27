@@ -182,3 +182,24 @@ export const CHROME = {
 
 export const chromeHeight =
   LAYOUT.statusBarH + LAYOUT.headerH + LAYOUT.inputBarH + LAYOUT.shortsSafeAreaBottom;
+
+/** Параметры story-split: верхняя панель + компактный чат */
+export const SPLIT_LAYOUT = {
+  frameWidth: 1080,
+  frameHeight: 1920,
+  crossfadeFrames: 12,
+} as const;
+
+export const splitPanelHeights = (
+  topPanelRatio: number,
+  storyPanelHeight: number,
+): {topH: number; bottomH: number} => {
+  const frameHeight = SPLIT_LAYOUT.frameHeight;
+  const topH = Math.round(storyPanelHeight);
+  const bottomH = Math.max(0, frameHeight - topH);
+  void topPanelRatio;
+  return {topH, bottomH};
+};
+
+export const splitChatScale = (bottomPanelHeight: number): number =>
+  Math.min(1, bottomPanelHeight / SPLIT_LAYOUT.frameHeight);

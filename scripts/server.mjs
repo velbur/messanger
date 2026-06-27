@@ -6,8 +6,13 @@ import {Readable} from "node:stream";
 import express from "express";
 import {ZodError} from "zod";
 import {parseConversation} from "../src/chat/schema.ts";
-import {estimateMessagesDurationMs, TIMING_SCALE} from "../src/chat/timing.ts";
-import {buildNativeRenderCommand, getRenderConcurrency, renderChatThumbnail, renderChatVideo} from "./render-core.mjs";
+import {
+  estimateMessagesDurationMs,
+  mergeConversationTiming,
+  resolveMessageTiming,
+  TIMING_SCALE,
+} from "../src/chat/timing.ts";
+import {buildNativeRenderCommand, getRenderConcurrency, renderChatVideo} from "./render-core.mjs";
 import {makeCancelSignal} from "@remotion/renderer";
 
 const isUserCancelledRender = (error) => {
@@ -36,6 +41,7 @@ import {
   deletePublicImage,
 } from "./image-assets.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
+import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {resolveImageReferences} from "./image-references.mjs";
 import {
   correctFrameImage,
@@ -43,8 +49,10 @@ import {
 } from "./image-correction.mjs";
 import {
   resolveFramePrompts,
+  resolveStoryFramePrompts,
   suggestImagePrompt,
   buildImageGenerationPrompt,
+  buildStoryImageGenerationPrompt,
 } from "./image-prompt-llm.mjs";
 import {
   loadOpenRouterEnv,
@@ -63,12 +71,11 @@ import {
   regenerateEnding,
 } from "./dialogue-gen.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
-import {readShortsCorpusSummary, updateShortsCorpusSummary} from "./shorts-corpus.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
-import {previewImagePrompt, readStylePrompt, writeStylePrompt} from "./image-prompt.mjs";
+import {previewImagePrompt, readStylePrompt, readStoryStylePrompt, writeStylePrompt, writeStoryStylePrompt} from "./image-prompt.mjs";
 import {
   initDialogueDb,
   listDialogues,
@@ -91,6 +98,9 @@ const PORT = Number(process.env.PORT ?? 3333);
 
 /** URL удалённого render-воркера (тот же server.mjs на мощной машине), напр. http://192.168.0.136:3333 */
 const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
+
+const normalizeDialogueStyle = (value) =>
+  value === "mystic" ? "mystic" : value === "story" ? "story" : "fun";
 
 const getRenderTargets = () => {
   const targets = [{id: "local", label: "Локально (эта машина)"}];
@@ -350,19 +360,6 @@ const processQueue = async () => {
     job.outputPath = outputAbs;
     job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
     job.logs.push(`Готово: ${outputAbs}`);
-    const thumbPath = outputAbs.replace(/\.mp4$/i, "-thumb.jpg");
-    try {
-      await renderChatThumbnail({
-        conversation: job.conversation,
-        outputPath: thumbPath,
-        onBundleStatus: (message) => job.logs.push(message),
-      });
-      job.thumbnailFile = path.basename(thumbPath);
-      job.logs.push(`Превью: out/${job.thumbnailFile}`);
-    } catch (thumbError) {
-      const message = thumbError instanceof Error ? thumbError.message : String(thumbError);
-      job.logs.push(`Превью не создано: ${message}`);
-    }
     if (job.dialogueId) {
       touchDialogueOutput(job.dialogueId, job.outputFile);
       job.logs.push(`Диалог сохранён в базе: ${job.dialogueId}`);
@@ -439,11 +436,97 @@ app.put("/api/prompts/image-style", async (req, res) => {
   }
 });
 
+app.get("/api/prompts/story-image-style", async (_req, res) => {
+  try {
+    const content = await readStoryStylePrompt();
+    res.json({content});
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.put("/api/prompts/story-image-style", async (req, res) => {
+  try {
+    const {content} = req.body ?? {};
+    if (typeof content !== "string") {
+      res.status(400).json({error: "Поле content обязательно"});
+      return;
+    }
+    const saved = await writeStoryStylePrompt(content);
+    res.json({content: saved});
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.get("/api/shorts/styles", async (_req, res) => {
   try {
     res.json({styles: await readShortsStylesMeta()});
   } catch (error) {
     res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/conversation/timing-preview", (req, res) => {
+  try {
+    const {json: jsonText} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      res.status(400).json({error: "Некорректный JSON"});
+      return;
+    }
+
+    const conversation = parseConversation(parsed);
+    const timing = mergeConversationTiming(conversation);
+    const messages = conversation.messages.map((message, index) => {
+      const autoMessage = {...message};
+      delete autoMessage.pauseBeforeMs;
+      delete autoMessage.typingMs;
+      delete autoMessage.postRevealMs;
+      const auto = resolveMessageTiming(autoMessage, timing);
+      const resolved = resolveMessageTiming(message, timing);
+
+      return {
+        index,
+        isFirst: index === 0,
+        auto: {
+          pauseBeforeMs: index === 0 ? 0 : auto.pauseBeforeMs,
+          typingMs: index === 0 ? 0 : auto.typingMs,
+          postRevealMs: auto.postRevealMs,
+        },
+        resolved: {
+          pauseBeforeMs: index === 0 ? 0 : resolved.pauseBeforeMs,
+          typingMs: index === 0 ? 0 : resolved.typingMs,
+          postRevealMs: resolved.postRevealMs,
+        },
+        overrides: {
+          pauseBeforeMs: message.pauseBeforeMs !== undefined,
+          typingMs: message.typingMs !== undefined,
+          postRevealMs: message.postRevealMs !== undefined,
+        },
+      };
+    });
+
+    res.json({
+      timingScale: TIMING_SCALE,
+      totalMessagesMs: estimateMessagesDurationMs(conversation),
+      messages,
+    });
+  } catch (error) {
+    res.status(400).json({
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -520,7 +603,7 @@ app.post("/api/youtube/publish", async (req, res) => {
       return;
     }
 
-    const {outputFile: rawOutputFile, dialogueId, title: rawTitle, privacyStatus: rawPrivacy, description, tags, thumbnailFile} =
+    const {outputFile: rawOutputFile, dialogueId, title: rawTitle, privacyStatus: rawPrivacy, tags} =
       req.body ?? {};
 
     const outputFile = resolveOutputFile({
@@ -553,31 +636,10 @@ app.post("/api/youtube/publish", async (req, res) => {
       outputFile,
     });
 
-    let thumbnailPath;
-    if (typeof thumbnailFile === "string" && thumbnailFile.trim()) {
-      const candidate = path.join(OUT_DIR, path.basename(thumbnailFile.trim()));
-      try {
-        await access(candidate);
-        thumbnailPath = candidate;
-      } catch {
-        /* нет превью — загрузим только видео */
-      }
-    } else {
-      const autoThumb = filePath.replace(/\.mp4$/i, "-thumb.jpg");
-      try {
-        await access(autoThumb);
-        thumbnailPath = autoThumb;
-      } catch {
-        /* */
-      }
-    }
-
     const result = await uploadVideoToYoutube({
       filePath,
       title,
-      description: typeof description === "string" ? description : "",
       tags: Array.isArray(tags) ? tags : [],
-      thumbnailPath,
       privacyStatus,
     });
 
@@ -704,7 +766,7 @@ app.post("/api/images/fetch", async (req, res) => {
 
 app.post("/api/images/generate", async (req, res) => {
   try {
-    const {prompt, json: jsonText, messageIndex, stylePrompt, targetRef, aspectRatio} =
+    const {prompt, json: jsonText, messageIndex, stylePrompt, targetRef, aspectRatio, imageKind} =
       req.body ?? {};
 
     if (!isOpenRouterConfigured()) {
@@ -719,39 +781,76 @@ app.post("/api/images/generate", async (req, res) => {
     let imageRefs = null;
 
     if (jsonText && typeof jsonText === "string") {
-      if (typeof messageIndex !== "number" || messageIndex < 0) {
-        res.status(400).json({
-          error: "Укажите messageIndex и json для генерации по контексту переписки",
-        });
-        return;
-      }
       const conversation = JSON.parse(jsonText);
+      const isStoryKind = imageKind === "story" || imageKind === "story-opening";
       style =
         typeof stylePrompt === "string" && stylePrompt.trim()
           ? stylePrompt.trim()
-          : await readStylePrompt();
+          : isStoryKind
+            ? await readStoryStylePrompt()
+            : await readStylePrompt();
 
-      if (!manualPrompt) {
-        const resolved = await resolveFramePrompts({
-          conversation,
-          messageIndex,
-          stylePrompt: style,
-        });
-
-        imagePromptSuggested = resolved.imagePrompt;
-        promptSource = resolved.promptSource;
-        imageRefs = resolved.imageReferences;
+      if (imageKind === "story-opening") {
+        if (!manualPrompt) {
+          const resolved = await resolveStoryFramePrompts({
+            conversation,
+            stylePrompt: style,
+            kind: "opening",
+          });
+          imagePromptSuggested = resolved.imagePrompt;
+          promptSource = resolved.promptSource;
+        }
+      } else if (imageKind === "story") {
+        if (typeof messageIndex !== "number" || messageIndex < 0) {
+          res.status(400).json({error: "Укажите messageIndex для story-кадра"});
+          return;
+        }
+        if (!manualPrompt) {
+          const resolved = await resolveStoryFramePrompts({
+            conversation,
+            messageIndex,
+            stylePrompt: style,
+            kind: "message",
+          });
+          imagePromptSuggested = resolved.imagePrompt;
+          promptSource = resolved.promptSource;
+        }
       } else {
-        imageRefs = await resolveImageReferences(conversation.messages, messageIndex);
+        if (typeof messageIndex !== "number" || messageIndex < 0) {
+          res.status(400).json({
+            error: "Укажите messageIndex и json для генерации по контексту переписки",
+          });
+          return;
+        }
+
+        if (!manualPrompt) {
+          const resolved = await resolveFramePrompts({
+            conversation,
+            messageIndex,
+            stylePrompt: style,
+          });
+
+          imagePromptSuggested = resolved.imagePrompt;
+          promptSource = resolved.promptSource;
+          imageRefs = resolved.imageReferences;
+        } else {
+          imageRefs = await resolveImageReferences(conversation.messages, messageIndex);
+        }
       }
     }
 
+    const isStoryKind = imageKind === "story" || imageKind === "story-opening";
     const finalPrompt =
       manualPrompt ||
-      buildImageGenerationPrompt({
-        imagePrompt: imagePromptSuggested,
-        stylePrompt: style || (await readStylePrompt()),
-      });
+      (isStoryKind
+        ? buildStoryImageGenerationPrompt({
+            imagePrompt: imagePromptSuggested,
+            stylePrompt: style || (await readStoryStylePrompt()),
+          })
+        : buildImageGenerationPrompt({
+            imagePrompt: imagePromptSuggested,
+            stylePrompt: style || (await readStylePrompt()),
+          }));
 
     if (!finalPrompt) {
       res.status(400).json({error: "Не удалось собрать промпт для генерации"});
@@ -762,7 +861,8 @@ app.post("/api/images/generate", async (req, res) => {
     const {buffer} = await generateImageBuffer({
       prompt: finalPrompt,
       referenceDataUrl,
-      aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
+      aspectRatio:
+        aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
     });
 
     const refHint =
@@ -946,7 +1046,7 @@ app.get("/api/dialogues/:id", (req, res) => {
 
 app.post("/api/images/generate-missing", async (req, res) => {
   try {
-    const {json: jsonText, stylePrompt} = req.body ?? {};
+    const {json: jsonText, stylePrompt, storyStylePrompt, imageNamespace} = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
       return;
@@ -961,7 +1061,15 @@ app.post("/api/images/generate-missing", async (req, res) => {
       typeof stylePrompt === "string" && stylePrompt.trim()
         ? stylePrompt.trim()
         : await readStylePrompt();
-    const logs = await generateMissingConversationImages(conversation, {stylePrompt: style});
+    const storyStyle =
+      typeof storyStylePrompt === "string" && storyStylePrompt.trim()
+        ? storyStylePrompt.trim()
+        : await readStoryStylePrompt();
+    const logs = await generateMissingConversationImages(conversation, {
+      stylePrompt: style,
+      storyStylePrompt: storyStyle,
+      imageNamespace,
+    });
 
     res.json({conversation, logs, provider: "openrouter"});
   } catch (error) {
@@ -1019,7 +1127,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
     const result = await generateDialogue({
       prompt,
-      dialogueStyle: dialogueStyle === "mystic" ? "mystic" : "fun",
+      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
       previousMessages: mode === "series" ? contextMessages : undefined,
       includeImages,
       imageCount,
@@ -1144,7 +1252,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
-      dialogueStyle: typeof dialogueStyle === "string" ? dialogueStyle : "fun",
+      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 
@@ -1266,7 +1374,7 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
       imageCount,
       messageCount,
       language,
-      dialogueStyle: typeof dialogueStyle === "string" ? dialogueStyle : "fun",
+      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
       mode,
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
@@ -1346,25 +1454,7 @@ app.post("/api/dialogues", async (req, res) => {
       partNumber,
     });
 
-    let corpusUpdate = null;
-    if (dialogue.kind === "shorts") {
-      await loadOpenRouterEnv();
-      try {
-        corpusUpdate = await updateShortsCorpusSummary({
-          title: dialogue.titleDisplay || dialogue.title,
-          dialoguePrompt: dialogue.dialoguePrompt,
-          conversation: dialogue.conversation,
-        });
-      } catch (error) {
-        console.warn("shorts corpus update failed:", error);
-        corpusUpdate = {
-          updated: false,
-          reason: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
-
-    res.status(201).json({...dialogue, corpusUpdate});
+    res.status(201).json(dialogue);
   } catch (error) {
     const message =
       error instanceof ZodError
@@ -1419,25 +1509,7 @@ app.put("/api/dialogues/:id", async (req, res) => {
       return;
     }
 
-    let corpusUpdate = null;
-    if (dialogue.kind === "shorts") {
-      await loadOpenRouterEnv();
-      try {
-        corpusUpdate = await updateShortsCorpusSummary({
-          title: dialogue.titleDisplay || dialogue.title,
-          dialoguePrompt: dialogue.dialoguePrompt,
-          conversation: dialogue.conversation,
-        });
-      } catch (error) {
-        console.warn("shorts corpus update failed:", error);
-        corpusUpdate = {
-          updated: false,
-          reason: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
-
-    res.json({...dialogue, corpusUpdate});
+    res.json(dialogue);
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),
@@ -1531,9 +1603,13 @@ app.post("/api/render", async (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
+    const fileName = resolveName(rawName, conversation, dialogueId);
     const autoGenerateImages = req.body?.autoGenerateImages === true;
     const imageGenLogs = autoGenerateImages
-      ? await generateMissingConversationImages(conversation, {provider: "openrouter"})
+      ? await generateMissingConversationImages(conversation, {
+          provider: "openrouter",
+          imageNamespace: fileName,
+        })
       : [];
     const imageLogs = [
       ...imageGenLogs,
@@ -1556,7 +1632,6 @@ app.post("/api/render", async (req, res) => {
       };
     }
 
-    const fileName = resolveName(rawName, conversation, dialogueId);
     const inputRel = `json/${fileName}.json`;
     const outputRel = `out/${fileName}.mp4`;
     const outputFile = `${fileName}.mp4`;
@@ -1765,7 +1840,6 @@ app.get("/api/jobs/:id", async (req, res) => {
     renderConcurrency: getRenderConcurrency(),
     queuePosition: job.status === "queued" ? renderQueue.indexOf(job.id) + 1 : 0,
     canCancel: job.status === "queued" || job.status === "running",
-    thumbnailFile: job.thumbnailFile ?? null,
   });
 });
 

@@ -1,6 +1,7 @@
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
 import {mergeEndCard, mergeIntro, titleCardDurationFrames} from "./title-card";
 import {mergeConversationTiming, resolveMessageTiming, scaleTimingMs, TIMING_BUNDLE_MARKER} from "./timing";
+import {isStorySplitLayout, mergeStoryConfig, messageHasStoryImage} from "./story";
 import type {ConversationInput} from "./schema";
 import {msToFrames} from "./fps";
 
@@ -8,7 +9,7 @@ import {msToFrames} from "./fps";
 export const POST_LAST_MESSAGE_TAIL_MS = 8000;
 
 /** Маркер хвоста / мгновенного крючка — обновить в bundle-cache.mjs */
-export const TIMELINE_TAIL_MARKER = "tail-8000-instant-hook-v1";
+export const TIMELINE_TAIL_MARKER = "tail-8000-story-split-v1";
 
 /** Пауза в чате после появления фото, до полноэкранного показа */
 export const IMAGE_FULLSCREEN_DELAY_MS = 2000;
@@ -23,7 +24,10 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
  * Ревизия таймлайна fullscreen — попадает в Remotion bundle для проверки кэша.
  * При смене задержки/логики увеличить и обновить маркер в scripts/bundle-cache.mjs.
  */
-export const FULLSCREEN_TIMELINE_REV = "fs-delay-2000-v2";
+export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
+
+/** Маркер story-split таймлайна в bundle */
+export const STORY_SPLIT_TIMELINE_REV = "story-depth-parallax-v2";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -45,6 +49,27 @@ export type MessageTimelineEvent = {
   typingFrames: number;
 };
 
+export type StorySceneTimelineEvent = {
+  messageIndex: number;
+  image: string;
+  startFrame: number;
+  endFrame: number;
+};
+
+export type StoryTimeline = {
+  enabled: boolean;
+  openingImage?: string;
+  openingStartFrame: number;
+  openingEndFrame: number;
+  splitStartFrame: number;
+  splitCompleteFrame: number;
+  splitTransitionFrames: number;
+  topPanelRatio: number;
+  openingAnimation: "parallax" | "kenburns" | "none";
+  depthParallax: boolean;
+  sceneEvents: StorySceneTimelineEvent[];
+};
+
 export type ConversationTimeline = {
   events: MessageTimelineEvent[];
   introDurationFrames: number;
@@ -53,6 +78,7 @@ export type ConversationTimeline = {
   endCardStartFrame: number;
   endCardDurationFrames: number;
   durationInFrames: number;
+  story: StoryTimeline;
 };
 
 export const getStatusBarTime = (
@@ -74,6 +100,9 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
   const introFrames = intro.enabled ? titleCardDurationFrames(intro) : 0;
+  const storySplit = isStorySplitLayout(conversation);
+  const storyConfig = mergeStoryConfig(conversation);
+  const disableMessageFullscreen = storySplit && storyConfig.disableMessageFullscreen;
 
   const events: MessageTimelineEvent[] = [];
   let cursor = introFrames;
@@ -88,8 +117,10 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     const typingEndFrame = typingStartFrame + typingFrames;
     const revealFrame = typingEndFrame;
     const hasImage = Boolean(message.image?.trim());
-    const fullscreenDelayFrames = hasImage ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_DELAY_MS)) : 0;
-    const fullscreenFrames = hasImage ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_MS)) : 0;
+    const fullscreenDelayFrames =
+      hasImage && !disableMessageFullscreen ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_DELAY_MS)) : 0;
+    const fullscreenFrames =
+      hasImage && !disableMessageFullscreen ? msToFrames(scaleTimingMs(IMAGE_FULLSCREEN_MS)) : 0;
     const fullscreenStartFrame = revealFrame + fullscreenDelayFrames;
     const fullscreenEndFrame = fullscreenStartFrame + fullscreenFrames;
     const endFrame = fullscreenEndFrame + postRevealFrames;
@@ -123,6 +154,8 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   const outroFrames = outro.enabled ? outroDurationFrames(outro) : 0;
   const outroStart = endCardStart + endCardFrames;
 
+  const story = buildStoryTimeline(conversation, events, introFrames, outroStart);
+
   return {
     events,
     introDurationFrames: introFrames,
@@ -131,15 +164,129 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     endCardStartFrame: endCardStart,
     endCardDurationFrames: endCardFrames,
     durationInFrames: outroStart + outroFrames,
+    story,
   };
+};
+
+const buildStoryTimeline = (
+  conversation: ConversationInput,
+  events: MessageTimelineEvent[],
+  introFrames: number,
+  chatEndFrame: number,
+): StoryTimeline => {
+  const disabled: StoryTimeline = {
+    enabled: false,
+    openingStartFrame: 0,
+    openingEndFrame: 0,
+    splitStartFrame: 0,
+    splitCompleteFrame: 0,
+    splitTransitionFrames: 0,
+    topPanelRatio: 0.45,
+    openingAnimation: "parallax",
+    depthParallax: true,
+    sceneEvents: [],
+  };
+
+  if (!isStorySplitLayout(conversation)) {
+    return disabled;
+  }
+
+  const storyConfig = mergeStoryConfig(conversation);
+  const openingStartFrame = introFrames;
+  const openingDurationFrames = msToFrames(scaleTimingMs(storyConfig.opening.durationMs));
+  const splitTransitionFrames = msToFrames(scaleTimingMs(storyConfig.splitTransitionMs));
+  const openingEndFrame = openingStartFrame + openingDurationFrames;
+  const splitStartFrame = openingEndFrame;
+  const splitCompleteFrame = splitStartFrame + splitTransitionFrames;
+
+  const sceneEvents: StorySceneTimelineEvent[] = [];
+  const sceneIndices = conversation.messages
+    .map((message, index) => (messageHasStoryImage(message) ? index : -1))
+    .filter((index) => index >= 0);
+
+  sceneIndices.forEach((messageIndex, sceneOrder) => {
+    const message = conversation.messages[messageIndex];
+    const image = message.storyImage?.trim();
+    if (!image) {
+      return;
+    }
+
+    const startFrame = Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
+    const nextSceneIndex = sceneIndices[sceneOrder + 1];
+    const endFrame =
+      nextSceneIndex !== undefined
+        ? (events[nextSceneIndex]?.revealFrame ?? chatEndFrame)
+        : chatEndFrame;
+
+    sceneEvents.push({
+      messageIndex,
+      image,
+      startFrame,
+      endFrame,
+    });
+  });
+
+  return {
+    enabled: true,
+    openingImage: storyConfig.opening.image,
+    openingStartFrame,
+    openingEndFrame,
+    splitStartFrame,
+    splitCompleteFrame,
+    splitTransitionFrames,
+    topPanelRatio: storyConfig.topPanelRatio,
+    openingAnimation: storyConfig.opening.animation,
+    depthParallax: storyConfig.depthParallax,
+    sceneEvents,
+  };
+};
+
+export const activeStorySceneAtFrame = (
+  story: StoryTimeline,
+  frame: number,
+): StorySceneTimelineEvent | undefined => {
+  if (!story.enabled || frame < story.splitCompleteFrame) {
+    return undefined;
+  }
+
+  const active = story.sceneEvents.filter(
+    (event) => frame >= event.startFrame && frame < event.endFrame,
+  );
+  return active[active.length - 1];
+};
+
+export const storyImageAtFrame = (story: StoryTimeline, frame: number): string | undefined => {
+  if (!story.enabled) {
+    return undefined;
+  }
+
+  if (frame < story.splitStartFrame) {
+    return story.openingImage;
+  }
+
+  const scene = activeStorySceneAtFrame(story, frame);
+  if (scene?.image) {
+    return scene.image;
+  }
+
+  const lastSceneBefore = [...story.sceneEvents]
+    .reverse()
+    .find((event) => frame >= event.startFrame);
+  if (lastSceneBefore?.image) {
+    return lastSceneBefore.image;
+  }
+
+  return story.openingImage;
 };
 
 export const visibleMessageCountAtFrame = (
   events: MessageTimelineEvent[],
   frame: number,
   introDurationFrames = 0,
+  story?: StoryTimeline,
 ): number => {
-  if (frame < introDurationFrames) {
+  const storyGate = story?.enabled ? story.splitCompleteFrame : introDurationFrames;
+  if (frame < storyGate) {
     return 0;
   }
   return events.filter((event) => frame >= event.revealFrame).length;
