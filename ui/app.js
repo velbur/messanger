@@ -248,7 +248,7 @@ const initEditorPreferenceControls = () => {
 const shortsStylesMeta = {
   fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
   mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
-  story: {label: "Сюжет+чат", wallpaper: "dark", music: "mystic.mp3", layout: "storySplit"},
+  story: {label: "Сюжет+чат", wallpaper: "dark", music: "auto", layout: "storySplit"},
 };
 
 const getDialogueLanguage = () => (dialogueLanguage?.value === "en" ? "en" : "ru");
@@ -2088,6 +2088,11 @@ const loadMusicTracks = async () => {
     none.value = "none";
     none.textContent = "Без музыки";
     musicSelect.append(none);
+
+    const auto = document.createElement("option");
+    auto.value = "auto";
+    auto.textContent = "Подобрать по сюжету";
+    musicSelect.append(auto);
 
     for (const track of data.tracks ?? []) {
       const opt = document.createElement("option");

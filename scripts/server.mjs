@@ -74,6 +74,13 @@ import {
   resolveStoryVideos,
 } from "./story-video.mjs";
 import {
+  assignStorySfxIfNeeded,
+  needsStorySfxAssignment,
+  resolveStorySfxFiles,
+  syncStorySfxToRemote,
+} from "./story-sfx.mjs";
+import {assignStoryMusicIfNeeded} from "./story-music.mjs";
+import {
   generateDialogue,
   isDialogueLlmConfigured,
   refineDialogue,
@@ -1822,6 +1829,23 @@ const runRenderPreparation = async (
       job.logs.push(...storyVideoLogs);
     }
 
+    if (isStoryVisual) {
+      job.phase = "Подбор звуков story-сцен…";
+      job.progress = 0.48;
+      const storySfxLogs = await assignStorySfxIfNeeded(conversation, {
+        force: needsStorySfxAssignment(conversation),
+      });
+      job.logs.push(...storySfxLogs);
+    }
+
+    if (isStoryVisual) {
+      const musicLogs = await assignStoryMusicIfNeeded(conversation, {
+        musicId: rawMusic,
+        logs: [],
+      });
+      job.logs.push(...musicLogs);
+    }
+
     job.phase = "Проверка ассетов…";
     job.progress = 0.52;
 
@@ -1834,8 +1858,11 @@ const runRenderPreparation = async (
     const storyVideoResolveLogs = isStoryVisual
       ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
       : [];
+    const storySfxResolveLogs = isStoryVisual
+      ? await resolveStorySfxFiles(conversation, {failOnMissing: true})
+      : [];
 
-    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
+    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...storySfxResolveLogs, ...voiceLogs);
 
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
@@ -1843,12 +1870,17 @@ const runRenderPreparation = async (
 
     if (rawMusic === "none") {
       conversation.music = {...conversation.music, enabled: false};
-    } else if (rawMusic && typeof rawMusic === "string") {
+    } else if (rawMusic && typeof rawMusic === "string" && rawMusic !== "auto") {
       const src = await resolveMusicSrc(rawMusic);
       conversation.music = {
         ...conversation.music,
         enabled: true,
         src,
+      };
+    } else if (conversation.music?.src) {
+      conversation.music = {
+        ...conversation.music,
+        enabled: conversation.music.enabled !== false,
       };
     }
 
@@ -1876,6 +1908,7 @@ const runRenderPreparation = async (
       job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
       if (conversation.voiceover?.enabled) {
         job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);

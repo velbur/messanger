@@ -16,6 +16,16 @@ export const TRACK_LABELS = {
   "fun.mp3": "Весёлая",
   "mystic.mp3": "Мистика",
   "kremlin.mp3": "Кремль",
+  "Thermal Relay.mp3": "Нейтральная",
+};
+
+/** Настроения для автоподбора story-музыки */
+export const MUSIC_TRACK_MOODS = {
+  "romantic.mp3": ["romance", "warm", "calm", "neutral"],
+  "fun.mp3": ["comedy", "light", "happy", "casual", "neutral"],
+  "mystic.mp3": ["mystery", "horror", "tension", "night", "story"],
+  "kremlin.mp3": ["dramatic", "serious", "political", "neutral"],
+  "Thermal Relay.mp3": ["neutral", "calm", "ambient", "story"],
 };
 
 export const DEFAULT_MUSIC_ID = "romantic.mp3";

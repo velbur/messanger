@@ -4,6 +4,14 @@ import {normalizeMessengerLocale} from "./locale";
 import {sanitizeMessageText} from "./message-text";
 import {stripChatBubbleImages} from "./story";
 
+export const storySfxCueSchema = z.object({
+  id: z.string().min(1),
+  volume: z.number().min(0).max(1).optional(),
+  pan: z.number().min(-1).max(1).optional(),
+  loop: z.boolean().optional(),
+  delayMs: z.number().min(0).max(8000).optional(),
+});
+
 export const messageSchema = z
   .object({
     author: z.enum(["me", "them"]),
@@ -43,6 +51,8 @@ export const messageSchema = z
     storyVideoProfile: z.string().min(1).optional(),
     /** Правки к уже сгенерированному кадру сюжета */
     storyImageEditPrompt: z.string().min(1).optional(),
+    /** Атмосферные звуки сцены (id из sfx-каталога) */
+    storySfx: z.array(storySfxCueSchema).max(4).optional(),
     /** Если не указано — считается по длине текста (см. timing в корне JSON) */
     typingMs: z.number().min(200).max(30000).optional(),
     pauseBeforeMs: z.number().min(0).max(10000).optional(),
@@ -123,6 +133,8 @@ export const conversationSchema = z.object({
       enabled: z.boolean().optional(),
       src: z.string().optional(),
       volume: z.number().min(0).max(1).optional(),
+      /** Автоподбор при рендере story (mood-v1) */
+      autoProfile: z.string().min(1).optional(),
     })
     .optional(),
   /** Звуки сообщений и набора (пути относительно public/) */
@@ -202,12 +214,21 @@ export const conversationSchema = z.object({
           storyVideoProfile: z.string().min(1).optional(),
           durationMs: z.number().min(800).max(8000).optional().default(2500),
           animation: z.enum(["video", "none", "parallax", "kenburns"]).optional().default("video"),
+          storySfx: z.array(storySfxCueSchema).max(4).optional(),
         })
         .optional(),
       splitTransitionMs: z.number().min(200).max(2000).optional().default(600),
       topPanelRatio: z.number().min(0.35).max(0.65).optional().default(0.45),
       /** В storySplit не показывать FullscreenImage для message.image */
       disableMessageFullscreen: z.boolean().optional().default(true),
+      /** Атмосферные звуки story-кадров */
+      sfx: z
+        .object({
+          enabled: z.boolean().optional(),
+          profile: z.string().min(1).optional(),
+          masterVolume: z.number().min(0).max(1).optional(),
+        })
+        .optional(),
     })
     .optional(),
   messages: z.array(messageSchema).min(1),

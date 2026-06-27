@@ -47,6 +47,18 @@ export const StorySceneImage: React.FC<Props> = ({
       );
     }
 
+    if (animation === "video") {
+      return (
+        <KenBurnsImage
+          image={image.trim()}
+          localFrame={localFrame}
+          durationFrames={durationFrames}
+          animation="kenburns"
+          loop
+        />
+      );
+    }
+
     return (
       <Img
         src={staticFile(image.trim())}

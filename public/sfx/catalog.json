@@ -1,0 +1,1565 @@
+{
+  "version": 2,
+  "generatedAt": "2026-06-27T14:39:53.569Z",
+  "items": [
+    {
+      "id": "rain-light",
+      "tags": [
+        "rain",
+        "weather",
+        "outdoor",
+        "calm",
+        "night"
+      ],
+      "loop": true,
+      "defaultVolume": 0.26,
+      "path": "sfx/rain-light.wav"
+    },
+    {
+      "id": "rain-heavy",
+      "tags": [
+        "rain",
+        "storm",
+        "weather",
+        "dramatic",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.3,
+      "path": "sfx/rain-heavy.wav"
+    },
+    {
+      "id": "rain-roof",
+      "tags": [
+        "rain",
+        "indoor",
+        "attic",
+        "house",
+        "night"
+      ],
+      "loop": true,
+      "defaultVolume": 0.28,
+      "path": "sfx/rain-roof.wav"
+    },
+    {
+      "id": "thunder-distant",
+      "tags": [
+        "thunder",
+        "storm",
+        "weather",
+        "dramatic"
+      ],
+      "loop": false,
+      "defaultVolume": 0.42,
+      "path": "sfx/thunder-distant.wav"
+    },
+    {
+      "id": "thunder-close",
+      "tags": [
+        "thunder",
+        "storm",
+        "scary",
+        "dramatic"
+      ],
+      "loop": false,
+      "defaultVolume": 0.5,
+      "path": "sfx/thunder-close.wav"
+    },
+    {
+      "id": "wind-soft",
+      "tags": [
+        "wind",
+        "outdoor",
+        "calm",
+        "night",
+        "trees"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/wind-soft.wav"
+    },
+    {
+      "id": "wind-gust",
+      "tags": [
+        "wind",
+        "outdoor",
+        "dramatic",
+        "cold"
+      ],
+      "loop": false,
+      "defaultVolume": 0.35,
+      "path": "sfx/wind-gust.wav"
+    },
+    {
+      "id": "wind-howling",
+      "tags": [
+        "wind",
+        "scary",
+        "night",
+        "storm",
+        "attic"
+      ],
+      "loop": true,
+      "defaultVolume": 0.3,
+      "path": "sfx/wind-howling.wav"
+    },
+    {
+      "id": "storm-ambient",
+      "tags": [
+        "storm",
+        "rain",
+        "wind",
+        "dramatic",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.32,
+      "path": "sfx/storm-ambient.wav"
+    },
+    {
+      "id": "birds-day",
+      "tags": [
+        "birds",
+        "morning",
+        "park",
+        "calm",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/birds-day.wav"
+    },
+    {
+      "id": "crickets-night",
+      "tags": [
+        "crickets",
+        "night",
+        "summer",
+        "outdoor",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/crickets-night.wav"
+    },
+    {
+      "id": "owl",
+      "tags": [
+        "owl",
+        "night",
+        "forest",
+        "scary",
+        "mystery"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/owl.wav"
+    },
+    {
+      "id": "ocean-waves",
+      "tags": [
+        "ocean",
+        "beach",
+        "waves",
+        "calm",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.26,
+      "path": "sfx/ocean-waves.wav"
+    },
+    {
+      "id": "river-soft",
+      "tags": [
+        "water",
+        "river",
+        "calm",
+        "nature",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/river-soft.wav"
+    },
+    {
+      "id": "water-drip",
+      "tags": [
+        "drip",
+        "water",
+        "basement",
+        "bathroom",
+        "tension"
+      ],
+      "loop": true,
+      "defaultVolume": 0.28,
+      "path": "sfx/water-drip.wav"
+    },
+    {
+      "id": "fire-crackle",
+      "tags": [
+        "fire",
+        "warm",
+        "home",
+        "calm",
+        "winter"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/fire-crackle.wav"
+    },
+    {
+      "id": "snow-wind",
+      "tags": [
+        "snow",
+        "wind",
+        "cold",
+        "winter",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/snow-wind.wav"
+    },
+    {
+      "id": "traffic-distant",
+      "tags": [
+        "city",
+        "traffic",
+        "urban",
+        "street",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/traffic-distant.wav"
+    },
+    {
+      "id": "traffic-rain",
+      "tags": [
+        "city",
+        "rain",
+        "traffic",
+        "urban",
+        "night"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/traffic-rain.wav"
+    },
+    {
+      "id": "city-night",
+      "tags": [
+        "city",
+        "night",
+        "urban",
+        "ambient",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/city-night.wav"
+    },
+    {
+      "id": "subway-pass",
+      "tags": [
+        "subway",
+        "train",
+        "urban",
+        "transit"
+      ],
+      "loop": false,
+      "defaultVolume": 0.38,
+      "path": "sfx/subway-pass.wav"
+    },
+    {
+      "id": "cafe-murmur",
+      "tags": [
+        "cafe",
+        "crowd",
+        "indoor",
+        "calm",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/cafe-murmur.wav"
+    },
+    {
+      "id": "office-hum",
+      "tags": [
+        "office",
+        "indoor",
+        "ambient",
+        "work",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/office-hum.wav"
+    },
+    {
+      "id": "elevator-ding",
+      "tags": [
+        "elevator",
+        "indoor",
+        "building",
+        "urban"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/elevator-ding.wav"
+    },
+    {
+      "id": "siren-distant",
+      "tags": [
+        "siren",
+        "city",
+        "emergency",
+        "dramatic",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/siren-distant.wav"
+    },
+    {
+      "id": "construction-distant",
+      "tags": [
+        "construction",
+        "city",
+        "urban",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/construction-distant.wav"
+    },
+    {
+      "id": "door-creak-slow",
+      "tags": [
+        "door",
+        "creak",
+        "scary",
+        "house",
+        "mystery"
+      ],
+      "loop": false,
+      "defaultVolume": 0.4,
+      "path": "sfx/door-creak-slow.wav"
+    },
+    {
+      "id": "door-creak-fast",
+      "tags": [
+        "door",
+        "creak",
+        "fast",
+        "tension",
+        "house"
+      ],
+      "loop": false,
+      "defaultVolume": 0.38,
+      "path": "sfx/door-creak-fast.wav"
+    },
+    {
+      "id": "door-slam-soft",
+      "tags": [
+        "door",
+        "slam",
+        "house",
+        "dramatic"
+      ],
+      "loop": false,
+      "defaultVolume": 0.42,
+      "path": "sfx/door-slam-soft.wav"
+    },
+    {
+      "id": "door-knock",
+      "tags": [
+        "knock",
+        "door",
+        "tension",
+        "visitor",
+        "house"
+      ],
+      "loop": false,
+      "defaultVolume": 0.44,
+      "path": "sfx/door-knock.wav"
+    },
+    {
+      "id": "doorbell",
+      "tags": [
+        "doorbell",
+        "door",
+        "house",
+        "visitor",
+        "day"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/doorbell.wav"
+    },
+    {
+      "id": "footsteps-wood-slow",
+      "tags": [
+        "footsteps",
+        "wood",
+        "slow",
+        "suspense",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/footsteps-wood-slow.wav"
+    },
+    {
+      "id": "footsteps-wood-fast",
+      "tags": [
+        "footsteps",
+        "wood",
+        "fast",
+        "run",
+        "panic"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/footsteps-wood-fast.wav"
+    },
+    {
+      "id": "footsteps-stairs",
+      "tags": [
+        "footsteps",
+        "stairs",
+        "house",
+        "suspense",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.35,
+      "path": "sfx/footsteps-stairs.wav"
+    },
+    {
+      "id": "footsteps-concrete",
+      "tags": [
+        "footsteps",
+        "concrete",
+        "outdoor",
+        "yard",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/footsteps-concrete.wav"
+    },
+    {
+      "id": "floor-creak-1",
+      "tags": [
+        "creak",
+        "floor",
+        "wood",
+        "house",
+        "suspense"
+      ],
+      "loop": false,
+      "defaultVolume": 0.38,
+      "path": "sfx/floor-creak-1.wav"
+    },
+    {
+      "id": "floor-creak-2",
+      "tags": [
+        "creak",
+        "floor",
+        "wood",
+        "old",
+        "mystery"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/floor-creak-2.wav"
+    },
+    {
+      "id": "attic-creak",
+      "tags": [
+        "attic",
+        "creak",
+        "wood",
+        "scary",
+        "house",
+        "mystery"
+      ],
+      "loop": false,
+      "defaultVolume": 0.4,
+      "path": "sfx/attic-creak.wav"
+    },
+    {
+      "id": "basement-drip",
+      "tags": [
+        "basement",
+        "drip",
+        "water",
+        "dark",
+        "tension"
+      ],
+      "loop": true,
+      "defaultVolume": 0.26,
+      "path": "sfx/basement-drip.wav"
+    },
+    {
+      "id": "window-rattle",
+      "tags": [
+        "window",
+        "wind",
+        "old",
+        "house",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/window-rattle.wav"
+    },
+    {
+      "id": "glass-tap",
+      "tags": [
+        "glass",
+        "tap",
+        "window",
+        "tension",
+        "surprise"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/glass-tap.wav"
+    },
+    {
+      "id": "heartbeat-calm",
+      "tags": [
+        "heartbeat",
+        "tension",
+        "body",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/heartbeat-calm.wav"
+    },
+    {
+      "id": "heartbeat-fast",
+      "tags": [
+        "heartbeat",
+        "fear",
+        "panic",
+        "tension"
+      ],
+      "loop": true,
+      "defaultVolume": 0.28,
+      "path": "sfx/heartbeat-fast.wav"
+    },
+    {
+      "id": "breath-nervous",
+      "tags": [
+        "breath",
+        "fear",
+        "tension",
+        "human"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/breath-nervous.wav"
+    },
+    {
+      "id": "gasp",
+      "tags": [
+        "gasp",
+        "surprise",
+        "shock",
+        "human"
+      ],
+      "loop": false,
+      "defaultVolume": 0.38,
+      "path": "sfx/gasp.wav"
+    },
+    {
+      "id": "whisper-wind",
+      "tags": [
+        "whisper",
+        "wind",
+        "scary",
+        "mystery",
+        "supernatural"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/whisper-wind.wav"
+    },
+    {
+      "id": "scratch-wall",
+      "tags": [
+        "scratch",
+        "wall",
+        "scary",
+        "horror",
+        "tension"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/scratch-wall.wav"
+    },
+    {
+      "id": "metal-clang-soft",
+      "tags": [
+        "metal",
+        "clang",
+        "industrial",
+        "basement"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/metal-clang-soft.wav"
+    },
+    {
+      "id": "chain-rattle",
+      "tags": [
+        "chain",
+        "metal",
+        "scary",
+        "basement",
+        "attic"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/chain-rattle.wav"
+    },
+    {
+      "id": "static-radio",
+      "tags": [
+        "static",
+        "radio",
+        "old",
+        "mystery",
+        "tech"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/static-radio.wav"
+    },
+    {
+      "id": "electric-hum",
+      "tags": [
+        "electric",
+        "hum",
+        "indoor",
+        "basement",
+        "tech"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/electric-hum.wav"
+    },
+    {
+      "id": "phone-vibrate",
+      "tags": [
+        "phone",
+        "vibrate",
+        "tech",
+        "notification"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/phone-vibrate.wav"
+    },
+    {
+      "id": "dog-bark-distant",
+      "tags": [
+        "dog",
+        "bark",
+        "outdoor",
+        "yard",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/dog-bark-distant.wav"
+    },
+    {
+      "id": "dog-bark-close",
+      "tags": [
+        "dog",
+        "bark",
+        "close",
+        "alert",
+        "outdoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.4,
+      "path": "sfx/dog-bark-close.wav"
+    },
+    {
+      "id": "cat-meow",
+      "tags": [
+        "cat",
+        "pet",
+        "home",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/cat-meow.wav"
+    },
+    {
+      "id": "crow",
+      "tags": [
+        "crow",
+        "bird",
+        "scary",
+        "omen",
+        "outdoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/crow.wav"
+    },
+    {
+      "id": "mice-scurry",
+      "tags": [
+        "mice",
+        "scurry",
+        "attic",
+        "basement",
+        "scary"
+      ],
+      "loop": false,
+      "defaultVolume": 0.28,
+      "path": "sfx/mice-scurry.wav"
+    },
+    {
+      "id": "laughter-distant",
+      "tags": [
+        "laughter",
+        "crowd",
+        "party",
+        "creepy",
+        "distant"
+      ],
+      "loop": false,
+      "defaultVolume": 0.24,
+      "path": "sfx/laughter-distant.wav"
+    },
+    {
+      "id": "crowd-murmur",
+      "tags": [
+        "crowd",
+        "murmur",
+        "public",
+        "indoor",
+        "event"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/crowd-murmur.wav"
+    },
+    {
+      "id": "clock-tick",
+      "tags": [
+        "clock",
+        "tick",
+        "night",
+        "tension",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/clock-tick.wav"
+    },
+    {
+      "id": "clock-chime",
+      "tags": [
+        "clock",
+        "chime",
+        "night",
+        "old",
+        "house"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/clock-chime.wav"
+    },
+    {
+      "id": "room-tone-warm",
+      "tags": [
+        "room",
+        "ambient",
+        "home",
+        "calm",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.14,
+      "path": "sfx/room-tone-warm.wav"
+    },
+    {
+      "id": "room-tone-cold",
+      "tags": [
+        "room",
+        "ambient",
+        "empty",
+        "tension",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.14,
+      "path": "sfx/room-tone-cold.wav"
+    },
+    {
+      "id": "basement-ambience",
+      "tags": [
+        "basement",
+        "dark",
+        "ambient",
+        "tension",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/basement-ambience.wav"
+    },
+    {
+      "id": "attic-ambience",
+      "tags": [
+        "attic",
+        "dark",
+        "ambient",
+        "mystery",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/attic-ambience.wav"
+    },
+    {
+      "id": "forest-ambience",
+      "tags": [
+        "forest",
+        "nature",
+        "outdoor",
+        "calm",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/forest-ambience.wav"
+    },
+    {
+      "id": "park-ambience",
+      "tags": [
+        "park",
+        "outdoor",
+        "day",
+        "calm",
+        "nature"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/park-ambience.wav"
+    },
+    {
+      "id": "yard-night",
+      "tags": [
+        "yard",
+        "night",
+        "outdoor",
+        "suburban",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/yard-night.wav"
+    },
+    {
+      "id": "kitchen-hum",
+      "tags": [
+        "kitchen",
+        "home",
+        "fridge",
+        "indoor",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/kitchen-hum.wav"
+    },
+    {
+      "id": "kettle-boil",
+      "tags": [
+        "kettle",
+        "kitchen",
+        "home",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/kettle-boil.wav"
+    },
+    {
+      "id": "typing-distant",
+      "tags": [
+        "typing",
+        "keyboard",
+        "office",
+        "ambient",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.14,
+      "path": "sfx/typing-distant.wav"
+    },
+    {
+      "id": "drizzle-soft",
+      "tags": [
+        "rain",
+        "weather",
+        "calm",
+        "outdoor",
+        "night"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/drizzle-soft.wav"
+    },
+    {
+      "id": "hail-rattle",
+      "tags": [
+        "hail",
+        "storm",
+        "weather",
+        "dramatic",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.28,
+      "path": "sfx/hail-rattle.wav"
+    },
+    {
+      "id": "fog-damp",
+      "tags": [
+        "fog",
+        "damp",
+        "mystery",
+        "outdoor",
+        "cold"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/fog-damp.wav"
+    },
+    {
+      "id": "car-pass-distant",
+      "tags": [
+        "car",
+        "traffic",
+        "street",
+        "urban",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/car-pass-distant.wav"
+    },
+    {
+      "id": "car-interior-hum",
+      "tags": [
+        "car",
+        "interior",
+        "road",
+        "travel",
+        "ambient"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/car-interior-hum.wav"
+    },
+    {
+      "id": "bus-idle",
+      "tags": [
+        "bus",
+        "transit",
+        "urban",
+        "street",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/bus-idle.wav"
+    },
+    {
+      "id": "train-distant",
+      "tags": [
+        "train",
+        "transit",
+        "distant",
+        "urban",
+        "night"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/train-distant.wav"
+    },
+    {
+      "id": "airplane-distant",
+      "tags": [
+        "airplane",
+        "sky",
+        "travel",
+        "distant",
+        "outdoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/airplane-distant.wav"
+    },
+    {
+      "id": "bicycle-bell",
+      "tags": [
+        "bicycle",
+        "bell",
+        "street",
+        "day",
+        "urban"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/bicycle-bell.wav"
+    },
+    {
+      "id": "hospital-hall",
+      "tags": [
+        "hospital",
+        "hall",
+        "indoor",
+        "tension",
+        "quiet"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/hospital-hall.wav"
+    },
+    {
+      "id": "school-hallway",
+      "tags": [
+        "school",
+        "hallway",
+        "indoor",
+        "day",
+        "youth"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/school-hallway.wav"
+    },
+    {
+      "id": "supermarket",
+      "tags": [
+        "supermarket",
+        "store",
+        "indoor",
+        "day",
+        "urban"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/supermarket.wav"
+    },
+    {
+      "id": "restaurant-ambience",
+      "tags": [
+        "restaurant",
+        "cafe",
+        "indoor",
+        "evening",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/restaurant-ambience.wav"
+    },
+    {
+      "id": "bar-murmur",
+      "tags": [
+        "bar",
+        "night",
+        "crowd",
+        "indoor",
+        "urban"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/bar-murmur.wav"
+    },
+    {
+      "id": "library-quiet",
+      "tags": [
+        "library",
+        "quiet",
+        "indoor",
+        "calm",
+        "study"
+      ],
+      "loop": true,
+      "defaultVolume": 0.12,
+      "path": "sfx/library-quiet.wav"
+    },
+    {
+      "id": "shower-running",
+      "tags": [
+        "shower",
+        "water",
+        "bathroom",
+        "home",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/shower-running.wav"
+    },
+    {
+      "id": "pool-splashes",
+      "tags": [
+        "pool",
+        "water",
+        "splash",
+        "summer",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/pool-splashes.wav"
+    },
+    {
+      "id": "leaves-rustle",
+      "tags": [
+        "leaves",
+        "wind",
+        "forest",
+        "autumn",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/leaves-rustle.wav"
+    },
+    {
+      "id": "waterfall-soft",
+      "tags": [
+        "waterfall",
+        "water",
+        "nature",
+        "calm",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.24,
+      "path": "sfx/waterfall-soft.wav"
+    },
+    {
+      "id": "campfire-night",
+      "tags": [
+        "campfire",
+        "fire",
+        "night",
+        "outdoor",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/campfire-night.wav"
+    },
+    {
+      "id": "meadow-wind",
+      "tags": [
+        "meadow",
+        "wind",
+        "nature",
+        "day",
+        "calm"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/meadow-wind.wav"
+    },
+    {
+      "id": "keys-jingle",
+      "tags": [
+        "keys",
+        "door",
+        "home",
+        "arrival",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/keys-jingle.wav"
+    },
+    {
+      "id": "lock-click",
+      "tags": [
+        "lock",
+        "door",
+        "security",
+        "tension",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/lock-click.wav"
+    },
+    {
+      "id": "drawer-creak",
+      "tags": [
+        "drawer",
+        "creak",
+        "furniture",
+        "house",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/drawer-creak.wav"
+    },
+    {
+      "id": "dishes-clink",
+      "tags": [
+        "dishes",
+        "kitchen",
+        "home",
+        "day",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.28,
+      "path": "sfx/dishes-clink.wav"
+    },
+    {
+      "id": "microwave-beep",
+      "tags": [
+        "microwave",
+        "kitchen",
+        "beep",
+        "home",
+        "tech"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/microwave-beep.wav"
+    },
+    {
+      "id": "washing-machine",
+      "tags": [
+        "washing",
+        "laundry",
+        "home",
+        "indoor",
+        "ambient"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/washing-machine.wav"
+    },
+    {
+      "id": "cough-short",
+      "tags": [
+        "cough",
+        "human",
+        "sick",
+        "indoor",
+        "tension"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/cough-short.wav"
+    },
+    {
+      "id": "sigh",
+      "tags": [
+        "sigh",
+        "human",
+        "sad",
+        "tension",
+        "emotion"
+      ],
+      "loop": false,
+      "defaultVolume": 0.28,
+      "path": "sfx/sigh.wav"
+    },
+    {
+      "id": "laugh-soft",
+      "tags": [
+        "laughter",
+        "human",
+        "warm",
+        "comedy",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.24,
+      "path": "sfx/laugh-soft.wav"
+    },
+    {
+      "id": "cry-distant",
+      "tags": [
+        "cry",
+        "sad",
+        "human",
+        "distant",
+        "drama"
+      ],
+      "loop": false,
+      "defaultVolume": 0.22,
+      "path": "sfx/cry-distant.wav"
+    },
+    {
+      "id": "computer-fan",
+      "tags": [
+        "computer",
+        "fan",
+        "office",
+        "tech",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.14,
+      "path": "sfx/computer-fan.wav"
+    },
+    {
+      "id": "notification-ding",
+      "tags": [
+        "notification",
+        "phone",
+        "tech",
+        "alert",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.28,
+      "path": "sfx/notification-ding.wav"
+    },
+    {
+      "id": "tv-muffled",
+      "tags": [
+        "tv",
+        "home",
+        "indoor",
+        "night",
+        "ambient"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/tv-muffled.wav"
+    },
+    {
+      "id": "cat-purr",
+      "tags": [
+        "cat",
+        "pet",
+        "home",
+        "calm",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/cat-purr.wav"
+    },
+    {
+      "id": "frog-night",
+      "tags": [
+        "frog",
+        "night",
+        "pond",
+        "summer",
+        "outdoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.22,
+      "path": "sfx/frog-night.wav"
+    },
+    {
+      "id": "horror-drone-low",
+      "tags": [
+        "horror",
+        "drone",
+        "scary",
+        "tension",
+        "mystery"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/horror-drone-low.wav"
+    },
+    {
+      "id": "wind-chimes",
+      "tags": [
+        "chimes",
+        "wind",
+        "calm",
+        "home",
+        "day"
+      ],
+      "loop": true,
+      "defaultVolume": 0.18,
+      "path": "sfx/wind-chimes.wav"
+    },
+    {
+      "id": "crowd-cheer-distant",
+      "tags": [
+        "crowd",
+        "cheer",
+        "stadium",
+        "distant",
+        "outdoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.26,
+      "path": "sfx/crowd-cheer-distant.wav"
+    },
+    {
+      "id": "neon-hum",
+      "tags": [
+        "neon",
+        "city",
+        "night",
+        "urban",
+        "ambient"
+      ],
+      "loop": true,
+      "defaultVolume": 0.16,
+      "path": "sfx/neon-hum.wav"
+    },
+    {
+      "id": "printer",
+      "tags": [
+        "printer",
+        "office",
+        "tech",
+        "work",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.26,
+      "path": "sfx/printer.wav"
+    },
+    {
+      "id": "phone-ring",
+      "tags": [
+        "phone",
+        "ring",
+        "call",
+        "alert",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.34,
+      "path": "sfx/phone-ring.wav"
+    },
+    {
+      "id": "alley-echo",
+      "tags": [
+        "alley",
+        "echo",
+        "city",
+        "night",
+        "urban"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/alley-echo.wav"
+    },
+    {
+      "id": "market-murmur",
+      "tags": [
+        "market",
+        "crowd",
+        "outdoor",
+        "day",
+        "urban"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/market-murmur.wav"
+    },
+    {
+      "id": "church-bells-distant",
+      "tags": [
+        "bells",
+        "church",
+        "distant",
+        "day",
+        "outdoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.3,
+      "path": "sfx/church-bells-distant.wav"
+    },
+    {
+      "id": "toilet-flush",
+      "tags": [
+        "toilet",
+        "bathroom",
+        "water",
+        "home",
+        "indoor"
+      ],
+      "loop": false,
+      "defaultVolume": 0.32,
+      "path": "sfx/toilet-flush.wav"
+    },
+    {
+      "id": "garage-door",
+      "tags": [
+        "garage",
+        "door",
+        "motor",
+        "house",
+        "suburban"
+      ],
+      "loop": false,
+      "defaultVolume": 0.36,
+      "path": "sfx/garage-door.wav"
+    },
+    {
+      "id": "sprinkler",
+      "tags": [
+        "sprinkler",
+        "yard",
+        "water",
+        "summer",
+        "suburban"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/sprinkler.wav"
+    },
+    {
+      "id": "vacuum-cleaner",
+      "tags": [
+        "vacuum",
+        "cleaning",
+        "home",
+        "day",
+        "indoor"
+      ],
+      "loop": true,
+      "defaultVolume": 0.2,
+      "path": "sfx/vacuum-cleaner.wav"
+    },
+    {
+      "id": "baby-cry-distant",
+      "tags": [
+        "baby",
+        "cry",
+        "home",
+        "distant",
+        "tension"
+      ],
+      "loop": false,
+      "defaultVolume": 0.24,
+      "path": "sfx/baby-cry-distant.wav"
+    }
+  ]
+}

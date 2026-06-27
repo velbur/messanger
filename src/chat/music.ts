@@ -5,6 +5,7 @@ export type ConversationMusic = {
   /** Путь относительно public/ */
   src: string;
   volume: number;
+  autoProfile?: string;
 };
 
 export const DEFAULT_MUSIC: ConversationMusic = {

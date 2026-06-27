@@ -3,7 +3,7 @@
 export const SHORTS_STYLES_META = {
   fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
   mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
-  story: {label: "Сюжет+чат", wallpaper: "dark", music: "mystic.mp3", layout: "storySplit"},
+  story: {label: "Сюжет+чат", wallpaper: "dark", music: "auto", layout: "storySplit"},
 };
 
 export const HARDCODED_PROMPTS = {

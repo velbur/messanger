@@ -33,6 +33,7 @@ import {HookOverlay} from "./components/HookOverlay";
 import {MessageBubble} from "./components/MessageBubble";
 import {StatusBar} from "./components/StatusBar";
 import {StoryPanel} from "./components/StoryPanel";
+import {StorySfxLayer} from "./components/StorySfxLayer";
 import {TypingIndicator} from "./components/TypingIndicator";
 import {Wallpaper} from "./components/Wallpaper";
 
@@ -251,14 +252,30 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const isVoiceActiveAtFrame = (f: number): boolean =>
     voiceFrameRanges.some((range) => f >= range.start && f < range.end);
 
+  const storyAmbienceAtFrame = (f: number): boolean => {
+    if (!story.enabled) {
+      return false;
+    }
+    const inOpening = f >= story.openingStartFrame && f < story.openingEndFrame;
+    if (inOpening && story.openingSfx.some((cue) => cue.loop)) {
+      return true;
+    }
+    const scene = story.sceneEvents.find((event) => f >= event.startFrame && f < event.endFrame);
+    return Boolean(scene?.sfx.some((cue) => cue.loop));
+  };
+
   const musicVolumeAtFrame = (f: number): number => {
     if (!music.enabled) {
       return 0;
     }
+    let volume = music.volume;
     if (voiceover.enabled && isVoiceActiveAtFrame(f)) {
-      return music.volume * voiceover.musicDuck;
+      volume *= voiceover.musicDuck;
     }
-    return music.volume;
+    if (storyAmbienceAtFrame(f)) {
+      volume *= 0.7;
+    }
+    return volume;
   };
 
   const activeEvent = timeline.events.find(
@@ -301,7 +318,10 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const storyPanelHeight = storyVisualActive
     ? storyOverlayMode
       ? SPLIT_LAYOUT.frameHeight
-      : interpolate(
+      : story.immediateFirstScene ||
+          story.splitStartFrame >= story.splitCompleteFrame
+        ? targetTopH
+        : interpolate(
           frame,
           [story.openingStartFrame, story.splitStartFrame, story.splitCompleteFrame],
           [SPLIT_LAYOUT.frameHeight, SPLIT_LAYOUT.frameHeight, targetTopH],
@@ -322,12 +342,16 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const typographyLayoutScale =
     storyVisualActive && !storyOverlayMode ? splitChatScale(targetBottomPanelHeight) : 1;
   const chatRevealOpacity = storyVisualActive
-    ? interpolate(
-        frame,
-        [story.splitStartFrame, story.splitCompleteFrame],
-        [0, 1],
-        {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
-      )
+    ? story.splitStartFrame >= story.splitCompleteFrame
+      ? frame >= story.splitCompleteFrame
+        ? 1
+        : 0
+      : interpolate(
+          frame,
+          [story.splitStartFrame, story.splitCompleteFrame],
+          [0, 1],
+          {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
+        )
     : 1;
 
   const currentStoryImage = storyVisualActive ? storyImageAtFrame(story, frame) : undefined;
@@ -336,12 +360,18 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     ? storyVideoDurationMsAtFrame(story, frame)
     : undefined;
   const activeScene = storyVisualActive ? activeStorySceneAtFrame(story, frame) : undefined;
-  const sceneStartFrame =
-    frame < story.splitCompleteFrame
+  const sceneStartFrame = story.immediateFirstScene
+    ? (activeScene?.startFrame ??
+        story.sceneEvents.find((event) => event.messageIndex === 0)?.startFrame ??
+        story.openingStartFrame)
+    : frame < story.splitCompleteFrame
       ? story.openingStartFrame
       : (activeScene?.startFrame ?? story.splitCompleteFrame);
-  const sceneEndFrame =
-    frame < story.splitCompleteFrame
+  const sceneEndFrame = story.immediateFirstScene
+    ? (activeScene?.endFrame ??
+        story.sceneEvents.find((event) => event.messageIndex === 0)?.endFrame ??
+        timeline.outroStartFrame)
+    : frame < story.splitCompleteFrame
       ? story.splitCompleteFrame
       : (activeScene?.endFrame ?? timeline.outroStartFrame);
   const sceneLocalFrame = Math.max(0, frame - sceneStartFrame);
@@ -442,6 +472,31 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         {music.enabled ? (
           <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
         ) : null}
+
+        {story.enabled && story.openingSfx.length > 0 ? (
+          <StorySfxLayer
+            keyPrefix="opening-sfx"
+            cues={story.openingSfx}
+            startFrame={story.openingStartFrame}
+            endFrame={story.openingEndFrame}
+            masterVolume={story.sfxMasterVolume}
+          />
+        ) : null}
+
+        {story.enabled
+          ? story.sceneEvents.map((scene) =>
+              scene.sfx.length > 0 ? (
+                <StorySfxLayer
+                  key={`scene-sfx-${scene.messageIndex}`}
+                  keyPrefix={`scene-sfx-${scene.messageIndex}`}
+                  cues={scene.sfx}
+                  startFrame={scene.startFrame}
+                  endFrame={scene.endFrame}
+                  masterVolume={story.sfxMasterVolume}
+                />
+              ) : null,
+            )
+          : null}
 
         {intro.enabled ? (
           <TitleCard

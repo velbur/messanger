@@ -9,6 +9,7 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER} from "./story";
+import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
@@ -38,7 +39,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-openrouter-video-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-immediate-first-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -70,6 +71,7 @@ export type StorySceneTimelineEvent = {
   videoDurationMs?: number;
   startFrame: number;
   endFrame: number;
+  sfx: ResolvedStorySfxCue[];
 };
 
 export type StoryTimeline = {
@@ -85,6 +87,10 @@ export type StoryTimeline = {
   splitTransitionFrames: number;
   topPanelRatio: number;
   openingAnimation: "video" | "none";
+  openingSfx: ResolvedStorySfxCue[];
+  sfxMasterVolume: number;
+  /** Первое сообщение со story-кадром — без отдельной заставки opening */
+  immediateFirstScene: boolean;
   sceneEvents: StorySceneTimelineEvent[];
 };
 
@@ -119,6 +125,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   void TIMELINE_TAIL_MARKER;
   void VOICEOVER_BUNDLE_MARKER;
   void STORY_VIDEO_BUNDLE_MARKER;
+  void SFX_BUNDLE_MARKER;
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
   const introFrames = intro.enabled
@@ -230,6 +237,9 @@ const buildStoryTimeline = (
     splitTransitionFrames: 0,
     topPanelRatio: 0.45,
     openingAnimation: "video",
+    openingSfx: [],
+    sfxMasterVolume: 1,
+    immediateFirstScene: false,
     sceneEvents: [],
   };
 
@@ -240,16 +250,30 @@ const buildStoryTimeline = (
   const presentation = getStoryPresentation(conversation) ?? "split";
 
   const storyConfig = mergeStoryConfig(conversation);
+  const sfxConfig = mergeStorySfxConfig(conversation);
+  const firstMessage = conversation.messages[0];
+  const firstHasStory = Boolean(firstMessage && messageHasStoryImage(firstMessage));
+  const firstRevealFrame = events[0]?.revealFrame ?? introFrames;
+  const immediateFirstScene = firstHasStory;
+
   const openingStartFrame = introFrames;
-  const openingDurationFrames = msToFrames(
+  let openingDurationFrames = msToFrames(
     scaleConversationMs(conversation, storyConfig.opening.durationMs),
   );
-  const splitTransitionFrames = msToFrames(
+  let splitTransitionFrames = msToFrames(
     scaleConversationMs(conversation, storyConfig.splitTransitionMs),
   );
+
+  if (immediateFirstScene) {
+    openingDurationFrames = 0;
+    splitTransitionFrames = 0;
+  }
+
   const openingEndFrame = openingStartFrame + openingDurationFrames;
   const splitStartFrame = openingEndFrame;
-  const splitCompleteFrame = splitStartFrame + splitTransitionFrames;
+  const splitCompleteFrame = immediateFirstScene
+    ? firstRevealFrame
+    : splitStartFrame + splitTransitionFrames;
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
   const sceneIndices = conversation.messages
@@ -263,7 +287,10 @@ const buildStoryTimeline = (
       return;
     }
 
-    const startFrame = Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
+    const startFrame =
+      messageIndex === 0 && immediateFirstScene
+        ? firstRevealFrame
+        : Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
     const nextSceneIndex = sceneIndices[sceneOrder + 1];
     const endFrame =
       nextSceneIndex !== undefined
@@ -277,8 +304,14 @@ const buildStoryTimeline = (
       videoDurationMs: message.storyVideoDurationMs,
       startFrame,
       endFrame,
+      sfx: sfxConfig.enabled ? resolveStorySfxCues(message.storySfx) : [],
     });
   });
+
+  const openingSfx =
+    sfxConfig.enabled && conversation.story?.opening?.storySfx
+      ? resolveStorySfxCues(conversation.story.opening.storySfx)
+      : [];
 
   return {
     enabled: true,
@@ -293,6 +326,9 @@ const buildStoryTimeline = (
     splitTransitionFrames,
     topPanelRatio: storyConfig.topPanelRatio,
     openingAnimation: storyConfig.opening.animation,
+    openingSfx,
+    sfxMasterVolume: sfxConfig.masterVolume,
+    immediateFirstScene,
     sceneEvents,
   };
 };
@@ -301,7 +337,14 @@ export const activeStorySceneAtFrame = (
   story: StoryTimeline,
   frame: number,
 ): StorySceneTimelineEvent | undefined => {
-  if (!story.enabled || frame < story.splitCompleteFrame) {
+  if (!story.enabled) {
+    return undefined;
+  }
+
+  if (frame < story.splitCompleteFrame) {
+    if (story.immediateFirstScene) {
+      return story.sceneEvents.find((event) => event.messageIndex === 0);
+    }
     return undefined;
   }
 
@@ -311,12 +354,18 @@ export const activeStorySceneAtFrame = (
   return active[active.length - 1];
 };
 
+const firstSceneMedia = (story: StoryTimeline) =>
+  story.sceneEvents.find((event) => event.messageIndex === 0);
+
 export const storyImageAtFrame = (story: StoryTimeline, frame: number): string | undefined => {
   if (!story.enabled) {
     return undefined;
   }
 
   if (frame < story.splitStartFrame) {
+    if (story.immediateFirstScene) {
+      return firstSceneMedia(story)?.image ?? story.openingImage;
+    }
     return story.openingImage;
   }
 
@@ -341,6 +390,9 @@ export const storyVideoAtFrame = (story: StoryTimeline, frame: number): string |
   }
 
   if (frame < story.splitStartFrame) {
+    if (story.immediateFirstScene) {
+      return firstSceneMedia(story)?.video ?? story.openingVideo;
+    }
     return story.openingVideo;
   }
 
@@ -368,6 +420,9 @@ export const storyVideoDurationMsAtFrame = (
   }
 
   if (frame < story.splitStartFrame) {
+    if (story.immediateFirstScene) {
+      return firstSceneMedia(story)?.videoDurationMs ?? story.openingVideoDurationMs;
+    }
     return story.openingVideoDurationMs;
   }
 

@@ -36,6 +36,14 @@ export const sceneMotionLoopProgress = (
   return cinematicEase(triangle);
 };
 
+/** Пинг-понг по кадрам видео — без рывка на стыке loop */
+export const videoPingPongFrame = (localFrame: number, durationFrames: number): number => {
+  const n = Math.max(2, durationFrames - 1);
+  const period = n * 2;
+  const t = ((localFrame % period) + period) % period;
+  return t <= n ? t : period - t;
+};
+
 export const motionVectors = (directionSeed: string): {panX: number; panY: number} => {
   const seed = hashSeed(directionSeed);
   return {

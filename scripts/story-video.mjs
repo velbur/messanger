@@ -115,13 +115,30 @@ export const resolveStoryVideos = async (
   }
 
   for (const target of collectStoryVideoTargets(conversation)) {
-    const videoRef = String(target.holder?.storyVideo ?? "").trim();
+    let videoRef = String(target.holder?.storyVideo ?? "").trim();
+
     if (!videoRef) {
-      const errorText = `Story-видео (${target.label}): нет storyVideo. Соберите видео на Mac с OpenRouter.`;
-      if (failOnMissingVideos) {
-        throw new Error(errorText);
+      const candidate = storyVideoPathForImage(target.image);
+      try {
+        const {absolute} = safePublicPath(candidate);
+        if (existsSync(absolute)) {
+          videoRef = candidate;
+          target.holder.storyVideo = candidate;
+          if (!target.holder.storyVideoDurationMs) {
+            target.holder.storyVideoDurationMs = await probeVideoDurationMs(absolute);
+          }
+          if (!target.holder.storyVideoProfile) {
+            target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
+          }
+          logs.push(`Story-видео (${target.label}): подключено с диска → ${candidate}`);
+        }
+      } catch {
+        /* skip */
       }
-      logs.push(errorText);
+    }
+
+    if (!videoRef) {
+      logs.push(`Story-видео (${target.label}): нет MP4 — показ статичного кадра`);
       continue;
     }
 
