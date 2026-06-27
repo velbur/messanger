@@ -2,7 +2,7 @@ import React from "react";
 import {Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from "remotion";
 import {useChatTheme} from "../ThemeContext";
 import {useChatTypography} from "../TypographyContext";
-import {CHAT, CHAT_OVERLAY} from "../theme";
+import {CHAT, CHAT_OVERLAY, hexToRgba} from "../theme";
 import {ReadReceiptIcon} from "./icons";
 import {EmojiText} from "./EmojiText";
 import {BubbleTail} from "./BubbleTail";
@@ -94,7 +94,10 @@ export const MessageBubble: React.FC<Props> = ({
   const {fps} = useVideoConfig();
   const relative = frame - revealFrame;
   const isMe = author === "me";
-  const bg = isMe ? theme.bubbleOutgoing : theme.bubbleIncoming;
+  const solidBg = isMe ? theme.bubbleOutgoing : theme.bubbleIncoming;
+  const bg = compact
+    ? hexToRgba(solidBg, CHAT_OVERLAY.bubbleAlpha)
+    : solidBg;
   const hasImage = Boolean(image);
   const caption = text.trim();
   const hasCaption = caption.length > 0;
@@ -148,8 +151,10 @@ export const MessageBubble: React.FC<Props> = ({
               ? CHAT.imageBubblePadding
               : bubbleStyle.bubblePadding,
           boxShadow: compact
-            ? "0 2px 12px rgba(0, 0, 0, 0.28)"
+            ? "0 2px 16px rgba(0, 0, 0, 0.22)"
             : theme.bubbleShadow,
+          backdropFilter: compact ? `blur(${CHAT_OVERLAY.backdropBlur}px)` : undefined,
+          WebkitBackdropFilter: compact ? `blur(${CHAT_OVERLAY.backdropBlur}px)` : undefined,
           overflow: "hidden",
         }}
       >

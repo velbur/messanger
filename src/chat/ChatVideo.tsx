@@ -21,7 +21,7 @@ import {
   visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatTypographyProvider} from "./TypographyContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -70,7 +70,9 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   overlayChrome = false,
   minimalOverlay = false,
 }) => {
-  const eventsToShow = minimalOverlay ? visibleEvents.slice(-2) : visibleEvents;
+  const eventsToShow = minimalOverlay
+    ? visibleEvents.slice(-CHAT_OVERLAY.maxVisibleMessages)
+    : visibleEvents;
 
   if (minimalOverlay) {
     return (

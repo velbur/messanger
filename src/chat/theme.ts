@@ -114,7 +114,26 @@ export const CHAT_OVERLAY = {
   messageMaxWidth: S(640),
   metaRowMinHeight: S(22),
   metaRowMarginTop: 2,
+  maxVisibleMessages: 3,
+  bubbleAlpha: 0.58,
+  backdropBlur: 10,
 } as const;
+
+export const hexToRgba = (hex: string, alpha: number): string => {
+  const normalized = hex.replace("#", "");
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((channel) => channel + channel)
+          .join("")
+      : normalized;
+  const value = Number.parseInt(full, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 export const LAYOUT = {
   statusBarH: S(72),

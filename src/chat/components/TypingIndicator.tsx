@@ -1,15 +1,18 @@
 import React from "react";
 import {interpolate, useCurrentFrame} from "remotion";
 import {useChatTheme} from "../ThemeContext";
-import {CHAT, CHAT_OVERLAY, CHROME, S} from "../theme";
+import {CHAT, CHAT_OVERLAY, CHROME, S, hexToRgba} from "../theme";
+import {BubbleTail} from "./BubbleTail";
 
 const T = CHROME.typing;
-import {BubbleTail} from "./BubbleTail";
 
 export const TypingIndicator: React.FC<{variant?: "default" | "overlay"}> = ({variant = "default"}) => {
   const theme = useChatTheme();
   const frame = useCurrentFrame();
   const compact = variant === "overlay";
+  const typingBg = compact
+    ? hexToRgba(theme.bubbleIncoming, CHAT_OVERLAY.bubbleAlpha)
+    : theme.bubbleIncoming;
 
   return (
     <div
@@ -21,7 +24,7 @@ export const TypingIndicator: React.FC<{variant?: "default" | "overlay"}> = ({va
     >
       <div
         style={{
-          background: theme.bubbleIncoming,
+          background: typingBg,
           borderRadius: compact ? CHAT_OVERLAY.bubbleRadius : T.borderRadius,
           ...(compact
             ? {}
@@ -34,7 +37,9 @@ export const TypingIndicator: React.FC<{variant?: "default" | "overlay"}> = ({va
           display: "flex",
           alignItems: "center",
           gap: T.gap,
-          boxShadow: compact ? "0 2px 12px rgba(0, 0, 0, 0.28)" : theme.bubbleShadow,
+          boxShadow: compact ? "0 2px 16px rgba(0, 0, 0, 0.22)" : theme.bubbleShadow,
+          backdropFilter: compact ? `blur(${CHAT_OVERLAY.backdropBlur}px)` : undefined,
+          WebkitBackdropFilter: compact ? `blur(${CHAT_OVERLAY.backdropBlur}px)` : undefined,
         }}
       >
         {[0, 1, 2].map((dot) => {
@@ -57,7 +62,7 @@ export const TypingIndicator: React.FC<{variant?: "default" | "overlay"}> = ({va
           );
         })}
       </div>
-      {compact ? null : <BubbleTail side="left" color={theme.bubbleIncoming} />}
+      {compact ? null : <BubbleTail side="left" color={typingBg} />}
     </div>
   );
 };
