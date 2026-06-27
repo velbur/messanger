@@ -2,8 +2,12 @@ FROM node:22-bookworm-slim
 
 # Chromium (Remotion headless) + ffmpeg + шрифты (в т.ч. кириллица)
 # python3/make/g++ — запасной путь, если prebuilt-бинарники sharp/onnx не подойдут
-# Check-Valid-Until=false — сборка не падает, если часы на хосте/Podman VM слегка сбиты
-RUN apt-get -o Acquire::Check-Valid-Until=false update \
+# Если часы Podman VM отстают: «Release … not valid yet» — отключаем проверку даты apt
+RUN printf '%s\n' \
+    'Acquire::Check-Valid-Until "false";' \
+    'Acquire::Check-Date "false";' \
+    > /etc/apt/apt.conf.d/99docker-clock \
+  && apt-get update \
   && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
