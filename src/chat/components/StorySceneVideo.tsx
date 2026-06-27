@@ -1,17 +1,13 @@
 import React from "react";
 import {
   AbsoluteFill,
-  Loop,
   OffthreadVideo,
-  Series,
   Sequence,
   staticFile,
+  useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import {
-  storyVideoForwardDurationFrames,
-  storyVideoSourceFrameCount,
-} from "../story-motion";
+import {storyVideoPingPongStartFrom} from "../story-motion";
 
 type Props = {
   video: string;
@@ -26,10 +22,10 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneStartFrame,
   sceneDurationFrames,
 }) => {
+  const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const sourceFrameCount = storyVideoSourceFrameCount(videoDurationMs);
-  const forwardDuration = storyVideoForwardDurationFrames(videoDurationMs, fps);
-  const pingPongPeriod = forwardDuration * 2;
+  const localFrame = Math.max(0, frame - sceneStartFrame);
+  const startFrom = storyVideoPingPongStartFrom(localFrame, videoDurationMs, fps);
 
   return (
     <Sequence
@@ -39,34 +35,16 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <Loop durationInFrames={pingPongPeriod}>
-          <Series>
-            <Series.Sequence durationInFrames={forwardDuration}>
-              <OffthreadVideo
-                src={staticFile(video)}
-                muted
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            </Series.Sequence>
-            <Series.Sequence durationInFrames={forwardDuration}>
-              <OffthreadVideo
-                src={staticFile(video)}
-                muted
-                startFrom={sourceFrameCount - 1}
-                playbackRate={-1}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            </Series.Sequence>
-          </Series>
-        </Loop>
+        <OffthreadVideo
+          src={staticFile(video)}
+          muted
+          startFrom={startFrom}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
       </AbsoluteFill>
     </Sequence>
   );
