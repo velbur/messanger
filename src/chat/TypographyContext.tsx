@@ -8,9 +8,13 @@ const TypographyContext = createContext<ChatTypography>(defaultTypography);
 
 export const ChatTypographyProvider: React.FC<{
   conversation: ConversationInput;
+  layoutScale?: number;
   children: React.ReactNode;
-}> = ({conversation, children}) => {
-  const typography = useMemo(() => resolveChatTypography(conversation), [conversation.messageFontSize]);
+}> = ({conversation, layoutScale = 1, children}) => {
+  const typography = useMemo(
+    () => resolveChatTypography(conversation, {layoutScale}),
+    [conversation.messageFontSize, layoutScale],
+  );
   return <TypographyContext.Provider value={typography}>{children}</TypographyContext.Provider>;
 };
 

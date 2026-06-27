@@ -12,8 +12,13 @@ export type ChatTypography = {
   inputTextFontSize: number;
 };
 
-export const resolveChatTypography = (conversation: Pick<ConversationInput, "messageFontSize">): ChatTypography => {
-  const messageFontSize = conversation.messageFontSize ?? DEFAULT_MESSAGE_FONT_SIZE;
+export const resolveChatTypography = (
+  conversation: Pick<ConversationInput, "messageFontSize">,
+  {layoutScale = 1}: {layoutScale?: number} = {},
+): ChatTypography => {
+  const targetSize = conversation.messageFontSize ?? DEFAULT_MESSAGE_FONT_SIZE;
+  const scale = layoutScale > 0 && layoutScale < 1 ? layoutScale : 1;
+  const messageFontSize = Math.round(targetSize / scale);
   const ratio = messageFontSize / DEFAULT_MESSAGE_FONT_SIZE;
   return {
     messageFontSize,

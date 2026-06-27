@@ -264,6 +264,10 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     ? Math.max(0, SPLIT_LAYOUT.frameHeight - storyPanelHeight)
     : 0;
   const chatScale = splitChatScale(bottomPanelHeight);
+  const targetBottomPanelHeight = Math.round(
+    (1 - story.topPanelRatio) * SPLIT_LAYOUT.frameHeight,
+  );
+  const typographyLayoutScale = storySplitActive ? splitChatScale(targetBottomPanelHeight) : 1;
 
   const currentStoryImage = storySplitActive ? storyImageAtFrame(story, frame) : undefined;
   const previousStoryImage =
@@ -287,7 +291,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
 
   return (
     <ChatThemeProvider mode={conversation.wallpaper}>
-      <ChatTypographyProvider conversation={conversation}>
+      <ChatTypographyProvider conversation={conversation} layoutScale={typographyLayoutScale}>
       <AbsoluteFill
         style={{
           fontFamily: CHAT_FONT_FAMILY,

@@ -348,33 +348,6 @@
                 <input type="checkbox" id="voiceoverEnabled" />
                 <span>Озвучка реплик</span>
               </label>
-              <label class="voiceover-voices__field">
-                <span class="label">Движок</span>
-                <select id="voiceoverProvider" class="select select--compact">
-                  <option value="openrouter">OpenRouter (Gemini TTS)</option>
-                  <option value="silero">Silero (локально)</option>
-                  <option value="mms">MMS (запасной)</option>
-                </select>
-              </label>
-              <p id="voiceoverEngineHint" class="dialogue-hint" aria-live="polite">
-                OpenRouter: естественный русский через Gemini TTS (нужен OPENROUTER_API_KEY).
-              </p>
-              <div class="voiceover-voices">
-                <label class="voiceover-voices__field">
-                  <span class="label">Собеседник</span>
-                  <select id="voiceoverThemVoice" class="select select--compact">
-                    <option value="female">Женский</option>
-                    <option value="male">Мужской</option>
-                  </select>
-                </label>
-                <label class="voiceover-voices__field">
-                  <span class="label">Я</span>
-                  <select id="voiceoverMeVoice" class="select select--compact">
-                    <option value="male">Мужской</option>
-                    <option value="female">Женский</option>
-                  </select>
-                </label>
-              </div>
             </div>
 
             <div class="row row--timing" id="conversationTimingPanel" hidden>

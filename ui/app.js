@@ -101,10 +101,6 @@ const btnGenerateVoiceover = document.getElementById("btnGenerateVoiceover");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
 const voiceoverGenerateStatus = document.getElementById("voiceoverGenerateStatus");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
-const voiceoverProvider = document.getElementById("voiceoverProvider");
-const voiceoverThemVoice = document.getElementById("voiceoverThemVoice");
-const voiceoverMeVoice = document.getElementById("voiceoverMeVoice");
-const voiceoverEngineHint = document.getElementById("voiceoverEngineHint");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
@@ -1876,18 +1872,6 @@ const syncVoiceoverFromJson = () => {
   if (voiceoverEnabled) {
     voiceoverEnabled.checked = Boolean(voiceover.enabled);
   }
-  if (voiceoverProvider) {
-    const provider = voiceover.provider ?? (openrouterConfigured ? "openrouter" : "mms");
-    voiceoverProvider.value = ["openrouter", "silero", "mms"].includes(provider)
-      ? provider
-      : "openrouter";
-  }
-  if (voiceoverThemVoice) {
-    voiceoverThemVoice.value = voiceover.themVoice === "male" ? "male" : "female";
-  }
-  if (voiceoverMeVoice) {
-    voiceoverMeVoice.value = voiceover.meVoice === "female" ? "female" : "male";
-  }
 };
 
 const applyVoiceoverToJson = () => {
@@ -1896,28 +1880,17 @@ const applyVoiceoverToJson = () => {
     return;
   }
   const enabled = Boolean(voiceoverEnabled?.checked);
-  const selectedProvider =
-    voiceoverProvider?.value === "silero" || voiceoverProvider?.value === "mms"
-      ? voiceoverProvider.value
-      : "openrouter";
-  const prevProvider = parsed.voiceover?.provider ?? "mms";
   if (!enabled) {
     if (parsed.voiceover) {
       parsed.voiceover = {...parsed.voiceover, enabled: false};
     }
   } else {
-    if (prevProvider !== selectedProvider) {
-      for (const message of parsed.messages ?? []) {
-        delete message.voiceAudio;
-        delete message.voiceDurationMs;
-      }
-    }
     parsed.voiceover = {
       ...(parsed.voiceover ?? {}),
       enabled: true,
-      provider: selectedProvider,
-      themVoice: voiceoverThemVoice?.value === "male" ? "male" : "female",
-      meVoice: voiceoverMeVoice?.value === "female" ? "female" : "male",
+      provider: "openrouter",
+      themVoice: parsed.voiceover?.themVoice ?? "female",
+      meVoice: parsed.voiceover?.meVoice ?? "male",
     };
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
@@ -1952,51 +1925,15 @@ const updateGenerateVoiceoverControls = (conversation = null) => {
   const parsed = conversation ?? parseConversationJson();
   const pending = countPendingVoiceover(parsed);
   const enabled = Boolean(parsed?.voiceover?.enabled);
-  const provider = parsed?.voiceover?.provider ?? "openrouter";
-  const providerLabel =
-    provider === "openrouter" ? "OpenRouter" : provider === "silero" ? "Silero" : "MMS";
-  btnGenerateVoiceover.disabled =
-    !enabled || pending === 0 || (provider === "openrouter" && !openrouterConfigured);
+  btnGenerateVoiceover.disabled = !enabled || pending === 0 || !openrouterConfigured;
   if (!enabled) {
     btnGenerateVoiceover.title = "Включите озвучку в левой колонке";
-  } else if (provider === "openrouter" && !openrouterConfigured) {
+  } else if (!openrouterConfigured) {
     btnGenerateVoiceover.title = "Задайте OPENROUTER_API_KEY в docs/.env";
   } else if (pending === 0) {
     btnGenerateVoiceover.title = "Все реплики с текстом уже озвучены";
   } else {
-    btnGenerateVoiceover.title = `Озвучить ${pending} реплик${pending === 1 ? "у" : pending < 5 ? "и" : ""} (${providerLabel})`;
-  }
-};
-
-const loadVoiceoverEngineStatus = async () => {
-  if (!voiceoverEngineHint) {
-    return;
-  }
-  try {
-    const target = getRenderTarget();
-    const res = await fetch(
-      `/api/voiceover/status?target=${encodeURIComponent(target)}`,
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "status");
-    }
-    const where = data.remote ? "на воркере" : "локально";
-    if (data.openrouter?.ok) {
-      voiceoverEngineHint.textContent =
-        `OpenRouter ${where}: Gemini TTS (${data.openrouter.model ?? "google/gemini-3.1-flash-tts-preview"}) — естественный русский, мужской/женский голос.`;
-    } else if (data.silero?.ok) {
-      voiceoverEngineHint.textContent =
-        `Движок Silero готов ${where}: естественный русский, мужской и женский голоса (aidar, xenia…).`;
-    } else if (data.recommended === "mms") {
-      voiceoverEngineHint.textContent =
-        `Silero недоступен ${where} — будет запасной MMS (один голос). ${data.installHint ?? ""}`;
-    } else {
-      voiceoverEngineHint.textContent = data.installHint ?? "Проверьте scripts/tts/requirements.txt";
-    }
-  } catch {
-    voiceoverEngineHint.textContent =
-      "Озвучка: при цели «Мощная машина» — на воркере; локально: pip3 install -r scripts/tts/requirements.txt";
+    btnGenerateVoiceover.title = `Озвучить ${pending} реплик${pending === 1 ? "у" : pending < 5 ? "и" : ""} (OpenRouter)`;
   }
 };
 
@@ -2185,7 +2122,6 @@ const loadRenderTargets = async () => {
     renderTargetSelect.value = data.defaultTarget ?? "local";
     renderTargetRow.hidden = false;
     renderTargetSelect.addEventListener("change", () => {
-      loadVoiceoverEngineStatus();
       updateGenerateVoiceoverControls();
     });
   } catch {
@@ -4206,8 +4142,8 @@ btnRender.addEventListener("click", async () => {
       const voiceTarget = getRenderTarget();
       statusText.textContent =
         voiceTarget === "remote"
-          ? "Озвучка реплик на воркере перед рендером…"
-          : "Озвучка реплик перед рендером…";
+          ? "Озвучка реплик на воркере (OpenRouter)…"
+          : "Озвучка реплик (OpenRouter)…";
       const voiceData = await generateMissingVoiceover();
       json = jsonInput.value.trim();
       if (voiceData.logs?.length) {
@@ -4728,19 +4664,10 @@ btnGenerateImages?.addEventListener("click", async () => {
 btnGenerateVoiceover?.addEventListener("click", async () => {
   btnGenerateVoiceover.disabled = true;
   if (voiceoverGenerateStatus) {
-    const provider = voiceoverProvider?.value ?? "openrouter";
-    const target = getRenderTarget();
-    if (provider === "openrouter") {
-      voiceoverGenerateStatus.textContent =
-        target === "remote"
-          ? "Озвучка… OpenRouter/Gemini на воркере"
-          : "Озвучка… OpenRouter/Gemini, может занять минуту";
-    } else {
-      voiceoverGenerateStatus.textContent =
-        target === "remote"
-          ? "Озвучка… на воркере (Silero), может занять минуту"
-          : "Озвучка… локально, может занять минуту";
-    }
+    voiceoverGenerateStatus.textContent =
+      getRenderTarget() === "remote"
+        ? "Озвучка… OpenRouter на воркере"
+        : "Озвучка… OpenRouter, может занять минуту";
   }
   try {
     const data = await generateMissingVoiceover();
@@ -4757,12 +4684,10 @@ btnGenerateVoiceover?.addEventListener("click", async () => {
   }
 });
 
-for (const el of [voiceoverEnabled, voiceoverProvider, voiceoverThemVoice, voiceoverMeVoice]) {
-  el?.addEventListener("change", () => {
-    applyVoiceoverToJson();
-    scheduleRefreshDialogue();
-  });
-}
+voiceoverEnabled?.addEventListener("change", () => {
+  applyVoiceoverToJson();
+  scheduleRefreshDialogue();
+});
 
 const applyApiStatusToEditor = (data) => {
   if (data?.openrouter) {
@@ -4996,10 +4921,9 @@ const loadOpenRouterStatus = async () => {
   }
 };
 
-loadOpenRouterStatus().then(() => loadDialogueModels());
-loadStylePrompt();
-loadStoryStylePrompt();
-loadShortsStyles();
-loadVoiceoverEngineStatus();
+loadOpenRouterStatus().then(() => {
+  loadDialogueModels();
+  updateGenerateVoiceoverControls();
+});
 initEditorPreferenceControls();
 loadBrowseOnStartup();
