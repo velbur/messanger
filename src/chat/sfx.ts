@@ -3,6 +3,7 @@ import {msToFrames} from "./fps";
 
 export const SFX_CATALOG_VERSION = catalogData.version;
 export const SFX_BUNDLE_MARKER = `sfx-catalog-v${SFX_CATALOG_VERSION}`;
+export const SFX_MIX_BUNDLE_MARKER = "story-sfx-mix-v1";
 
 export type SfxCatalogItem = {
   id: string;
@@ -10,6 +11,8 @@ export type SfxCatalogItem = {
   loop: boolean;
   defaultVolume: number;
   path: string;
+  /** Длительность WAV, мс — для зацикливания при рендере */
+  durationMs?: number;
 };
 
 export type StorySfxCueInput = {
@@ -27,6 +30,7 @@ export type ResolvedStorySfxCue = {
   loop: boolean;
   delayFrames: number;
   pan: number;
+  durationMs: number;
 };
 
 export const SFX_CATALOG: SfxCatalogItem[] = catalogData.items;
@@ -45,7 +49,7 @@ export type StorySfxConfig = {
 
 const DEFAULT_STORY_SFX: StorySfxConfig = {
   enabled: true,
-  masterVolume: 1.6,
+  masterVolume: 2.4,
 };
 
 export const STORY_SFX_PROFILE = "catalog-v2-selective";
@@ -88,6 +92,7 @@ export const resolveStorySfxCues = (
       loop: cue.loop ?? item.loop,
       delayFrames: msToFrames(cue.delayMs ?? 0),
       pan: cue.pan ?? 0,
+      durationMs: item.durationMs ?? (item.loop ? 10_000 : 3_000),
     });
   }
   return resolved;

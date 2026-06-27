@@ -252,6 +252,21 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const isVoiceActiveAtFrame = (f: number): boolean =>
     voiceFrameRanges.some((range) => f >= range.start && f < range.end);
 
+  const storySfxActiveAtFrame = (f: number): boolean => {
+    if (!story.enabled) {
+      return false;
+    }
+    if (
+      f >= story.openingStartFrame &&
+      f < story.openingSfxEndFrame &&
+      story.openingSfx.length > 0
+    ) {
+      return true;
+    }
+    const scene = story.sceneEvents.find((event) => f >= event.startFrame && f < event.endFrame);
+    return Boolean(scene?.sfx.length);
+  };
+
   const storyAmbienceAtFrame = (f: number): boolean => {
     if (!story.enabled) {
       return false;
@@ -273,7 +288,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     if (voiceover.enabled && isVoiceActiveAtFrame(f)) {
       volume *= voiceover.musicDuck;
     }
-    if (storyAmbienceAtFrame(f)) {
+    if (story.enabled && story.sfxMixSrc) {
+      volume *= 0.22;
+    } else if (storySfxActiveAtFrame(f)) {
+      volume *= 0.42;
+    } else if (storyAmbienceAtFrame(f)) {
       volume *= 0.7;
     }
     return volume;
@@ -474,7 +493,11 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
         ) : null}
 
-        {story.enabled && story.openingSfx.length > 0 ? (
+        {story.enabled && story.sfxMixSrc ? (
+          <Audio src={staticFile(story.sfxMixSrc)} volume={1} />
+        ) : null}
+
+        {story.enabled && !story.sfxMixSrc && story.openingSfx.length > 0 ? (
           <StorySfxLayer
             keyPrefix="opening-sfx"
             cues={story.openingSfx}
@@ -484,7 +507,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           />
         ) : null}
 
-        {story.enabled
+        {story.enabled && !story.sfxMixSrc
           ? story.sceneEvents.map((scene) =>
               scene.sfx.length > 0 ? (
                 <StorySfxLayer

@@ -221,12 +221,17 @@ export const conversationSchema = z.object({
       topPanelRatio: z.number().min(0.35).max(0.65).optional().default(0.45),
       /** В storySplit не показывать FullscreenImage для message.image */
       disableMessageFullscreen: z.boolean().optional().default(true),
-      /** Атмосферные звуки story-кадров */
+      /** Готовый микс атмосферы (ffmpeg), public/audio/…/story-sfx-mix.wav */
+      sfxMix: z
+        .string()
+        .min(1)
+        .transform((value) => value.replace(/^\/+/, ""))
+        .optional(),
       sfx: z
         .object({
           enabled: z.boolean().optional(),
           profile: z.string().min(1).optional(),
-          masterVolume: z.number().min(0).max(1).optional(),
+          masterVolume: z.number().min(0).max(3).optional(),
         })
         .optional(),
     })

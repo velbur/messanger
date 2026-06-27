@@ -5,6 +5,7 @@ import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
 import {assignStorySfxIfNeeded, resolveStorySfxFiles} from "./story-sfx.mjs";
+import {buildStorySfxMix} from "./story-sfx-mix.mjs";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
@@ -36,6 +37,12 @@ const run = async () => {
     await resolveStoryVideos(conversation, {failOnMissingVideos: true});
     await assignStorySfxIfNeeded(conversation, {force: true});
     await resolveStorySfxFiles(conversation, {failOnMissing: true});
+    const mixRef = await buildStorySfxMix(conversation, {
+      namespace: path.basename(inputAbs, path.extname(inputAbs)),
+    });
+    if (mixRef) {
+      console.log(`SFX-mix: ${mixRef}`);
+    }
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }
   assertVoiceoverReadyForRender(conversation);

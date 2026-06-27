@@ -77,9 +77,11 @@ import {
 import {
   assignStorySfxIfNeeded,
   needsStorySfxAssignment,
+  collectStorySfxRefs,
   resolveStorySfxFiles,
   syncStorySfxToRemote,
 } from "./story-sfx.mjs";
+import {buildStorySfxMix, syncStorySfxMixToRemote} from "./story-sfx-mix.mjs";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {
   generateDialogue,
@@ -1840,6 +1842,10 @@ const runRenderPreparation = async (
         force: needsStorySfxAssignment(conversation),
       });
       job.logs.push(...storySfxLogs);
+      const sfxRefs = collectStorySfxRefs(conversation);
+      if (sfxRefs.length > 0) {
+        job.logs.push(`SFX в ролике: ${sfxRefs.map((ref) => path.basename(ref, ".wav")).join(", ")}`);
+      }
     }
 
     if (isStoryVisual) {
@@ -1865,6 +1871,19 @@ const runRenderPreparation = async (
     const storySfxResolveLogs = isStoryVisual
       ? await resolveStorySfxFiles(conversation, {failOnMissing: true})
       : [];
+
+    if (isStoryVisual) {
+      try {
+        const mixRef = await buildStorySfxMix(conversation, {namespace: job.fileName});
+        if (mixRef) {
+          job.logs.push(`SFX-mix: ${mixRef}`);
+        }
+      } catch (error) {
+        throw new Error(
+          `SFX-mix: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
 
     job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...storySfxResolveLogs, ...voiceLogs);
 
@@ -1913,6 +1932,7 @@ const runRenderPreparation = async (
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
       await syncStorySfxToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      await syncStorySfxMixToRemote(conversation, REMOTE_RENDER_URL, job.logs);
       if (conversation.voiceover?.enabled) {
         job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);

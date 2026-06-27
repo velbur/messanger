@@ -170,6 +170,9 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("fullscreenStartFrame") &&
       bundleJs.includes("FullscreenImage") &&
       bundleJs.includes("StoryPanel") &&
+      bundleJs.includes("StorySfxLayer") &&
+      bundleJs.includes("story-sfx-mix-v1") &&
+      bundleJs.includes("sfxMixSrc") &&
       bundleJs.includes("default-conversation.json")
     );
   } catch {

@@ -9,7 +9,7 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER} from "./story";
-import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
+import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
@@ -91,6 +91,8 @@ export type StoryTimeline = {
   openingAnimation: "video" | "none";
   openingSfx: ResolvedStorySfxCue[];
   sfxMasterVolume: number;
+  /** Premix всех story-SFX для Remotion */
+  sfxMixSrc?: string;
   /** Первое сообщение со story-кадром — без отдельной заставки opening */
   immediateFirstScene: boolean;
   sceneEvents: StorySceneTimelineEvent[];
@@ -128,6 +130,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   void VOICEOVER_BUNDLE_MARKER;
   void STORY_VIDEO_BUNDLE_MARKER;
   void SFX_BUNDLE_MARKER;
+  void SFX_MIX_BUNDLE_MARKER;
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
   const introFrames = intro.enabled
@@ -242,6 +245,7 @@ const buildStoryTimeline = (
     openingAnimation: "video",
     openingSfx: [],
     sfxMasterVolume: 1,
+    sfxMixSrc: undefined,
     immediateFirstScene: false,
     sceneEvents: [],
   };
@@ -339,6 +343,7 @@ const buildStoryTimeline = (
     openingAnimation: storyConfig.opening.animation,
     openingSfx,
     sfxMasterVolume: sfxConfig.masterVolume,
+    sfxMixSrc: conversation.story?.sfxMix?.trim() || undefined,
     immediateFirstScene,
     sceneEvents,
   };

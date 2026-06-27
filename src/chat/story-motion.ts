@@ -36,6 +36,25 @@ export const sceneMotionLoopProgress = (
   return cinematicEase(triangle);
 };
 
+/** Veo story-клипы — 24 fps; не путать с FPS композиции (30) */
+export const STORY_VIDEO_SOURCE_FPS = 24;
+
+/** Число кадров в исходном MP4 по длительности */
+export const storyVideoSourceFrameCount = (videoDurationMs?: number): number =>
+  Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * STORY_VIDEO_SOURCE_FPS));
+
+/** Бесшовное зацикливание: кадр источника по локальному кадру сцены */
+export const storyVideoLoopFrame = (localFrame: number, videoDurationMs?: number): number => {
+  const frameCount = storyVideoSourceFrameCount(videoDurationMs);
+  return ((localFrame % frameCount) + frameCount) % frameCount;
+};
+
+/** Пинг-понг по реальному числу кадров Veo (24 fps) — мягче, чем резкий modulo */
+export const storyVideoPingPongSourceFrame = (
+  localFrame: number,
+  videoDurationMs?: number,
+): number => videoPingPongFrame(localFrame, storyVideoSourceFrameCount(videoDurationMs));
+
 /** Пинг-понг по кадрам видео — без рывка на стыке loop */
 export const videoPingPongFrame = (localFrame: number, durationFrames: number): number => {
   const n = Math.max(2, durationFrames - 1);
