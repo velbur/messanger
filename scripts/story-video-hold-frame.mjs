@@ -3,7 +3,7 @@ import {promisify} from "node:util";
 import {existsSync, statSync} from "node:fs";
 import path from "node:path";
 import {storyVideoHoldFramePathForVideo} from "../src/chat/story-video-paths.ts";
-import {probeVideoDurationMs} from "./media-duration.mjs";
+import {probeVideoDurationMs, probeVideoFrameCount} from "./media-duration.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -32,17 +32,31 @@ const needsHoldFrameRebuild = (sourceAbs, holdAbs) => {
   return statSync(sourceAbs).mtimeMs > statSync(holdAbs).mtimeMs;
 };
 
-/** Извлечь последний кадр MP4 в PNG рядом с клипом */
+/** Извлечь точный последний кадр MP4 (по индексу n) */
 export const buildStoryVideoHoldFrameFile = async (sourceAbs, holdAbs) => {
+  const frameCount = await probeVideoFrameCount(sourceAbs);
+  const lastIndex = Math.max(0, frameCount - 1);
+
   try {
     await execFileAsync(
       "ffmpeg",
-      ["-y", "-sseof", "-1", "-i", sourceAbs, "-frames:v", "1", "-update", "1", holdAbs],
+      [
+        "-y",
+        "-i",
+        sourceAbs,
+        "-vf",
+        `select=eq(n\\,${lastIndex})`,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        holdAbs,
+      ],
       {maxBuffer: 8 * 1024 * 1024},
     );
   } catch {
     const durationMs = await probeVideoDurationMs(sourceAbs);
-    const seekSec = Math.max(0, durationMs / 1000 - 0.08).toFixed(3);
+    const seekSec = Math.max(0, durationMs / 1000 - 0.04).toFixed(3);
     await execFileAsync(
       "ffmpeg",
       ["-y", "-ss", seekSec, "-i", sourceAbs, "-frames:v", "1", "-q:v", "2", holdAbs],

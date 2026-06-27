@@ -69,22 +69,21 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
-/** Медленный цикл лёгкого движения на замороженном последнем кадре видео */
-export const STORY_VIDEO_HOLD_LOOP_FRAMES = 8 * FPS;
-
+/** Медленный монотонный zoom на hold — без пинг-понга (нет подёргивания) */
 export const storyVideoHoldMotion = (
   directionSeed: string,
   holdLocalFrame: number,
+  holdDurationFrames: number,
 ): {scale: number; translateX: number; translateY: number} => {
-  const progress = sceneMotionLoopProgress(holdLocalFrame, STORY_VIDEO_HOLD_LOOP_FRAMES);
+  const progress = sceneMotionProgress(holdLocalFrame, Math.max(1, holdDurationFrames));
   const {panX, panY} = motionVectors(directionSeed);
   return {
-    scale: interpolate(progress, [0, 1], [1, 1.022], {
+    scale: interpolate(progress, [0, 1], [1, 1.028], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     }),
-    translateX: progress * panX * 0.4,
-    translateY: progress * panY * 0.25,
+    translateX: progress * panX * 0.25,
+    translateY: progress * panY * 0.15,
   };
 };
 

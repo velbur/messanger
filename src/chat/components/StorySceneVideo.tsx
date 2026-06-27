@@ -4,12 +4,17 @@ import {
   Img,
   OffthreadVideo,
   Sequence,
-  Series,
+  interpolate,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import {storyVideoForwardDurationFrames, storyVideoHoldMotion} from "../story-motion";
+import {
+  storyVideoForwardDurationFrames,
+  storyVideoHoldMotion,
+  storyVideoSourceFrameAtPlayFrame,
+  storyVideoSourceFrameCount,
+} from "../story-motion";
 import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
 
 type Props = {
@@ -20,33 +25,12 @@ type Props = {
   sceneDurationFrames: number;
 };
 
+const HOLD_CROSSFADE_FRAMES = 8;
+
 const videoStyle: React.CSSProperties = {
   width: "100%",
   height: "100%",
   objectFit: "cover",
-};
-
-const StoryVideoHold: React.FC<{
-  holdFrame: string;
-  video: string;
-  holdStartFrame: number;
-}> = ({holdFrame, video, holdStartFrame}) => {
-  const frame = useCurrentFrame();
-  const holdLocalFrame = Math.max(0, frame - holdStartFrame);
-  const motion = storyVideoHoldMotion(video, holdLocalFrame);
-
-  return (
-    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-      <AbsoluteFill
-        style={{
-          transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
-          transformOrigin: "center center",
-        }}
-      >
-        <Img src={staticFile(holdFrame)} style={videoStyle} />
-      </AbsoluteFill>
-    </AbsoluteFill>
-  );
 };
 
 export const StorySceneVideo: React.FC<Props> = ({
@@ -55,12 +39,47 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneStartFrame,
   sceneDurationFrames,
 }) => {
+  const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const localFrame = Math.max(0, frame - sceneStartFrame);
+  const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrames = Math.max(0, sceneDurationFrames - playFrames);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
-  const holdStartFrame = sceneStartFrame + playFrames;
+  const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
+  const motionDurationFrames = Math.max(1, holdFrames + HOLD_CROSSFADE_FRAMES);
+  const motionLocalFrame = Math.max(0, localFrame - crossfadeStart);
+  const inCrossfade = localFrame >= crossfadeStart && localFrame < playFrames;
+  const inHold = localFrame >= playFrames;
+
+  const videoOpacity =
+    localFrame < crossfadeStart
+      ? 1
+      : localFrame < playFrames
+        ? interpolate(localFrame, [crossfadeStart, playFrames], [1, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : 0;
+
+  const holdOpacity =
+    localFrame >= crossfadeStart
+      ? interpolate(localFrame, [crossfadeStart, playFrames], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 0;
+
+  const sourceFrame =
+    localFrame >= crossfadeStart
+      ? lastSourceFrame
+      : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
+
+  const motion =
+    inCrossfade || inHold
+      ? storyVideoHoldMotion(video, motionLocalFrame, motionDurationFrames)
+      : {scale: 1, translateX: 0, translateY: 0};
 
   return (
     <Sequence
@@ -69,22 +88,29 @@ export const StorySceneVideo: React.FC<Props> = ({
       durationInFrames={sceneDurationFrames}
       layout="none"
     >
-      <Series>
-        <Series.Sequence durationInFrames={playFrames}>
-          <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-            <OffthreadVideo src={staticFile(video)} muted style={videoStyle} />
-          </AbsoluteFill>
-        </Series.Sequence>
-        {holdFrames > 0 ? (
-          <Series.Sequence durationInFrames={holdFrames}>
-            <StoryVideoHold
-              holdFrame={holdFrame}
-              video={video}
-              holdStartFrame={holdStartFrame}
+      <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
+        {localFrame < playFrames && videoOpacity > 0 ? (
+          <AbsoluteFill style={{opacity: videoOpacity}}>
+            <OffthreadVideo
+              src={staticFile(video)}
+              muted
+              startFrom={sourceFrame}
+              style={videoStyle}
             />
-          </Series.Sequence>
+          </AbsoluteFill>
         ) : null}
-      </Series>
+        {holdOpacity > 0 ? (
+          <AbsoluteFill
+            style={{
+              opacity: holdOpacity,
+              transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
+              transformOrigin: "center center",
+            }}
+          >
+            <Img src={staticFile(holdFrame)} style={videoStyle} />
+          </AbsoluteFill>
+        ) : null}
+      </AbsoluteFill>
     </Sequence>
   );
 };

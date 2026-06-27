@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-video-hold-png-v2";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-video-hold-crossfade-v3";
 
 export type StorySceneAnimation = "video" | "none";
 
