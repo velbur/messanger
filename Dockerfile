@@ -53,31 +53,30 @@ RUN printf '%s\n' \
 
 WORKDIR /app
 
-# npm ci в Podman VM (часто 2 GiB): не поднимать heap до 4G — иначе OOM и «Exit handler never called!»
-ENV NODE_OPTIONS=--max-old-space-size=1536
+ENV CI=true
+ENV NODE_OPTIONS=--max-old-space-size=4096
 ENV NPM_CONFIG_FETCH_RETRIES=5
 ENV NPM_CONFIG_FETCH_TIMEOUT=300000
-ENV NPM_CONFIG_MAXSOCKETS=1
+ENV NPM_CONFIG_MAXSOCKETS=2
 
 COPY package.json package-lock.json ./
 ARG LOCK_HASH=unknown
 LABEL lock_hash=$LOCK_HASH
 RUN set -eux; \
-  npm cache clean --force; \
+  date -u; node -v; npm -v; \
   for attempt in 1 2 3; do \
     echo "npm ci attempt ${attempt}/3…"; \
-    if npm ci --no-audit --no-fund --ignore-scripts --maxsockets=1; then \
-      npm rebuild sharp --foreground-scripts --maxsockets=1; \
+    if npm ci --no-audit --no-fund --ignore-scripts --no-progress; then \
+      npm rebuild sharp --foreground-scripts --no-progress; \
       break; \
     fi; \
+    echo "npm ci failed on attempt ${attempt}"; \
+    ls -la /root/.npm/_logs/ 2>/dev/null || true; \
+    tail -80 /root/.npm/_logs/*-debug-*.log 2>/dev/null || true; \
     npm cache clean --force; \
     if [ "$attempt" -eq 3 ]; then exit 1; fi; \
     sleep 15; \
   done
-
-# Remotion render на воркере — больше heap уже после установки зависимостей
-ENV NODE_OPTIONS=--max-old-space-size=4096
-ENV NPM_CONFIG_MAXSOCKETS=2
 
 COPY . .
 

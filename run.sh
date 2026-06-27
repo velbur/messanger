@@ -194,9 +194,38 @@ lock_file_hash() {
   fi
 }
 
+warn_clock_skew() {
+  if ! command -v curl >/dev/null 2>&1; then
+    return 0
+  fi
+  local remote_line remote_epoch local_epoch diff abs
+  remote_line="$(
+    curl -sI --max-time 8 https://registry.npmjs.org/ \
+      | awk -F': ' 'tolower($1) == "date" { sub(/\r$/, "", $2); print $2; exit }'
+  )"
+  [[ -z "$remote_line" ]] && return 0
+
+  if [[ "$(uname -s)" == Darwin ]]; then
+    remote_epoch="$(TZ=UTC date -j -f "%a, %d %b %Y %H:%M:%S" "${remote_line% GMT}" +%s 2>/dev/null || true)"
+  else
+    remote_epoch="$(date -u -d "$remote_line" +%s 2>/dev/null || true)"
+  fi
+  [[ -z "$remote_epoch" ]] && return 0
+
+  local_epoch="$(date +%s)"
+  diff=$((local_epoch - remote_epoch))
+  abs=${diff#-}
+  if (( abs > 300 )); then
+    local hours=$((abs / 3600))
+    echo "ВНИМАНИЕ: часы Mac отстают/спешат ~${hours}ч — apt «not valid yet» и npm «Exit handler never called!»." >&2
+    echo "  date -u && sudo sntp -sS time.apple.com && podman machine stop && podman machine start" >&2
+  fi
+}
+
 cmd_build() {
-  local lock_hash
+  local lock_hash build_args=()
   lock_hash="$(lock_file_hash)"
+  warn_clock_skew
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
   if [[ "$CONTAINER" == podman ]]; then
     local vm_mem=""
@@ -206,15 +235,19 @@ cmd_build() {
       if command -v awk >/dev/null 2>&1; then
         vm_gib="$(awk "BEGIN { printf \"%.1f\", ${vm_mem}/1024/1024/1024 }")"
       fi
-      echo "ВНИМАНИЕ: Podman VM ~${vm_gib} GiB RAM — npm ci часто падает с «Exit handler never called!» (OOM)." >&2
+      echo "ВНИМАНИЕ: Podman VM ~${vm_gib} GiB RAM — npm ci может падать с OOM." >&2
       echo "  podman machine set --memory 8192 && podman machine stop && podman machine start" >&2
     fi
-    echo "Podman: если npm ci падает с OOM — podman machine set --memory 8192 && podman machine stop && podman machine start"
-    echo "Podman: если apt «not valid yet» — часы VM отстают: sudo sntp -sS time.apple.com && podman machine stop && podman machine start"
+    echo "Podman: при npm «Exit handler never called!» — сначала синхронизируйте часы (см. выше), затем podman system prune -f"
   fi
-  "$CONTAINER" build \
-    --build-arg "LOCK_HASH=${lock_hash}" \
-    -t "$IMAGE" .
+  build_args=(
+    --build-arg "LOCK_HASH=${lock_hash}"
+    -t "$IMAGE"
+  )
+  if [[ "${BUILD_NO_CACHE:-0}" == 1 ]]; then
+    build_args+=(--no-cache)
+  fi
+  "$CONTAINER" build "${build_args[@]}" .
   echo "Готово: образ $IMAGE"
 }
 
