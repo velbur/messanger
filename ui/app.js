@@ -1868,9 +1868,6 @@ const applyMessageFontSizeToJson = () => {
   jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
-  jsonInput.value = JSON.stringify(parsed, null, 2);
-};
-
 const syncVoiceoverFromJson = () => {
   const parsed = parseConversationJson();
   const voiceover = parsed?.voiceover ?? {};
