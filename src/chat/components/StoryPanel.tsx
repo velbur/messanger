@@ -8,27 +8,38 @@ void STORY_SPLIT_TIMELINE_REV;
 
 type Props = {
   image: string | undefined;
+  video?: string;
+  videoDurationMs?: number;
   previousImage?: string;
+  previousVideo?: string;
+  previousVideoDurationMs?: number;
   height: number;
   animation: StorySceneAnimation;
   sceneLocalFrame: number;
   sceneDurationFrames: number;
   crossfadeFrames?: number;
-  depthParallax?: boolean;
 };
 
 export const StoryPanel: React.FC<Props> = ({
   image,
+  video,
+  videoDurationMs,
   previousImage,
+  previousVideo,
+  previousVideoDurationMs,
   height,
   animation,
   sceneLocalFrame,
   sceneDurationFrames,
   crossfadeFrames = 12,
-  depthParallax = true,
 }) => {
   const fade = Math.min(crossfadeFrames, Math.max(4, Math.floor(sceneDurationFrames * 0.08)));
-  const isCrossfade = Boolean(previousImage && previousImage !== image && sceneLocalFrame < fade);
+  const isCrossfade =
+    Boolean(
+      (previousVideo || previousImage) &&
+        (previousVideo || previousImage) !== (video || image) &&
+        sceneLocalFrame < fade,
+    );
   const previousOpacity = isCrossfade
     ? interpolate(sceneLocalFrame, [0, fade], [1, 0], {
         extrapolateLeft: "clamp",
@@ -42,7 +53,7 @@ export const StoryPanel: React.FC<Props> = ({
       })
     : 1;
 
-  if (!image && !previousImage) {
+  if (!image && !video && !previousImage && !previousVideo) {
     return (
       <div
         style={{
@@ -66,27 +77,27 @@ export const StoryPanel: React.FC<Props> = ({
         flexShrink: 0,
       }}
     >
-      {previousImage && previousOpacity > 0 ? (
+      {(previousImage || previousVideo) && previousOpacity > 0 ? (
         <AbsoluteFill style={{opacity: previousOpacity}}>
           <StorySceneImage
             image={previousImage}
+            video={previousVideo}
+            videoDurationMs={previousVideoDurationMs}
             localFrame={sceneLocalFrame}
             durationFrames={sceneDurationFrames}
             animation={animation}
-            directionSeed={previousImage}
-            depthParallax={depthParallax}
           />
         </AbsoluteFill>
       ) : null}
-      {image ? (
+      {image || video ? (
         <AbsoluteFill style={{opacity: currentOpacity}}>
           <StorySceneImage
             image={image}
+            video={video}
+            videoDurationMs={videoDurationMs}
             localFrame={sceneLocalFrame}
             durationFrames={sceneDurationFrames}
             animation={animation}
-            directionSeed={image}
-            depthParallax={depthParallax}
           />
         </AbsoluteFill>
       ) : null}

@@ -159,9 +159,8 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
     return (
       bundleJs.includes("fs-story-split-v1") &&
-      bundleJs.includes("story-depth-parallax-v2") &&
-      bundleJs.includes("DepthParallaxImage") &&
-      bundleJs.includes("ParallaxStoryImage") &&
+      bundleJs.includes("story-openrouter-video-v1") &&
+      bundleJs.includes("StorySceneVideo") &&
       bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("timing-speed-v1") &&
       bundleJs.includes("voiceover-openrouter-v2") &&

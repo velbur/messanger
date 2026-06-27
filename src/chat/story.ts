@@ -1,10 +1,14 @@
 import type {ConversationInput} from "./schema";
 
-export type StorySceneAnimation = "parallax" | "kenburns" | "none";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-openrouter-video-v1";
+
+export type StorySceneAnimation = "video" | "none";
 
 export type StoryOpeningConfig = {
   image?: string;
   imagePrompt?: string;
+  storyVideo?: string;
+  storyVideoDurationMs?: number;
   durationMs: number;
   animation: StorySceneAnimation;
 };
@@ -14,12 +18,11 @@ export type StoryConfig = {
   splitTransitionMs: number;
   topPanelRatio: number;
   disableMessageFullscreen: boolean;
-  depthParallax: boolean;
 };
 
 const DEFAULT_OPENING: StoryOpeningConfig = {
   durationMs: 2500,
-  animation: "parallax",
+  animation: "video",
 };
 
 const DEFAULT_STORY: StoryConfig = {
@@ -27,7 +30,13 @@ const DEFAULT_STORY: StoryConfig = {
   splitTransitionMs: 600,
   topPanelRatio: 0.45,
   disableMessageFullscreen: true,
-  depthParallax: true,
+};
+
+const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
+  if (value === "none") {
+    return "none";
+  }
+  return "video";
 };
 
 export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig => {
@@ -40,11 +49,13 @@ export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig =
       ...openingRaw,
       image: openingRaw?.image?.trim() || undefined,
       imagePrompt: openingRaw?.imagePrompt?.trim() || undefined,
+      storyVideo: openingRaw?.storyVideo?.trim() || undefined,
+      storyVideoDurationMs: openingRaw?.storyVideoDurationMs,
+      animation: coerceStoryAnimation(openingRaw?.animation),
     },
     splitTransitionMs: raw?.splitTransitionMs ?? DEFAULT_STORY.splitTransitionMs,
     topPanelRatio: raw?.topPanelRatio ?? DEFAULT_STORY.topPanelRatio,
     disableMessageFullscreen: raw?.disableMessageFullscreen ?? DEFAULT_STORY.disableMessageFullscreen,
-    depthParallax: raw?.depthParallax ?? DEFAULT_STORY.depthParallax,
   };
 };
 

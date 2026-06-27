@@ -16,6 +16,8 @@ import {
   FULLSCREEN_TIMELINE_REV,
   getStatusBarTime,
   storyImageAtFrame,
+  storyVideoAtFrame,
+  storyVideoDurationMsAtFrame,
   STORY_SPLIT_TIMELINE_REV,
   TIMELINE_TAIL_MARKER,
   visibleMessageCountAtFrame,
@@ -329,8 +331,16 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     : 1;
 
   const currentStoryImage = storyVisualActive ? storyImageAtFrame(story, frame) : undefined;
+  const currentStoryVideo = storyVisualActive ? storyVideoAtFrame(story, frame) : undefined;
+  const currentStoryVideoDurationMs = storyVisualActive
+    ? storyVideoDurationMsAtFrame(story, frame)
+    : undefined;
   const previousStoryImage =
     storyVisualActive && frame > 0 ? storyImageAtFrame(story, frame - 1) : undefined;
+  const previousStoryVideo =
+    storyVisualActive && frame > 0 ? storyVideoAtFrame(story, frame - 1) : undefined;
+  const previousStoryVideoDurationMs =
+    storyVisualActive && frame > 0 ? storyVideoDurationMsAtFrame(story, frame - 1) : undefined;
   const activeScene = storyVisualActive ? activeStorySceneAtFrame(story, frame) : undefined;
   const sceneStartFrame =
     frame < story.splitCompleteFrame
@@ -365,13 +375,16 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             <>
               <StoryPanel
                 image={currentStoryImage}
+                video={currentStoryVideo}
+                videoDurationMs={currentStoryVideoDurationMs}
                 previousImage={previousStoryImage}
+                previousVideo={previousStoryVideo}
+                previousVideoDurationMs={previousStoryVideoDurationMs}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 sceneLocalFrame={sceneLocalFrame}
                 sceneDurationFrames={sceneDurationFrames}
                 crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
-                depthParallax={story.depthParallax}
               />
               <AbsoluteFill
                 style={{
@@ -390,13 +403,16 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
             <>
               <StoryPanel
                 image={currentStoryImage}
+                video={currentStoryVideo}
+                videoDurationMs={currentStoryVideoDurationMs}
                 previousImage={previousStoryImage}
+                previousVideo={previousStoryVideo}
+                previousVideoDurationMs={previousStoryVideoDurationMs}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 sceneLocalFrame={sceneLocalFrame}
                 sceneDurationFrames={sceneDurationFrames}
                 crossfadeFrames={SPLIT_LAYOUT.crossfadeFrames}
-                depthParallax={story.depthParallax}
               />
               <div
                 style={{

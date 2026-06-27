@@ -1,9 +1,10 @@
 import path from "node:path";
 import {readFile} from "node:fs/promises";
 import {parseConversation} from "../src/chat/schema.ts";
-import {resolveConversationImages} from "./image-assets.mjs";
+import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
-import {loadOpenRouterEnv} from "./openrouter-client.mjs";
+import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
+import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
 
 const parseArg = (name, fallback) => {
@@ -24,6 +25,14 @@ const run = async () => {
   await loadOpenRouterEnv();
   const conversation = parseConversation(JSON.parse(rawInput));
   await resolveConversationImages(conversation, {failOnMissingImages: true});
+  if (isStoryVisualLayout(conversation)) {
+    if (isOpenRouterConfigured()) {
+      await generateMissingStoryVideos(conversation, {
+        publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),
+      });
+    }
+    await resolveStoryVideos(conversation, {failOnMissingVideos: true});
+  }
   assertVoiceoverReadyForRender(conversation);
   await resolveConversationVoiceover(conversation, {failOnMissingVoice: true});
 

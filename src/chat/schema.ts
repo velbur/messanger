@@ -31,6 +31,16 @@ export const messageSchema = z
       .optional(),
     /** Промпт для генерации кадра сюжета сверху */
     storyImagePrompt: z.string().min(1).optional(),
+    /** Анимация story-кадра (OpenRouter Veo), public/images/… */
+    storyVideo: z
+      .string()
+      .min(1)
+      .transform((value) => value.replace(/^\/+/, ""))
+      .optional(),
+    /** Длительность storyVideo, мс */
+    storyVideoDurationMs: z.number().min(100).max(60000).optional(),
+    /** Профиль видео-модели; при смене MP4 перегенерируется */
+    storyVideoProfile: z.string().min(1).optional(),
     /** Правки к уже сгенерированному кадру сюжета */
     storyImageEditPrompt: z.string().min(1).optional(),
     /** Если не указано — считается по длине текста (см. timing в корне JSON) */
@@ -183,16 +193,21 @@ export const conversationSchema = z.object({
             .transform((value) => value.replace(/^\/+/, ""))
             .optional(),
           imagePrompt: z.string().min(1).optional(),
+          storyVideo: z
+            .string()
+            .min(1)
+            .transform((value) => value.replace(/^\/+/, ""))
+            .optional(),
+          storyVideoDurationMs: z.number().min(100).max(60000).optional(),
+          storyVideoProfile: z.string().min(1).optional(),
           durationMs: z.number().min(800).max(8000).optional().default(2500),
-          animation: z.enum(["parallax", "kenburns", "none"]).optional().default("parallax"),
+          animation: z.enum(["video", "none", "parallax", "kenburns"]).optional().default("video"),
         })
         .optional(),
       splitTransitionMs: z.number().min(200).max(2000).optional().default(600),
       topPanelRatio: z.number().min(0.35).max(0.65).optional().default(0.45),
       /** В storySplit не показывать FullscreenImage для message.image */
       disableMessageFullscreen: z.boolean().optional().default(true),
-      /** Depth-параллакс по картам глубины (локально на воркере) */
-      depthParallax: z.boolean().optional().default(true),
     })
     .optional(),
   messages: z.array(messageSchema).min(1),

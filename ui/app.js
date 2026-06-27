@@ -1799,7 +1799,7 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
       parsed.story.opening = {};
     }
     if (!parsed.story.opening.animation) {
-      parsed.story.opening.animation = "parallax";
+      parsed.story.opening.animation = "video";
     }
     if (Array.isArray(parsed.messages)) {
       for (const message of parsed.messages) {

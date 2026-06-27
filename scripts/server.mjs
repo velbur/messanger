@@ -67,6 +67,12 @@ import {
   getOpenRouterVoiceoverStatus,
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
+import {getOpenRouterStoryVideoStatus} from "./openrouter-video.mjs";
+import {
+  countPendingStoryVideos,
+  generateMissingStoryVideos,
+  resolveStoryVideos,
+} from "./story-video.mjs";
 import {
   generateDialogue,
   isDialogueLlmConfigured,
@@ -125,6 +131,19 @@ const getRenderTargets = () => {
 };
 
 const getDefaultRenderTarget = () => (REMOTE_RENDER_URL ? "remote" : "local");
+
+const getPublicBaseUrl = (req) => {
+  const fromEnv = process.env.PUBLIC_BASE_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/+$/, "");
+  }
+  const host = req?.get?.("host");
+  if (host) {
+    const proto = req.get("x-forwarded-proto") || req.protocol || "http";
+    return `${proto}://${host}`;
+  }
+  return `http://127.0.0.1:${PORT}`;
+};
 
 const jobs = new Map();
 let jobCounter = 0;
@@ -603,6 +622,7 @@ app.get("/api/status", async (_req, res) => {
       configured: isYoutubeConfigured(),
     },
     voiceover: getOpenRouterVoiceoverStatus(),
+    storyVideo: getOpenRouterStoryVideoStatus(),
   });
 });
 
@@ -994,8 +1014,11 @@ app.post("/api/images/upload", async (req, res) => {
     const match = contentBase64.match(/^data:([^;]+);base64,(.+)$/);
     const base64 = match ? match[2] : contentBase64;
     const buffer = Buffer.from(base64, "base64");
-    if (buffer.length > 12 * 1024 * 1024) {
-      res.status(400).json({error: "Файл слишком большой (макс. 12 МБ)"});
+    const maxBytes = String(targetRef ?? fileName ?? "").includes(".video.mp4") || String(targetRef ?? fileName ?? "").endsWith(".mp4")
+      ? 50 * 1024 * 1024
+      : 12 * 1024 * 1024;
+    if (buffer.length > maxBytes) {
+      res.status(400).json({error: `Файл слишком большой (макс. ${Math.round(maxBytes / (1024 * 1024))} МБ)`});
       return;
     }
 
@@ -1645,19 +1668,16 @@ app.get("/api/render-targets", (_req, res) => {
   res.json({targets: getRenderTargets(), defaultTarget: getDefaultRenderTarget()});
 });
 
-/** Залить локальные картинки переписки на воркер (чат, story opening, story-кадры, depth-слои) */
+/** Залить локальные ассеты переписки на воркер (картинки, story-видео) */
 const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
-  const refs = collectConversationImageRefs(conversation, {includeDepthLayers: true});
+  const refs = collectConversationImageRefs(conversation);
   for (const ref of refs) {
     const abs = path.join(PUBLIC_DIR, ref);
     let buffer;
     try {
       buffer = await readFile(abs);
     } catch {
-      if (ref.includes(".layer-") || ref.endsWith(".depth.png")) {
-        continue;
-      }
-      logs.push(`Картинка не найдена локально, пропущена: ${ref}`);
+      logs.push(`Файл не найден локально, пропущен: ${ref}`);
       continue;
     }
     const resp = await fetch(`${remoteUrl}/api/images/upload`, {
@@ -1702,9 +1722,12 @@ app.post("/api/render", async (req, res) => {
 
     const conversation = parseConversation(parsed);
     const fileName = resolveName(rawName, conversation, dialogueId);
+    const isStoryVisual =
+      conversation.layout === "storySplit" || conversation.layout === "storyOverlay";
     const autoGenerateImages = req.body?.autoGenerateImages === true;
     const voiceoverEnabled = Boolean(conversation.voiceover?.enabled);
     const pendingVoice = voiceoverEnabled ? countPendingVoiceover(conversation) : 0;
+    const pendingStoryVideos = isStoryVisual ? countPendingStoryVideos(conversation) : 0;
     const shouldGenerateVoice =
       voiceoverEnabled &&
       (req.body?.autoGenerateVoiceover === true || pendingVoice > 0) &&
@@ -1736,6 +1759,29 @@ app.post("/api/render", async (req, res) => {
         return;
       }
     }
+    let storyVideoLogs = [];
+    if (isStoryVisual && pendingStoryVideos > 0) {
+      if (!isOpenRouterConfigured()) {
+        res.status(400).json({
+          error:
+            "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
+          logs: storyVideoLogs,
+        });
+        return;
+      }
+      try {
+        storyVideoLogs = await generateMissingStoryVideos(conversation, {
+          publicBaseUrl: getPublicBaseUrl(req),
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        res.status(400).json({
+          error: `Story-видео не готово: ${reason}`,
+          logs: storyVideoLogs,
+        });
+        return;
+      }
+    }
     const imageLogs = [
       ...imageGenLogs,
       ...(await resolveConversationImages(conversation, {
@@ -1748,6 +1794,9 @@ app.post("/api/render", async (req, res) => {
         failOnMissingVoice: voiceoverEnabled,
       })),
     ];
+    const storyVideoResolveLogs = isStoryVisual
+      ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
+      : [];
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
     }
@@ -1782,7 +1831,7 @@ app.post("/api/render", async (req, res) => {
       });
     }
 
-    const logs = [`JSON сохранён: ${inputRel}`, ...imageLogs, ...voiceLogs];
+    const logs = [`JSON сохранён: ${inputRel}`, ...imageLogs, ...storyVideoLogs, ...storyVideoResolveLogs, ...voiceLogs];
     const nativeProjectRoot = process.env.NATIVE_PROJECT_ROOT?.trim() || ROOT;
     const renderCommand = buildNativeRenderCommand({
       projectRoot: nativeProjectRoot,

@@ -1,72 +1,46 @@
 import React from "react";
 import {Img, staticFile} from "remotion";
 import type {StorySceneAnimation} from "../story";
-import {storyLayerPaths} from "../story-depth-paths";
-import {DepthParallaxImage} from "./DepthParallaxImage";
-import {KenBurnsImage} from "./KenBurnsImage";
-import {ParallaxStoryImage} from "./ParallaxStoryImage";
+import {StorySceneVideo} from "./StorySceneVideo";
 
 type Props = {
-  image: string;
+  image?: string;
+  video?: string;
+  videoDurationMs?: number;
   localFrame: number;
   durationFrames: number;
   animation: StorySceneAnimation;
-  directionSeed?: string;
-  /** true — depth-слои сгенерированы на воркере */
-  depthParallax?: boolean;
 };
 
 export const StorySceneImage: React.FC<Props> = ({
   image,
+  video,
+  videoDurationMs,
   localFrame,
-  durationFrames,
   animation,
-  directionSeed,
-  depthParallax = true,
 }) => {
-  if (animation === "parallax" && depthParallax) {
+  if (animation === "video" && video?.trim()) {
     return (
-      <DepthParallaxImage
-        image={image}
-        layers={storyLayerPaths(image)}
+      <StorySceneVideo
+        video={video.trim()}
         localFrame={localFrame}
-        durationFrames={durationFrames}
-        directionSeed={directionSeed ?? image}
+        videoDurationMs={videoDurationMs}
       />
     );
   }
 
-  if (animation === "parallax") {
+  if (animation === "none" && image?.trim()) {
     return (
-      <ParallaxStoryImage
-        image={image}
-        localFrame={localFrame}
-        durationFrames={durationFrames}
-        directionSeed={directionSeed}
+      <Img
+        src={staticFile(image.trim())}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
       />
     );
   }
 
-  if (animation === "kenburns") {
-    return (
-      <KenBurnsImage
-        image={image}
-        localFrame={localFrame}
-        durationFrames={durationFrames}
-        animation="kenburns"
-        directionSeed={directionSeed}
-      />
-    );
-  }
-
-  return (
-    <Img
-      src={staticFile(image)}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-      }}
-    />
-  );
+  return null;
 };

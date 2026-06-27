@@ -8,7 +8,7 @@ import {
   scaleTimingMs,
   TIMING_BUNDLE_MARKER,
 } from "./timing";
-import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage} from "./story";
+import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER} from "./story";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
@@ -38,7 +38,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-depth-parallax-v2";
+export const STORY_SPLIT_TIMELINE_REV = "story-openrouter-video-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -66,6 +66,8 @@ export type MessageTimelineEvent = {
 export type StorySceneTimelineEvent = {
   messageIndex: number;
   image: string;
+  video?: string;
+  videoDurationMs?: number;
   startFrame: number;
   endFrame: number;
 };
@@ -74,14 +76,15 @@ export type StoryTimeline = {
   enabled: boolean;
   presentation: "split" | "overlay";
   openingImage?: string;
+  openingVideo?: string;
+  openingVideoDurationMs?: number;
   openingStartFrame: number;
   openingEndFrame: number;
   splitStartFrame: number;
   splitCompleteFrame: number;
   splitTransitionFrames: number;
   topPanelRatio: number;
-  openingAnimation: "parallax" | "kenburns" | "none";
-  depthParallax: boolean;
+  openingAnimation: "video" | "none";
   sceneEvents: StorySceneTimelineEvent[];
 };
 
@@ -115,6 +118,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   void TIMING_SPEED_TIMELINE_MARKER;
   void TIMELINE_TAIL_MARKER;
   void VOICEOVER_BUNDLE_MARKER;
+  void STORY_VIDEO_BUNDLE_MARKER;
   const intro = mergeIntro(conversation);
   const endCard = mergeEndCard(conversation);
   const introFrames = intro.enabled
@@ -225,8 +229,7 @@ const buildStoryTimeline = (
     splitCompleteFrame: 0,
     splitTransitionFrames: 0,
     topPanelRatio: 0.45,
-    openingAnimation: "parallax",
-    depthParallax: true,
+    openingAnimation: "video",
     sceneEvents: [],
   };
 
@@ -270,6 +273,8 @@ const buildStoryTimeline = (
     sceneEvents.push({
       messageIndex,
       image,
+      video: message.storyVideo?.trim() || undefined,
+      videoDurationMs: message.storyVideoDurationMs,
       startFrame,
       endFrame,
     });
@@ -279,6 +284,8 @@ const buildStoryTimeline = (
     enabled: true,
     presentation,
     openingImage: storyConfig.opening.image,
+    openingVideo: storyConfig.opening.storyVideo,
+    openingVideoDurationMs: storyConfig.opening.storyVideoDurationMs,
     openingStartFrame,
     openingEndFrame,
     splitStartFrame,
@@ -286,7 +293,6 @@ const buildStoryTimeline = (
     splitTransitionFrames,
     topPanelRatio: storyConfig.topPanelRatio,
     openingAnimation: storyConfig.opening.animation,
-    depthParallax: storyConfig.depthParallax,
     sceneEvents,
   };
 };
@@ -327,6 +333,57 @@ export const storyImageAtFrame = (story: StoryTimeline, frame: number): string |
   }
 
   return story.openingImage;
+};
+
+export const storyVideoAtFrame = (story: StoryTimeline, frame: number): string | undefined => {
+  if (!story.enabled) {
+    return undefined;
+  }
+
+  if (frame < story.splitStartFrame) {
+    return story.openingVideo;
+  }
+
+  const scene = activeStorySceneAtFrame(story, frame);
+  if (scene?.video) {
+    return scene.video;
+  }
+
+  const lastSceneBefore = [...story.sceneEvents]
+    .reverse()
+    .find((event) => frame >= event.startFrame);
+  if (lastSceneBefore?.video) {
+    return lastSceneBefore.video;
+  }
+
+  return story.openingVideo;
+};
+
+export const storyVideoDurationMsAtFrame = (
+  story: StoryTimeline,
+  frame: number,
+): number | undefined => {
+  if (!story.enabled) {
+    return undefined;
+  }
+
+  if (frame < story.splitStartFrame) {
+    return story.openingVideoDurationMs;
+  }
+
+  const scene = activeStorySceneAtFrame(story, frame);
+  if (scene?.videoDurationMs) {
+    return scene.videoDurationMs;
+  }
+
+  const lastSceneBefore = [...story.sceneEvents]
+    .reverse()
+    .find((event) => frame >= event.startFrame);
+  if (lastSceneBefore?.videoDurationMs) {
+    return lastSceneBefore.videoDurationMs;
+  }
+
+  return story.openingVideoDurationMs;
 };
 
 export const visibleMessageCountAtFrame = (

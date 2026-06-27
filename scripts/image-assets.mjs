@@ -2,8 +2,7 @@ import path from "node:path";
 import {createHash} from "node:crypto";
 import {mkdir, writeFile, access, readFile, unlink, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
-import {ensureStoryDepthForConversation} from "./story-depth.mjs";
-import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
+import {collectStoryVideoRefs} from "./story-video.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 export const PUBLIC_DIR = path.join(ROOT, "public");
@@ -178,11 +177,8 @@ const hasImagePromptOnly = (message) =>
 const hasStoryImagePromptOnly = (message) =>
   Boolean(message.storyImagePrompt?.trim()) && !hasRenderableStoryImage(message);
 
-/** Все локальные пути картинок переписки (чат, story opening, story-кадры, опционально depth-слои) */
-export const collectConversationImageRefs = (
-  conversation,
-  {includeDepthLayers = false} = {},
-) => {
+/** Все локальные пути картинок переписки (чат, story opening, story-кадры) */
+export const collectConversationImageRefs = (conversation) => {
   const refs = new Set();
   const add = (ref) => {
     const normalized = String(ref ?? "").trim().replace(/^\/+/, "");
@@ -200,21 +196,10 @@ export const collectConversationImageRefs = (
 
   if (isStoryVisualLayout(conversation)) {
     add(conversation?.story?.opening?.image);
-    if (includeDepthLayers && conversation?.story?.depthParallax !== false) {
-      const storyImages = [
-        conversation?.story?.opening?.image,
-        ...(conversation?.messages ?? []).map((message) => message?.storyImage),
-      ]
-        .map((ref) => String(ref ?? "").trim())
-        .filter(Boolean);
-      for (const imagePath of storyImages) {
-        const layers = storyLayerPaths(imagePath);
-        add(layers.depth);
-        add(layers.mid);
-        add(layers.near);
-        add(layers.far);
-      }
-    }
+  }
+
+  for (const videoRef of collectStoryVideoRefs(conversation)) {
+    refs.add(videoRef);
   }
 
   return [...refs];
@@ -348,10 +333,6 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
 
   if (conversation.messages.length < before) {
     logs.push(`В видео: ${conversation.messages.length} из ${before} сообщений`);
-  }
-
-  if (isStoryVisualLayout(conversation) && conversation.story?.depthParallax !== false) {
-    logs.push(...(await ensureStoryDepthForConversation(conversation)));
   }
 
   return logs;

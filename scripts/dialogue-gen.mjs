@@ -315,7 +315,7 @@ const buildStoryImageRules = ({language = "ru"} = {}) => {
     return [
       '- layout must be "storySplit".',
       "- story.opening.imagePrompt: illustrated establishing scene before messages appear (night, location, mood).",
-      "- story.opening.animation: parallax (default).",
+      "- story.opening.animation: video (default).",
       "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide illustrated scene for the top panel.",
       "- storyImagePrompt changes on plot beats, not on every line. Hold previous frame between beats.",
       "- storyImagePrompt describes the scene/environment as a drawn illustration, not a photo. No chat UI or text overlays.",
@@ -328,7 +328,7 @@ const buildStoryImageRules = ({language = "ru"} = {}) => {
   return [
     '- layout обязательно "storySplit".',
     "- story.opening.imagePrompt: рисованный establishing shot до появления сообщений (ночь, место, настроение).",
-    "- story.opening.animation: parallax (по умолчанию).",
+    "- story.opening.animation: video (по умолчанию).",
     "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий рисованный кадр для верхней панели.",
     "- storyImagePrompt меняется на поворотах сюжета, не на каждой реплике.",
     "- storyImagePrompt описывает сцену/обстановку как иллюстрацию, не как фото. Без UI чата и без текста на кадре.",
@@ -814,7 +814,7 @@ const applyStorySplitDefaults = (conversation) => {
     conversation.story.opening = {};
   }
   if (!conversation.story.opening.animation) {
-    conversation.story.opening.animation = "parallax";
+    conversation.story.opening.animation = "video";
   }
   if (Array.isArray(conversation.messages)) {
     for (const message of conversation.messages) {

@@ -12,7 +12,6 @@ import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {saveImageBuffer} from "./image-assets.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
-import {generateStoryDepthAssets} from "./story-depth.mjs";
 
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
 const hasImagePromptOnly = (message) =>
@@ -31,23 +30,6 @@ const normalizeImageNamespace = (value) => {
 
 const isStoryVisual = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
-
-const ensureDepthForStoryImage = async (publicPath, logs) => {
-  if (!publicPath?.trim()) {
-    return;
-  }
-  try {
-    const result = await generateStoryDepthAssets(publicPath.trim());
-    logs.push(
-      result.skipped
-        ? `Depth: слои уже есть → ${publicPath}`
-        : `Depth: слои созданы → ${publicPath}`,
-    );
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    logs.push(`Depth: ошибка для ${publicPath}: ${reason}`);
-  }
-};
 
 const ensureStoryObject = (conversation) => {
   if (!conversation.story) {
@@ -97,7 +79,6 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
         opening.imagePrompt = resolved.imagePrompt;
       }
       logs.push(`Сгенерирован story opening → ${publicPath} (${resolved.promptSource})`);
-      await ensureDepthForStoryImage(publicPath, logs);
     }
   }
 
@@ -138,7 +119,6 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     logs.push(
       `Сгенерирован story-кадр: сообщение #${messageIndex + 1} → ${publicPath} (${resolved.promptSource})`,
     );
-    await ensureDepthForStoryImage(publicPath, logs);
   }
 
   return logs;
