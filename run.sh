@@ -200,6 +200,7 @@ cmd_build() {
   echo "Сборка образа (включая Chrome Headless Shell — один раз)..."
   if [[ "$CONTAINER" == podman ]]; then
     echo "Podman: если npm ci падает с OOM — podman machine set --memory 8192 && podman machine stop && podman machine start"
+    echo "Podman: если apt «not valid yet» — синхронизируйте часы: sudo sntp -sS time.apple.com (macOS)"
   fi
   "$CONTAINER" build \
     --build-arg "LOCK_HASH=${lock_hash}" \

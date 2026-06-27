@@ -2,7 +2,9 @@ FROM node:22-bookworm-slim
 
 # Chromium (Remotion headless) + ffmpeg + шрифты (в т.ч. кириллица)
 # python3/make/g++ — запасной путь, если prebuilt-бинарники sharp/onnx не подойдут
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Check-Valid-Until=false — сборка не падает, если часы на хосте/Podman VM слегка сбиты
+RUN apt-get -o Acquire::Check-Valid-Until=false update \
+  && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
     wget \
