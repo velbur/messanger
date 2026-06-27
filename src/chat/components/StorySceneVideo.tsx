@@ -26,6 +26,8 @@ type Props = {
 };
 
 const HOLD_CROSSFADE_FRAMES = 8;
+/** Начать zoom до конца клипа, чтобы не было «замер → потом движение» */
+const MOTION_LEAD_FRAMES = 15;
 
 const videoStyle: React.CSSProperties = {
   width: "100%",
@@ -47,8 +49,9 @@ export const StorySceneVideo: React.FC<Props> = ({
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
-  const motionLocalFrame = Math.max(0, localFrame - crossfadeStart);
-  const motionActive = localFrame >= crossfadeStart;
+  const motionStart = Math.max(0, crossfadeStart - MOTION_LEAD_FRAMES);
+  const motionLocalFrame = Math.max(0, localFrame - motionStart);
+  const motionActive = localFrame >= motionStart;
 
   const videoOpacity =
     localFrame < crossfadeStart
