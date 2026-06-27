@@ -48,8 +48,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
   const motionLocalFrame = Math.max(0, localFrame - crossfadeStart);
-  const inCrossfade = localFrame >= crossfadeStart && localFrame < playFrames;
-  const inHold = localFrame >= playFrames;
+  const motionActive = localFrame >= crossfadeStart;
 
   const videoOpacity =
     localFrame < crossfadeStart
@@ -74,10 +73,9 @@ export const StorySceneVideo: React.FC<Props> = ({
       ? lastSourceFrame
       : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
 
-  const motion =
-    inCrossfade || inHold
-      ? storyVideoHoldMotion(video, motionLocalFrame)
-      : {scale: 1, translateX: 0, translateY: 0};
+  const motion = motionActive
+    ? storyVideoHoldMotion(video, motionLocalFrame)
+    : {scale: 1, translateX: 0, translateY: 0};
 
   return (
     <Sequence
@@ -87,27 +85,30 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        {localFrame < playFrames && videoOpacity > 0 ? (
-          <AbsoluteFill style={{opacity: videoOpacity}}>
-            <OffthreadVideo
-              src={staticFile(video)}
-              muted
-              startFrom={sourceFrame}
-              style={videoStyle}
-            />
-          </AbsoluteFill>
-        ) : null}
-        {holdOpacity > 0 ? (
-          <AbsoluteFill
-            style={{
-              opacity: holdOpacity,
-              transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
-              transformOrigin: "center center",
-            }}
-          >
-            <Img src={staticFile(holdFrame)} style={videoStyle} />
-          </AbsoluteFill>
-        ) : null}
+        <AbsoluteFill
+          style={{
+            transform: motionActive
+              ? `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`
+              : undefined,
+            transformOrigin: "center center",
+          }}
+        >
+          {localFrame < playFrames && videoOpacity > 0 ? (
+            <AbsoluteFill style={{opacity: videoOpacity}}>
+              <OffthreadVideo
+                src={staticFile(video)}
+                muted
+                startFrom={sourceFrame}
+                style={videoStyle}
+              />
+            </AbsoluteFill>
+          ) : null}
+          {holdOpacity > 0 ? (
+            <AbsoluteFill style={{opacity: holdOpacity}}>
+              <Img src={staticFile(holdFrame)} style={videoStyle} />
+            </AbsoluteFill>
+          ) : null}
+        </AbsoluteFill>
       </AbsoluteFill>
     </Sequence>
   );

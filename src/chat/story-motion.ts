@@ -69,23 +69,24 @@ export const videoPingPongFrame = (localFrame: number, durationFrames: number): 
   return t <= n ? t : period - t;
 };
 
-/** Цикл лёгкого Ken Burns на hold (~9 с) — не зависит от длины сцены */
-export const STORY_VIDEO_HOLD_CYCLE_FRAMES = 9 * FPS;
+/** Непрерывный drift + дыхание на hold — без пауз на scale=1 */
+export const STORY_VIDEO_HOLD_DRIFT_FRAMES = 36 * FPS;
 
-/** Плавное «дыхание» на hold: медленный zoom/pan без привязки к длине сцены */
 export const storyVideoHoldMotion = (
   directionSeed: string,
   holdLocalFrame: number,
 ): {scale: number; translateX: number; translateY: number} => {
-  const progress = sceneMotionLoopProgress(holdLocalFrame, STORY_VIDEO_HOLD_CYCLE_FRAMES);
   const {panX, panY} = motionVectors(directionSeed);
+  const seed = hashSeed(directionSeed);
+  const t = holdLocalFrame / FPS;
+  const drift = Math.min(0.042, (holdLocalFrame / STORY_VIDEO_HOLD_DRIFT_FRAMES) * 0.042);
+  const breathe = 0.007 * Math.sin(t * 0.72 + seed * 0.017);
+  const scale = 1.005 + drift + breathe;
+  const panPhase = t * 0.58 + seed * 0.021;
   return {
-    scale: interpolate(progress, [0, 1], [1, 1.045], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }),
-    translateX: progress * panX * 0.5,
-    translateY: progress * panY * 0.3,
+    scale,
+    translateX: panX * 0.38 * Math.sin(panPhase),
+    translateY: panY * 0.22 * Math.cos(panPhase * 0.88),
   };
 };
 
