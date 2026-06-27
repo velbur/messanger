@@ -53,6 +53,8 @@ type ChatBodyProps = {
   theme: ReturnType<typeof getTheme>;
   opacity: number;
   overlayChrome?: boolean;
+  /** storyOverlay: только пузыри, без chrome */
+  minimalOverlay?: boolean;
 };
 
 const ChatBody: React.FC<ChatBodyProps> = ({
@@ -66,7 +68,42 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   theme,
   opacity,
   overlayChrome = false,
-}) => (
+  minimalOverlay = false,
+}) => {
+  const eventsToShow = minimalOverlay ? visibleEvents.slice(-2) : visibleEvents;
+
+  if (minimalOverlay) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          width: "100%",
+          opacity,
+          padding: `0 ${LAYOUT.chatPaddingRight}px ${LAYOUT.shortsSafeAreaBottom + 24}px ${LAYOUT.chatPaddingLeft}px`,
+        }}
+      >
+        <div style={{display: "flex", flexDirection: "column", width: "100%"}}>
+          {eventsToShow.map((event) => (
+            <MessageBubble
+              key={event.index}
+              author={event.author}
+              text={event.text}
+              image={event.image}
+              sentAt={event.sentAt}
+              revealFrame={event.revealFrame}
+              emphasizeFinale={event.index === lastEventIndex}
+            />
+          ))}
+          {activeEvent?.author === "them" ? <TypingIndicator /> : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
   <div
     style={{
       position: "relative",
@@ -132,7 +169,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
       <InputBar placeholder={messengerLocale.inputPlaceholder} overlayChrome={overlayChrome} />
     </div>
   </div>
-);
+  );
+};
 
 export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const frame = useCurrentFrame();
@@ -250,6 +288,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
       theme={theme}
       opacity={storyOverlayMode ? chatDim : inTitleCard ? 0 : chatDim}
       overlayChrome={storyOverlayMode}
+      minimalOverlay={storyOverlayMode}
     />
   );
 
@@ -304,6 +343,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const showHook =
     conversation.hookText?.trim() &&
     !inTitleCard &&
+    !storyOverlayMode &&
     (!story.enabled || frame >= story.openingStartFrame);
 
   return (
@@ -332,26 +372,12 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
               />
               <AbsoluteFill
                 style={{
-                  zIndex: 2,
-                  pointerEvents: "none",
-                  opacity: chatRevealOpacity,
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background:
-                      "linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 36%, rgba(0, 0, 0, 0.12) 58%, transparent 72%)",
-                  }}
-                />
-              </AbsoluteFill>
-              <AbsoluteFill
-                style={{
                   zIndex: 3,
                   display: "flex",
                   flexDirection: "column",
+                  justifyContent: "flex-end",
                   opacity: chatRevealOpacity,
+                  pointerEvents: "none",
                 }}
               >
                 {chatBody}
