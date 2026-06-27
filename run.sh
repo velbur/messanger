@@ -67,7 +67,66 @@ resolve_path() {
 
 container_runtime_ready() {
   local runtime="$1"
-  command -v "$runtime" >/dev/null 2>&1 && "$runtime" info >/dev/null 2>&1
+  command -v "$runtime" >/dev/null 2>&1 || return 1
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 8 "$runtime" info >/dev/null 2>&1
+    return
+  fi
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout 8 "$runtime" info >/dev/null 2>&1
+    return
+  fi
+  # macOS без GNU timeout
+  "$runtime" info >/dev/null 2>&1 &
+  local pid=$! attempt
+  for attempt in $(seq 1 80); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      wait "$pid"
+      return $?
+    fi
+    sleep 0.1
+  done
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  return 1
+}
+
+try_start_podman() {
+  command -v podman >/dev/null 2>&1 || return 1
+  if container_runtime_ready podman; then
+    return 0
+  fi
+
+  if podman machine list >/dev/null 2>&1; then
+    local running=""
+    running="$(podman machine list --format '{{.Running}}' 2>/dev/null | head -1 || true)"
+    if [[ "$running" != "true" ]]; then
+      echo "Podman VM не запущена — podman machine start…" >&2
+      if ! podman machine start; then
+        echo "Не удалось запустить podman machine." >&2
+        return 1
+      fi
+    fi
+    local attempt
+    for attempt in $(seq 1 60); do
+      if container_runtime_ready podman; then
+        return 0
+      fi
+      sleep 1
+    done
+    echo "Podman VM запущена, но podman info не отвечает." >&2
+    return 1
+  fi
+
+  if [[ "$(uname -s)" != Darwin ]] && command -v systemctl >/dev/null 2>&1; then
+    systemctl --user start podman.socket >/dev/null 2>&1 \
+      || systemctl start podman.socket >/dev/null 2>&1 \
+      || true
+    sleep 1
+    container_runtime_ready podman && return 0
+  fi
+
+  return 1
 }
 
 resolve_container() {
@@ -75,6 +134,9 @@ resolve_container() {
     if ! command -v "$CONTAINER" >/dev/null 2>&1; then
       echo "Команда контейнера не найдена: $CONTAINER" >&2
       exit 1
+    fi
+    if [[ "$CONTAINER" == podman ]]; then
+      try_start_podman || true
     fi
     if ! container_runtime_ready "$CONTAINER"; then
       echo "Ошибка: $CONTAINER установлен, но недоступен (демон не запущен?)." >&2
@@ -93,7 +155,7 @@ resolve_container() {
     return
   fi
 
-  if container_runtime_ready podman; then
+  if try_start_podman; then
     if command -v docker >/dev/null 2>&1; then
       echo "docker не отвечает — используется podman." >&2
     fi
