@@ -1,35 +1,40 @@
 import React from "react";
 import {interpolate, useCurrentFrame} from "remotion";
 import {useChatTheme} from "../ThemeContext";
-import {CHAT, CHROME} from "../theme";
+import {CHAT, CHAT_OVERLAY, CHROME, S} from "../theme";
 
 const T = CHROME.typing;
 import {BubbleTail} from "./BubbleTail";
 
-export const TypingIndicator: React.FC = () => {
+export const TypingIndicator: React.FC<{variant?: "default" | "overlay"}> = ({variant = "default"}) => {
   const theme = useChatTheme();
   const frame = useCurrentFrame();
+  const compact = variant === "overlay";
 
   return (
     <div
       style={{
         position: "relative",
         alignSelf: "flex-start",
-        marginBottom: CHAT.bubbleMarginBottom,
+        marginBottom: compact ? CHAT_OVERLAY.bubbleMarginBottom : CHAT.bubbleMarginBottom,
       }}
     >
       <div
         style={{
           background: theme.bubbleIncoming,
-          borderRadius: T.borderRadius,
-          borderTopLeftRadius: 5,
-          borderBottomLeftRadius: 5,
-          padding: T.padding,
-          minWidth: T.minWidth,
+          borderRadius: compact ? CHAT_OVERLAY.bubbleRadius : T.borderRadius,
+          ...(compact
+            ? {}
+            : {
+                borderTopLeftRadius: 5,
+                borderBottomLeftRadius: 5,
+              }),
+          padding: compact ? `${S(12)}px ${S(16)}px` : T.padding,
+          minWidth: compact ? S(56) : T.minWidth,
           display: "flex",
           alignItems: "center",
           gap: T.gap,
-          boxShadow: theme.bubbleShadow,
+          boxShadow: compact ? "0 2px 12px rgba(0, 0, 0, 0.28)" : theme.bubbleShadow,
         }}
       >
         {[0, 1, 2].map((dot) => {
@@ -52,7 +57,7 @@ export const TypingIndicator: React.FC = () => {
           );
         })}
       </div>
-      <BubbleTail side="left" color={theme.bubbleIncoming} />
+      {compact ? null : <BubbleTail side="left" color={theme.bubbleIncoming} />}
     </div>
   );
 };

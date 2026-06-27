@@ -2,7 +2,7 @@ import React from "react";
 import {Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from "remotion";
 import {useChatTheme} from "../ThemeContext";
 import {useChatTypography} from "../TypographyContext";
-import {CHAT} from "../theme";
+import {CHAT, CHAT_OVERLAY} from "../theme";
 import {ReadReceiptIcon} from "./icons";
 import {EmojiText} from "./EmojiText";
 import {BubbleTail} from "./BubbleTail";
@@ -14,12 +14,15 @@ type Props = {
   author: "me" | "them";
   revealFrame: number;
   emphasizeFinale?: boolean;
+  /** Компактные скруглённые пузыри для storyOverlay */
+  variant?: "default" | "overlay";
 };
 
 const MetaRow: React.FC<{
   sentAt: string;
   isMe: boolean;
-}> = ({sentAt, isMe}) => {
+  compact?: boolean;
+}> = ({sentAt, isMe, compact = false}) => {
   const theme = useChatTheme();
   const typography = useChatTypography();
 
@@ -29,9 +32,9 @@ const MetaRow: React.FC<{
         display: "flex",
         justifyContent: "flex-end",
         alignItems: "center",
-        gap: 6,
-        minHeight: CHAT.metaRowMinHeight,
-        marginTop: 4,
+        gap: compact ? 4 : 6,
+        minHeight: compact ? CHAT_OVERLAY.metaRowMinHeight : CHAT.metaRowMinHeight,
+        marginTop: compact ? CHAT_OVERLAY.metaRowMarginTop : 4,
       }}
     >
       <span style={{fontSize: typography.messageTimeFontSize, color: theme.textMeta, lineHeight: 1}}>
@@ -81,7 +84,10 @@ export const MessageBubble: React.FC<Props> = ({
   author,
   revealFrame,
   emphasizeFinale = false,
+  variant = "default",
 }) => {
+  const compact = variant === "overlay";
+  const bubbleStyle = compact ? CHAT_OVERLAY : CHAT;
   const theme = useChatTheme();
   const typography = useChatTypography();
   const frame = useCurrentFrame();
@@ -118,8 +124,8 @@ export const MessageBubble: React.FC<Props> = ({
       style={{
         position: "relative",
         alignSelf: isMe ? "flex-end" : "flex-start",
-        maxWidth: hasImage ? CHAT.imageMaxWidth : CHAT.messageMaxWidth,
-        marginBottom: CHAT.bubbleMarginBottom,
+        maxWidth: hasImage ? CHAT.imageMaxWidth : bubbleStyle.messageMaxWidth,
+        marginBottom: bubbleStyle.bubbleMarginBottom,
         transform: `translateX(${translateX}px) scale(${scale})`,
         opacity,
       }}
@@ -127,13 +133,23 @@ export const MessageBubble: React.FC<Props> = ({
       <div
         style={{
           background: bg,
-          borderRadius: CHAT.bubbleRadius,
-          borderTopLeftRadius: isMe ? CHAT.bubbleRadius : 5,
-          borderTopRightRadius: isMe ? 5 : CHAT.bubbleRadius,
-          borderBottomLeftRadius: isMe ? CHAT.bubbleRadius : 5,
-          borderBottomRightRadius: isMe ? 5 : CHAT.bubbleRadius,
-          padding: textOnly ? CHAT.bubblePadding : hasImage ? CHAT.imageBubblePadding : CHAT.bubblePadding,
-          boxShadow: theme.bubbleShadow,
+          borderRadius: bubbleStyle.bubbleRadius,
+          ...(compact
+            ? {}
+            : {
+                borderTopLeftRadius: isMe ? CHAT.bubbleRadius : 5,
+                borderTopRightRadius: isMe ? 5 : CHAT.bubbleRadius,
+                borderBottomLeftRadius: isMe ? CHAT.bubbleRadius : 5,
+                borderBottomRightRadius: isMe ? 5 : CHAT.bubbleRadius,
+              }),
+          padding: textOnly
+            ? bubbleStyle.bubblePadding
+            : hasImage
+              ? CHAT.imageBubblePadding
+              : bubbleStyle.bubblePadding,
+          boxShadow: compact
+            ? "0 2px 12px rgba(0, 0, 0, 0.28)"
+            : theme.bubbleShadow,
           overflow: "hidden",
         }}
       >
@@ -165,11 +181,11 @@ export const MessageBubble: React.FC<Props> = ({
                 display: "block",
               }}
             />
-            <MetaRow sentAt={sentAt} isMe={isMe} />
+            <MetaRow sentAt={sentAt} isMe={isMe} compact={compact} />
           </div>
         ) : null}
       </div>
-      <BubbleTail side={isMe ? "right" : "left"} color={bg} />
+      {compact ? null : <BubbleTail side={isMe ? "right" : "left"} color={bg} />}
     </div>
   );
 };

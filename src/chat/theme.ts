@@ -106,6 +106,16 @@ export const CHAT = {
   imageTimeOverlayPadding: `${S(4)}px ${S(10)}px`,
 } as const;
 
+/** Компактные пузыри поверх сюжетного кадра (storyOverlay) */
+export const CHAT_OVERLAY = {
+  bubblePadding: `${S(8)}px ${S(14)}px ${S(6)}px`,
+  bubbleRadius: S(28),
+  bubbleMarginBottom: S(5),
+  messageMaxWidth: S(640),
+  metaRowMinHeight: S(22),
+  metaRowMarginTop: 2,
+} as const;
+
 export const LAYOUT = {
   statusBarH: S(72),
   headerH: S(132),

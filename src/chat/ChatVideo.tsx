@@ -95,9 +95,10 @@ const ChatBody: React.FC<ChatBodyProps> = ({
               sentAt={event.sentAt}
               revealFrame={event.revealFrame}
               emphasizeFinale={event.index === lastEventIndex}
+              variant="overlay"
             />
           ))}
-          {activeEvent?.author === "them" ? <TypingIndicator /> : null}
+          {activeEvent?.author === "them" ? <TypingIndicator variant="overlay" /> : null}
         </div>
       </div>
     );
