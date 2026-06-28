@@ -589,6 +589,7 @@ const captureEditorSnapshot = () => ({
   dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
   dialogueModel: getDialogueModel(),
   messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
+  imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -612,6 +613,9 @@ const restoreEditorSnapshot = async (snapshot) => {
   populateDialogueModelOptions(snapshot?.dialogueModel);
   if (dialogueMessageCount && snapshot?.messageCount) {
     dialogueMessageCount.value = String(snapshot.messageCount);
+  }
+  if (dialogueImageCount && snapshot?.imageCount !== undefined) {
+    dialogueImageCount.value = String(snapshot.imageCount);
   }
   if (seriesIdInput) {
     seriesIdInput.value = snapshot?.seriesId || "usssr";
@@ -651,9 +655,6 @@ const restoreEditorSnapshot = async (snapshot) => {
   );
   if (editorKind === "shorts" && jsonInput.value.trim()) {
     applyTitleCardFieldsToJson();
-  }
-  if (editorKind === "shorts") {
-    applyShortsStyleDefaults();
   }
 };
 
@@ -2033,7 +2034,7 @@ const populateDialogueStyleOptions = () => {
   dialogueStyle.value = current in shortsStylesMeta ? current : DEFAULT_DIALOGUE_STYLE;
 };
 
-const applyShortsStyleDefaults = () => {
+const applyShortsStyleCountPresets = () => {
   const style = normalizeDialogueStyle(dialogueStyle?.value);
   const preset = SHORTS_STYLE_PRESETS[style] ?? SHORTS_STYLE_PRESETS.fun;
   if (dialogueMessageCount) {
@@ -2042,6 +2043,10 @@ const applyShortsStyleDefaults = () => {
   if (dialogueImageCount) {
     dialogueImageCount.value = String(preset.imageCount);
   }
+};
+
+/** Обои, музыка и формат — без сброса «Сообщений» / «Фото», их трогает только смена стиля */
+const applyShortsStyleAppearanceDefaults = () => {
   const meta = getShortsStyleMeta();
   if (!meta) {
     return;
@@ -2058,10 +2063,12 @@ const applyShortsStyleDefaults = () => {
   }
 };
 
+const applyShortsStyleDefaults = () => {
+  applyShortsStyleCountPresets();
+  applyShortsStyleAppearanceDefaults();
+};
+
 const applyShortsGenDefaults = () => {
-  if (dialogueMessageCount) {
-    dialogueMessageCount.value = String(DEFAULT_SHORTS_MESSAGE_COUNT);
-  }
   populateDialogueModelOptions(DEFAULT_SHORTS_DIALOGUE_MODEL);
 };
 
@@ -2123,7 +2130,7 @@ const loadMusicTracks = async () => {
     }
 
     setMusicId(defaultMusicId);
-    applyShortsStyleDefaults();
+    applyShortsStyleAppearanceDefaults();
   } catch (err) {
     musicSelect.replaceChildren();
     const opt = document.createElement("option");
@@ -4456,7 +4463,6 @@ const generateDialogueFromPrompt = async () => {
 
   if (editorKind === "shorts") {
     clearShortsJsonBeforeGenerate();
-    applyShortsStyleDefaults();
   }
 
   const prompt = dialoguePromptInput?.value.trim() ?? "";
