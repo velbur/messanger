@@ -36,7 +36,6 @@ import {
   DEFAULT_MUSIC_ID,
   listMusicTracks,
   PUBLIC_MUSIC_DIR,
-  resolveMusicSrc,
   syncAudioToPublic,
 } from "./music-tracks.mjs";
 import {
@@ -91,7 +90,7 @@ import {
   stripStorySfxFromConversation,
 } from "./story-sfx.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
-import {assignStoryMusicIfNeeded} from "./story-music.mjs";
+import {assignStoryMusicIfNeeded, applyConversationMusicSelection} from "./story-music.mjs";
 import {
   generateDialogue,
   isDialogueLlmConfigured,
@@ -2050,11 +2049,26 @@ const runRenderPreparation = async (
       normalizeStoryVideoLoopFlags(conversation);
     }
 
-    if (isStoryVisual) {
-      const musicLogs = await assignStoryMusicIfNeeded(conversation, {
-        musicId: rawMusic,
-        logs: [],
-      });
+    const musicLogs = [];
+    if (rawMusic === "none") {
+      await applyConversationMusicSelection(conversation, "none", {logs: musicLogs});
+    } else if (rawMusic && rawMusic !== "auto") {
+      await applyConversationMusicSelection(conversation, rawMusic, {logs: musicLogs});
+    } else if (isStoryVisual) {
+      musicLogs.push(
+        ...(await assignStoryMusicIfNeeded(conversation, {
+          musicId: rawMusic,
+          logs: [],
+        })),
+      );
+    } else if (conversation.music?.src) {
+      conversation.music = {
+        ...conversation.music,
+        enabled: conversation.music.enabled !== false,
+      };
+      musicLogs.push(`Музыка: из JSON → ${conversation.music.src}`);
+    }
+    if (musicLogs.length > 0) {
       job.logs.push(...musicLogs);
     }
 
@@ -2090,22 +2104,6 @@ const runRenderPreparation = async (
 
     if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
-    }
-
-    if (rawMusic === "none") {
-      conversation.music = {...conversation.music, enabled: false};
-    } else if (rawMusic && typeof rawMusic === "string" && rawMusic !== "auto") {
-      const src = await resolveMusicSrc(rawMusic);
-      conversation.music = {
-        ...conversation.music,
-        enabled: true,
-        src,
-      };
-    } else if (conversation.music?.src) {
-      conversation.music = {
-        ...conversation.music,
-        enabled: conversation.music.enabled !== false,
-      };
     }
 
     await mkdir(JSON_DIR, {recursive: true});
@@ -2157,6 +2155,7 @@ const runRenderPreparation = async (
           json: JSON.stringify(conversation),
           name: job.fileName,
           displayTitle: job.displayTitle || job.fileName,
+          music: rawMusic ?? "auto",
           target: "local",
           autoGenerateVoiceover: false,
         }),

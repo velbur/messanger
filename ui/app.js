@@ -1766,11 +1766,35 @@ const applyEpisodesToJson = () => {
   }
 };
 
+const applyMusicToJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  const musicId = getMusicId();
+  if (!parsed.music) {
+    parsed.music = {};
+  }
+  if (musicId === "none") {
+    parsed.music.enabled = false;
+  } else if (musicId === "auto") {
+    parsed.music.enabled = true;
+    delete parsed.music.src;
+    delete parsed.music.autoProfile;
+  } else if (musicId) {
+    parsed.music.enabled = true;
+    parsed.music.src = `music/${musicId}`;
+    delete parsed.music.autoProfile;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
 const prepareJsonForRender = () => {
   applyMessengerLocaleToJson();
   applyMessageFontSizeToJson();
   applyVoiceoverToJson();
   applyEpisodesToJson();
+  applyMusicToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";

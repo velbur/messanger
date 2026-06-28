@@ -147,8 +147,7 @@ const pickWithLlm = async (conversation, tracks) => {
   return {trackId: track.id, mood: MUSIC_TRACK_MOODS[track.id]?.[0] ?? "neutral", volume, reason: parsed.reason};
 };
 
-export const shouldAutoPickStoryMusic = (musicId) =>
-  musicId === "auto" || musicId === "" || musicId == null;
+export const shouldAutoPickStoryMusic = (musicId) => musicId === "auto";
 
 export const needsStoryMusicAssignment = (conversation, musicId) => {
   if (!isStoryVisualLayout(conversation)) {
@@ -160,7 +159,35 @@ export const needsStoryMusicAssignment = (conversation, musicId) => {
   if (!shouldAutoPickStoryMusic(musicId)) {
     return false;
   }
+  if (conversation.music?.src && conversation.music?.autoProfile !== STORY_MUSIC_PROFILE) {
+    return false;
+  }
   return conversation.music?.autoProfile !== STORY_MUSIC_PROFILE || !conversation.music?.src;
+};
+
+export const applyConversationMusicSelection = async (
+  conversation,
+  musicId,
+  {logs = []} = {},
+) => {
+  if (musicId === "none") {
+    conversation.music = {...(conversation.music ?? {}), enabled: false};
+    logs.push("Музыка: выключена");
+    return;
+  }
+
+  if (!musicId || musicId === "auto") {
+    return;
+  }
+
+  const src = await resolveMusicSrc(musicId);
+  conversation.music = {
+    ...(conversation.music ?? {}),
+    enabled: true,
+    src,
+  };
+  delete conversation.music.autoProfile;
+  logs.push(`Музыка: ${musicId} → ${src}`);
 };
 
 export const assignStoryMusicIfNeeded = async (conversation, {musicId, force = false, logs = []} = {}) => {
