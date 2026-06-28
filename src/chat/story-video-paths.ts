@@ -7,7 +7,7 @@ export const STORY_VIDEO_SEAMLESS_SUFFIX = ".video.seamless.mp4";
 /** Последний кадр MP4 для фазы hold (извлекается ffmpeg при prep) */
 export const STORY_VIDEO_HOLD_SUFFIX = ".video-hold.png";
 
-export const OPENROUTER_STORY_VIDEO_PROFILE = "veo-3.1-lite-loop-v1";
+export const OPENROUTER_STORY_VIDEO_PROFILE = "veo-3.1-lite-scene-fit-1080-v2";
 
 export const storyVideoPathForImage = (imagePublicPath: string): string => {
   const base = String(imagePublicPath).replace(/\.(png|jpe?g|webp)$/i, "");

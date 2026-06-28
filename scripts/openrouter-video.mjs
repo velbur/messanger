@@ -8,21 +8,48 @@ import {
 
 export const DEFAULT_STORY_VIDEO_MODEL = "google/veo-3.1-lite";
 const DEFAULT_STORY_VIDEO_DURATION = 4;
-const DEFAULT_STORY_VIDEO_RESOLUTION = "720p";
+const DEFAULT_STORY_VIDEO_RESOLUTION = "1080p";
 const DEFAULT_STORY_VIDEO_ASPECT = "9:16";
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 80;
+
+/** Длительности, поддерживаемые Veo 3.1 (сек): только 4/6/8 */
+export const STORY_VIDEO_SUPPORTED_DURATIONS = [4, 6, 8];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const getOpenRouterStoryVideoModel = () =>
   process.env.OPENROUTER_VIDEO_MODEL?.trim() || DEFAULT_STORY_VIDEO_MODEL;
 
+/** Разрешение story-видео: env OPENROUTER_VIDEO_RESOLUTION или 1080p */
+export const getOpenRouterStoryVideoResolution = () =>
+  process.env.OPENROUTER_VIDEO_RESOLUTION?.trim() || DEFAULT_STORY_VIDEO_RESOLUTION;
+
+/**
+ * Подгоняет желаемую длительность сцены (сек) к ближайшей поддерживаемой Veo
+ * сверху вниз: берём наибольшую из 4/6/8, не превышающую длину сцены
+ * (минимум 4 с), чтобы клип успевал «осесть» и не обрезался посреди движения.
+ */
+export const snapStoryVideoDuration = (seconds) => {
+  const list = STORY_VIDEO_SUPPORTED_DURATIONS;
+  if (!Number.isFinite(seconds) || seconds <= list[0]) {
+    return list[0];
+  }
+  let chosen = list[0];
+  for (const value of list) {
+    if (value <= seconds) {
+      chosen = value;
+    }
+  }
+  return chosen;
+};
+
 export const getOpenRouterStoryVideoStatus = () => ({
   provider: "openrouter",
   configured: isOpenRouterConfigured(),
   model: getOpenRouterStoryVideoModel(),
-  profile: "veo-3.1-lite-loop-v1",
+  resolution: getOpenRouterStoryVideoResolution(),
+  profile: "veo-3.1-lite-scene-fit-1080-v2",
 });
 
 const requireConfig = () => {
@@ -181,7 +208,7 @@ export const generateImageToVideoFile = async ({
   outputPath,
   model,
   duration = DEFAULT_STORY_VIDEO_DURATION,
-  resolution = DEFAULT_STORY_VIDEO_RESOLUTION,
+  resolution = getOpenRouterStoryVideoResolution(),
   aspectRatio = DEFAULT_STORY_VIDEO_ASPECT,
   onPoll,
 }) => {

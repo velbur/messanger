@@ -6,11 +6,18 @@ import {
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
-import {generateImageToVideoFile, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
+import {
+  generateImageToVideoFile,
+  getOpenRouterStoryVideoModel,
+  getOpenRouterStoryVideoResolution,
+  snapStoryVideoDuration,
+} from "./openrouter-video.mjs";
 import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
+import {buildTimeline} from "../src/chat/timeline.ts";
+import {FPS} from "../src/chat/fps.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -81,6 +88,8 @@ const collectStoryVideoTargets = (conversation) => {
   if (openingImage) {
     targets.push({
       label: "opening",
+      kind: "opening",
+      messageIndex: -1,
       image: openingImage,
       imagePrompt: conversation?.story?.opening?.imagePrompt,
       holder: conversation.story.opening,
@@ -95,6 +104,8 @@ const collectStoryVideoTargets = (conversation) => {
     }
     targets.push({
       label: `message #${index + 1}`,
+      kind: "message",
+      messageIndex: index,
       image: storyImage,
       imagePrompt: message.storyImagePrompt,
       holder: message,
@@ -102,6 +113,43 @@ const collectStoryVideoTargets = (conversation) => {
   }
 
   return targets;
+};
+
+/**
+ * Сколько секунд каждая story-сцена реально на экране (по таймлайну рендера).
+ * Ключи: "opening" и индекс сообщения. Длина сцены = до старта следующей
+ * сцены (последняя — до начала outro), что совпадает с окнами показа.
+ */
+const buildStorySceneSeconds = (conversation) => {
+  const lookup = new Map();
+  try {
+    const timeline = buildTimeline(conversation);
+    const story = timeline.story;
+    if (!story.enabled) {
+      return lookup;
+    }
+
+    const scenes = story.sceneEvents;
+    const firstSceneStart = scenes[0]?.startFrame ?? timeline.outroStartFrame;
+
+    if (!story.immediateFirstScene && (story.openingImage || story.openingVideo)) {
+      lookup.set("opening", Math.max(1, firstSceneStart - story.openingStartFrame) / FPS);
+    }
+
+    scenes.forEach((event, index) => {
+      const displayEnd = scenes[index + 1]?.startFrame ?? timeline.outroStartFrame;
+      lookup.set(event.messageIndex, Math.max(1, displayEnd - event.startFrame) / FPS);
+    });
+  } catch {
+    // нет валидного таймлайна — упадём на дефолтную длительность клипа
+  }
+  return lookup;
+};
+
+const sceneSecondsForTarget = (lookup, target) => {
+  const key = target.kind === "opening" ? "opening" : target.messageIndex;
+  const seconds = lookup.get(key);
+  return Number.isFinite(seconds) ? seconds : undefined;
 };
 
 export const countPendingStoryVideos = (conversation) => {
@@ -198,6 +246,8 @@ export const generateMissingStoryVideos = async (
   }
 
   const model = getOpenRouterStoryVideoModel();
+  const resolution = getOpenRouterStoryVideoResolution();
+  const sceneSeconds = buildStorySceneSeconds(conversation);
   let generated = 0;
 
   for (let index = 0; index < targets.length; index += 1) {
@@ -219,6 +269,9 @@ export const generateMissingStoryVideos = async (
     const {absolute: videoAbsolute} = safePublicPath(videoRef);
     const imageUrl = publicImageUrl(publicBaseUrl, target.image);
 
+    const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
+    const duration = snapStoryVideoDuration(sceneSec);
+
     try {
       const result = await generateImageToVideoFile({
         imageAbsolutePath: imageAbsolute,
@@ -226,6 +279,8 @@ export const generateMissingStoryVideos = async (
         prompt: buildStoryMotionPrompt(target.imagePrompt, {loop: false}),
         outputPath: videoAbsolute,
         model,
+        duration,
+        resolution,
         onPoll: ({attempt, maxAttempts, status}) => {
           onProgress?.({
             done: index,
@@ -247,8 +302,9 @@ export const generateMissingStoryVideos = async (
       target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
       await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
       generated += 1;
+      const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
       logs.push(
-        `Story-видео (${target.label}, OpenRouter/${result.model}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
+        `Story-видео (${target.label}, OpenRouter/${result.model}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
       );
       onProgress?.({
         done: index + 1,
