@@ -1677,11 +1677,8 @@ app.post("/api/dialogues", async (req, res) => {
     res.status(201).json(dialogue);
   } catch (error) {
     const message =
-      error instanceof ZodError
-        ? formatZodError(error)
-        : error instanceof Error
-          ? error.message
-          : String(error);
+      formatConversationValidationError(error) ??
+      (error instanceof Error ? error.message : String(error));
     res.status(400).json({error: message});
   }
 });
@@ -1700,13 +1697,12 @@ app.put("/api/dialogues/:id", async (req, res) => {
         conversation = parseConversation(JSON.parse(jsonText));
       } catch (error) {
         const message =
-          error instanceof ZodError
-            ? formatZodError(error)
-            : error instanceof SyntaxError
-              ? "Некорректный JSON"
-              : error instanceof Error
-                ? error.message
-                : String(error);
+          formatConversationValidationError(error) ??
+          (error instanceof SyntaxError
+            ? "Некорректный JSON"
+            : error instanceof Error
+              ? error.message
+              : String(error));
         res.status(400).json({error: message});
         return;
       }

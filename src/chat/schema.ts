@@ -270,6 +270,37 @@ export const conversationSchema = z.object({
 export type MessageInput = z.infer<typeof messageSchema>;
 export type ConversationInput = z.infer<typeof conversationSchema>;
 
+const rawMessageHasRenderableContent = (message: unknown): boolean => {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+  const m = message as Record<string, unknown>;
+  const text = sanitizeMessageText(String(m.text ?? ""));
+  if (text.length > 0) {
+    return true;
+  }
+  for (const key of ["image", "imagePrompt", "storyImage", "storyImagePrompt", "storyVideo"] as const) {
+    if (String(m[key] ?? "").trim().length > 0) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/** Убрать пустые сообщения (часто прилетает от LLM) — иначе не сохранить и не отрендерить */
+export const pruneEmptyConversationMessages = (input: unknown): unknown => {
+  if (!input || typeof input !== "object" || !Array.isArray((input as {messages?: unknown}).messages)) {
+    return input;
+  }
+  const conv = input as Record<string, unknown>;
+  const source = conv.messages as unknown[];
+  const messages = source.filter(rawMessageHasRenderableContent);
+  if (messages.length === source.length) {
+    return input;
+  }
+  return {...conv, messages};
+};
+
 /** Человекочитаемая ошибка валидации переписки (для API редактора) */
 export const formatConversationValidationError = (error: unknown): string | null => {
   if (error instanceof ZodError) {
@@ -292,7 +323,8 @@ export const formatConversationValidationError = (error: unknown): string | null
 };
 
 export const parseConversation = (input: unknown): ConversationInput => {
-  const parsed = conversationSchema.parse(input);
+  const prepared = pruneEmptyConversationMessages(input);
+  const parsed = conversationSchema.parse(prepared);
   const custom = parsed.emojiAliases;
 
   return stripChatBubbleImages(

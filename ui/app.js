@@ -1008,6 +1008,14 @@ const saveCurrentDialogue = async () => {
     return null;
   }
 
+  let messageCountBefore = 0;
+  try {
+    const parsedBefore = JSON.parse(json);
+    messageCountBefore = Array.isArray(parsedBefore?.messages) ? parsedBefore.messages.length : 0;
+  } catch {
+    /* parse error surfaces from API */
+  }
+
   const payload = {
     ...resolveTitlePayload(),
     json,
@@ -1034,13 +1042,26 @@ const saveCurrentDialogue = async () => {
 
   currentDialogueId = data.id;
   dialogueTitleInput.value = data.titleDisplay || data.title || dialogueTitleInput.value;
+  if (data.conversation) {
+    jsonInput.value = JSON.stringify(data.conversation, null, 2);
+    await refreshDialogue();
+    updateGenerateImagesControls(data.conversation);
+  }
   if (data.partNumber) {
     currentPartNumber = data.partNumber;
     updateSeriesPartHint();
   }
   updateProjectPathsHint();
   editorSnapshots[editorKind] = captureEditorSnapshot();
-  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}`);
+  const messageCountAfter = Array.isArray(data.conversation?.messages)
+    ? data.conversation.messages.length
+    : messageCountBefore;
+  const prunedCount = Math.max(0, messageCountBefore - messageCountAfter);
+  const prunedNote =
+    prunedCount > 0
+      ? ` · убрано ${prunedCount} пуст${prunedCount === 1 ? "ое" : prunedCount < 5 ? "ых" : ""} сообщ.`
+      : "";
+  setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}${prunedNote}`);
   return data;
 };
 
