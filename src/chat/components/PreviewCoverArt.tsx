@@ -25,20 +25,19 @@ export const PreviewCoverArt: React.FC<Props> = ({image, title}) => {
         />
       ) : null}
 
-      {/* Затемнение сверху/снизу — текст читается на любом фоне */}
+      {/* Лёгкое затемнение по краям — текст по центру читается на любом фоне */}
       <AbsoluteFill
         style={{
           background:
-            "linear-gradient(180deg, rgba(0,0,0,0.66) 0%, rgba(0,0,0,0.14) 28%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.16) 74%, rgba(0,0,0,0.72) 100%)",
+            "radial-gradient(ellipse 85% 70% at 50% 50%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.35) 100%)",
         }}
       />
 
       {text ? (
         <AbsoluteFill
           style={{
-            justifyContent: "flex-start",
+            justifyContent: "center",
             alignItems: "center",
-            paddingTop: 150,
             paddingLeft: 72,
             paddingRight: 72,
           }}
@@ -70,4 +69,4 @@ export const PreviewCoverArt: React.FC<Props> = ({image, title}) => {
   );
 };
 
-export const PREVIEW_COVER_ART_MARKER = "preview-cover-art-v1";
+export const PREVIEW_COVER_ART_MARKER = "preview-cover-art-v2";

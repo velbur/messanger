@@ -78,7 +78,7 @@ export const buildPreviewCoverPrompt = ({title, sceneHint, stylePrompt} = {}) =>
   const lines = [
     "Vertical 9:16 YouTube thumbnail / cover frame for a short video. Eye-catching, high click-through, cinematic and dramatic.",
     "Single strong focal subject with intense, expressive emotion (surprise, tension, intrigue). Bold dramatic lighting, rich saturated colors, high contrast, subtle vignette, shallow depth of field.",
-    "Composition leaves the upper third relatively clean and uncluttered so a large title can be overlaid there later.",
+    "Composition leaves the center area relatively clean and uncluttered so a large title can be overlaid there later.",
     cleanScene ? `Scene context: ${cleanScene}.` : "",
     cleanTitle ? `Mood / topic of the video (do NOT render this as text): ${cleanTitle}.` : "",
     cleanStyle ? `Visual style reference: ${cleanStyle}.` : "",

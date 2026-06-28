@@ -173,8 +173,8 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("StorySfxLayer") &&
       bundleJs.includes("story-sfx-mix-v1") &&
       bundleJs.includes("sfxMixSrc") &&
-      bundleJs.includes("preview-cover-baked-v2") &&
-      bundleJs.includes("preview-cover-art-v1") &&
+      bundleJs.includes("preview-cover-baked-v3") &&
+      bundleJs.includes("preview-cover-art-v2") &&
       bundleJs.includes("default-conversation.json")
     );
   } catch {
