@@ -317,6 +317,16 @@ body {
   gap: 8px;
 }
 
+.preview-cover-hint-row {
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-cover-hint {
+  margin: 0;
+  max-width: 36rem;
+}
+
 .episodes-row {
   flex-wrap: wrap;
 }

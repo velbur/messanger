@@ -9,6 +9,7 @@ import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
+import {ensureConversationPreviewCovers} from "./preview-cover-assets.mjs";
 
 const parseArg = (name, fallback) => {
   const index = process.argv.indexOf(name);
@@ -42,17 +43,32 @@ const run = async () => {
   assertVoiceoverReadyForRender(conversation);
   await resolveConversationVoiceover(conversation, {failOnMissingVoice: true});
 
+  const imageNamespace = path.basename(inputAbs, ".json");
+  const coverResult = await ensureConversationPreviewCovers(conversation, {
+    displayTitle: conversation.previewCover?.title ?? conversation.hookText,
+    imageNamespace,
+    onLog: (message) => console.log(message),
+  });
+  const episodes = coverResult.episodeConversations;
+
   const concurrency =
     concurrencyArg !== null ? Number.parseInt(String(concurrencyArg), 10) : getRenderConcurrency();
   console.log(`Render concurrency: ${concurrency}`);
 
-  const outputAbs = await renderChatVideo({
-    conversation,
-    outputPath,
-    concurrency,
-    onBundleStatus: (message) => console.log(message),
-  });
-  console.log(`Rendered: ${outputAbs}`);
+  for (let i = 0; i < episodes.length; i += 1) {
+    const ep = episodes[i];
+    const epOut =
+      episodes.length > 1
+        ? outputPath.replace(/\.mp4$/i, `-ep${String(i + 1).padStart(2, "0")}.mp4`)
+        : outputPath;
+    const outputAbs = await renderChatVideo({
+      conversation: ep,
+      outputPath: epOut,
+      concurrency,
+      onBundleStatus: (message) => console.log(message),
+    });
+    console.log(`Rendered: ${outputAbs}`);
+  }
 };
 
 run().catch((error) => {

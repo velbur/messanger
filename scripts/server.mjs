@@ -59,6 +59,7 @@ import {
   loadPreviewCoverReferenceDataUrl,
   resolvePreviewCoverSceneHint,
 } from "./preview-cover.mjs";
+import {ensureConversationPreviewCovers} from "./preview-cover-assets.mjs";
 import {
   correctFrameImage,
   ImageCorrectionUnchangedError,
@@ -1132,13 +1133,6 @@ app.post("/api/preview-cover", async (req, res) => {
     const finalAbs = path.join(PUBLIC_DIR, finalRef);
     await renderPreviewCover({image: backgroundRef, title: coverTitle, outputPath: finalAbs});
 
-    // Подчищаем промежуточный фон — в видео и как превью нужен только готовый кадр
-    try {
-      await deletePublicImage(backgroundRef);
-    } catch {
-      /* ignore */
-    }
-
     const previewUrl = await buildImagePreviewUrl(finalRef);
 
     res.json({
@@ -1869,6 +1863,7 @@ const createRenderJobShell = ({
   outputFile,
   dialogueId,
   target,
+  displayTitle,
 }) => {
   const jobId = String(++jobCounter);
   const nativeProjectRoot = process.env.NATIVE_PROJECT_ROOT?.trim() || ROOT;
@@ -1901,6 +1896,7 @@ const createRenderJobShell = ({
     cancel: null,
     prepCancelled: false,
     renderCommand,
+    displayTitle: typeof displayTitle === "string" ? displayTitle.trim() : "",
     createdAt: Date.now(),
   };
 
@@ -2002,6 +1998,19 @@ const runRenderPreparation = async (
       job.logs.push(...musicLogs);
     }
 
+    job.phase = "Обложка превью…";
+    job.progress = 0.48;
+    const coverResult = await ensureConversationPreviewCovers(conversation, {
+      displayTitle: job.displayTitle,
+      imageNamespace: job.fileName,
+      onLog: (message) => job.logs.push(message),
+    });
+    Object.assign(conversation, coverResult.conversation);
+    job.episodeConversations = coverResult.episodeConversations;
+    if (coverResult.episodeConversations.length > 1) {
+      job.logs.push(`Обложки для ${coverResult.episodeConversations.length} эпизодов готовы`);
+    }
+
     job.phase = "Проверка ассетов…";
     job.progress = 0.52;
 
@@ -2095,7 +2104,9 @@ const runRenderPreparation = async (
     }
 
     job.conversation = conversation;
-    job.episodeConversations = buildEpisodeConversations(conversation);
+    if (!job.episodeConversations?.length) {
+      job.episodeConversations = buildEpisodeConversations(conversation);
+    }
     if (job.episodeConversations.length > 1) {
       job.logs.push(`Будет собрано эпизодов: ${job.episodeConversations.length}`);
     }
@@ -2162,13 +2173,6 @@ app.post("/api/render", async (req, res) => {
         });
         return;
       }
-      if (!conversation.previewCover?.image?.trim()) {
-        res.status(400).json({
-          error:
-            "Для эпизодов нужна обложка превью — сгенерируйте её кнопкой «Обложка превью» (одна на все эпизоды).",
-        });
-        return;
-      }
     }
 
     const isStoryVisual =
@@ -2213,6 +2217,7 @@ app.post("/api/render", async (req, res) => {
       outputFile,
       dialogueId,
       target,
+      displayTitle: typeof rawName === "string" ? rawName : "",
     });
 
     void runRenderPreparation(job, {

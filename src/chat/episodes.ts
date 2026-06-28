@@ -54,6 +54,20 @@ export const validateEpisodeSplits = (
   return null;
 };
 
+/** Заголовок на обложке превью: для эпизодов добавляет «Часть N». */
+export const buildPreviewCoverTitle = (
+  baseTitle: string,
+  episodeNumber: number,
+  totalEpisodes: number,
+): string => {
+  const base = String(baseTitle ?? "").replace(/\s+/g, " ").trim();
+  if (totalEpisodes <= 1) {
+    return base;
+  }
+  const part = `Часть ${episodeNumber}`;
+  return base ? `${base} — ${part}` : part;
+};
+
 export const buildEpisodeConversations = (conversation: ConversationInput): ConversationInput[] => {
   const config = conversation.episodes;
   if (!config?.enabled) {

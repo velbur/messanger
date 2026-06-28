@@ -92,8 +92,6 @@ const preRenderChecklist = document.getElementById("preRenderChecklist");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
-const btnGeneratePreviewCover = document.getElementById("btnGeneratePreviewCover");
-const previewCoverStatus = document.getElementById("previewCoverStatus");
 const previewCoverPreview = document.getElementById("previewCoverPreview");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
 const meVoiceSelect = document.getElementById("meVoiceSelect");
@@ -2309,31 +2307,6 @@ const resolveEditorImageNamespace = () => {
 const buildEditorImageRef = (messageIndex) =>
   `images/${resolveEditorImageNamespace()}/msg-${messageIndex + 1}.png`;
 
-const buildEditorPreviewCoverRef = () =>
-  `images/${resolveEditorImageNamespace()}/preview-cover.png`;
-
-const setJsonPreviewCover = (publicPath, title) => {
-  try {
-    const parsed = JSON.parse(jsonInput.value);
-    const cover = {
-      ...(parsed.previewCover && typeof parsed.previewCover === "object" ? parsed.previewCover : {}),
-      enabled: true,
-      image: publicPath,
-    };
-    const trimmedTitle = String(title ?? "").trim();
-    if (trimmedTitle) {
-      cover.title = trimmedTitle;
-    }
-    if (typeof cover.durationMs !== "number") {
-      cover.durationMs = 3000;
-    }
-    parsed.previewCover = cover;
-    jsonInput.value = JSON.stringify(parsed, null, 2);
-  } catch {
-    /* ignore */
-  }
-};
-
 const setJsonImage = (messageIndex, publicPath) => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -4451,19 +4424,11 @@ btnRender.addEventListener("click", async () => {
   }
 
   const parsedForVoice = parseConversationJson();
-  if (parsedForVoice?.episodes?.enabled) {
-    if (!parsedForVoice.previewCover?.image?.trim()) {
-      alert("Для эпизодов сначала сгенерируйте «Обложку превью» — она будет в конце каждого ролика.");
-      setBusy(false);
-      closeRenderModal();
-      return;
-    }
-    if (getRenderTarget() === "remote") {
-      alert("Рендер эпизодов пока только на этой машине. Выберите локальную цель рендера.");
-      setBusy(false);
-      closeRenderModal();
-      return;
-    }
+  if (parsedForVoice?.episodes?.enabled && getRenderTarget() === "remote") {
+    alert("Рендер эпизодов пока только на этой машине. Выберите локальную цель рендера.");
+    setBusy(false);
+    closeRenderModal();
+    return;
   }
 
   try {
@@ -4580,23 +4545,15 @@ const updateGenerateImagesControls = (conversation = null) => {
 };
 
 const updatePreviewCoverControls = (conversation = null) => {
-  if (!btnGeneratePreviewCover) {
-    return;
-  }
   const parsed = conversation ?? parseConversationJson();
-  const hasConversation = Boolean(parsed && Array.isArray(parsed.messages) && parsed.messages.length);
-  btnGeneratePreviewCover.disabled = !(openrouterImageAvailable && hasConversation);
-  btnGeneratePreviewCover.title = !openrouterImageAvailable
-    ? "Задайте OPENROUTER_API_KEY в .env"
-    : !hasConversation
-      ? "Сначала добавьте JSON переписки"
-      : "Цепляющая обложка с названием — вшивается в конец видео для выбора превью на YouTube";
-
   if (previewCoverPreview) {
     const coverImage = String(parsed?.previewCover?.image ?? "").trim();
     if (coverImage) {
       previewCoverPreview.hidden = false;
-      previewCoverPreview.href = `/${coverImage.replace(/^\/+/, "")}`;
+      previewCoverPreview.href = `/${coverImage.replace(/^\/+/, "")}?t=${Date.now()}`;
+      previewCoverPreview.textContent = parsed?.previewCover?.title
+        ? `Обложка: ${parsed.previewCover.title}`
+        : "Открыть обложку";
     } else {
       previewCoverPreview.hidden = true;
     }
@@ -5023,68 +4980,6 @@ btnGenerateImages?.addEventListener("click", async () => {
   } finally {
     updateGenerateImagesControls();
     updateVoiceoverControls();
-  }
-});
-
-const generatePreviewCover = async () => {
-  const json = jsonInput.value.trim();
-  if (!json) {
-    throw new Error("Сначала добавьте JSON переписки");
-  }
-  if (!openrouterImageAvailable) {
-    throw new Error("Задайте OPENROUTER_API_KEY в .env");
-  }
-  const title = dialogueTitleInput?.value?.trim() || parseConversationJson()?.hookText || "";
-  const res = await fetch("/api/preview-cover", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      json,
-      title,
-      targetRef: buildEditorPreviewCoverRef(),
-      stylePrompt: getStoryStylePrompt(),
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error ?? "Ошибка генерации обложки");
-  }
-  setJsonPreviewCover(data.publicPath, title);
-  return data;
-};
-
-btnGeneratePreviewCover?.addEventListener("click", async () => {
-  const existing = parseConversationJson()?.previewCover?.image;
-  if (existing && !window.confirm("Перегенерировать обложку превью? Текущий файл будет заменён.")) {
-    return;
-  }
-  btnGeneratePreviewCover.disabled = true;
-  if (previewCoverStatus) {
-    previewCoverStatus.textContent = "Генерация обложки…";
-  }
-  try {
-    const data = await generatePreviewCover();
-    if (previewCoverStatus) {
-      previewCoverStatus.textContent = "Готово: обложка вшита в конец видео";
-    }
-    if (previewCoverPreview && data.previewUrl) {
-      previewCoverPreview.hidden = false;
-      previewCoverPreview.href = data.previewUrl;
-    }
-    if (currentDialogueId) {
-      try {
-        await saveCurrentDialogue();
-      } catch {
-        /* save best-effort; JSON уже обновлён */
-      }
-    }
-    scheduleRefreshDialogue();
-  } catch (err) {
-    if (previewCoverStatus) {
-      previewCoverStatus.textContent = err instanceof Error ? err.message : String(err);
-    }
-  } finally {
-    updatePreviewCoverControls();
   }
 });
 

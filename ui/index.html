@@ -419,16 +419,10 @@
                 <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
-              <div class="actions actions--inline">
-                <button
-                  type="button"
-                  id="btnGeneratePreviewCover"
-                  class="btn btn-secondary"
-                  title="Цепляющая обложка с названием — вшивается в конец каждого эпизода"
-                  disabled
-                >
-                  Обложка превью
-                </button>
+              <div class="actions actions--inline preview-cover-hint-row">
+                <span class="prompt-tab-hint preview-cover-hint">
+                  Обложка превью генерируется автоматически при сборке (в конце каждого эпизода).
+                </span>
                 <a
                   id="previewCoverPreview"
                   class="youtube-link"
@@ -437,7 +431,6 @@
                   rel="noopener noreferrer"
                   hidden
                 >Открыть обложку</a>
-                <span id="previewCoverStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
               <div class="actions actions--inline episodes-row">
