@@ -20,11 +20,7 @@ const renderCommandBlock = document.getElementById("renderCommandBlock");
 const renderCommandEl = document.getElementById("renderCommand");
 const btnCopyRenderCommand = document.getElementById("btnCopyRenderCommand");
 const downloadBlock = document.getElementById("downloadBlock");
-const downloadLink = document.getElementById("downloadLink");
-const btnPublishYoutube = document.getElementById("btnPublishYoutube");
-const youtubePrivacySelect = document.getElementById("youtubePrivacySelect");
-const youtubePublishControl = document.getElementById("youtubePublishControl");
-const youtubeLink = document.getElementById("youtubeLink");
+const downloadLinks = document.getElementById("downloadLinks");
 const pathsHint = document.getElementById("pathsHint");
 const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
@@ -104,6 +100,10 @@ const meVoiceSelect = document.getElementById("meVoiceSelect");
 const themVoiceSelect = document.getElementById("themVoiceSelect");
 const voiceGenderControls = document.getElementById("voiceGenderControls");
 const btnRegenVoices = document.getElementById("btnRegenVoices");
+const episodesEnabled = document.getElementById("episodesEnabled");
+const episodesControls = document.getElementById("episodesControls");
+const episodeCountSelect = document.getElementById("episodeCountSelect");
+const episodesSplitHint = document.getElementById("episodesSplitHint");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
@@ -125,9 +125,6 @@ let pollTimer = null;
 let activeRenderJobId = null;
 let textGenBusy = false;
 let openrouterConfigured = false;
-let youtubeConfigured = false;
-let lastPublishOutputFile = null;
-let youtubePublishing = false;
 let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "openai/gpt-5.4-image-2";
@@ -545,12 +542,11 @@ const updateDialogueGenerateControls = () => {
 };
 
 const resetWorkflowControls = () => {
-  lastPublishOutputFile = null;
   if (downloadBlock) {
     downloadBlock.hidden = true;
   }
-  if (youtubeLink) {
-    youtubeLink.hidden = true;
+  if (downloadLinks) {
+    downloadLinks.replaceChildren();
   }
   if (dialogueGenerateStatus) {
     dialogueGenerateStatus.textContent = canGenerateDialogue()
@@ -568,7 +564,6 @@ const resetWorkflowControls = () => {
   }
   updateGenerateImagesControls(null);
   updateRefineDialogueControls();
-  updateYoutubePublishControls();
 };
 const captureEditorSnapshot = () => ({
   dialogueId: currentDialogueId,
@@ -911,7 +906,6 @@ const applyDialogueToEditor = (dialogue) => {
   currentPartNumber = dialogue.partNumber ?? null;
   updateSeriesPartHint();
   currentDialogueOutputFile = dialogue.outputFile ?? null;
-  lastPublishOutputFile = null;
   updateProjectPathsHint();
   setWallpaper(dialogue.wallpaper === "dark" ? "dark" : "default");
   if (dialogue.music === "none") {
@@ -927,6 +921,7 @@ const applyDialogueToEditor = (dialogue) => {
   syncTitleCardFieldsFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
+  syncEpisodesFromJson();
   if (editorKind === "shorts") {
     applyMessengerLocaleToJson();
   }
@@ -934,24 +929,97 @@ const applyDialogueToEditor = (dialogue) => {
 };
 
 const showExistingOutputDownload = () => {
-  if (!downloadBlock || !downloadLink) {
+  if (!downloadBlock || !downloadLinks) {
     return;
   }
-  if (!currentDialogueOutputFile || lastPublishOutputFile) {
-    updateYoutubePublishControls();
+  if (!currentDialogueOutputFile) {
     return;
   }
   downloadBlock.hidden = false;
-  downloadLink.href = `/out/${currentDialogueOutputFile}`;
-  downloadLink.textContent = `Открыть out/${currentDialogueOutputFile}`;
-  downloadLink.removeAttribute("download");
+  downloadLinks.replaceChildren();
+  const link = document.createElement("a");
+  link.className = "download-link";
+  link.href = `/out/${currentDialogueOutputFile}`;
+  link.textContent = `Открыть out/${currentDialogueOutputFile}`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  downloadLinks.append(link);
   if (pathsHint) {
     pathsHint.textContent = `Готовый MP4: out/${currentDialogueOutputFile}`;
   }
-  if (youtubeLink) {
-    youtubeLink.hidden = true;
+};
+
+const withCacheBustUrl = (url, token) => {
+  if (!url || url.startsWith("/api/")) {
+    return url;
   }
-  updateYoutubePublishControls();
+  if (url.includes("v=")) {
+    return url;
+  }
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${token ?? Date.now()}`;
+};
+
+const outputFileFromJob = (job) => {
+  if (job?.outputFile) {
+    return job.outputFile;
+  }
+  const path = job?.outputPath ?? "";
+  const match = String(path).match(/([^/]+\.mp4)$/i);
+  return match ? match[1] : null;
+};
+
+const syncOutputFromJob = (job) => {
+  if (job?.status !== "done") {
+    return;
+  }
+  if (job.target === "remote" && job.localCopyStatus === "error") {
+    return;
+  }
+  const file = outputFileFromJob(job);
+  if (file && job.dialogueId && job.dialogueId === currentDialogueId) {
+    currentDialogueOutputFile = file;
+  }
+};
+
+const renderJobDownloadLinks = (job, withCacheBust) => {
+  if (!downloadLinks) {
+    return;
+  }
+  downloadLinks.replaceChildren();
+  const outputs =
+    Array.isArray(job.episodeOutputs) && job.episodeOutputs.length > 0
+      ? job.episodeOutputs
+      : job.downloadUrl
+        ? [
+            {
+              episode: 1,
+              outputFile: job.outputFile,
+              outputPath: job.outputPath,
+              downloadUrl: job.downloadUrl,
+              finishedAt: job.finishedAt,
+            },
+          ]
+        : [];
+
+  for (const item of outputs) {
+    const link = document.createElement("a");
+    link.className = "download-link";
+    link.href = withCacheBust(item.downloadUrl, item.finishedAt ?? job.finishedAt);
+    const label = outputs.length > 1 ? `Эпизод ${item.episode}: ` : "";
+    link.textContent =
+      job.target === "remote"
+        ? `${label}Открыть ${item.outputPath ?? item.outputFile ?? "video.mp4"}`
+        : `${label}Скачать ${item.outputPath ?? item.outputFile ?? "video.mp4"}`;
+    if (job.target === "remote" || job.status === "done") {
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.removeAttribute("download");
+    } else if (item.outputFile) {
+      link.setAttribute("download", item.outputFile);
+    }
+    downloadLinks.append(link);
+  }
 };
 
 const formatDate = (ts) => {
@@ -1616,10 +1684,94 @@ const updatePreRenderChecklistUI = (result) => {
   preRenderChecklist.hidden = editorKind !== "shorts";
 };
 
+const computeEqualEpisodeSplits = (messageCount, episodeCount) => {
+  if (episodeCount <= 1 || messageCount <= 1) {
+    return [];
+  }
+  const splits = [];
+  for (let part = 1; part < episodeCount; part += 1) {
+    const end = Math.floor((part * messageCount) / episodeCount) - 1;
+    const prev = splits[splits.length - 1] ?? -1;
+    splits.push(Math.max(prev + 1, Math.min(end, messageCount - 2)));
+  }
+  return splits;
+};
+
+const formatEpisodeSplitHint = (parsed) => {
+  const messages = parsed?.messages ?? [];
+  const episodes = parsed?.episodes;
+  if (!episodes?.enabled || !messages.length) {
+    return "";
+  }
+  const splits = episodes.splitAfter ?? [];
+  if (!splits.length) {
+    return "Укажите границы эпизодов";
+  }
+  const parts = [];
+  let start = 0;
+  for (let i = 0; i < splits.length; i += 1) {
+    const end = splits[i];
+    parts.push(`${start + 1}–${end + 1}`);
+    start = end + 1;
+  }
+  parts.push(`${start + 1}–${messages.length}`);
+  return `Эпизоды: ${parts.join(", ")}`;
+};
+
+const syncEpisodesFromJson = () => {
+  const parsed = parseConversationJson();
+  const episodes = parsed?.episodes ?? {};
+  const enabled = Boolean(episodes.enabled);
+  if (episodesEnabled) {
+    episodesEnabled.checked = enabled;
+  }
+  if (episodesControls) {
+    episodesControls.hidden = !enabled;
+  }
+  if (episodeCountSelect && enabled) {
+    const count = (episodes.splitAfter?.length ?? 0) + 1;
+    episodeCountSelect.value = String(Math.max(2, Math.min(6, count)));
+  }
+  if (episodesSplitHint) {
+    episodesSplitHint.textContent = enabled ? formatEpisodeSplitHint(parsed) : "";
+  }
+};
+
+const applyEpisodesToJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  const enabled = Boolean(episodesEnabled?.checked);
+  const messageCount = parsed.messages?.length ?? 0;
+  if (!enabled || messageCount < 2) {
+    delete parsed.episodes;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+    if (episodesControls) {
+      episodesControls.hidden = true;
+    }
+    if (episodesSplitHint) {
+      episodesSplitHint.textContent = "";
+    }
+    return;
+  }
+  const episodeCount = Math.max(2, Math.min(6, Number(episodeCountSelect?.value) || 2));
+  const splitAfter = computeEqualEpisodeSplits(messageCount, episodeCount);
+  parsed.episodes = {enabled: true, splitAfter};
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  if (episodesControls) {
+    episodesControls.hidden = false;
+  }
+  if (episodesSplitHint) {
+    episodesSplitHint.textContent = formatEpisodeSplitHint(parsed);
+  }
+};
+
 const prepareJsonForRender = () => {
   applyMessengerLocaleToJson();
   applyMessageFontSizeToJson();
   applyVoiceoverToJson();
+  applyEpisodesToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
@@ -2024,6 +2176,7 @@ const generateMissingVoiceover = async () => {
   if (data.conversation) {
     jsonInput.value = JSON.stringify(data.conversation, null, 2);
     syncVoiceoverFromJson();
+  syncEpisodesFromJson();
     await refreshDialogue();
     updateGenerateImagesControls(data.conversation);
     updateVoiceoverControls(data.conversation);
@@ -3695,6 +3848,7 @@ const refreshDialogue = async () => {
     syncVideoLayoutFromJson();
     syncMessageFontSizeFromJson();
     syncVoiceoverFromJson();
+  syncEpisodesFromJson();
     renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview, data.storyItems ?? []);
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
@@ -4101,62 +4255,41 @@ const showStatus = (job) => {
   showRenderCommand(job);
   updateRenderProgress(job);
 
-  const withCacheBust = (url, token) => {
-    if (!url || url.startsWith("/api/")) {
-      return url;
-    }
-    if (url.includes("v=")) {
-      return url;
-    }
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}v=${token ?? Date.now()}`;
-  };
+  const withCacheBust = withCacheBustUrl;
 
-  if (downloadBlock && downloadLink && pathsHint) {
+  if (downloadBlock && downloadLinks && pathsHint) {
     if (
       job.status === "done" &&
       job.downloadUrl &&
       (job.target !== "remote" || job.localCopyStatus === "done")
     ) {
-      syncPublishOutputFromJob(job);
+      syncOutputFromJob(job);
       downloadBlock.hidden = false;
-      downloadLink.href = withCacheBust(job.downloadUrl, job.finishedAt);
-      downloadLink.textContent =
-        job.target === "remote"
-          ? `Открыть ${job.outputPath ?? "out/video.mp4"}`
-          : `Скачать ${job.outputPath ?? "video.mp4"}`;
-      if (job.target === "remote") {
-        downloadLink.removeAttribute("download");
-      } else {
-        downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
-      }
-      pathsHint.textContent = `JSON: ${job.inputPath ?? "—"} · MP4: ${job.outputPath ?? "—"} · concurrency: ${job.renderConcurrency ?? "—"}`;
+      renderJobDownloadLinks(job, withCacheBust);
+      const outputs = job.episodeOutputs?.length
+        ? job.episodeOutputs.map((item) => item.outputPath ?? item.outputFile).join(", ")
+        : job.outputPath ?? "—";
+      pathsHint.textContent = `JSON: ${job.inputPath ?? "—"} · MP4: ${outputs} · concurrency: ${job.renderConcurrency ?? "—"}`;
     } else if (job.status === "done" && job.downloadUrl && job.localCopyStatus === "error") {
       downloadBlock.hidden = false;
-      downloadLink.href = job.downloadUrl;
-      downloadLink.textContent = `Скачать с воркера ${job.outputFile ?? "video.mp4"}`;
-      downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
+      renderJobDownloadLinks(job, withCacheBust);
       pathsHint.textContent = `Локальная копия не удалась — файл остался на воркере. JSON: ${job.inputPath ?? "—"}`;
     } else if (job.status === "done" && job.localCopyStatus === "copying") {
       downloadBlock.hidden = true;
     } else if (job.inputPath || job.outputPath) {
-      syncPublishOutputFromJob(job);
+      syncOutputFromJob(job);
       downloadBlock.hidden = false;
-      downloadLink.href = withCacheBust(
-        job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`,
-        job.finishedAt,
+      renderJobDownloadLinks(
+        {
+          ...job,
+          downloadUrl: job.downloadUrl ?? `/out/${job.outputFile ?? "video.mp4"}`,
+        },
+        withCacheBust,
       );
-      downloadLink.textContent = job.status === "done" ? `Открыть ${job.outputPath ?? "out/video.mp4"}` : "MP4 появится после рендера";
-      if (job.status === "done") {
-        downloadLink.removeAttribute("download");
-      } else {
-        downloadLink.setAttribute("download", job.outputFile ?? "video.mp4");
-      }
       pathsHint.textContent = `JSON: ${job.inputPath ?? "—"} · MP4: ${job.outputPath ?? "—"} · concurrency: ${job.renderConcurrency ?? "—"}`;
     } else {
       downloadBlock.hidden = true;
     }
-    updateYoutubePublishControls();
   }
 };
 
@@ -4313,11 +4446,25 @@ btnRender.addEventListener("click", async () => {
     renderProgressLabel.textContent = "Запуск…";
   }
   downloadBlock.hidden = true;
-  lastPublishOutputFile = null;
-  if (youtubeLink) {
-    youtubeLink.hidden = true;
+  if (downloadLinks) {
+    downloadLinks.replaceChildren();
   }
-  updateYoutubePublishControls();
+
+  const parsedForVoice = parseConversationJson();
+  if (parsedForVoice?.episodes?.enabled) {
+    if (!parsedForVoice.previewCover?.image?.trim()) {
+      alert("Для эпизодов сначала сгенерируйте «Обложку превью» — она будет в конце каждого ролика.");
+      setBusy(false);
+      closeRenderModal();
+      return;
+    }
+    if (getRenderTarget() === "remote") {
+      alert("Рендер эпизодов пока только на этой машине. Выберите локальную цель рендера.");
+      setBusy(false);
+      closeRenderModal();
+      return;
+    }
+  }
 
   try {
     if (currentDialogueId) {
@@ -4330,8 +4477,8 @@ btnRender.addEventListener("click", async () => {
       }
     }
 
-    const parsedForVoice = parseConversationJson();
-    if (parsedForVoice?.voiceover?.enabled && countPendingVoiceover(parsedForVoice) > 0) {
+    const parsedForVoiceover = parseConversationJson();
+    if (parsedForVoiceover?.voiceover?.enabled && countPendingVoiceover(parsedForVoiceover) > 0) {
       statusText.textContent = "Озвучка реплик (OpenRouter на этой машине)…";
       const voiceData = await generateMissingVoiceover();
       json = jsonInput.value.trim();
@@ -4978,6 +5125,13 @@ btnRegenVoices?.addEventListener("click", async () => {
   }
 });
 
+const onEpisodesToggle = () => {
+  applyEpisodesToJson();
+  scheduleRefreshDialogue();
+};
+episodesEnabled?.addEventListener("change", onEpisodesToggle);
+episodeCountSelect?.addEventListener("change", onEpisodesToggle);
+
 const applyApiStatusToEditor = (data) => {
   if (data?.openrouter) {
     openrouterConfigured = Boolean(data.openrouter.configured);
@@ -4991,9 +5145,6 @@ const applyApiStatusToEditor = (data) => {
       openrouterImageModel = data.openrouter.imageModel;
     }
   }
-  if (data?.youtube) {
-    youtubeConfigured = Boolean(data.youtube.configured);
-  }
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateVoiceoverControls();
@@ -5001,114 +5152,7 @@ const applyApiStatusToEditor = (data) => {
   updateMessageRegenControls();
   updateLogicControls();
   populateDialogueModelOptions();
-  updateYoutubePublishControls();
 };
-
-const outputFileFromJob = (job) => {
-  if (job?.outputFile) {
-    return job.outputFile;
-  }
-  const path = job?.outputPath ?? "";
-  const match = String(path).match(/([^/]+\.mp4)$/i);
-  return match ? match[1] : null;
-};
-
-const syncPublishOutputFromJob = (job) => {
-  if (job?.status !== "done") {
-    return;
-  }
-  if (job.target === "remote" && job.localCopyStatus === "error") {
-    return;
-  }
-  const file = outputFileFromJob(job);
-  if (file) {
-    lastPublishOutputFile = file;
-    if (job.dialogueId && job.dialogueId === currentDialogueId) {
-      currentDialogueOutputFile = file;
-    }
-  }
-};
-
-const getPublishOutputFile = () => lastPublishOutputFile || currentDialogueOutputFile || null;
-
-const updateYoutubePublishControls = () => {
-  if (!btnPublishYoutube) {
-    return;
-  }
-  const outputFile = getPublishOutputFile();
-  const canPublish = youtubeConfigured && Boolean(outputFile) && !youtubePublishing;
-  btnPublishYoutube.disabled = !canPublish;
-  btnPublishYoutube.title = !youtubeConfigured
-    ? "YouTube не настроен — задайте YOUTUBE_* в docs/.env и обновите страницу"
-    : !outputFile
-      ? "Сначала соберите видео"
-      : youtubePublishing
-        ? "Загрузка на YouTube…"
-        : `Загрузить out/${outputFile} на YouTube`;
-  if (youtubePrivacySelect) {
-    youtubePrivacySelect.disabled = youtubePublishing || !youtubeConfigured || !outputFile;
-  }
-  if (youtubePublishControl) {
-    const isReady = youtubeConfigured && Boolean(outputFile);
-    youtubePublishControl.classList.toggle("publish-split--active", isReady);
-  }
-};
-
-const publishToYoutube = async () => {
-  const outputFile = getPublishOutputFile();
-  if (!outputFile) {
-    alert("Нет готового MP4. Сначала соберите видео.");
-    return;
-  }
-  if (!youtubeConfigured) {
-    alert("YouTube не настроен — задайте ключи в docs/.env");
-    return;
-  }
-
-  const title = dialogueTitleInput?.value?.trim() || undefined;
-  const privacyStatus = youtubePrivacySelect?.value || "unlisted";
-
-  youtubePublishing = true;
-  updateYoutubePublishControls();
-  btnPublishYoutube.textContent = "Загрузка…";
-  if (youtubeLink) {
-    youtubeLink.hidden = true;
-  }
-
-  try {
-    const res = await fetch("/api/youtube/publish", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        outputFile,
-        dialogueId: currentDialogueId ?? undefined,
-        title,
-        privacyStatus,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "Не удалось опубликовать");
-    }
-
-    if (youtubeLink && data.url) {
-      youtubeLink.hidden = false;
-      youtubeLink.href = data.url;
-      youtubeLink.textContent = `Открыть на YouTube: ${data.title ?? "ролик"}`;
-    }
-    statusText.className = "status-text status-text--done";
-    statusText.textContent = `Опубликовано на YouTube (${privacyStatus})`;
-    setDialogueSaveStatus(`Опубликовано на YouTube (${privacyStatus})`);
-  } catch (err) {
-    alert(err instanceof Error ? err.message : String(err));
-  } finally {
-    youtubePublishing = false;
-    btnPublishYoutube.textContent = "Опубликовать на YouTube";
-    updateYoutubePublishControls();
-  }
-};
-
-btnPublishYoutube?.addEventListener("click", () => publishToYoutube());
 
 const updateMessageRegenControls = () => {
   const available = openrouterConfigured;
@@ -5151,14 +5195,6 @@ const renderApiStatusPanel = (data) => {
     ].join("\n");
   }
   apiStatusContent.append(appendApiStatusSection("OpenRouter (ChatGPT)", openrouterText));
-
-  const youtube = data?.youtube;
-  const youtubeText = document.createElement("p");
-  youtubeText.className = "api-status-section__text";
-  youtubeText.textContent = youtube?.configured
-    ? "Настроено. Кнопка «Опубликовать на YouTube» доступна после сборки MP4."
-    : "Не настроено. Задайте YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET и YOUTUBE_REFRESH_TOKEN в docs/.env.";
-  apiStatusContent.append(appendApiStatusSection("YouTube", youtubeText));
 };
 
 const loadApiStatus = async () => {
@@ -5205,11 +5241,9 @@ const loadOpenRouterStatus = async () => {
   } catch {
     openrouterConfigured = false;
     openrouterImageAvailable = false;
-    youtubeConfigured = false;
     updateImageProviderControls();
     updateMessageRegenControls();
     updateLogicControls();
-    updateYoutubePublishControls();
   }
 };
 

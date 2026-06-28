@@ -408,24 +408,6 @@
                     Перегенерировать озвучку
                   </button>
                 </span>
-                <span class="workflow-actions__publish">
-                  <div class="publish-split" id="youtubePublishControl">
-                    <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
-                      Опубликовать на YouTube
-                    </button>
-                    <select
-                      id="youtubePrivacySelect"
-                      class="publish-split__select"
-                      title="Видимость на YouTube"
-                      disabled
-                    >
-                      <option value="public">Публичное</option>
-                      <option value="unlisted" selected>По ссылке</option>
-                      <option value="private">Приватное</option>
-                    </select>
-                  </div>
-                  <a id="youtubeLink" class="youtube-link" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
-                </span>
                 <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
                 <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
@@ -442,7 +424,7 @@
                   type="button"
                   id="btnGeneratePreviewCover"
                   class="btn btn-secondary"
-                  title="Цепляющая обложка с названием — вшивается в конец видео для выбора превью на YouTube"
+                  title="Цепляющая обложка с названием — вшивается в конец каждого эпизода"
                   disabled
                 >
                   Обложка превью
@@ -456,6 +438,26 @@
                   hidden
                 >Открыть обложку</a>
                 <span id="previewCoverStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
+
+              <div class="actions actions--inline episodes-row">
+                <label class="workflow-actions__voiceover" for="episodesEnabled">
+                  <input type="checkbox" id="episodesEnabled" />
+                  <span>Разбить на эпизоды</span>
+                </label>
+                <span id="episodesControls" class="episodes-controls" hidden>
+                  <label class="episode-pick">
+                    <span>Частей</span>
+                    <select id="episodeCountSelect">
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                    </select>
+                  </label>
+                  <span id="episodesSplitHint" class="style-prompt-status" aria-live="polite"></span>
+                </span>
               </div>
             </div>
 
@@ -576,10 +578,10 @@
             Копировать команду
           </button>
         </div>
-        <p id="downloadBlock" class="download-block" hidden>
-          <a id="downloadLink" class="download-link" href="#" download>Скачать MP4</a>
+        <div id="downloadBlock" class="download-block" hidden>
+          <div id="downloadLinks" class="download-links"></div>
           <span id="pathsHint" class="paths-hint"></span>
-        </p>
+        </div>
         <footer class="workflow-modal__actions">
           <button type="button" id="btnStopRender" class="btn btn-danger" hidden>Остановить</button>
           <button type="button" id="btnRenderModalClose" class="btn btn-secondary" data-render-modal-dismiss hidden>

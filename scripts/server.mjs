@@ -14,6 +14,7 @@ import {
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs} from "../src/chat/timeline.ts";
+import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
   buildNativeRenderCommand,
   getRenderConcurrency,
@@ -391,18 +392,27 @@ const processQueue = async () => {
 
   job.status = "running";
   job.logs.push("Рендер запущен…");
+  const episodes = job.episodeConversations?.length
+    ? job.episodeConversations
+    : [job.conversation];
   const messagesMs = estimateMessagesDurationMs(job.conversation);
   job.logs.push(
     `Тайминг переписки: scale ${TIMING_SCALE}, ~${(messagesMs / 1000).toFixed(1)} с на сообщения`,
   );
+  if (episodes.length > 1) {
+    job.logs.push(`Эпизодов: ${episodes.length}`);
+  }
 
   const {cancelSignal, cancel} = makeCancelSignal();
   job.cancel = cancel;
 
-  try {
-    const outputAbs = await renderChatVideo({
-      conversation: job.conversation,
-      outputPath: job.outputPath,
+  const renderOne = async (conversation, outputPath, label) => {
+    if (label) {
+      job.logs.push(label);
+    }
+    return renderChatVideo({
+      conversation,
+      outputPath,
       onBundleStatus: (message) => {
         job.logs.push(message);
       },
@@ -410,11 +420,12 @@ const processQueue = async () => {
         job.totalFrames = durationInFrames;
       },
       onProgress: ({progress, renderedFrames, encodedFrames, stitchStage}) => {
-        job.progress = progress;
+        const episodeScale = episodes.length > 1 ? 1 / episodes.length : 1;
+        const episodeIndex = job.episodeIndex ?? 0;
+        const baseProgress = episodes.length > 1 ? episodeIndex / episodes.length : 0;
+        job.progress = baseProgress + progress * episodeScale;
         job.renderedFrames = renderedFrames;
         job.encodedFrames = encodedFrames;
-        // Когда кадры отрисованы, остаётся однопоточная склейка — отмечаем фазу,
-        // чтобы UI не выглядел "зависшим" на 90%+
         if (renderedFrames >= job.totalFrames && job.totalFrames > 0) {
           const phase = stitchStage === "muxing" ? "Склейка видео и аудио…" : "Кодирование видео…";
           if (job.phase !== phase) {
@@ -425,12 +436,54 @@ const processQueue = async () => {
       },
       cancelSignal,
     });
+  };
+
+  try {
+    job.episodeOutputs = [];
+    for (let i = 0; i < episodes.length; i += 1) {
+      job.episodeIndex = i;
+      const epNum = String(i + 1).padStart(2, "0");
+      const outputFile =
+        episodes.length > 1 ? `${job.fileName}-ep${epNum}.mp4` : job.outputFile;
+      const outputRel = `out/${outputFile}`;
+      const outputPath = path.join(ROOT, outputRel);
+      if (episodes.length > 1) {
+        job.phase = `Рендер эпизода ${i + 1}/${episodes.length}…`;
+        const inputRel = `json/${job.fileName}-ep${epNum}.json`;
+        await writeFile(
+          path.join(ROOT, inputRel),
+          JSON.stringify(episodes[i], null, 2),
+          "utf8",
+        );
+        job.logs.push(`JSON эпизода: ${inputRel}`);
+      }
+      const outputAbs = await renderOne(
+        episodes[i],
+        outputPath,
+        episodes.length > 1 ? `Эпизод ${i + 1}/${episodes.length}: ${outputFile}` : null,
+      );
+      const finishedAt = Date.now();
+      const downloadUrl = mp4DownloadUrl(outputFile, finishedAt);
+      job.episodeOutputs.push({
+        episode: i + 1,
+        outputFile,
+        outputRel,
+        outputPath: outputAbs,
+        downloadUrl,
+        finishedAt,
+      });
+      job.logs.push(`Готово: ${outputAbs}`);
+    }
+
+    const primary = job.episodeOutputs[0];
     job.status = "done";
     job.progress = 1;
-    job.finishedAt = Date.now();
-    job.outputPath = outputAbs;
-    job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
-    job.logs.push(`Готово: ${outputAbs}`);
+    job.finishedAt = primary.finishedAt;
+    job.outputPath = primary.outputPath;
+    job.outputRel = primary.outputRel;
+    job.outputFile = primary.outputFile;
+    job.outputFiles = job.episodeOutputs.map((item) => item.outputFile);
+    job.downloadUrl = primary.downloadUrl;
     if (job.dialogueId) {
       touchDialogueOutput(job.dialogueId, job.outputFile);
       job.logs.push(`Диалог сохранён в базе: ${job.dialogueId}`);
@@ -2042,6 +2095,10 @@ const runRenderPreparation = async (
     }
 
     job.conversation = conversation;
+    job.episodeConversations = buildEpisodeConversations(conversation);
+    if (job.episodeConversations.length > 1) {
+      job.logs.push(`Будет собрано эпизодов: ${job.episodeConversations.length}`);
+    }
     job.progress = 0.55;
     job.phase = null;
     enqueueRender(job.id);
@@ -2086,6 +2143,34 @@ app.post("/api/render", async (req, res) => {
 
     const conversation = parseConversation(parsed);
     const fileName = resolveName(rawName, conversation, dialogueId);
+    const episodeConversations = buildEpisodeConversations(conversation);
+    const episodeCount = episodeConversations.length;
+
+    if (episodeCount > 1) {
+      const splitError = validateEpisodeSplits(
+        conversation.messages.length,
+        conversation.episodes?.splitAfter,
+      );
+      if (splitError) {
+        res.status(400).json({error: splitError});
+        return;
+      }
+      if (target === "remote") {
+        res.status(400).json({
+          error:
+            "Рендер эпизодов пока только на этой машине. Выберите «Локально» в цели рендера.",
+        });
+        return;
+      }
+      if (!conversation.previewCover?.image?.trim()) {
+        res.status(400).json({
+          error:
+            "Для эпизодов нужна обложка превью — сгенерируйте её кнопкой «Обложка превью» (одна на все эпизоды).",
+        });
+        return;
+      }
+    }
+
     const isStoryVisual =
       conversation.layout === "storySplit" || conversation.layout === "storyOverlay";
     const autoGenerateImages = req.body?.autoGenerateImages === true;
@@ -2231,6 +2316,8 @@ app.get("/api/jobs/:id", async (req, res) => {
     inputPath: job.inputRel,
     outputPath: job.outputRel,
     outputFile: job.outputFile,
+    outputFiles: job.outputFiles ?? (job.outputFile ? [job.outputFile] : []),
+    episodeOutputs: job.episodeOutputs ?? [],
     downloadUrl: job.downloadUrl,
     finishedAt: job.finishedAt ?? null,
     error: job.error,

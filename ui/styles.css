@@ -311,6 +311,45 @@ body {
   font-size: 13px;
 }
 
+.download-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episodes-row {
+  flex-wrap: wrap;
+}
+
+.episodes-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.episodes-controls[hidden] {
+  display: none;
+}
+
+.episode-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #aebac1;
+}
+
+.episode-pick select {
+  background: #2a3942;
+  color: #e9edef;
+  border: 1px solid #3b4a54;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .workflow-actions__publish {
   display: inline-flex;
   align-items: center;

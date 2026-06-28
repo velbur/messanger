@@ -221,6 +221,13 @@ export const conversationSchema = z.object({
       durationMs: z.number().min(1000).max(10000).optional().default(3000),
     })
     .optional(),
+  /** Разбивка одной переписки на несколько MP4 с общим previewCover в конце каждого */
+  episodes: z
+    .object({
+      enabled: z.boolean().optional(),
+      splitAfter: z.array(z.number().int().min(0)).max(19).optional(),
+    })
+    .optional(),
   /** chat — классический чат; storySplit — сюжет сверху + чат снизу; storyOverlay — сюжет на весь экран + чат поверх */
   layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("storyOverlay"),
   /** Настройки storySplit / storyOverlay */
