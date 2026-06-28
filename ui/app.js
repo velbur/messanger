@@ -100,6 +100,10 @@ const btnGeneratePreviewCover = document.getElementById("btnGeneratePreviewCover
 const previewCoverStatus = document.getElementById("previewCoverStatus");
 const previewCoverPreview = document.getElementById("previewCoverPreview");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
+const meVoiceSelect = document.getElementById("meVoiceSelect");
+const themVoiceSelect = document.getElementById("themVoiceSelect");
+const voiceGenderControls = document.getElementById("voiceGenderControls");
+const btnRegenVoices = document.getElementById("btnRegenVoices");
 const dialoguePathsHint = document.getElementById("dialoguePathsHint");
 const dialogueSaveStatus = document.getElementById("dialogueSaveStatus");
 const btnSaveDialogue = document.getElementById("btnSaveDialogue");
@@ -1890,6 +1894,15 @@ const syncVoiceoverFromJson = () => {
   if (voiceoverEnabled) {
     voiceoverEnabled.checked = Boolean(voiceover.enabled);
   }
+  if (meVoiceSelect) {
+    meVoiceSelect.value = voiceover.meVoice === "female" ? "female" : "male";
+  }
+  if (themVoiceSelect) {
+    themVoiceSelect.value = voiceover.themVoice === "male" ? "male" : "female";
+  }
+  if (voiceGenderControls) {
+    voiceGenderControls.hidden = !voiceover.enabled;
+  }
 };
 
 const applyVoiceoverToJson = () => {
@@ -1904,7 +1917,7 @@ const applyVoiceoverToJson = () => {
     }
   } else {
     for (const message of parsed.messages ?? []) {
-      if (message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v1") {
+      if (message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v2") {
         delete message.voiceAudio;
         delete message.voiceDurationMs;
         delete message.voiceTtsProvider;
@@ -1915,12 +1928,36 @@ const applyVoiceoverToJson = () => {
       ...(parsed.voiceover ?? {}),
       enabled: true,
       provider: "openrouter",
-      themVoice: parsed.voiceover?.themVoice ?? "female",
-      meVoice: parsed.voiceover?.meVoice ?? "male",
+      themVoice:
+        themVoiceSelect?.value === "male" || themVoiceSelect?.value === "female"
+          ? themVoiceSelect.value
+          : parsed.voiceover?.themVoice ?? "female",
+      meVoice:
+        meVoiceSelect?.value === "male" || meVoiceSelect?.value === "female"
+          ? meVoiceSelect.value
+          : parsed.voiceover?.meVoice ?? "male",
     };
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
+  if (voiceGenderControls) {
+    voiceGenderControls.hidden = !enabled;
+  }
   updateVoiceoverControls(parsed);
+};
+
+/** Сбрасывает аудио реплик (но сохраняет voiceEmotion), чтобы озвучка перегенерилась с новыми голосами */
+const clearVoiceAudioForRevoice = () => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  for (const message of parsed.messages ?? []) {
+    delete message.voiceAudio;
+    delete message.voiceDurationMs;
+    delete message.voiceTtsProvider;
+    delete message.voiceTtsProfile;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
 const countPendingVoiceover = (conversation) => {
@@ -1938,7 +1975,7 @@ const countPendingVoiceover = (conversation) => {
       continue;
     }
     const hasAudio = Boolean(String(message.voiceAudio ?? "").trim());
-    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v1") {
+    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v2") {
       pending += 1;
     }
   }
@@ -4904,6 +4941,37 @@ voiceoverEnabled?.addEventListener("change", () => {
   applyVoiceoverToJson();
   scheduleRefreshDialogue();
   updateVoiceoverControls();
+  if (voiceGenderControls) {
+    voiceGenderControls.hidden = !voiceoverEnabled.checked;
+  }
+});
+
+const onVoiceGenderChange = () => {
+  applyVoiceoverToJson();
+  clearVoiceAudioForRevoice();
+  updateVoiceoverControls();
+  scheduleRefreshDialogue();
+};
+meVoiceSelect?.addEventListener("change", onVoiceGenderChange);
+themVoiceSelect?.addEventListener("change", onVoiceGenderChange);
+
+btnRegenVoices?.addEventListener("click", async () => {
+  if (voiceoverEnabled && !voiceoverEnabled.checked) {
+    voiceoverEnabled.checked = true;
+  }
+  applyVoiceoverToJson();
+  clearVoiceAudioForRevoice();
+  btnRegenVoices.disabled = true;
+  const prevLabel = btnRegenVoices.textContent;
+  btnRegenVoices.textContent = "Озвучиваю…";
+  try {
+    await generateMissingVoiceover();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err));
+  } finally {
+    btnRegenVoices.disabled = false;
+    btnRegenVoices.textContent = prevLabel;
+  }
 });
 
 const applyApiStatusToEditor = (data) => {

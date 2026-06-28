@@ -76,9 +76,9 @@ const needsStoryVideo = (imageRef, holder) => {
   if (!existingVideo) {
     return true;
   }
-  if (holder?.storyVideoProfile !== OPENROUTER_STORY_VIDEO_PROFILE) {
-    return true;
-  }
+  // Профиль намеренно НЕ проверяем: смена профиля видео не должна
+  // авто-перегенерировать уже готовые клипы при каждом рендере (лишний расход
+  // токенов). Полная перегенерация — только явным force.
   try {
     const {absolute} = safePublicPath(existingVideo);
     return !existsSync(absolute);

@@ -389,6 +389,25 @@
                   <input type="checkbox" id="voiceoverEnabled" />
                   <span>Озвучка (OpenRouter)</span>
                 </label>
+                <span class="workflow-actions__voices" id="voiceGenderControls" hidden>
+                  <label class="voice-pick">
+                    <span>Голос (я)</span>
+                    <select id="meVoiceSelect">
+                      <option value="male">мужской</option>
+                      <option value="female">женский</option>
+                    </select>
+                  </label>
+                  <label class="voice-pick">
+                    <span>Голос (собеседник)</span>
+                    <select id="themVoiceSelect">
+                      <option value="male">мужской</option>
+                      <option value="female">женский</option>
+                    </select>
+                  </label>
+                  <button type="button" id="btnRegenVoices" class="btn btn-secondary btn-small">
+                    Перегенерировать озвучку
+                  </button>
+                </span>
                 <span class="workflow-actions__publish">
                   <div class="publish-split" id="youtubePublishControl">
                     <button type="button" id="btnPublishYoutube" class="btn btn-publish publish-split__main" disabled>
