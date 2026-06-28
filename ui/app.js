@@ -126,6 +126,7 @@ let openrouterConfigured = false;
 let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "openai/gpt-5.4-image-2";
+let openrouterTtsProfile = "young-emotional-v2";
 
 const canGenerateImages = () => openrouterImageAvailable;
 
@@ -2070,14 +2071,6 @@ const applyVoiceoverToJson = () => {
       parsed.voiceover = {...parsed.voiceover, enabled: false};
     }
   } else {
-    for (const message of parsed.messages ?? []) {
-      if (message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v2") {
-        delete message.voiceAudio;
-        delete message.voiceDurationMs;
-        delete message.voiceTtsProvider;
-        delete message.voiceTtsProfile;
-      }
-    }
     parsed.voiceover = {
       ...(parsed.voiceover ?? {}),
       enabled: true,
@@ -2129,7 +2122,7 @@ const countPendingVoiceover = (conversation) => {
       continue;
     }
     const hasAudio = Boolean(String(message.voiceAudio ?? "").trim());
-    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== "young-emotional-v2") {
+    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== openrouterTtsProfile) {
       pending += 1;
     }
   }
@@ -2148,7 +2141,7 @@ const updateVoiceoverControls = (conversation = null) => {
     voiceoverEnabled.title = `При сборке озвучится ${pending} реплик${pending === 1 ? "а" : pending < 5 ? "и" : ""}`;
   } else {
     voiceoverEnabled.title = voiceoverEnabled.checked
-      ? "Озвучка через OpenRouter Gemini TTS при сборке видео"
+      ? "Озвучка готова — при сборке не перегенерируется"
       : "";
   }
 };
@@ -4434,21 +4427,7 @@ btnRender.addEventListener("click", async () => {
       }
     }
 
-    const parsedForVoiceover = parseConversationJson();
-    if (parsedForVoiceover?.voiceover?.enabled && countPendingVoiceover(parsedForVoiceover) > 0) {
-      statusText.textContent = "Озвучка реплик (OpenRouter на этой машине)…";
-      const voiceData = await generateMissingVoiceover();
-      json = jsonInput.value.trim();
-      if (voiceData.logs?.length) {
-        statusLog.textContent = voiceData.logs.join("\n");
-      }
-      if ((voiceData.pending ?? countPendingVoiceover(parseConversationJson())) > 0) {
-        throw new Error(
-          voiceData.error ??
-            "Не удалось озвучить все реплики. Проверьте OPENROUTER_API_KEY в docs/.env и лог.",
-        );
-      }
-    }
+    json = jsonInput.value.trim();
 
     const res = await fetch("/api/render", {
       method: "POST",
@@ -5032,6 +5011,9 @@ const applyApiStatusToEditor = (data) => {
     if (typeof data.openrouter.imageModel === "string" && data.openrouter.imageModel) {
       openrouterImageModel = data.openrouter.imageModel;
     }
+  }
+  if (typeof data?.voiceover?.ttsProfile === "string" && data.voiceover.ttsProfile) {
+    openrouterTtsProfile = data.voiceover.ttsProfile;
   }
   updateImageProviderControls();
   updateGenerateImagesControls();
