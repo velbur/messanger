@@ -291,6 +291,13 @@ const buildStoryTimeline = (
   if (immediateFirstScene) {
     openingDurationFrames = 0;
     splitTransitionFrames = 0;
+  } else if (
+    storyConfig.opening.animation === "none" &&
+    !storyConfig.opening.image?.trim() &&
+    !storyConfig.opening.storyVideo?.trim()
+  ) {
+    openingDurationFrames = 0;
+    splitTransitionFrames = 0;
   }
 
   const openingEndFrame = openingStartFrame + openingDurationFrames;

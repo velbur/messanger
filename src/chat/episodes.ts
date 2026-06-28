@@ -117,11 +117,7 @@ const sliceConversationForEpisode = (
       sliced.story = {
         ...sliced.story,
         opening: {
-          ...sliced.story.opening,
-          image: undefined,
-          storyVideo: undefined,
-          storyVideoDurationMs: undefined,
-          durationMs: 0,
+          durationMs: 800,
           animation: "none",
         },
       };

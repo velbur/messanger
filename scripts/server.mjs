@@ -530,7 +530,9 @@ const processQueue = async () => {
       job.logs.push(job.error);
     } else {
       job.status = "error";
-      job.error = error instanceof Error ? error.message : String(error);
+      job.error =
+        formatConversationValidationError(error) ??
+        (error instanceof Error ? error.message : String(error));
       job.logs.push(job.error);
     }
   } finally {
