@@ -2910,6 +2910,26 @@ const getClipboardImageFile = (clipboardData) => {
   return null;
 };
 
+const pickClipboardImageFile = async (clipboardData) => {
+  const fromEvent = clipboardData ? getClipboardImageFile(clipboardData) : null;
+  if (fromEvent) {
+    return fromEvent;
+  }
+  if (!navigator.clipboard?.read) {
+    return null;
+  }
+  const items = await navigator.clipboard.read();
+  for (const clipItem of items) {
+    const type = clipItem.types.find((entry) => entry.startsWith("image/"));
+    if (!type) {
+      continue;
+    }
+    const blob = await clipItem.getType(type);
+    return new File([blob], pasteImageFileName({type, name: ""}), {type});
+  }
+  return null;
+};
+
 const pasteImageFileName = (file) => {
   const name = file.name?.trim();
   if (name) {
@@ -2926,9 +2946,8 @@ const pasteImageFileName = (file) => {
   return `paste-${Date.now()}.${ext}`;
 };
 
-const uploadImageFileToMessage = async (item, file) => {
+const uploadImageBuffer = async ({targetRef, file}) => {
   const contentBase64 = await readFileAsDataUrl(file);
-  const targetRef = item.kind === "local" ? item.ref : undefined;
   const res = await fetch("/api/images/upload", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -2942,10 +2961,116 @@ const uploadImageFileToMessage = async (item, file) => {
   if (!res.ok) {
     throw new Error(data.error ?? "Ошибка загрузки");
   }
-  setJsonImage(item.messageIndex, data.publicPath);
+  return data;
+};
+
+const resolvePasteImageItem = (message, messageIndex) => {
+  const fromMessage = buildItemFromMessage(message, messageIndex);
+  if (fromMessage) {
+    return fromMessage;
+  }
+  const pending = buildPendingImageItem(message, messageIndex);
+  if (pending) {
+    return pending;
+  }
+  return {
+    messageIndex,
+    author: message.author ?? "?",
+    text: String(message.text ?? "").trim(),
+    imagePrompt: undefined,
+    ref: buildEditorImageRef(messageIndex),
+    kind: "local",
+    status: "pending",
+    previewUrl: null,
+  };
+};
+
+const pasteMessageImage = async (messageIndex, file) => {
+  const conversation = parseConversationJson();
+  const message = conversation?.messages?.[messageIndex];
+  if (!message) {
+    throw new Error("Сообщение не найдено");
+  }
+  const item = resolvePasteImageItem(message, messageIndex);
+  const targetRef =
+    item.kind === "local"
+      ? String(message.image ?? "").trim() || item.ref
+      : item.ref;
+  const data = await uploadImageBuffer({targetRef, file});
+  setJsonImage(messageIndex, data.publicPath);
+};
+
+const pasteStoryImage = async (messageIndex, file) => {
+  const targetRef =
+    messageIndex == null ? buildEditorStoryOpeningRef() : buildEditorStoryRef(messageIndex);
+  const data = await uploadImageBuffer({targetRef, file});
+  if (messageIndex == null) {
+    setJsonStoryOpeningImage(data.publicPath);
+  } else {
+    setJsonStoryImage(messageIndex, data.publicPath);
+  }
+};
+
+const pasteImageForMessageContext = async (messageIndex, file) => {
+  const conversation = parseConversationJson();
+  if (!conversation?.messages?.[messageIndex]) {
+    throw new Error("Сообщение не найдено");
+  }
+  if (isStoryVisualLayout(conversation)) {
+    await pasteStoryImage(messageIndex, file);
+  } else {
+    await pasteMessageImage(messageIndex, file);
+  }
+};
+
+const runPasteFromBuffer = async (pasteFn) => {
+  try {
+    const file = await pickClipboardImageFile();
+    if (!file) {
+      alert(
+        "В буфере нет изображения. Скопируйте картинку (Cmd+C) и нажмите «Из буфера» или Ctrl+V в блоке фото.",
+      );
+      return;
+    }
+    await pasteFn(file);
+    await refreshDialogue();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/denied|permission|not allowed/i.test(msg)) {
+      alert(
+        "Нет доступа к буферу. Разрешите в браузере или вставьте картинку через Ctrl+V в блоке фото.",
+      );
+    } else {
+      alert(msg);
+    }
+  }
+};
+
+const appendPasteFromBufferActions = (actions, {onFocus, onPaste}) => {
+  const btnPaste = document.createElement("button");
+  btnPaste.type = "button";
+  btnPaste.className = "btn btn-primary btn-small";
+  btnPaste.textContent = "Из буфера";
+  btnPaste.title = "Вставить скриншот или картинку из буфера (или Ctrl+V в этом блоке)";
+  btnPaste.addEventListener("click", async () => {
+    onFocus?.();
+    btnPaste.disabled = true;
+    try {
+      await runPasteFromBuffer(onPaste);
+    } finally {
+      btnPaste.disabled = false;
+    }
+  });
+
+  const pasteHint = document.createElement("span");
+  pasteHint.className = "image-slot__paste-hint";
+  pasteHint.textContent = "или Ctrl+V";
+
+  actions.append(btnPaste, pasteHint);
 };
 
 let lastFocusedImageSlotIndex = null;
+let lastFocusedStorySlotIndex = null;
 
 const getMessageImageState = (message, item) => {
   const hasImagePath = Boolean(String(message?.image ?? "").trim());
@@ -2974,6 +3099,8 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
   const slot = document.createElement("div");
   slot.className = "image-slot image-slot--story";
   slot.dataset.storySlotIndex = String(messageIndex ?? "opening");
+  slot.tabIndex = 0;
+  slot.title = "Ctrl+V — вставить изображение из буфера";
 
   const head = document.createElement("div");
   head.className = "image-slot__head";
@@ -3102,6 +3229,14 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
     }
   });
   actions.append(btnGenerate);
+
+  appendPasteFromBufferActions(actions, {
+    onFocus: () => {
+      lastFocusedStorySlotIndex = messageIndex == null ? "opening" : messageIndex;
+      slot.focus();
+    },
+    onPaste: (file) => pasteStoryImage(messageIndex, file),
+  });
 
   if (imagePath) {
     const btnDelete = document.createElement("button");
@@ -3379,55 +3514,13 @@ const renderImageControls = (item) => {
   const actions = document.createElement("div");
   actions.className = "image-slot__actions";
 
-  const btnPaste = document.createElement("button");
-  btnPaste.type = "button";
-  btnPaste.className = "btn btn-primary btn-small";
-  btnPaste.textContent = "Из буфера";
-  btnPaste.title = "Вставить скриншот или картинку из буфера (или Ctrl+V в этом блоке)";
-  btnPaste.addEventListener("click", async () => {
-    lastFocusedImageSlotIndex = item.messageIndex;
-    slot.focus();
-    btnPaste.disabled = true;
-    try {
-      let file = null;
-      if (navigator.clipboard?.read) {
-        const items = await navigator.clipboard.read();
-        for (const clipItem of items) {
-          if (clipItem.types.some((t) => t.startsWith("image/"))) {
-            const type = clipItem.types.find((t) => t.startsWith("image/"));
-            const blob = await clipItem.getType(type);
-            file = new File([blob], pasteImageFileName({type, name: ""}), {type});
-            break;
-          }
-        }
-      }
-      if (!file) {
-        alert(
-          "В буфере нет изображения. Скопируйте картинку (Cmd+C) и нажмите Ctrl+V в этом блоке или снова «Из буфера».",
-        );
-        return;
-      }
-      await uploadImageFileToMessage(item, file);
-      await refreshDialogue();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/denied|permission|not allowed/i.test(msg)) {
-        alert(
-          "Нет доступа к буферу. Разрешите в браузере или вставьте картинку через Ctrl+V в блоке фото.",
-        );
-      } else {
-        alert(msg);
-      }
-    } finally {
-      btnPaste.disabled = false;
-    }
+  appendPasteFromBufferActions(actions, {
+    onFocus: () => {
+      lastFocusedImageSlotIndex = item.messageIndex;
+      slot.focus();
+    },
+    onPaste: (file) => pasteMessageImage(item.messageIndex, file),
   });
-
-  const pasteHint = document.createElement("span");
-  pasteHint.className = "image-slot__paste-hint";
-  pasteHint.textContent = "или Ctrl+V";
-
-  actions.append(btnPaste, pasteHint);
 
   const canDelete =
     item.hasImagePath ||
@@ -3833,6 +3926,12 @@ const scheduleRefreshDialogue = () => {
 };
 
 dialogueEditor.addEventListener("focusin", (e) => {
+  const storySlot = e.target.closest("[data-story-slot-index]");
+  if (storySlot) {
+    const raw = storySlot.dataset.storySlotIndex;
+    lastFocusedStorySlotIndex = raw === "opening" ? "opening" : Number(raw);
+    return;
+  }
   const slot = e.target.closest("[data-image-slot-index]");
   if (slot) {
     lastFocusedImageSlotIndex = Number(slot.dataset.imageSlotIndex);
@@ -3840,6 +3939,15 @@ dialogueEditor.addEventListener("focusin", (e) => {
 });
 
 dialogueEditor.addEventListener("click", (e) => {
+  const storySlot = e.target.closest("[data-story-slot-index]");
+  if (storySlot) {
+    const raw = storySlot.dataset.storySlotIndex;
+    lastFocusedStorySlotIndex = raw === "opening" ? "opening" : Number(raw);
+    if (!e.target.closest("textarea, input, button, label, a")) {
+      storySlot.focus();
+    }
+    return;
+  }
   const slot = e.target.closest("[data-image-slot-index]");
   if (!slot) {
     return;
@@ -3849,6 +3957,14 @@ dialogueEditor.addEventListener("click", (e) => {
     slot.focus();
   }
 });
+
+const resolveStorySlotIndex = (raw) => {
+  if (raw == null || raw === "opening") {
+    return null;
+  }
+  const index = Number(raw);
+  return Number.isNaN(index) ? undefined : index;
+};
 
 document.addEventListener("paste", async (e) => {
   if (tabPanelEditor.hidden) {
@@ -3875,31 +3991,54 @@ document.addEventListener("paste", async (e) => {
     }
   }
 
-  const slotEl = e.target.closest("[data-image-slot-index]");
-  const messageIndex = slotEl
-    ? Number(slotEl.dataset.imageSlotIndex)
-    : lastFocusedImageSlotIndex;
-  if (messageIndex == null || Number.isNaN(messageIndex)) {
+  const storySlotEl = e.target.closest("[data-story-slot-index]");
+  const imageSlotEl = e.target.closest("[data-image-slot-index]");
+  const msgRow = e.target.closest("[data-message-index]");
+  const textMessageIndex =
+    active?.dataset?.messageTextIndex != null
+      ? Number(active.dataset.messageTextIndex)
+      : msgRow
+        ? Number(msgRow.dataset.messageIndex)
+        : null;
+
+  if (storySlotEl) {
+    e.preventDefault();
+    try {
+      await pasteStoryImage(resolveStorySlotIndex(storySlotEl.dataset.storySlotIndex) ?? null, file);
+      await refreshDialogue();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
     return;
   }
 
-  const conversation = parseConversationJson();
-  const message = conversation?.messages?.[messageIndex];
-  if (!message?.image?.trim()) {
+  let messageIndex = imageSlotEl
+    ? Number(imageSlotEl.dataset.imageSlotIndex)
+    : textMessageIndex != null && !Number.isNaN(textMessageIndex)
+      ? textMessageIndex
+      : lastFocusedImageSlotIndex;
+
+  if (messageIndex != null && !Number.isNaN(messageIndex)) {
+    e.preventDefault();
+    try {
+      await pasteImageForMessageContext(messageIndex, file);
+      await refreshDialogue();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
     return;
   }
 
-  const pasteItem = buildItemFromMessage(message, messageIndex);
-  if (!pasteItem) {
-    return;
-  }
-
-  e.preventDefault();
-  try {
-    await uploadImageFileToMessage(pasteItem, file);
-    await refreshDialogue();
-  } catch (err) {
-    alert(err instanceof Error ? err.message : String(err));
+  if (lastFocusedStorySlotIndex != null) {
+    e.preventDefault();
+    try {
+      const storyIndex =
+        lastFocusedStorySlotIndex === "opening" ? null : lastFocusedStorySlotIndex;
+      await pasteStoryImage(storyIndex, file);
+      await refreshDialogue();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
   }
 });
 
