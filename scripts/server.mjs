@@ -876,6 +876,9 @@ app.post("/api/images/generate", async (req, res) => {
           });
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
+        } else {
+          imagePromptSuggested = manualPrompt;
+          promptSource = "manual";
         }
       } else if (imageKind === "story") {
         if (typeof messageIndex !== "number" || messageIndex < 0) {
@@ -891,6 +894,9 @@ app.post("/api/images/generate", async (req, res) => {
           });
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
+        } else {
+          imagePromptSuggested = manualPrompt;
+          promptSource = "manual";
         }
       } else {
         if (typeof messageIndex !== "number" || messageIndex < 0) {
@@ -917,17 +923,16 @@ app.post("/api/images/generate", async (req, res) => {
     }
 
     const isStoryKind = imageKind === "story" || imageKind === "story-opening";
-    const finalPrompt =
-      manualPrompt ||
-      (isStoryKind
-        ? buildStoryImageGenerationPrompt({
-            imagePrompt: imagePromptSuggested,
-            stylePrompt: style || (await readStoryStylePrompt()),
-          })
-        : buildImageGenerationPrompt({
-            imagePrompt: imagePromptSuggested,
-            stylePrompt: style || (await readStylePrompt()),
-          }));
+    const finalPrompt = isStoryKind
+      ? buildStoryImageGenerationPrompt({
+          imagePrompt: imagePromptSuggested,
+          stylePrompt: style || (await readStoryStylePrompt()),
+        })
+      : manualPrompt ||
+        buildImageGenerationPrompt({
+          imagePrompt: imagePromptSuggested,
+          stylePrompt: style || (await readStylePrompt()),
+        });
 
     if (!finalPrompt) {
       res.status(400).json({error: "Не удалось собрать промпт для генерации"});

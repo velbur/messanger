@@ -2264,6 +2264,33 @@ const setJsonStoryOpeningPrompt = (imagePrompt) => {
 };
 
 const storyImagePromptSaveTimers = new Map();
+
+const flushStoryImagePromptToJson = (messageIndex, promptText) => {
+  if (messageIndex == null) {
+    if (storyOpeningPromptSaveTimer.id) {
+      clearTimeout(storyOpeningPromptSaveTimer.id);
+      storyOpeningPromptSaveTimer.id = null;
+    }
+    setJsonStoryOpeningPrompt(promptText);
+    return;
+  }
+  if (storyImagePromptSaveTimers.has(messageIndex)) {
+    clearTimeout(storyImagePromptSaveTimers.get(messageIndex));
+    storyImagePromptSaveTimers.delete(messageIndex);
+  }
+  setJsonStoryImagePrompt(messageIndex, promptText);
+};
+
+const buildStoryPreviewLookup = (storyItems) => {
+  const lookup = new Map();
+  for (const item of storyItems ?? []) {
+    const key = item.messageIndex == null ? "opening" : item.messageIndex;
+    if (item.previewUrl) {
+      lookup.set(key, item.previewUrl);
+    }
+  }
+  return lookup;
+};
 const storyOpeningPromptSaveTimer = {id: null};
 
 const imagePromptSaveTimers = new Map();
@@ -2616,13 +2643,23 @@ const generateFrameImage = async (item) => {
   if (!json) {
     throw new Error("Сначала вставьте JSON переписки");
   }
+  const slot = document.querySelector(`[data-image-slot-index="${item.messageIndex}"]`);
+  const promptText = slot?.querySelector(".image-card__prompt-input")?.value?.trim() ?? "";
+  if (promptText) {
+    if (imagePromptSaveTimers.has(item.messageIndex)) {
+      clearTimeout(imagePromptSaveTimers.get(item.messageIndex));
+      imagePromptSaveTimers.delete(item.messageIndex);
+    }
+    setJsonImagePrompt(item.messageIndex, promptText);
+  }
   const targetRef = item.kind === "local" && item.hasImagePath ? item.ref : buildEditorImageRef(item.messageIndex);
   const res = await fetch("/api/images/generate", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      json,
+      json: jsonInput.value,
       messageIndex: item.messageIndex,
+      prompt: promptText || undefined,
       stylePrompt: getStylePrompt(),
       targetRef,
       aspectRatio: "4:3",
@@ -2635,6 +2672,14 @@ const generateFrameImage = async (item) => {
   setJsonImage(item.messageIndex, data.publicPath);
   if (data.imagePrompt) {
     setJsonImagePrompt(item.messageIndex, data.imagePrompt);
+  } else if (promptText) {
+    setJsonImagePrompt(item.messageIndex, promptText);
+  }
+  if (data.previewUrl) {
+    const img = slot?.querySelector(".image-slot__preview");
+    if (img) {
+      img.src = data.previewUrl;
+    }
   }
   return data;
 };
@@ -2765,7 +2810,7 @@ const enrichImageItem = (message, messageIndex, item) => {
   return {...base, ...state};
 };
 
-const renderStoryImageSlot = ({messageIndex, message, title}) => {
+const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null}) => {
   const slot = document.createElement("div");
   slot.className = "image-slot image-slot--story";
   slot.dataset.storySlotIndex = String(messageIndex ?? "opening");
@@ -2821,7 +2866,9 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
     preview.className = "image-slot__preview";
     preview.alt = title;
     preview.loading = "lazy";
-    preview.src = `/${imagePath.replace(/^\/+/, "")}`;
+    preview.src =
+      previewUrl ||
+      (isImageUrl(imagePath) ? imagePath : `/${imagePath.replace(/^\/+/, "")}`);
     preview.addEventListener("click", () => openImageLightbox(preview.src));
     slot.append(preview);
   }
@@ -2841,6 +2888,8 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
     }
     btnGenerate.disabled = true;
     try {
+      const promptText = promptInput.value.trim();
+      flushStoryImagePromptToJson(messageIndex, promptText);
       const res = await fetch("/api/images/generate", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -2848,7 +2897,7 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
           json: jsonInput.value,
           messageIndex: messageIndex ?? undefined,
           imageKind: messageIndex == null ? "story-opening" : "story",
-          prompt: promptInput.value.trim() || undefined,
+          prompt: promptText || undefined,
           targetRef:
             messageIndex == null ? buildEditorStoryOpeningRef() : buildEditorStoryRef(messageIndex),
           aspectRatio: "9:16",
@@ -2864,15 +2913,28 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
       } else {
         setJsonStoryImage(messageIndex, data.publicPath);
       }
-      if (data.imagePrompt) {
-        promptInput.value = data.imagePrompt;
-        if (messageIndex == null) {
-          setJsonStoryOpeningPrompt(data.imagePrompt);
-        } else {
-          setJsonStoryImagePrompt(messageIndex, data.imagePrompt);
-        }
+      const savedPrompt = data.imagePrompt || promptText;
+      if (savedPrompt) {
+        promptInput.value = savedPrompt;
+        flushStoryImagePromptToJson(messageIndex, savedPrompt);
       }
-      await refreshDialogue();
+      const preview = slot.querySelector(".image-slot__preview");
+      if (data.previewUrl) {
+        if (preview) {
+          preview.src = data.previewUrl;
+        } else {
+          const nextPreview = document.createElement("img");
+          nextPreview.className = "image-slot__preview";
+          nextPreview.alt = title;
+          nextPreview.loading = "lazy";
+          nextPreview.src = data.previewUrl;
+          nextPreview.addEventListener("click", () => openImageLightbox(nextPreview.src));
+          slot.insertBefore(nextPreview, actions);
+        }
+        btnGenerate.textContent = "Перегенерировать";
+      } else {
+        await refreshDialogue();
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -2924,7 +2986,7 @@ const renderStoryImageSlot = ({messageIndex, message, title}) => {
   return slot;
 };
 
-const renderStoryOpeningPanel = (conversation) => {
+const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
   const panel = document.createElement("section");
   panel.className = "dialogue-editor__story-opening";
   const title = document.createElement("h3");
@@ -2936,6 +2998,7 @@ const renderStoryOpeningPanel = (conversation) => {
       messageIndex: null,
       message: conversation,
       title: "story.opening",
+      previewUrl: storyPreviewLookup?.get("opening") ?? null,
     }),
   );
   return panel;
@@ -3283,7 +3346,7 @@ const buildPendingImageItem = (message, messageIndex) => {
 const resolveImageItem = (message, messageIndex, scannedItem) =>
   enrichImageItem(message, messageIndex, scannedItem);
 
-const renderDialogueMessage = (message, messageIndex, item, contactName) => {
+const renderDialogueMessage = (message, messageIndex, item, contactName, storyPreviewLookup) => {
   const row = document.createElement("article");
   const isMe = message.author === "me";
   const imageState =
@@ -3404,6 +3467,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
           messageIndex,
           message,
           title: `Сюжет сверху · №${messageIndex + 1}`,
+          previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
         }),
       );
     } else {
@@ -3429,7 +3493,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName) => {
   return row;
 };
 
-const renderDialogueEditor = (conversation, items, timingPreview) => {
+const renderDialogueEditor = (conversation, items, timingPreview, storyItems = []) => {
   const activeId = document.activeElement?.id;
   const activeTextIndex = document.activeElement?.dataset?.messageTextIndex;
   const scrollTop = dialogueEditor.scrollTop;
@@ -3454,6 +3518,7 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
   thread.className = "dialogue-editor__thread";
 
   const itemsByIndex = new Map((items ?? []).map((item) => [item.messageIndex, item]));
+  const storyPreviewLookup = buildStoryPreviewLookup(storyItems);
 
   const needsImageIndexes = [];
   if (conversation.layout !== "storySplit" && conversation.layout !== "storyOverlay") {
@@ -3490,7 +3555,7 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
   }
 
   if (isStoryVisualLayout(conversation)) {
-    dialogueEditor.append(renderStoryOpeningPanel(conversation));
+    dialogueEditor.append(renderStoryOpeningPanel(conversation, storyPreviewLookup));
   }
 
   for (let i = 0; i < conversation.messages.length; i++) {
@@ -3500,6 +3565,7 @@ const renderDialogueEditor = (conversation, items, timingPreview) => {
         i,
         itemsByIndex.get(i),
         conversation.contactName,
+        storyPreviewLookup,
       ),
     );
   }
@@ -3588,11 +3654,11 @@ const refreshDialogue = async () => {
     syncVideoLayoutFromJson();
     syncMessageFontSizeFromJson();
     syncVoiceoverFromJson();
-    renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview);
+    renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview, data.storyItems ?? []);
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
   } catch {
-    renderDialogueEditor(conversation, [], messageTimingPreview);
+    renderDialogueEditor(conversation, [], messageTimingPreview, []);
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
   }

@@ -61,6 +61,44 @@ export const collectImageRefs = (parsed) => {
     .filter(Boolean);
 };
 
+/** Story opening + story-кадры с cache-busted previewUrl для редактора */
+export const collectStoryImageScanItems = async (parsed) => {
+  if (!isStoryVisualLayout(parsed)) {
+    return [];
+  }
+
+  const items = [];
+  const openingRef = String(parsed?.story?.opening?.image ?? "").trim();
+  if (openingRef) {
+    const statusInfo = await getImageStatus(openingRef);
+    items.push({
+      slot: "opening",
+      messageIndex: null,
+      ref: openingRef,
+      kind: isImageUrl(openingRef) ? "url" : "local",
+      ...statusInfo,
+    });
+  }
+
+  const messages = Array.isArray(parsed?.messages) ? parsed.messages : [];
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
+    const ref = String(messages[messageIndex]?.storyImage ?? "").trim();
+    if (!ref) {
+      continue;
+    }
+    const statusInfo = await getImageStatus(ref);
+    items.push({
+      slot: "message",
+      messageIndex,
+      ref,
+      kind: isImageUrl(ref) ? "url" : "local",
+      ...statusInfo,
+    });
+  }
+
+  return items;
+};
+
 const safePublicPath = (relativePath) => {
   const normalized = String(relativePath).replace(/^\/+/, "");
   if (normalized.includes("..") || path.isAbsolute(normalized)) {
@@ -411,5 +449,10 @@ export const scanImagesFromJson = async (jsonText) => {
     const statusInfo = await getImageStatus(item.ref);
     items.push({...item, ...statusInfo});
   }
-  return {items, ok: items.every((i) => i.status === "ok")};
+  const storyItems = await collectStoryImageScanItems(parsed);
+  return {
+    items,
+    storyItems,
+    ok: items.every((i) => i.status === "ok") && storyItems.every((i) => i.status === "ok"),
+  };
 };
