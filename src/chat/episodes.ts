@@ -1,4 +1,4 @@
-import type {ConversationInput} from "./schema";
+import type {ConversationInput, MessageInput} from "./schema";
 
 export type EpisodesConfig = {
   enabled?: boolean;
@@ -68,6 +68,33 @@ export const buildPreviewCoverTitle = (
   return base ? `${base}\n${part}` : part;
 };
 
+/** Последний story-кадр до границы эпизода — чтобы продолжения не начинались с чёрного экрана */
+export const findLastStorySceneBefore = (
+  messages: MessageInput[],
+  beforeIndex: number,
+): {
+  image: string;
+  storyVideo?: string;
+  storyVideoDurationMs?: number;
+  storyVideoLoop?: boolean;
+} | null => {
+  const limit = Math.min(beforeIndex, messages.length);
+  for (let index = limit - 1; index >= 0; index -= 1) {
+    const image = messages[index]?.storyImage?.trim();
+    if (!image) {
+      continue;
+    }
+    const message = messages[index];
+    return {
+      image,
+      storyVideo: message.storyVideo?.trim() || undefined,
+      storyVideoDurationMs: message.storyVideoDurationMs,
+      storyVideoLoop: message.storyVideoLoop,
+    };
+  }
+  return null;
+};
+
 export const buildEpisodeConversations = (conversation: ConversationInput): ConversationInput[] => {
   const config = conversation.episodes;
   if (!config?.enabled) {
@@ -113,7 +140,20 @@ const sliceConversationForEpisode = (
     if (sliced.intro) {
       sliced.intro = {...sliced.intro, enabled: false};
     }
-    if (sliced.story?.opening) {
+    const carryOver = findLastStorySceneBefore(conversation.messages, startIndex);
+    if (carryOver) {
+      sliced.story = {
+        ...(sliced.story ?? {}),
+        opening: {
+          image: carryOver.image,
+          storyVideo: carryOver.storyVideo,
+          storyVideoDurationMs: carryOver.storyVideoDurationMs,
+          storyVideoLoop: carryOver.storyVideoLoop,
+          durationMs: 800,
+          animation: carryOver.storyVideo ? "video" : "none",
+        },
+      };
+    } else if (sliced.story?.opening) {
       sliced.story = {
         ...sliced.story,
         opening: {
