@@ -26,7 +26,7 @@ import {
   visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatTypographyProvider} from "./TypographyContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -46,6 +46,7 @@ type Props = {
 void VIDEO_FEATURE_BUNDLE_MARKER;
 void TIMELINE_TAIL_MARKER;
 void STORY_SPLIT_TIMELINE_REV;
+void CHAT_OVERLAY_BUNDLE_MARKER;
 
 type ChatBodyProps = {
   conversation: ConversationInput;
@@ -89,7 +90,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
           justifyContent: "flex-end",
           width: "100%",
           opacity,
-          padding: `0 ${LAYOUT.chatPaddingRight}px ${LAYOUT.shortsSafeAreaBottom + 24}px ${LAYOUT.chatPaddingLeft}px`,
+          padding: `0 ${LAYOUT.chatPaddingRight}px ${LAYOUT.shortsSafeAreaBottom + 24 + CHAT_OVERLAY.stackLiftPx}px ${LAYOUT.chatPaddingLeft}px`,
         }}
       >
         <div style={{display: "flex", flexDirection: "column", width: "100%"}}>

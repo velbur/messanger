@@ -107,6 +107,14 @@ export const CHAT = {
 } as const;
 
 /** Компактные пузыри поверх сюжетного кадра (storyOverlay) */
+const overlayMessageSlotPx =
+  S(8) +
+  S(6) +
+  Math.round(S(44) * CHAT.messageLineHeight) +
+  S(22) +
+  2 +
+  S(5);
+
 export const CHAT_OVERLAY = {
   bubblePadding: `${S(8)}px ${S(14)}px ${S(6)}px`,
   bubbleRadius: S(28),
@@ -114,10 +122,16 @@ export const CHAT_OVERLAY = {
   messageMaxWidth: S(640),
   metaRowMinHeight: S(22),
   metaRowMarginTop: 2,
-  maxVisibleMessages: 3,
+  /** Было 3 — оставляем 2, поднятые на место 1–2 в прежнем стеке */
+  maxVisibleMessages: 2,
+  /** Доп. отступ снизу ≈ один слот пузыря — поднимает стек выше */
+  stackLiftPx: overlayMessageSlotPx,
   bubbleAlpha: 0.58,
   backdropBlur: 10,
 } as const;
+
+/** Маркер storyOverlay в bundle — обновить в scripts/bundle-cache.mjs */
+export const CHAT_OVERLAY_BUNDLE_MARKER = "chat-overlay-2msg-v1";
 
 export const hexToRgba = (hex: string, alpha: number): string => {
   const normalized = hex.replace("#", "");
