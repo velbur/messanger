@@ -41,7 +41,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-immediate-first-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-first-msg-with-image-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -295,9 +295,14 @@ const buildStoryTimeline = (
 
   const openingEndFrame = openingStartFrame + openingDurationFrames;
   const splitStartFrame = openingEndFrame;
-  const splitCompleteFrame = immediateFirstScene
+  let splitCompleteFrame = immediateFirstScene
     ? firstRevealFrame
     : splitStartFrame + splitTransitionFrames;
+
+  // Первое сообщение вместе с картинкой — чат не ждёт конца заставки opening.
+  if (events.length > 0) {
+    splitCompleteFrame = Math.min(splitCompleteFrame, firstRevealFrame);
+  }
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
   const sceneIndices = conversation.messages
