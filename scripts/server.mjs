@@ -1978,6 +1978,8 @@ const runRenderPreparation = async (
       throw new Error("Отменено пользователем");
     }
 
+    await loadOpenRouterEnv();
+
     if (autoGenerateImages) {
       job.phase = "Генерация изображений…";
       job.progress = 0.05;
@@ -1997,37 +1999,39 @@ const runRenderPreparation = async (
       job.logs.push(...voiceGenLogs);
     }
 
+    let skippedStoryVideoGeneration = false;
     if (isStoryVisual && pendingStoryVideos > 0) {
       if (!isOpenRouterConfigured()) {
-        throw new Error(
-          "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
+        skippedStoryVideoGeneration = true;
+        job.logs.push(
+          "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
         );
+      } else {
+        const total = pendingStoryVideos;
+        job.phase = `Анимация story-кадров (0/${total})…`;
+        job.progress = 0.12;
+
+        const storyVideoLogs = await generateMissingStoryVideos(conversation, {
+          publicBaseUrl,
+          isCancelled: () => job.prepCancelled,
+          onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
+            const safeTotal = Math.max(clipTotal, 1);
+            if (stage === "polling") {
+              job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
+              job.progress = 0.12 + (done / safeTotal) * 0.38;
+              return;
+            }
+            if (stage === "generating") {
+              job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
+              job.progress = 0.12 + (done / safeTotal) * 0.38;
+              return;
+            }
+            job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
+            job.progress = 0.12 + (done / safeTotal) * 0.38;
+          },
+        });
+        job.logs.push(...storyVideoLogs);
       }
-
-      const total = pendingStoryVideos;
-      job.phase = `Анимация story-кадров (0/${total})…`;
-      job.progress = 0.12;
-
-      const storyVideoLogs = await generateMissingStoryVideos(conversation, {
-        publicBaseUrl,
-        isCancelled: () => job.prepCancelled,
-        onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
-          const safeTotal = Math.max(clipTotal, 1);
-          if (stage === "polling") {
-            job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
-            job.progress = 0.12 + (done / safeTotal) * 0.38;
-            return;
-          }
-          if (stage === "generating") {
-            job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
-            job.progress = 0.12 + (done / safeTotal) * 0.38;
-            return;
-          }
-          job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
-          job.progress = 0.12 + (done / safeTotal) * 0.38;
-        },
-      });
-      job.logs.push(...storyVideoLogs);
     }
 
     if (isStoryVisual) {
@@ -2066,7 +2070,9 @@ const runRenderPreparation = async (
       failOnMissingVoice: voiceoverEnabled,
     });
     const storyVideoResolveLogs = isStoryVisual
-      ? await resolveStoryVideos(conversation, {failOnMissingVideos: true})
+      ? await resolveStoryVideos(conversation, {
+          failOnMissingVideos: !skippedStoryVideoGeneration,
+        })
       : [];
 
     job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
@@ -2244,14 +2250,6 @@ app.post("/api/render", async (req, res) => {
       res.status(400).json({
         error:
           "Озвучка не готова: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
-      });
-      return;
-    }
-
-    if (isStoryVisual && pendingStoryVideos > 0 && !isOpenRouterConfigured()) {
-      res.status(400).json({
-        error:
-          "Story-видео не готово: OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env на машине с UI)",
       });
       return;
     }

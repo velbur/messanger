@@ -567,7 +567,9 @@ cmd_worker() {
   echo "Если рендер падает на conversation.json — на этой машине: git pull && перезапуск воркера."
   echo "Остановка: Ctrl+C"
 
-  run_server_container "chat-video-worker" "${WORKER_PORT}"
+  run_server_container "chat-video-worker" "${WORKER_PORT}" \
+    "NATIVE_PROJECT_ROOT=${ROOT}" \
+    "REMOTE_RENDER_URL=${REMOTE_RENDER_URL:-}"
 }
 
 main() {
