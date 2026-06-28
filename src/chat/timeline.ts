@@ -453,6 +453,134 @@ export const resolveStorySceneTiming = (
   };
 };
 
+/** Длина кросс-фейда между story-сценами, кадры (~0.4 c при 30 fps) */
+export const STORY_SCENE_CROSSFADE_FRAMES = 12;
+
+/** Один видимый слой story-панели на кадре (обычно один; на стыке сцен — два) */
+export type StorySceneLayer = {
+  key: string;
+  image?: string;
+  video?: string;
+  videoDurationMs?: number;
+  videoLoop: boolean;
+  sceneStartFrame: number;
+  sceneDurationFrames: number;
+  opacity: number;
+};
+
+type StorySegment = {
+  startFrame: number;
+  endFrame: number;
+  image?: string;
+  video?: string;
+  videoDurationMs?: number;
+  videoLoop: boolean;
+};
+
+/**
+ * Непрерывные сегменты story-медиа: заставка (если есть отдельно) + каждая сцена.
+ * endFrame каждого сегмента = startFrame следующего (последний — до начала outro),
+ * что повторяет окно показа из resolveStorySceneTiming, но в виде упорядоченного списка.
+ */
+const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): StorySegment[] => {
+  const raw: Omit<StorySegment, "endFrame">[] = [];
+
+  if (!story.immediateFirstScene && (story.openingImage || story.openingVideo)) {
+    raw.push({
+      startFrame: story.openingStartFrame,
+      image: story.openingImage,
+      video: story.openingVideo,
+      videoDurationMs: story.openingVideoDurationMs,
+      videoLoop: story.openingVideoLoop,
+    });
+  }
+
+  for (const event of story.sceneEvents) {
+    raw.push({
+      startFrame: event.startFrame,
+      image: event.image,
+      video: event.video,
+      videoDurationMs: event.videoDurationMs,
+      videoLoop: event.videoLoop,
+    });
+  }
+
+  return raw.map((segment, index) => ({
+    ...segment,
+    endFrame: raw[index + 1]?.startFrame ?? outroStartFrame,
+  }));
+};
+
+const smoothstep = (value: number): number => {
+  const x = Math.max(0, Math.min(1, value));
+  return x * x * (3 - 2 * x);
+};
+
+/**
+ * Слои story-сцены на кадре. На стыке двух сцен возвращаются два слоя:
+ * уходящая сцена снизу (opacity 1, окно Sequence продлено на кросс-фейд),
+ * входящая сверху с opacity 0→1 — мягкий dissolve без чёрного провала.
+ */
+export const resolveStorySceneLayers = (
+  story: StoryTimeline,
+  frame: number,
+  outroStartFrame: number,
+  crossfadeFrames: number = STORY_SCENE_CROSSFADE_FRAMES,
+): StorySceneLayer[] => {
+  if (!story.enabled) {
+    return [];
+  }
+
+  const segments = buildStorySegments(story, outroStartFrame);
+  if (segments.length === 0) {
+    return [];
+  }
+
+  let index = 0;
+  for (let i = 0; i < segments.length; i += 1) {
+    if (frame >= segments[i].startFrame) {
+      index = i;
+    }
+  }
+
+  const toLayer = (
+    segment: StorySegment,
+    segmentIndex: number,
+    durationFrames: number,
+    opacity: number,
+  ): StorySceneLayer => ({
+    key: `seg-${segmentIndex}`,
+    image: segment.image,
+    video: segment.video,
+    videoDurationMs: segment.videoDurationMs,
+    videoLoop: segment.videoLoop,
+    sceneStartFrame: segment.startFrame,
+    sceneDurationFrames: Math.max(1, durationFrames),
+    opacity,
+  });
+
+  const current = segments[index];
+  const currentDuration = current.endFrame - current.startFrame;
+  const localFrame = frame - current.startFrame;
+  const crossfading = index > 0 && crossfadeFrames > 0 && localFrame < crossfadeFrames;
+
+  if (crossfading) {
+    const previous = segments[index - 1];
+    const incomingOpacity = smoothstep(localFrame / crossfadeFrames);
+    return [
+      toLayer(
+        previous,
+        index - 1,
+        current.startFrame - previous.startFrame + crossfadeFrames,
+        1,
+      ),
+      toLayer(current, index, currentDuration, incomingOpacity),
+    ];
+  }
+
+  return [toLayer(current, index, currentDuration, 1)];
+};
+
 const firstSceneMedia = (story: StoryTimeline) =>
   story.sceneEvents.find((event) => event.messageIndex === 0);
 

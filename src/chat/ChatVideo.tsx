@@ -14,13 +14,9 @@ import {mergeConversationSounds} from "./sounds";
 import {mergeConversationVoiceover} from "./voiceover";
 import {
   buildTimeline,
-  resolveStorySceneTiming,
+  resolveStorySceneLayers,
   FULLSCREEN_TIMELINE_REV,
   getStatusBarTime,
-  storyImageAtFrame,
-  storyVideoAtFrame,
-  storyVideoDurationMsAtFrame,
-  storyVideoLoopAtFrame,
   STORY_SPLIT_TIMELINE_REV,
   TIMELINE_TAIL_MARKER,
   visibleMessageCountAtFrame,
@@ -343,17 +339,9 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
         )
     : 1;
 
-  const currentStoryImage = storyVisualActive ? storyImageAtFrame(story, frame) : undefined;
-  const currentStoryVideo = storyVisualActive ? storyVideoAtFrame(story, frame) : undefined;
-  const currentStoryVideoDurationMs = storyVisualActive
-    ? storyVideoDurationMsAtFrame(story, frame)
-    : undefined;
-  const currentStoryVideoLoop = storyVisualActive ? storyVideoLoopAtFrame(story, frame) : false;
-  const {startFrame: sceneStartFrame, endFrame: sceneEndFrame} = storyVisualActive
-    ? resolveStorySceneTiming(story, frame, timeline.outroStartFrame)
-    : {startFrame: 0, endFrame: timeline.outroStartFrame};
-  const sceneLocalFrame = Math.max(0, frame - sceneStartFrame);
-  const sceneDurationFrames = Math.max(1, sceneEndFrame - sceneStartFrame);
+  const storyLayers = storyVisualActive
+    ? resolveStorySceneLayers(story, frame, timeline.outroStartFrame)
+    : [];
 
   const showHook =
     conversation.hookText?.trim() &&
@@ -376,15 +364,9 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           storyOverlayMode ? (
             <>
               <StoryPanel
-                image={currentStoryImage}
-                video={currentStoryVideo}
-                videoDurationMs={currentStoryVideoDurationMs}
-                videoLoop={currentStoryVideoLoop}
+                layers={storyLayers}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
-                sceneStartFrame={sceneStartFrame}
-                sceneLocalFrame={sceneLocalFrame}
-                sceneDurationFrames={sceneDurationFrames}
               />
               <AbsoluteFill
                 style={{
@@ -402,15 +384,9 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
           ) : (
             <>
               <StoryPanel
-                image={currentStoryImage}
-                video={currentStoryVideo}
-                videoDurationMs={currentStoryVideoDurationMs}
-                videoLoop={currentStoryVideoLoop}
+                layers={storyLayers}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
-                sceneStartFrame={sceneStartFrame}
-                sceneLocalFrame={sceneLocalFrame}
-                sceneDurationFrames={sceneDurationFrames}
               />
               <div
                 style={{
