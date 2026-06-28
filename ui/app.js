@@ -82,8 +82,6 @@ const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
-const dialogueStyleOption = document.getElementById("dialogueStyleOption");
-const dialogueStyle = document.getElementById("dialogueStyle");
 const dialogueMessageCount = document.getElementById("dialogueMessageCount");
 const dialogueImageCount = document.getElementById("dialogueImageCount");
 const dialogueLanguage = document.getElementById("dialogueLanguage");
@@ -132,15 +130,15 @@ let openrouterImageModel = "openai/gpt-5.4-image-2";
 
 const canGenerateImages = () => openrouterImageAvailable;
 
-const DEFAULT_DIALOGUE_STYLE = "fun";
+const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
-const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
-const SHORTS_STYLE_PRESETS = {
-  fun: {messageCount: 10, imageCount: 0},
-  mystic: {messageCount: 20, imageCount: 1},
-  story: {messageCount: 12, imageCount: 0},
+
+const VIDEO_LAYOUT_LABELS = {
+  chat: "чат",
+  storySplit: "split",
+  storyOverlay: "overlay",
 };
 const SHORTS_PROMPT_STORAGE_KEY = "messanger.shortsPrompt";
 
@@ -248,16 +246,7 @@ const initEditorPreferenceControls = () => {
   }
 };
 
-const shortsStylesMeta = {
-  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
-  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
-  story: {label: "Сюжет+чат", wallpaper: "dark", music: "auto", layout: "storySplit"},
-};
-
 const getDialogueLanguage = () => (dialogueLanguage?.value === "en" ? "en" : "ru");
-
-const normalizeDialogueStyle = (value) =>
-  value && value in shortsStylesMeta ? value : DEFAULT_DIALOGUE_STYLE;
 
 let dialogueModelsCatalog = {models: [], defaultId: ""};
 
@@ -427,13 +416,10 @@ const syncEditorKindUi = () => {
   if (seriesTitleCardsRow) {
     seriesTitleCardsRow.hidden = !isSeries;
   }
-  if (dialogueStyleOption) {
-    dialogueStyleOption.hidden = isSeries;
-  }
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
-      : "Ваше задание для Shorts. Стиль подмешивается на сервере автоматически.";
+      : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео и число фото — ниже.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
@@ -586,7 +572,6 @@ const captureEditorSnapshot = () => ({
   prompt: dialoguePromptInput?.value ?? "",
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
-  dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
   dialogueModel: getDialogueModel(),
   messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
   imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
@@ -606,9 +591,6 @@ const restoreEditorSnapshot = async (snapshot) => {
     if (editorKind === "shorts" && !dialoguePromptInput.value.trim()) {
       dialoguePromptInput.value = readLastShortsPrompt();
     }
-  }
-  if (dialogueStyle) {
-    dialogueStyle.value = normalizeDialogueStyle(snapshot?.dialogueStyle);
   }
   populateDialogueModelOptions(snapshot?.dialogueModel);
   if (dialogueMessageCount && snapshot?.messageCount) {
@@ -1093,7 +1075,6 @@ const newDialogue = async ({openEditor = false} = {}) => {
   dialogueEditor.replaceChildren();
   resetWorkflowControls();
   if (editorKind === "shorts") {
-    applyShortsStyleDefaults();
     applyShortsGenDefaults();
     setVideoLayout("storyOverlay");
   }
@@ -1606,22 +1587,6 @@ const saveStoryStylePrompt = async () => {
 
 btnSaveStoryStylePrompt?.addEventListener("click", saveStoryStylePrompt);
 
-const loadShortsStyles = async () => {
-  try {
-    const res = await fetch("/api/shorts/styles");
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error ?? "Не удалось загрузить стили Shorts");
-    }
-    if (data.styles && typeof data.styles === "object") {
-      Object.assign(shortsStylesMeta, data.styles);
-      populateDialogueStyleOptions();
-    }
-  } catch {
-    populateDialogueStyleOptions();
-  }
-};
-
 const updatePreRenderChecklistUI = (result) => {
   if (!preRenderChecklist) {
     return;
@@ -2033,69 +1998,9 @@ const setMusicId = (id) => {
   }
 };
 
-const getShortsStyleMeta = () => {
-  if (editorKind !== "shorts") {
-    return null;
-  }
-  return shortsStylesMeta[normalizeDialogueStyle(dialogueStyle?.value)] ?? null;
-};
-
-const populateDialogueStyleOptions = () => {
-  if (!dialogueStyle) {
-    return;
-  }
-  const current = normalizeDialogueStyle(dialogueStyle.value);
-  dialogueStyle.replaceChildren();
-  for (const [id, meta] of Object.entries(shortsStylesMeta)) {
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = meta.label ?? id;
-    dialogueStyle.append(opt);
-  }
-  dialogueStyle.value = current in shortsStylesMeta ? current : DEFAULT_DIALOGUE_STYLE;
-};
-
-const applyShortsStyleCountPresets = () => {
-  const style = normalizeDialogueStyle(dialogueStyle?.value);
-  const preset = SHORTS_STYLE_PRESETS[style] ?? SHORTS_STYLE_PRESETS.fun;
-  if (dialogueMessageCount) {
-    dialogueMessageCount.value = String(preset.messageCount);
-  }
-  if (dialogueImageCount) {
-    dialogueImageCount.value = String(preset.imageCount);
-  }
-};
-
-/** Обои, музыка и формат — без сброса «Сообщений» / «Фото», их трогает только смена стиля */
-const applyShortsStyleAppearanceDefaults = () => {
-  const meta = getShortsStyleMeta();
-  if (!meta) {
-    return;
-  }
-  if (meta.wallpaper) {
-    setWallpaper(meta.wallpaper);
-  }
-  if (meta.music) {
-    setMusicId(meta.music);
-  }
-  if (meta.layout) {
-    setVideoLayout(meta.layout);
-    applyVideoLayoutToJson(meta.layout);
-  }
-};
-
-const applyShortsStyleDefaults = () => {
-  applyShortsStyleCountPresets();
-  applyShortsStyleAppearanceDefaults();
-};
-
 const applyShortsGenDefaults = () => {
   populateDialogueModelOptions(DEFAULT_SHORTS_DIALOGUE_MODEL);
 };
-
-dialogueStyle?.addEventListener("change", () => {
-  applyShortsStyleDefaults();
-});
 
 dialogueLanguage?.addEventListener("change", () => {
   if (editorKind === "shorts" && jsonInput.value.trim()) {
@@ -2151,7 +2056,6 @@ const loadMusicTracks = async () => {
     }
 
     setMusicId(defaultMusicId);
-    applyShortsStyleAppearanceDefaults();
   } catch (err) {
     musicSelect.replaceChildren();
     const opt = document.createElement("option");
@@ -4466,15 +4370,18 @@ const getDialogueGenOptions = () => ({
   imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
   language: getDialogueLanguage(),
   model: getDialogueModel(),
+  videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
 });
 
-const formatDialogueGenSummary = ({messageCount, imageCount, language, model}) => {
+const formatDialogueGenSummary = ({messageCount, imageCount, language, model, videoLayout}) => {
   const lang = language === "en" ? "EN" : "RU";
   const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
-  const meta = getShortsStyleMeta();
-  const style = meta ? `, ${meta.label}` : "";
+  const layout =
+    editorKind === "shorts" && videoLayout
+      ? `, ${VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout}`
+      : "";
   const modelLabel = model ? `, ${findDialogueModelLabel(model)}` : "";
-  return `≤${messageCount} сообщ.${photos}, ${lang}${style}${modelLabel}`;
+  return `≤${messageCount} сообщ.${photos}, ${lang}${layout}${modelLabel}`;
 };
 
 const generateDialogueFromPrompt = async () => {
@@ -4498,9 +4405,9 @@ const generateDialogueFromPrompt = async () => {
   };
 
   if (editorKind === "shorts") {
-    body.dialogueStyle = normalizeDialogueStyle(dialogueStyle?.value);
     body.includeImages = Number(dialogueImageCount?.value ?? 0) > 0;
     body.imageCount = Number(dialogueImageCount?.value ?? 0) || 0;
+    body.videoLayout = getVideoLayout();
   }
 
   if (editorKind === "series") {
@@ -4635,7 +4542,7 @@ const refineDialogueFromPrompt = async () => {
     mode: editorKind,
   };
   if (editorKind === "shorts") {
-    body.dialogueStyle = normalizeDialogueStyle(dialogueStyle?.value);
+    body.videoLayout = getVideoLayout();
   }
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
@@ -4683,7 +4590,7 @@ const regenerateEndingFromPrompt = async () => {
       messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()),
       imageCount: Number(dialogueImageCount?.value ?? 0),
       language: getDialogueLanguage(),
-      dialogueStyle: normalizeDialogueStyle(dialogueStyle?.value),
+      videoLayout: getVideoLayout(),
       model: getDialogueModel(),
     }),
   });

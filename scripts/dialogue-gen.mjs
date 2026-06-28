@@ -13,8 +13,13 @@ import {
   promptKeyForShortsSystem,
   promptKeyForLogic,
   promptKeyForLogicRules,
-  promptKeyForShortsStyle,
 } from "./dialogue-prompts.mjs";
+
+export const isStoryVisualLayout = (layout) =>
+  layout === "storySplit" || layout === "storyOverlay";
+
+const normalizeVideoLayout = (layout) =>
+  isStoryVisualLayout(layout) ? layout : "chat";
 import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
@@ -53,7 +58,8 @@ const buildJsonFormatBlock = ({
   myName = "Алиса",
   fullConversation = false,
   language = "ru",
-  withStorySplit = false,
+  withStoryVisual = false,
+  storyLayout = "storyOverlay",
 } = {}) => {
   const resolvedMyName =
     language === "en" && (myName === "Алиса" || myName === "Я") ? "Me" : myName;
@@ -68,8 +74,8 @@ const buildJsonFormatBlock = ({
       `  "myName": "${resolvedMyName}",`,
       '  "wallpaper": "default" | "dark",',
     );
-    if (withStorySplit) {
-      lines.push('  "layout": "storySplit",');
+    if (withStoryVisual) {
+      lines.push(`  "layout": "${storyLayout}",`);
       lines.push('  "story": {');
       lines.push('    "opening": {');
       lines.push('      "imagePrompt": "illustrated establishing scene before the chat starts"');
@@ -84,7 +90,7 @@ const buildJsonFormatBlock = ({
       '      "sentAt": "HH:MM"',
       "    },",
     );
-    if (withStorySplit) {
+    if (withStoryVisual) {
       lines.push(
         "    {",
         '      "author": "them",',
@@ -121,8 +127,8 @@ const buildJsonFormatBlock = ({
     `  "myName": "${resolvedMyName}",`,
     '  "wallpaper": "default" | "dark",',
   );
-  if (withStorySplit) {
-    lines.push('  "layout": "storySplit",');
+  if (withStoryVisual) {
+    lines.push(`  "layout": "${storyLayout}",`);
     lines.push('  "story": {');
     lines.push('    "opening": {');
     lines.push('      "imagePrompt": "рисованный establishing shot до начала переписки"');
@@ -137,7 +143,7 @@ const buildJsonFormatBlock = ({
     '      "sentAt": "HH:MM"',
     "    },",
   );
-  if (withStorySplit) {
+  if (withStoryVisual) {
     lines.push(
       "    {",
       '      "author": "them",',
@@ -165,62 +171,26 @@ const buildJsonFormatBlock = ({
   return lines;
 };
 
-const buildEmojiRules = (language = "ru", dialogueStyle = "fun", mode = "shorts") => {
-  const isFunShorts = dialogueStyle === "fun" && mode === "shorts";
-  const isMysticShorts = dialogueStyle === "mystic" && mode === "shorts";
+const buildEmojiRules = (language = "ru") => {
   const noSkullRule =
     language === "en"
       ? "- Never use skull emoji (💀 ☠️)."
       : "- Не используй череп в emoji (💀 ☠️).";
 
   if (language === "en") {
-    if (isMysticShorts) {
-      return [
-        noSkullRule,
-        "- Use emoji sparingly: uneasy reactions (😬 👀), almost never joke emoji.",
-        "- Skip emoji in the scariest or most serious beats.",
-      ];
-    }
-    if (isFunShorts) {
-      return [
-        noSkullRule,
-        "- Make the chat visually rich like real WhatsApp: emoji in reactions, jokes, and surprise.",
-        "- Aim for emoji in about half of text messages — not every line, but often enough to feel alive on screen.",
-        "- Mix reactions: 😂 🤣 😅 🙈 😭 🔥 👀 ❤️ 🤦 🤷 plus light text laugh (lol, lmao) where natural.",
-        "- Max 2–3 emoji per message; don't stack unrelated emoji.",
-        "- CAPS ok for comic emphasis (WHAT, NO WAY) — sparingly.",
-        "- Skip emoji only in dead-serious beats right before a punchline lands.",
-      ];
-    }
     return [
       noSkullRule,
       "- Use emoji in text where it fits messaging: irony, softening, warm reaction, quick joke.",
       "- Don't put emoji in every line; skip them in tense, scary, or desperate moments.",
+      "- Match emoji density and tone to the user brief — funny, eerie, romantic, etc.",
     ];
   }
 
-  if (isMysticShorts) {
-    return [
-      noSkullRule,
-      "- Emoji редко: только нервные реакции (😬 👀), без комедийных смайлов.",
-      "- В самых тревожных репликах — без emoji.",
-    ];
-  }
-  if (isFunShorts) {
-    return [
-      noSkullRule,
-      "- Переписка должна выглядеть живой и богатой, как в реальном WhatsApp: emoji в реакциях, шутках, удивлении.",
-      "- В весёлом стиле — emoji примерно в половине текстовых реплик: не в каждой строке, но регулярно, чтобы на видео было «живее».",
-      "- Чередуй: 😂 🤣 😅 🙈 😭 🔥 👀 ❤️ 🤦 🤷 и текстовый смех (ахах, ору, блин) где уместно.",
-      "- Не больше 2–3 emoji в одной реплике; не ставь несвязанные подряд.",
-      "- КАПС для комического акцента (ЧТО, НЕТ) — изредка, не в каждой реплике.",
-      "- Без emoji только в по-настоящему серьёзных моментах перед панчлайном.",
-    ];
-  }
   return [
     noSkullRule,
     "- Используй emoji в text там, где это уместно в переписке: ирония, смягчение, тёплая реакция, короткая шутка.",
     "- Не ставь emoji в каждой реплике и не используй их в напряжённых, страшных или отчаянных моментах.",
+    "- Плотность и тон emoji бери из задания пользователя — весёлый, мистический, романтичный и т.д.",
   ];
 };
 
@@ -239,20 +209,7 @@ const buildShortsNameRules = (language = "ru") => {
   ];
 };
 
-const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", dialogueStyle = "fun"} = {}) => {
-  const mysticExtras =
-    dialogueStyle === "mystic"
-      ? language === "en"
-        ? [
-            "- Mystic shorts: at most 1 photo message in the whole chat.",
-            "- Place the photo at the peak of unease (proof of something wrong). Finale — text only, no image.",
-          ]
-        : [
-            "- Для мистики: не больше 1 фото-сообщения на весь диалог.",
-            "- Фото — на пике тревоги (доказательство странности). Финал — только текст, без image.",
-          ]
-      : [];
-
+const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru"} = {}) => {
   if (imageCount <= 0) {
     return [
       ...(language === "en"
@@ -264,7 +221,6 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
             "- Только текстовые сообщения. Не используй imagePrompt и image.",
             "- Если в сцене нужно фото, герой описывает это словами в text.",
           ]),
-      ...mysticExtras,
     ];
   }
   const countRule =
@@ -289,7 +245,6 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
       ussrStyle
         ? "- Insert photos where a character sends proof: price tag, street, food, ticket, etc."
         : "- Insert photo messages where they strengthen the plot per the user brief.",
-      ...mysticExtras,
     ];
   }
   return [
@@ -301,11 +256,11 @@ const buildImageRules = (imageCount = 0, {ussrStyle = false, language = "ru", di
     ussrStyle
       ? "- Вставляй фото там, где герой присылает доказательство: ценник, улица, еда, билет и т.п."
       : "- Вставляй фото-сообщения там, где это усиливает сюжет по заданию пользователя.",
-    ...mysticExtras,
   ];
 };
 
-const buildStoryImageRules = ({language = "ru"} = {}) => {
+const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = {}) => {
+  const layoutValue = normalizeVideoLayout(videoLayout);
   const noBubbleRule =
     language === "en"
       ? "- Text-only chat: never use image, imagePrompt, or imageEditPrompt in messages."
@@ -313,7 +268,7 @@ const buildStoryImageRules = ({language = "ru"} = {}) => {
 
   if (language === "en") {
     return [
-      '- layout must be "storySplit".',
+      `- layout must be "${layoutValue}".`,
       "- story.opening.imagePrompt: illustrated establishing scene before messages appear (night, location, mood).",
       "- story.opening.animation: video (default).",
       "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide illustrated scene for the top panel.",
@@ -326,7 +281,7 @@ const buildStoryImageRules = ({language = "ru"} = {}) => {
   }
 
   return [
-    '- layout обязательно "storySplit".',
+    `- layout обязательно "${layoutValue}".`,
     "- story.opening.imagePrompt: рисованный establishing shot до появления сообщений (ночь, место, настроение).",
     "- story.opening.animation: video (по умолчанию).",
     "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий рисованный кадр для верхней панели.",
@@ -432,29 +387,30 @@ const buildTemplateVars = async ({
   language = "ru",
   mode = "shorts",
   ussrStyle = false,
-  dialogueStyle = "fun",
+  videoLayout = "chat",
 } = {}) => {
   const logicRules = await readPromptFile(promptKeyForLogicRules(language));
-  const isStoryStyle = dialogueStyle === "story";
+  const storyVisual = isStoryVisualLayout(videoLayout);
+  const storyLayout = normalizeVideoLayout(videoLayout);
   return {
     JSON_FORMAT: buildJsonFormatBlock({
       withDisplayTitle: mode === "shorts",
       myName: mode === "shorts" ? (language === "en" ? "Me" : "Я") : language === "en" ? "Alice" : "Алиса",
       fullConversation: mode === "shorts",
       language,
-      withStorySplit: isStoryStyle,
+      withStoryVisual: storyVisual,
+      storyLayout,
     }).join("\n"),
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
     MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
-    EMOJI_RULES: buildEmojiRules(language, dialogueStyle, mode).join("\n"),
-    IMAGE_RULES: isStoryStyle
-      ? buildStoryImageRules({language}).join("\n")
+    EMOJI_RULES: buildEmojiRules(language).join("\n"),
+    IMAGE_RULES: storyVisual
+      ? buildStoryImageRules({language, videoLayout: storyLayout}).join("\n")
       : buildImageRules(imageCount, {
           ussrStyle: ussrStyle || mode === "series",
           language,
-          dialogueStyle,
         }).join("\n"),
     SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
     STORY_PLAN: "",
@@ -464,20 +420,9 @@ const buildTemplateVars = async ({
 
 export const buildFullUserPrompt = async ({
   prompt,
-  dialogueStyle = "fun",
   language = "ru",
   mode = "shorts",
-} = {}) => {
-  const parts = [String(prompt ?? "").trim()];
-  if (mode === "shorts") {
-    const styleKey = promptKeyForShortsStyle(dialogueStyle, language);
-    const styleText = await readPromptFile(styleKey);
-    if (styleText) {
-      parts.push("", language === "en" ? "Style brief:" : "Стиль:", styleText);
-    }
-  }
-  return parts.filter((part) => part !== "").join("\n");
-};
+} = {}) => String(prompt ?? "").trim();
 
 const buildSeriesSystemPrompt = async ({
   imageCount = 0,
@@ -509,7 +454,7 @@ const buildShortsSystemPrompt = async ({
   imageCount = 0,
   messageCount = 20,
   language = "ru",
-  dialogueStyle = "fun",
+  videoLayout = "chat",
 } = {}) => {
   const key = promptKeyForShortsSystem(language);
   const template = await readPromptFile(key);
@@ -523,7 +468,7 @@ const buildShortsSystemPrompt = async ({
       messageCount,
       language,
       mode: "shorts",
-      dialogueStyle,
+      videoLayout,
     }),
   );
 };
@@ -534,12 +479,12 @@ const buildRefineSystemPrompt = async ({
   language = "ru",
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
-  dialogueStyle = "fun",
+  videoLayout = "chat",
 } = {}) => {
   const base =
     mode === "series"
       ? await buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId})
-      : await buildShortsSystemPrompt({imageCount, messageCount, language, dialogueStyle});
+      : await buildShortsSystemPrompt({imageCount, messageCount, language, videoLayout});
 
   return [
     base,
@@ -578,12 +523,12 @@ const buildSystemPrompt = async ({
   messageCount = 20,
   language = "ru",
   seriesId = DEFAULT_SERIES_ID,
-  dialogueStyle = "fun",
+  videoLayout = "chat",
 } = {}) => {
   if (mode === "series") {
     return buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId});
   }
-  return buildShortsSystemPrompt({imageCount, messageCount, language, dialogueStyle});
+  return buildShortsSystemPrompt({imageCount, messageCount, language, videoLayout});
 };
 
 const buildUserPrompt = async ({
@@ -804,11 +749,11 @@ const removeGenericGeneratedImageRefs = (conversation) => {
   return conversation;
 };
 
-const applyStorySplitDefaults = (conversation) => {
+const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay") => {
   if (!conversation || typeof conversation !== "object") {
     return conversation;
   }
-  conversation.layout = "storySplit";
+  conversation.layout = isStoryVisualLayout(videoLayout) ? videoLayout : "storyOverlay";
   if (!conversation.story) {
     conversation.story = {};
   }
@@ -828,7 +773,7 @@ const applyStorySplitDefaults = (conversation) => {
   return conversation;
 };
 
-const parseGeneratedPayload = (data, mode, dialogueStyle = "fun") => {
+const parseGeneratedPayload = (data, mode, {videoLayout = "chat"} = {}) => {
   if (mode !== "shorts" || !data || typeof data !== "object") {
     return {conversation: validateConversation(data), displayTitle: ""};
   }
@@ -837,8 +782,13 @@ const parseGeneratedPayload = (data, mode, dialogueStyle = "fun") => {
   const displayTitle = String(raw.displayTitle ?? "").trim();
   delete raw.displayTitle;
   let conversation = removeGenericGeneratedImageRefs(validateConversation(raw));
-  if (dialogueStyle === "story" || conversation.layout === "storySplit") {
-    conversation = applyStorySplitDefaults(conversation);
+  const targetLayout = isStoryVisualLayout(conversation.layout)
+    ? conversation.layout
+    : isStoryVisualLayout(videoLayout)
+      ? videoLayout
+      : null;
+  if (targetLayout) {
+    conversation = applyStoryVisualDefaults(conversation, targetLayout);
   }
   return {conversation, displayTitle};
 };
@@ -1000,7 +950,7 @@ const expandShortsDialogue = async ({
   imageCount,
   messageCount,
   language,
-  dialogueStyle = "fun",
+  videoLayout = "chat",
   system,
   completeJson,
   maxAttempts,
@@ -1025,16 +975,29 @@ const expandShortsDialogue = async ({
       const {conversation: expanded, displayTitle: expandedTitle} = parseGeneratedPayload(
         data,
         "shorts",
-        dialogueStyle,
+        {videoLayout},
       );
       return {conversation: expanded, displayTitle: expandedTitle, mode: "shorts"};
     },
   });
 };
 
+export const resolveGenerationVideoLayout = ({videoLayout, conversation, mode = "shorts"} = {}) => {
+  if (mode !== "shorts") {
+    return "chat";
+  }
+  if (isStoryVisualLayout(videoLayout)) {
+    return videoLayout;
+  }
+  if (conversation && isStoryVisualLayout(conversation.layout)) {
+    return conversation.layout;
+  }
+  return "chat";
+};
+
 export const generateDialogue = async ({
   prompt,
-  dialogueStyle = "fun",
+  videoLayout = "storyOverlay",
   previousMessages,
   includeImages,
   imageCount,
@@ -1060,9 +1023,10 @@ export const generateDialogue = async ({
       ? previousMessages
       : undefined;
 
+  const genVideoLayout = resolveGenerationVideoLayout({videoLayout, mode: normalizedMode});
+
   const fullPrompt = await buildFullUserPrompt({
     prompt,
-    dialogueStyle,
     language: gen.language,
     mode: normalizedMode,
   });
@@ -1073,7 +1037,7 @@ export const generateDialogue = async ({
     messageCount: gen.messageCount,
     language: gen.language,
     seriesId,
-    dialogueStyle,
+    videoLayout: genVideoLayout,
   });
   const user = await buildUserPrompt({
     prompt: fullPrompt,
@@ -1093,7 +1057,9 @@ export const generateDialogue = async ({
       {role: "user", content: user},
     ],
     parseResult: (data) => {
-      const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode, dialogueStyle);
+      const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode, {
+        videoLayout: genVideoLayout,
+      });
       return {conversation, displayTitle, mode: normalizedMode};
     },
   });
@@ -1110,7 +1076,7 @@ export const generateDialogue = async ({
         imageCount: gen.imageCount,
         messageCount: gen.messageCount,
         language: gen.language,
-        dialogueStyle,
+        videoLayout: genVideoLayout,
         system,
         completeJson: llm.completeJson,
         maxAttempts,
@@ -1141,7 +1107,7 @@ export const refineDialogue = async ({
   language,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
-  dialogueStyle = "fun",
+  videoLayout,
   model,
   maxAttempts = 3,
 }) => {
@@ -1159,13 +1125,18 @@ export const refineDialogue = async ({
   const gen = normalizeGenerationOptions({messageCount, imageCount, includeImages, language});
   const normalizedMode = mode === "series" ? "series" : "shorts";
   const validated = validateConversation(conversation);
+  const genVideoLayout = resolveGenerationVideoLayout({
+    videoLayout,
+    conversation: validated,
+    mode: normalizedMode,
+  });
   const system = await buildRefineSystemPrompt({
     imageCount: gen.imageCount,
     messageCount: gen.messageCount,
     language: gen.language,
     mode: normalizedMode,
     seriesId,
-    dialogueStyle,
+    videoLayout: genVideoLayout,
   });
   const user = buildRefineUserPrompt({
     conversation: validated,
@@ -1187,7 +1158,7 @@ export const refineDialogue = async ({
       const {conversation: updated, displayTitle} = parseGeneratedPayload(
         data,
         normalizedMode,
-        dialogueStyle,
+        {videoLayout: genVideoLayout},
       );
       return {conversation: updated, displayTitle, mode: normalizedMode};
     },
@@ -1280,7 +1251,7 @@ export const regenerateEnding = async ({
   messageCount,
   imageCount = 0,
   language,
-  dialogueStyle = "fun",
+  videoLayout,
   mode = "shorts",
   model,
   maxAttempts = 3,
@@ -1301,12 +1272,18 @@ export const regenerateEnding = async ({
   const keepCount = messages.length - safeTail;
   const prefix = messages.slice(0, keepCount);
 
+  const genVideoLayout = resolveGenerationVideoLayout({
+    videoLayout,
+    conversation: validated,
+    mode: normalizedMode,
+  });
+
   const system = await buildSystemPrompt({
     mode: normalizedMode,
     imageCount: gen.imageCount,
     messageCount: gen.messageCount,
     language: gen.language,
-    dialogueStyle,
+    videoLayout: genVideoLayout,
   });
 
   const draft = displayTitle && normalizedMode === "shorts" ? {displayTitle, ...validated} : validated;
@@ -1345,7 +1322,9 @@ export const regenerateEnding = async ({
       {role: "user", content: user},
     ],
     parseResult: (data) => {
-      const {conversation: updated, displayTitle: updatedTitle} = parseGeneratedPayload(data, parseMode);
+      const {conversation: updated, displayTitle: updatedTitle} = parseGeneratedPayload(data, parseMode, {
+        videoLayout: genVideoLayout,
+      });
       return {conversation: updated, displayTitle: updatedTitle, mode: normalizedMode};
     },
   });

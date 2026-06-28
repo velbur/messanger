@@ -136,8 +136,21 @@ const PORT = Number(process.env.PORT ?? 3333);
 /** URL удалённого render-воркера (тот же server.mjs на мощной машине), напр. http://192.168.0.136:3333 */
 const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
 
-const normalizeDialogueStyle = (value) =>
-  value === "mystic" ? "mystic" : value === "story" ? "story" : "fun";
+const resolveRequestVideoLayout = ({videoLayout, dialogueStyle, conversation, mode}) => {
+  if (mode !== "shorts") {
+    return "chat";
+  }
+  if (videoLayout === "storySplit" || videoLayout === "storyOverlay") {
+    return videoLayout;
+  }
+  if (conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay") {
+    return conversation.layout;
+  }
+  if (dialogueStyle === "story") {
+    return "storyOverlay";
+  }
+  return "chat";
+};
 
 const formatDialogueApiError = (error) => {
   const validation = formatConversationValidationError(error);
@@ -1304,6 +1317,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
     const {
       prompt,
       dialogueStyle,
+      videoLayout,
       previousMessages,
       includeImages,
       imageCount,
@@ -1347,7 +1361,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
     const result = await generateDialogue({
       prompt,
-      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
+      videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, mode}),
       previousMessages: mode === "series" ? contextMessages : undefined,
       includeImages,
       imageCount,
@@ -1433,7 +1447,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
 app.post("/api/dialogues/refine", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, dialogueStyle, model} =
+    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, dialogueStyle, videoLayout, model} =
       req.body ?? {};
     if (!refinePrompt || typeof refinePrompt !== "string" || !refinePrompt.trim()) {
       res.status(400).json({error: "Поле refinePrompt обязательно"});
@@ -1472,7 +1486,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
-      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
+      videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, conversation, mode}),
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
 
@@ -1569,6 +1583,7 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
       messageCount,
       language,
       dialogueStyle,
+      videoLayout,
       mode: modeRaw,
       model,
     } = req.body ?? {};
@@ -1594,7 +1609,7 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
       imageCount,
       messageCount,
       language,
-      dialogueStyle: normalizeDialogueStyle(dialogueStyle),
+      videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, conversation, mode}),
       mode,
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
     });
