@@ -49,10 +49,11 @@ export const PreviewCoverArt: React.FC<Props> = ({image, title}) => {
               fontSize: 104,
               fontWeight: 800,
               letterSpacing: "-0.5px",
-              lineHeight: 1.04,
+              lineHeight: 1.08,
               textAlign: "center",
               textTransform: "uppercase",
               color: "#FFFFFF",
+              whiteSpace: "pre-line",
               WebkitTextStroke: "3px rgba(0,0,0,0.55)",
               paintOrder: "stroke fill",
               textShadow:
@@ -69,4 +70,4 @@ export const PreviewCoverArt: React.FC<Props> = ({image, title}) => {
   );
 };
 
-export const PREVIEW_COVER_ART_MARKER = "preview-cover-art-v2";
+export const PREVIEW_COVER_ART_MARKER = "preview-cover-art-v3";

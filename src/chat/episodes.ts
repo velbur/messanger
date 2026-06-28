@@ -65,7 +65,7 @@ export const buildPreviewCoverTitle = (
     return base;
   }
   const part = `Часть ${episodeNumber}`;
-  return base ? `${base} — ${part}` : part;
+  return base ? `${base}\n${part}` : part;
 };
 
 export const buildEpisodeConversations = (conversation: ConversationInput): ConversationInput[] => {

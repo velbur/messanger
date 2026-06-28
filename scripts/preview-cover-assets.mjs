@@ -45,7 +45,7 @@ const resolveBaseTitle = (conversation, displayTitle, imageNamespace) => {
 
 /**
  * Генерирует фон обложки (один раз) и запекает финальные PNG с заголовком.
- * Для эпизодов — отдельный файл и «Название — Часть N» на каждом.
+ * Для эпизодов — отдельный файл и «Название» + «Часть N» на новой строке.
  */
 export const ensureConversationPreviewCovers = async (
   conversation,
