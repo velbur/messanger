@@ -6,6 +6,7 @@ import {slugifyProjectName} from "./project-slug.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {synthesizeOpenRouterSpeech} from "./tts/openrouter-tts.mjs";
+import {ensureConversationEmotions} from "./tts/voice-emotion.mjs";
 import {isOpenRouterConfigured, getOpenRouterTtsVoices} from "./openrouter-client.mjs";
 import {mergeConversationVoiceover, OPENROUTER_TTS_PROFILE, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
 
@@ -192,6 +193,21 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
 
   const namespace = normalizeAudioNamespace(audioNamespace);
   const openRouterVoices = getOpenRouterTtsVoices();
+
+  try {
+    const {filled, attempted} = await ensureConversationEmotions(conversation);
+    if (attempted) {
+      logs.push(
+        filled > 0
+          ? `Эмоции озвучки определены по сюжету: ${filled} реплик`
+          : "Эмоции озвучки: не удалось определить — озвучу с базовой интонацией",
+      );
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    logs.push(`Эмоции озвучки: пропущено (${reason}) — базовая интонация`);
+  }
+
   let generated = 0;
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
@@ -217,6 +233,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
         text,
         voice,
         outputPath: absolute,
+        emotion: String(message.voiceEmotion ?? "").trim() || undefined,
       });
       const savedPath = result.outputPath;
       message.voiceAudio = path
@@ -227,8 +244,9 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
       message.voiceTtsProfile = OPENROUTER_TTS_PROFILE;
       message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
+      const emotionHint = String(message.voiceEmotion ?? "").trim();
       logs.push(
-        `Озвучка #${index + 1} (${message.author}, OpenRouter/${result.model}, ${result.speaker}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
+        `Озвучка #${index + 1} (${message.author}, OpenRouter/${result.model}, ${result.speaker}${emotionHint ? `, «${emotionHint}»` : ""}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);

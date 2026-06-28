@@ -11,6 +11,15 @@ const RUSSIAN_STYLE_PROMPT =
 
 const CHAT_SPEECH_SPEED = 1.06;
 
+/** Базовый стиль + эмоция конкретной реплики (под сюжет) */
+const buildSpeechPrompt = (emotion) => {
+  const tone = String(emotion ?? "").replace(/\s+/g, " ").trim();
+  if (!tone) {
+    return RUSSIAN_STYLE_PROMPT;
+  }
+  return `${RUSSIAN_STYLE_PROMPT} Эмоция именно этой реплики — обязательно передай голосом: ${tone}.`;
+};
+
 const writePcmWav = async (outputPath, pcm, sampleRate) => {
   const header = Buffer.alloc(44);
   header.write("RIFF", 0);
@@ -36,9 +45,10 @@ const writePcmWav = async (outputPath, pcm, sampleRate) => {
  *   voice: string,
  *   outputPath: string,
  *   model?: string,
+ *   emotion?: string,
  * }} opts
  */
-export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model}) => {
+export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model, emotion}) => {
   const spoken = textForSpeech(text);
   if (!spoken) {
     throw new Error("Пустой текст для озвучки");
@@ -53,7 +63,7 @@ export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model
     voice,
     model: resolvedModel,
     responseFormat,
-    prompt: isGemini ? RUSSIAN_STYLE_PROMPT : undefined,
+    prompt: isGemini ? buildSpeechPrompt(emotion) : undefined,
     speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
   });
 

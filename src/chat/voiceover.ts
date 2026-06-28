@@ -2,7 +2,7 @@ import type {ConversationInput} from "./schema";
 
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
-export const OPENROUTER_TTS_PROFILE = "young-emotional-v1";
+export const OPENROUTER_TTS_PROFILE = "young-emotional-v2";
 
 export type VoiceoverGender = "male" | "female";
 
