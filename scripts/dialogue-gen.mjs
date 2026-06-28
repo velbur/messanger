@@ -1,6 +1,6 @@
 import {readFile} from "node:fs/promises";
 import path from "node:path";
-import {messageSchema, parseConversation} from "../src/chat/schema.ts";
+import {formatConversationValidationError, messageSchema, parseConversation} from "../src/chat/schema.ts";
 import {
   chatCompletionJson as openRouterChatCompletionJson,
   isOpenRouterConfigured,
@@ -785,8 +785,10 @@ const validateConversation = (input) => {
   try {
     return parseConversation(input);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Невалидный JSON диалога: ${message}`);
+    const formatted = formatConversationValidationError(error);
+    throw new Error(
+      formatted ? `Невалидный JSON диалога: ${formatted}` : `Невалидный JSON диалога: ${error}`,
+    );
   }
 };
 

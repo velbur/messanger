@@ -1,4 +1,4 @@
-import {z} from "zod";
+import {z, ZodError} from "zod";
 import {expandEmojis} from "./emoji";
 import {normalizeMessengerLocale} from "./locale";
 import {sanitizeMessageText} from "./message-text";
@@ -80,10 +80,18 @@ export const messageSchema = z
     const hasImagePrompt = Boolean(message.imagePrompt?.trim());
     const hasStoryImage = Boolean(message.storyImage?.trim());
     const hasStoryImagePrompt = Boolean(message.storyImagePrompt?.trim());
-    if (!hasText && !hasImage && !hasImagePrompt && !hasStoryImage && !hasStoryImagePrompt) {
+    const hasStoryVideo = Boolean(message.storyVideo?.trim());
+    if (
+      !hasText &&
+      !hasImage &&
+      !hasImagePrompt &&
+      !hasStoryImage &&
+      !hasStoryImagePrompt &&
+      !hasStoryVideo
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Укажите text, image/imagePrompt и/или storyImage/storyImagePrompt",
+        message: "Укажите text, image/imagePrompt и/или storyImage/storyImagePrompt/storyVideo",
         path: ["text"],
       });
     }
@@ -261,6 +269,27 @@ export const conversationSchema = z.object({
 
 export type MessageInput = z.infer<typeof messageSchema>;
 export type ConversationInput = z.infer<typeof conversationSchema>;
+
+/** Человекочитаемая ошибка валидации переписки (для API редактора) */
+export const formatConversationValidationError = (error: unknown): string | null => {
+  if (error instanceof ZodError) {
+    return error.issues
+      .map((issue) => {
+        const [root, index, field] = issue.path;
+        if (root === "messages" && typeof index === "number") {
+          const fieldLabel = field === "text" ? "текст" : String(field ?? "поле");
+          return `Сообщение №${index + 1} (${fieldLabel}): ${issue.message}`;
+        }
+        const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+        return `${path}${issue.message}`;
+      })
+      .join("\n");
+  }
+  if (error instanceof Error && error.message.startsWith("Невалидный JSON диалога:")) {
+    return error.message.replace(/^Невалидный JSON диалога:\s*/, "");
+  }
+  return null;
+};
 
 export const parseConversation = (input: unknown): ConversationInput => {
   const parsed = conversationSchema.parse(input);

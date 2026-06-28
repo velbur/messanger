@@ -5,7 +5,7 @@ import {pipeline} from "node:stream/promises";
 import {Readable} from "node:stream";
 import express from "express";
 import {ZodError} from "zod";
-import {parseConversation} from "../src/chat/schema.ts";
+import {formatConversationValidationError, parseConversation} from "../src/chat/schema.ts";
 import {
   estimateMessagesDurationMs,
   getTimingSpeed,
@@ -138,6 +138,14 @@ const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/
 
 const normalizeDialogueStyle = (value) =>
   value === "mystic" ? "mystic" : value === "story" ? "story" : "fun";
+
+const formatDialogueApiError = (error) => {
+  const validation = formatConversationValidationError(error);
+  if (validation) {
+    return `JSON переписки: ${validation}`;
+  }
+  return formatOpenRouterError(error);
+};
 
 const getRenderTargets = () => {
   const targets = [{id: "local", label: "Локально (эта машина)"}];
@@ -1362,7 +1370,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
     });
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
@@ -1418,7 +1426,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
       provider: result.provider ?? "openrouter",
     });
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
@@ -1477,7 +1485,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       provider: result.provider ?? "openrouter",
     });
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
@@ -1545,7 +1553,7 @@ app.post("/api/dialogues/logic", async (req, res) => {
       logicRevised: result.logicRevised ?? false,
     });
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
@@ -1601,7 +1609,7 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
       regeneratedFrom: result.regeneratedFrom,
     });
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
@@ -1625,7 +1633,7 @@ app.post("/api/youtube/metadata", async (req, res) => {
     });
     res.json(metadata);
   } catch (error) {
-    res.status(400).json({error: formatOpenRouterError(error)});
+    res.status(400).json({error: formatDialogueApiError(error)});
   }
 });
 
