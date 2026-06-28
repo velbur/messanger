@@ -37,6 +37,12 @@ export const buildStoryMotionPrompt = (imagePrompt, {loop = false} = {}) => {
   return `${prefix} Scene: ${scene}`;
 };
 
+/** Veo отклонил/отфильтровал промпт по контент-политике (а не инфраструктурная ошибка) */
+export const isVideoContentPolicyError = (message) =>
+  /sensitive words|responsible ai|content may have been filtered|could not be submitted|no output|violate|safety|policy|blocked|flagged/i.test(
+    String(message ?? ""),
+  );
+
 const safePublicPath = (relativePath) => {
   const normalized = String(relativePath).replace(/^\/+/, "");
   if (normalized.includes("..") || path.isAbsolute(normalized)) {
@@ -272,11 +278,11 @@ export const generateMissingStoryVideos = async (
     const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
     const duration = snapStoryVideoDuration(sceneSec);
 
-    try {
-      const result = await generateImageToVideoFile({
+    const runGeneration = (prompt) =>
+      generateImageToVideoFile({
         imageAbsolutePath: imageAbsolute,
         imagePublicUrl: imageUrl,
-        prompt: buildStoryMotionPrompt(target.imagePrompt, {loop: false}),
+        prompt,
         outputPath: videoAbsolute,
         model,
         duration,
@@ -294,38 +300,60 @@ export const generateMissingStoryVideos = async (
         },
       });
 
-      target.holder.storyVideo = path
-        .relative(PUBLIC_DIR, result.outputPath)
-        .split(path.sep)
-        .join("/");
-      target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
-      target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
-      await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
-      generated += 1;
-      const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
-      logs.push(
-        `Story-видео (${target.label}, OpenRouter/${result.model}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
-      );
-      onProgress?.({
-        done: index + 1,
-        total,
-        label: target.label,
-        stage: "done",
-      });
+    let result = null;
+    try {
+      result = await runGeneration(buildStoryMotionPrompt(target.imagePrompt, {loop: false}));
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      logs.push(`Story-видео (${target.label}): ошибка — ${reason}`);
+      // Контент-фильтр Google режет описание сцены — повторяем без него,
+      // только нейтральное ambient-движение по уже одобренной картинке.
+      if (isVideoContentPolicyError(reason)) {
+        logs.push(
+          `Story-видео (${target.label}): промпт отклонён фильтром Google — повтор с нейтральным движением без описания сцены`,
+        );
+        try {
+          result = await runGeneration(buildStoryMotionPrompt("", {loop: false}));
+        } catch (retryError) {
+          const retryReason = retryError instanceof Error ? retryError.message : String(retryError);
+          logs.push(
+            `Story-видео (${target.label}): анимация недоступна (${retryReason}) — кадр останется статичным`,
+          );
+        }
+      } else {
+        logs.push(`Story-видео (${target.label}): ошибка — ${reason} — кадр останется статичным`);
+      }
     }
+
+    if (!result) {
+      continue;
+    }
+
+    target.holder.storyVideo = path
+      .relative(PUBLIC_DIR, result.outputPath)
+      .split(path.sep)
+      .join("/");
+    target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
+    target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
+    await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
+    generated += 1;
+    const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
+    logs.push(
+      `Story-видео (${target.label}, OpenRouter/${result.model}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
+    );
+    onProgress?.({
+      done: index + 1,
+      total,
+      label: target.label,
+      stage: "done",
+    });
   }
 
+  // Нехватка видео не валит рендер: сцена показывается статичным кадром с Ken Burns.
   const stillMissing = countPendingStoryVideos(conversation);
   if (stillMissing > 0) {
-    const failures = logs.filter((line) => /ошибка/i.test(line));
-    const detail =
-      failures.length > 0
-        ? failures.join("; ")
-        : `${stillMissing} story-кадров без видео после генерации`;
-    throw new Error(detail);
+    logs.push(
+      `⚠ Без анимации остаётся ${stillMissing} story-кадров — они будут статичными (Ken Burns). Рендер продолжится.`,
+    );
   }
 
   if (generated === 0 && logs.length === 0) {
