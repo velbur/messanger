@@ -4423,14 +4423,6 @@ btnRender.addEventListener("click", async () => {
     downloadLinks.replaceChildren();
   }
 
-  const parsedForVoice = parseConversationJson();
-  if (parsedForVoice?.episodes?.enabled && getRenderTarget() === "remote") {
-    alert("Рендер эпизодов пока только на этой машине. Выберите локальную цель рендера.");
-    setBusy(false);
-    closeRenderModal();
-    return;
-  }
-
   try {
     if (currentDialogueId) {
       try {
@@ -4464,6 +4456,7 @@ btnRender.addEventListener("click", async () => {
       body: JSON.stringify({
         json,
         name: dialogueTitleInput.value.trim() || undefined,
+        displayTitle: dialogueTitleInput.value.trim() || undefined,
         wallpaper: getWallpaper(),
         music: getMusicId(),
         dialogueId: currentDialogueId ?? undefined,

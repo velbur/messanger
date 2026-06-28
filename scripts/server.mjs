@@ -59,7 +59,7 @@ import {
   loadPreviewCoverReferenceDataUrl,
   resolvePreviewCoverSceneHint,
 } from "./preview-cover.mjs";
-import {ensureConversationPreviewCovers} from "./preview-cover-assets.mjs";
+import {ensureConversationPreviewCovers, collectPreviewCoverSyncRefs, episodeOutputFiles} from "./preview-cover-assets.mjs";
 import {
   correctFrameImage,
   ImageCorrectionUnchangedError,
@@ -335,13 +335,23 @@ const copyRemoteOutputToLocal = async ({remoteUrl, outputFile, logs = []}) => {
   return {localPath, outputFile, replaced: hadLocalCopy};
 };
 
-/** Запускает (или возвращает уже идущее) копирование MP4 с воркера в локальный out/ */
-const ensureRemoteMp4CopiedLocally = (job) => {
-  if (!job.remote || !job.outputFile) {
+/** Скачивает MP4 с воркера в локальный out/ (один или несколько эпизодов) */
+const ensureRemoteOutputsCopiedLocally = async (job) => {
+  if (!job.remote) {
+    return;
+  }
+
+  const files =
+    job.outputFiles?.length > 0
+      ? job.outputFiles
+      : job.outputFile
+        ? [job.outputFile]
+        : [];
+  if (files.length === 0) {
     return Promise.resolve();
   }
-  if (job.localCopyStatus === "done") {
-    job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
+
+  if (job.localCopyStatus === "done" && job.episodeOutputs?.length === files.length) {
     return Promise.resolve();
   }
   if (job.localCopyStatus === "copying" && job.localCopyPromise) {
@@ -349,18 +359,39 @@ const ensureRemoteMp4CopiedLocally = (job) => {
   }
 
   if (job.localCopyStatus !== "copying") {
-    job.logs.push("Копирование MP4 с воркера на этот компьютер…");
+    job.logs.push(
+      files.length > 1
+        ? `Копирование ${files.length} эпизодов с воркера…`
+        : "Копирование MP4 с воркера на этот компьютер…",
+    );
   }
   job.localCopyStatus = "copying";
   job.localCopyPromise = (async () => {
     try {
-      await copyRemoteOutputToLocal({
-        remoteUrl: job.remoteUrl,
-        outputFile: job.outputFile,
-        logs: job.logs,
-      });
+      const finishedAt = job.finishedAt ?? Date.now();
+      job.episodeOutputs = [];
+      for (let i = 0; i < files.length; i += 1) {
+        const outputFile = files[i];
+        await copyRemoteOutputToLocal({
+          remoteUrl: job.remoteUrl,
+          outputFile,
+          logs: job.logs,
+        });
+        job.episodeOutputs.push({
+          episode: i + 1,
+          outputFile,
+          outputRel: `out/${outputFile}`,
+          downloadUrl: mp4DownloadUrl(outputFile, finishedAt),
+          finishedAt,
+        });
+      }
       job.localCopyStatus = "done";
-      job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
+      const primary = job.episodeOutputs[0];
+      job.outputFile = primary.outputFile;
+      job.outputRel = primary.outputRel;
+      job.outputPath = primary.outputPath;
+      job.downloadUrl = primary.downloadUrl;
+      job.outputFiles = files;
       if (job.dialogueId) {
         touchDialogueOutput(job.dialogueId, job.outputFile);
       }
@@ -375,6 +406,9 @@ const ensureRemoteMp4CopiedLocally = (job) => {
 
   return job.localCopyPromise;
 };
+
+/** @deprecated используйте ensureRemoteOutputsCopiedLocally */
+const ensureRemoteMp4CopiedLocally = (job) => ensureRemoteOutputsCopiedLocally(job);
 
 const processQueue = async () => {
   if (renderBusy || renderQueue.length === 0) {
@@ -1829,9 +1863,18 @@ app.get("/api/render-targets", (_req, res) => {
   res.json({targets: getRenderTargets(), defaultTarget: getDefaultRenderTarget()});
 });
 
-/** Залить локальные ассеты переписки на воркер (картинки, story-видео) */
-const syncImagesToRemote = async (conversation, remoteUrl, logs) => {
-  const refs = collectConversationImageRefs(conversation);
+/** Залить локальные ассеты переписки на воркер (картинки, story-видео, обложки) */
+const syncImagesToRemote = async (
+  conversation,
+  remoteUrl,
+  logs,
+  {fileName, episodeConversations} = {},
+) => {
+  const refs = new Set(collectConversationImageRefs(conversation));
+  for (const ref of collectPreviewCoverSyncRefs(conversation, {imageNamespace: fileName, episodeConversations})) {
+    refs.add(ref);
+  }
+
   for (const ref of refs) {
     const abs = path.join(PUBLIC_DIR, ref);
     let buffer;
@@ -2069,7 +2112,18 @@ const runRenderPreparation = async (
       job.progress = 0.58;
       job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
       job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
-      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+      const episodeConversations =
+        job.episodeConversations?.length > 0
+          ? job.episodeConversations
+          : buildEpisodeConversations(conversation);
+      job.outputFiles = episodeOutputFiles(job.fileName, episodeConversations.length);
+      if (episodeConversations.length > 1) {
+        job.logs.push(`Эпизодов на воркере: ${episodeConversations.length}`);
+      }
+      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs, {
+        fileName: job.fileName,
+        episodeConversations,
+      });
       if (conversation.voiceover?.enabled) {
         job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
@@ -2083,6 +2137,7 @@ const runRenderPreparation = async (
         body: JSON.stringify({
           json: JSON.stringify(conversation),
           name: job.fileName,
+          displayTitle: job.displayTitle || job.fileName,
           target: "local",
           autoGenerateVoiceover: false,
         }),
@@ -2097,6 +2152,9 @@ const runRenderPreparation = async (
       job.remoteJobId = forwardData.jobId;
       job.outputRel = forwardData.outputPath ?? job.outputRel;
       job.outputFile = forwardData.outputFile ?? job.outputFile;
+      if (forwardData.outputFiles?.length) {
+        job.outputFiles = forwardData.outputFiles;
+      }
       job.status = forwardData.status ?? "queued";
       job.phase = null;
       job.progress = forwardData.progress ?? 0.65;
@@ -2131,6 +2189,7 @@ app.post("/api/render", async (req, res) => {
     const {
       json: jsonText,
       name: rawName,
+      displayTitle: rawDisplayTitle,
       wallpaper: rawWallpaper,
       music: rawMusic,
       dialogueId,
@@ -2164,13 +2223,6 @@ app.post("/api/render", async (req, res) => {
       );
       if (splitError) {
         res.status(400).json({error: splitError});
-        return;
-      }
-      if (target === "remote") {
-        res.status(400).json({
-          error:
-            "Рендер эпизодов пока только на этой машине. Выберите «Локально» в цели рендера.",
-        });
         return;
       }
     }
@@ -2208,6 +2260,13 @@ app.post("/api/render", async (req, res) => {
     const inputPath = path.join(ROOT, inputRel);
     const outputPath = path.join(ROOT, outputRel);
 
+    const displayTitle =
+      typeof rawDisplayTitle === "string" && rawDisplayTitle.trim()
+        ? rawDisplayTitle.trim()
+        : typeof rawName === "string"
+          ? rawName.trim()
+          : "";
+
     const job = createRenderJobShell({
       fileName,
       inputPath,
@@ -2217,7 +2276,7 @@ app.post("/api/render", async (req, res) => {
       outputFile,
       dialogueId,
       target,
-      displayTitle: typeof rawName === "string" ? rawName : "",
+      displayTitle,
     });
 
     void runRenderPreparation(job, {
@@ -2241,6 +2300,7 @@ app.post("/api/render", async (req, res) => {
       inputPath: inputRel,
       outputPath: outputRel,
       outputFile,
+      outputFiles: episodeOutputFiles(fileName, episodeCount),
       dialogueId: job.dialogueId,
       target,
       renderCommand: job.renderCommand,
@@ -2279,19 +2339,33 @@ app.get("/api/jobs/:id", async (req, res) => {
         job.status = "done";
         job.finishedAt = job.finishedAt ?? Date.now();
         job.outputFile = data.outputFile ?? job.outputFile;
+        job.outputFiles =
+          data.outputFiles?.length > 0
+            ? data.outputFiles
+            : data.episodeOutputs?.length > 0
+              ? data.episodeOutputs.map((item) => item.outputFile)
+              : job.outputFiles?.length > 0
+                ? job.outputFiles
+                : job.outputFile
+                  ? [job.outputFile]
+                  : [];
         try {
-          await ensureRemoteMp4CopiedLocally(job);
+          await ensureRemoteOutputsCopiedLocally(job);
         } catch {
           // ошибка уже в job.logs и localCopyStatus === "error"
         }
       } else {
         job.status = data.status;
       }
+      const episodeOutputs =
+        job.episodeOutputs?.length > 0 ? job.episodeOutputs : data.episodeOutputs ?? [];
       const downloadUrl =
         data.status === "done"
-          ? job.localCopyStatus === "done"
-            ? mp4DownloadUrl(job.outputFile, job.finishedAt)
-            : `/api/jobs/${job.id}/download`
+          ? job.localCopyStatus === "done" && episodeOutputs[0]?.downloadUrl
+            ? episodeOutputs[0].downloadUrl
+            : job.localCopyStatus === "done"
+              ? mp4DownloadUrl(job.outputFile, job.finishedAt)
+              : `/api/jobs/${job.id}/download`
           : null;
       res.json({
         ...data,
@@ -2300,6 +2374,8 @@ app.get("/api/jobs/:id", async (req, res) => {
         target: "remote",
         outputPath: job.outputRel,
         outputFile: job.outputFile,
+        outputFiles: job.outputFiles ?? data.outputFiles ?? [],
+        episodeOutputs,
         downloadUrl,
         finishedAt: job.finishedAt ?? null,
         localCopyStatus: job.localCopyStatus ?? null,

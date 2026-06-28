@@ -135,3 +135,45 @@ export const ensureConversationPreviewCovers = async (
     logs,
   };
 };
+
+/** Пути обложек превью для синхронизации на воркер (фон + запечённые эпизоды). */
+export const collectPreviewCoverSyncRefs = (
+  conversation,
+  {imageNamespace, episodeConversations} = {},
+) => {
+  const refs = new Set();
+  const add = (ref) => {
+    const normalized = String(ref ?? "").trim().replace(/^\/+/, "");
+    if (normalized && !/^https?:\/\//i.test(normalized)) {
+      refs.add(normalized);
+    }
+  };
+
+  const namespace = String(imageNamespace ?? "").trim();
+  if (namespace) {
+    add(`images/${namespace}/preview-cover.src.png`);
+    add(`images/${namespace}/preview-cover.png`);
+  }
+
+  const episodes =
+    episodeConversations?.length > 0
+      ? episodeConversations
+      : buildEpisodeConversations(conversation);
+  for (const episode of episodes) {
+    add(episode?.previewCover?.image);
+  }
+
+  add(conversation?.previewCover?.image);
+
+  return [...refs];
+};
+
+export const episodeOutputFiles = (fileName, episodeCount) => {
+  if (episodeCount <= 1) {
+    return [`${fileName}.mp4`];
+  }
+  return Array.from({length: episodeCount}, (_, index) => {
+    const ep = String(index + 1).padStart(2, "0");
+    return `${fileName}-ep${ep}.mp4`;
+  });
+};
