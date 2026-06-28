@@ -25,7 +25,7 @@ export const StorySceneImage: React.FC<Props> = ({
   sceneStartFrame,
   animation,
 }) => {
-  if (animation === "video" && video?.trim()) {
+  if (video?.trim()) {
     return (
       <StorySceneVideo
         video={video.trim()}
@@ -45,7 +45,6 @@ export const StorySceneImage: React.FC<Props> = ({
           localFrame={localFrame}
           durationFrames={durationFrames}
           animation="none"
-          loop
         />
       );
     }
