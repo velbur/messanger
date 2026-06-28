@@ -249,8 +249,8 @@ const initEditorPreferenceControls = () => {
 };
 
 const shortsStylesMeta = {
-  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
-  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
+  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
+  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
   story: {label: "Сюжет+чат", wallpaper: "dark", music: "auto", layout: "storySplit"},
 };
 
@@ -1073,6 +1073,7 @@ const newDialogue = async ({openEditor = false} = {}) => {
   if (editorKind === "shorts") {
     applyShortsStyleDefaults();
     applyShortsGenDefaults();
+    setVideoLayout("storyOverlay");
   }
   editorSnapshots[editorKind] = captureEditorSnapshot();
   if (openEditor) {
@@ -1838,9 +1839,13 @@ const syncVideoLayoutFromJson = () => {
     return;
   }
   setVideoLayout(
-    parsed.layout === "storySplit" || parsed.layout === "storyOverlay"
-      ? parsed.layout
-      : "chat",
+    parsed.layout === "storySplit"
+      ? "storySplit"
+      : parsed.layout === "storyOverlay"
+        ? "storyOverlay"
+        : parsed.layout === "chat"
+          ? "chat"
+          : "storyOverlay",
   );
 };
 

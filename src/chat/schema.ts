@@ -220,7 +220,7 @@ export const conversationSchema = z.object({
     })
     .optional(),
   /** chat — классический чат; storySplit — сюжет сверху + чат снизу; storyOverlay — сюжет на весь экран + чат поверх */
-  layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("chat"),
+  layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("storyOverlay"),
   /** Настройки storySplit / storyOverlay */
   story: z
     .object({

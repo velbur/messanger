@@ -1,8 +1,8 @@
 /** Захардкоженные промпты диалогов (редактируются в коде, не через UI). */
 
 export const SHORTS_STYLES_META = {
-  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3", layout: "chat"},
-  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3", layout: "chat"},
+  fun: {label: "Весёлая", wallpaper: "default", music: "fun.mp3"},
+  mystic: {label: "Мистика", wallpaper: "dark", music: "mystic.mp3"},
   story: {label: "Сюжет+чат", wallpaper: "dark", music: "auto", layout: "storySplit"},
 };
 
