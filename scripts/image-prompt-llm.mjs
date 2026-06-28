@@ -208,7 +208,7 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
   return [
     scene,
     style ? `Стиль: ${style}` : "",
-    `Реалистичное фото с телефона. Формат ${CHAT_IMAGE_ASPECT_RATIO}, вложение в чат, одна сцена, без UI чата и без текста на картинке.`,
+    `Формат ${CHAT_IMAGE_ASPECT_RATIO}, картинка-вложение в чат, одна сцена, без UI чата и без текста на картинке.`,
   ]
     .filter(Boolean)
     .join(" ");
