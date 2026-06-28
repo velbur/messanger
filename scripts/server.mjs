@@ -1999,15 +1999,26 @@ const runRenderPreparation = async (
       job.logs.push(...voiceGenLogs);
     }
 
+    if (isStoryVisual) {
+      const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
+        failOnMissingVideos: false,
+      });
+      if (linkedStoryVideoLogs.length > 0) {
+        job.logs.push(...linkedStoryVideoLogs);
+      }
+    }
+
+    const pendingStoryVideosNow = isStoryVisual ? countPendingStoryVideos(conversation) : 0;
+
     let skippedStoryVideoGeneration = false;
-    if (isStoryVisual && pendingStoryVideos > 0) {
+    if (isStoryVisual && pendingStoryVideosNow > 0) {
       if (!isOpenRouterConfigured()) {
         skippedStoryVideoGeneration = true;
         job.logs.push(
           "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
         );
       } else {
-        const total = pendingStoryVideos;
+        const total = pendingStoryVideosNow;
         job.phase = `Анимация story-кадров (0/${total})…`;
         job.progress = 0.12;
 
@@ -2237,6 +2248,9 @@ app.post("/api/render", async (req, res) => {
 
     const isStoryVisual =
       conversation.layout === "storySplit" || conversation.layout === "storyOverlay";
+    if (isStoryVisual) {
+      await resolveStoryVideos(conversation, {failOnMissingVideos: false});
+    }
     const autoGenerateImages = req.body?.autoGenerateImages === true;
     const voiceoverEnabled = Boolean(conversation.voiceover?.enabled);
     const pendingVoice = voiceoverEnabled ? countPendingVoiceover(conversation) : 0;

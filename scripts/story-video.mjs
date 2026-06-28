@@ -72,15 +72,22 @@ const needsStoryVideo = (imageRef, holder) => {
   if (!image) {
     return false;
   }
+
   const existingVideo = String(holder?.storyVideo ?? "").trim();
-  if (!existingVideo) {
-    return true;
+  if (existingVideo) {
+    try {
+      const {absolute} = safePublicPath(existingVideo);
+      if (existsSync(absolute)) {
+        return false;
+      }
+    } catch {
+      /* попробуем стандартный путь рядом с PNG */
+    }
   }
-  // Профиль намеренно НЕ проверяем: смена профиля видео не должна
-  // авто-перегенерировать уже готовые клипы при каждом рендере (лишний расход
-  // токенов). Полная перегенерация — только явным force.
+
+  const candidate = storyVideoPathForImage(image);
   try {
-    const {absolute} = safePublicPath(existingVideo);
+    const {absolute} = safePublicPath(candidate);
     return !existsSync(absolute);
   } catch {
     return true;
