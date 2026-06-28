@@ -79,6 +79,9 @@ export const THEMES: Record<WallpaperMode, ChatTheme> = {
   dark: DARK_THEME,
 };
 
+/** Фиксированная тема пузырей в storyOverlay — не зависит от wallpaper в JSON */
+export const STORY_OVERLAY_THEME_MODE: WallpaperMode = "dark";
+
 export const getTheme = (mode: WallpaperMode): ChatTheme => THEMES[mode] ?? LIGHT_THEME;
 
 /** @deprecated используйте getTheme(mode) */

@@ -23,6 +23,8 @@ const downloadBlock = document.getElementById("downloadBlock");
 const downloadLinks = document.getElementById("downloadLinks");
 const pathsHint = document.getElementById("pathsHint");
 const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
+const wallpaperRow = document.getElementById("wallpaperRow");
+const wallpaperOverlayHint = document.getElementById("wallpaperOverlayHint");
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
 const musicSelect = document.getElementById("musicSelect");
 const renderTargetRow = document.getElementById("renderTargetRow");
@@ -918,9 +920,11 @@ const applyDialogueToEditor = (dialogue) => {
       : "",
   );
   syncTitleCardFieldsFromJson();
+  syncVideoLayoutFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
   syncEpisodesFromJson();
+  updateWallpaperControls();
   if (editorKind === "shorts") {
     applyMessengerLocaleToJson();
   }
@@ -1801,6 +1805,7 @@ const prepareJsonForRender = () => {
   }
   try {
     const parsed = prepareConversationForEditor(JSON.parse(json));
+    stripWallpaperForStoryOverlay(parsed);
     const speed = clampTimingSpeed(timingSpeedInput?.value ?? readLastTimingSpeed());
     saveLastTimingSpeed(speed);
     if (speed === DEFAULT_TIMING_SPEED) {
@@ -1952,6 +1957,27 @@ const setWallpaper = (mode) => {
   }
 };
 
+const isWallpaperRelevantForLayout = (layout = getVideoLayout()) => layout !== "storyOverlay";
+
+const updateWallpaperControls = () => {
+  const active = isWallpaperRelevantForLayout();
+  wallpaperRow?.classList.toggle("wallpaper-row--inactive", !active);
+  wallpaperOverlayHint?.toggleAttribute("hidden", active);
+  for (const input of wallpaperInputs) {
+    input.disabled = !active;
+  }
+};
+
+const stripWallpaperForStoryOverlay = (parsed) => {
+  if (parsed?.layout === "storyOverlay") {
+    delete parsed.wallpaper;
+  }
+  return parsed;
+};
+
+const resolveWallpaperPayload = () =>
+  isWallpaperRelevantForLayout() ? getWallpaper() : undefined;
+
 const isStoryVisualLayout = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
 
@@ -1999,8 +2025,10 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
     parsed.layout = "chat";
     delete parsed.story;
   }
+  stripWallpaperForStoryOverlay(parsed);
   jsonInput.value = JSON.stringify(parsed, null, 2);
   updateGenerateImagesControls(parsed);
+  updateWallpaperControls();
 };
 
 const syncVideoLayoutFromJson = () => {
@@ -2017,6 +2045,7 @@ const syncVideoLayoutFromJson = () => {
           ? "chat"
           : "storyOverlay",
   );
+  updateWallpaperControls();
 };
 
 const syncWallpaperFromJson = () => {
@@ -4070,6 +4099,7 @@ jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
   syncMessageFontSizeFromJson();
+  updateWallpaperControls();
   updateGenerateImagesControls();
   updateRefineDialogueControls();
   scheduleRefreshDialogue();
@@ -4533,6 +4563,7 @@ btnExample.addEventListener("click", async () => {
     setDialogueSaveStatus("Пример загружен — сохраните как новый диалог");
     syncWallpaperFromJson();
     syncVideoLayoutFromJson();
+    updateWallpaperControls();
     syncMessageFontSizeFromJson();
     syncMusicFromJson();
     await refreshDialogue();
@@ -4592,18 +4623,23 @@ btnRender.addEventListener("click", async () => {
 
     json = jsonInput.value.trim();
 
-    const res = await fetch("/api/render", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
+    const renderPayload = {
         json,
         name: dialogueTitleInput.value.trim() || undefined,
         displayTitle: dialogueTitleInput.value.trim() || undefined,
-        wallpaper: getWallpaper(),
         music: getMusicId(),
         dialogueId: currentDialogueId ?? undefined,
         target: getRenderTarget(),
-      }),
+      };
+    const wallpaperForRender = resolveWallpaperPayload();
+    if (wallpaperForRender !== undefined) {
+      renderPayload.wallpaper = wallpaperForRender;
+    }
+
+    const res = await fetch("/api/render", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(renderPayload),
     });
 
     const data = await res.json();
@@ -5285,4 +5321,5 @@ loadOpenRouterStatus().then(() => {
   updateVoiceoverControls();
 });
 initEditorPreferenceControls();
+updateWallpaperControls();
 loadBrowseOnStartup();

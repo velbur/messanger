@@ -2102,7 +2102,9 @@ const runRenderPreparation = async (
 
     job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
 
-    if (rawWallpaper === "default" || rawWallpaper === "dark") {
+    if (conversation.layout === "storyOverlay") {
+      delete conversation.wallpaper;
+    } else if (rawWallpaper === "default" || rawWallpaper === "dark") {
       conversation.wallpaper = rawWallpaper;
     }
 

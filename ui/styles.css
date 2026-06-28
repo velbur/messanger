@@ -157,6 +157,15 @@ body {
   accent-color: #00a884;
 }
 
+.wallpaper-row--inactive .theme-options {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.wallpaper-row--inactive .theme-option {
+  cursor: not-allowed;
+}
+
 .input,
 .select {
   width: 100%;

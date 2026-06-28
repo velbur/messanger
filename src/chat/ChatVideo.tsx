@@ -22,7 +22,7 @@ import {
   visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatTypographyProvider} from "./TypographyContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -188,7 +188,6 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
   const intro = useMemo(() => mergeIntro(conversation), [conversation]);
   const endCard = useMemo(() => mergeEndCard(conversation), [conversation]);
   const previewCover = useMemo(() => mergePreviewCover(conversation), [conversation]);
-  const theme = getTheme(conversation.wallpaper);
   const story = timeline.story;
 
   const inIntro = intro.enabled && frame < timeline.introDurationFrames;
@@ -202,6 +201,8 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
 
   const storyVisualActive = story.enabled && !inTitleCard && !inOutro;
   const storyOverlayMode = story.presentation === "overlay";
+  const themeMode = storyOverlayMode ? STORY_OVERLAY_THEME_MODE : conversation.wallpaper;
+  const theme = getTheme(themeMode);
 
   const activeFullscreenEvent = timeline.events.find(
     (event) =>
@@ -350,7 +351,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
     (!story.enabled || frame >= story.openingStartFrame);
 
   return (
-    <ChatThemeProvider mode={conversation.wallpaper}>
+    <ChatThemeProvider mode={themeMode}>
       <ChatTypographyProvider conversation={conversation} layoutScale={typographyLayoutScale}>
       <AbsoluteFill
         style={{
