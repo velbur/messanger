@@ -801,6 +801,10 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
   if (tabId === "api") {
     loadApiStatus();
   }
+  if (tabId === "prompt") {
+    loadStylePrompt();
+    loadStoryStylePrompt();
+  }
 };
 
 tabBtnSeries?.addEventListener("click", () => {
@@ -5188,6 +5192,8 @@ btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
 loadMusicTracks();
 loadRenderTargets();
+loadStylePrompt();
+loadStoryStylePrompt();
 const loadOpenRouterStatus = async () => {
   try {
     const res = await fetch("/api/status");
