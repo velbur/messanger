@@ -1,7 +1,7 @@
 import path from "node:path";
 import {readFile} from "node:fs/promises";
 import {parseConversation} from "../src/chat/schema.ts";
-import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
+import {mergeStoryConfig, needsStoryDepthLayers, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
@@ -34,7 +34,7 @@ const run = async () => {
   if (isStoryVisualLayout(conversation)) {
     stripStorySfxFromConversation(conversation);
     normalizeStoryVideoLoopFlags(conversation);
-    if (mergeStoryConfig(conversation).opening.animation === "depthParallax") {
+    if (needsStoryDepthLayers(conversation)) {
       const depthLogs = await ensureStoryDepthForConversation(conversation);
       for (const line of depthLogs) {
         console.log(line);

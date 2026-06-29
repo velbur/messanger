@@ -311,8 +311,8 @@
             <div class="row" id="storyAnimationRow" hidden>
               <span class="label">Анимация сюжета</span>
               <p class="dialogue-hint">
-                Ken Burns / Parallax / Depth — бесплатный бесшовный цикл (по умолчанию 3 с на всё время кадра).
-                Veo — платная ИИ-анимация по каждому story-кадру.
+                Depth / Parallax строят 3 слоя из depth map (бесплатно, цикл 3 с). Ken Burns — лёгкий наезд.
+                Veo — платная ИИ-анимация. После обновления алгоритма пересоберите видео — depth-слои обновятся сами.
               </p>
               <div class="theme-options" role="radiogroup" aria-label="Анимация сюжета">
                 <label class="theme-option">
@@ -321,7 +321,7 @@
                 </label>
                 <label class="theme-option">
                   <input type="radio" name="storyAnimation" value="parallax" />
-                  <span>Parallax</span>
+                  <span>Parallax (depth)</span>
                 </label>
                 <label class="theme-option">
                   <input type="radio" name="storyAnimation" value="kenburns" />

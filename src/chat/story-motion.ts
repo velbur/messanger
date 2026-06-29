@@ -129,3 +129,22 @@ export const motionVectors = (directionSeed: string): {panX: number; panY: numbe
     panY: seed % 3 === 0 ? 1 : -1,
   };
 };
+
+export type DepthParallaxBand = "far" | "mid" | "near";
+
+/** Смещение depth-слоя: дальний и ближний движутся в противофазе */
+export const depthParallaxLayerMotion = (
+  progress: number,
+  panX: number,
+  panY: number,
+  band: DepthParallaxBand,
+): {translateX: number; translateY: number; scale: number} => {
+  const amplitude = band === "far" ? -2.4 : band === "mid" ? 0.55 : 3.2;
+  const scaleBase = 1.14;
+  const scaleBump = progress * 0.03 * (Math.abs(amplitude) / 3.2);
+  return {
+    translateX: panX * progress * amplitude,
+    translateY: panY * progress * amplitude * 0.72,
+    scale: scaleBase + scaleBump,
+  };
+};

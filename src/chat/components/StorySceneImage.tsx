@@ -1,11 +1,11 @@
 import React from "react";
-import {AbsoluteFill, Img, staticFile} from "remotion";
+import {AbsoluteFill} from "remotion";
 import type {StorySceneAnimation} from "../story";
 import {storyLayerPaths} from "../story-depth-paths";
 import {storyMotionLoopFrames} from "../story-motion";
 import {DepthParallaxImage} from "./DepthParallaxImage";
 import {KenBurnsImage} from "./KenBurnsImage";
-import {ParallaxStoryImage} from "./ParallaxStoryImage";
+import {PerspectiveParallaxImage} from "./PerspectiveParallaxImage";
 import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
 import {StorySceneVideo} from "./StorySceneVideo";
 
@@ -20,6 +20,9 @@ type Props = {
   animation: StorySceneAnimation;
   motionLoopSec?: number;
 };
+
+const usesDepthParallax = (animation: StorySceneAnimation): boolean =>
+  animation === "parallax" || animation === "depthParallax";
 
 const MotionScene: React.FC<{
   image: string;
@@ -63,14 +66,13 @@ const MotionScene: React.FC<{
     );
   }
 
-  if (animation === "depthParallax") {
+  if (usesDepthParallax(animation)) {
     return (
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
         <DepthParallaxImage
-          image={trimmed}
           layers={storyLayerPaths(trimmed)}
           localFrame={localFrame}
-          durationFrames={durationFrames}
+          directionSeed={trimmed}
           loopFrames={motionLoopFrames}
         />
         {particles}
@@ -80,10 +82,9 @@ const MotionScene: React.FC<{
 
   return (
     <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-      <ParallaxStoryImage
+      <PerspectiveParallaxImage
         image={trimmed}
         localFrame={localFrame}
-        durationFrames={durationFrames}
         loopFrames={motionLoopFrames}
       />
       {particles}
