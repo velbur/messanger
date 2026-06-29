@@ -314,6 +314,26 @@ host_has_nvidia_gpu() {
   [[ "$(uname -s)" == Linux ]] && command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1
 }
 
+ensure_native_node_modules() {
+  if [[ -f "${ROOT}/node_modules/tsx/package.json" ]]; then
+    return 0
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "Нужен npm: установите Node.js или запустите ./run.sh worker (Docker)." >&2
+    exit 1
+  fi
+  echo "node_modules не найден — npm ci для нативного воркера…" >&2
+  if [[ -f "${ROOT}/package-lock.json" ]]; then
+    npm ci --no-audit --no-fund
+  else
+    npm install --no-audit --no-fund
+  fi
+  if [[ ! -f "${ROOT}/node_modules/tsx/package.json" ]]; then
+    echo "Не удалось установить tsx. Выполните вручную: npm ci" >&2
+    exit 1
+  fi
+}
+
 warn_clock_skew() {
   if ! command -v curl >/dev/null 2>&1; then
     return 0
@@ -626,6 +646,7 @@ cmd_worker_native() {
   parse_server_args WORKER_PORT "$@"
 
   ensure_project_dirs
+  ensure_native_node_modules
 
   if ! command -v node >/dev/null 2>&1; then
     echo "Нужен Node.js на хосте (не в Docker)." >&2
@@ -642,8 +663,8 @@ cmd_worker_native() {
   export NATIVE_PROJECT_ROOT="${ROOT}"
   export STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-auto}"
 
-  echo "Render-воркер (нативно): http://0.0.0.0:${WORKER_PORT}"
-  echo "Depth: Depth Anything V2 через Apple MPS (M1–M4), без Docker"
+  echo "Render-воркер (нативно, без Docker): http://0.0.0.0:${WORKER_PORT}"
+  echo "Depth: Depth Anything V2 через Apple MPS (M1–M4)"
   echo "На другой машине: REMOTE_RENDER_URL=http://<IP-этого-Mac>:${WORKER_PORT} ./run.sh ui"
   echo "Проверка: npm run depth:probe"
   echo "Остановка: Ctrl+C"
@@ -658,6 +679,10 @@ main() {
   case "$cmd" in
     -h|--help|help)
       usage
+      exit 0
+      ;;
+    worker-native)
+      cmd_worker_native "$@"
       exit 0
       ;;
   esac
@@ -677,9 +702,6 @@ main() {
       ;;
     worker)
       cmd_worker "$@"
-      ;;
-    worker-native)
-      cmd_worker_native "$@"
       ;;
     dev)
       cmd_dev
