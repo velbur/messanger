@@ -6,11 +6,12 @@
  *   npm run test:parallax -- --image path/to.png --force-depth
  */
 import path from "node:path";
-import {mkdir, copyFile, access} from "node:fs/promises";
+import {mkdir, copyFile, access, writeFile} from "node:fs/promises";
 import {renderStill, renderMedia, selectComposition} from "@remotion/renderer";
 import {storyMotionLoopFrames} from "../src/chat/story-motion.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets} from "./story-depth.mjs";
+import {verifyParallaxOutput} from "./verify-parallax.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const TEST_SLUG = "parallax-test";
@@ -113,9 +114,27 @@ const run = async () => {
     x264Preset: "veryfast",
   });
 
+  const reportPath = path.join(outDir, "verify-report.json");
+  const report = await verifyParallaxOutput({
+    outDir,
+    imageRel: IMAGE_REL,
+    loopFrames,
+  });
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+  console.log(`\n${report.summary}`);
+  console.log(`\nОтчёт: ${path.relative(ROOT, reportPath)}`);
+
+  if (!report.pass) {
+    console.log("\n⚠ Parallax не прошёл автопроверку — см. verify-report.json");
+    if (!hasFlag("--allow-fail")) {
+      process.exit(1);
+    }
+  }
+
   console.log(`\nГотово: ${path.relative(ROOT, outDir)}/`);
-  console.log("  still-kenburns-*.png  vs  still-depthParallax-*.png");
-  console.log("  depthParallax-loop.mp4 — 3 с, только картинка (без чата)");
+  console.log("  depthParallax-loop.mp4");
+  console.log("  verify-report.json — метрики без ручного просмотра");
 };
 
 run().catch((error) => {
