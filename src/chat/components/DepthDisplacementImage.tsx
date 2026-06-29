@@ -1,25 +1,13 @@
 import React from "react";
-import {storyLayerPaths} from "../story-depth-paths";
+import {storyParallaxVideoPath} from "../story-depth-paths";
 import {DepthParallaxImage} from "./DepthParallaxImage";
 
 type Props = {
   image: string;
-  localFrame: number;
-  directionSeed?: string;
   loopFrames?: number;
 };
 
-/** Три RGBA depth-слоя (генерятся в story-depth.mjs), не дублирование кадра + mask. */
-export const DepthDisplacementImage: React.FC<Props> = ({
-  image,
-  localFrame,
-  directionSeed = image,
-  loopFrames,
-}) => (
-  <DepthParallaxImage
-    layers={storyLayerPaths(image.trim())}
-    localFrame={localFrame}
-    directionSeed={directionSeed}
-    loopFrames={loopFrames}
-  />
+/** Проигрывает запечённый parallax-loop рядом со story-кадром (.parallax.mp4). */
+export const DepthDisplacementImage: React.FC<Props> = ({image, loopFrames}) => (
+  <DepthParallaxImage video={storyParallaxVideoPath(image.trim())} loopFrames={loopFrames} />
 );

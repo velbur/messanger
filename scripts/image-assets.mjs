@@ -228,6 +228,7 @@ export const collectStoryImageAssetRefs = (imagePublicPath) => {
   return [
     ref,
     `${base}.depth.png`,
+    `${base}.parallax.mp4`,
     `${base}.layer-far.png`,
     `${base}.layer-mid.png`,
     `${base}.layer-near.png`,

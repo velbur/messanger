@@ -2,10 +2,10 @@ import React from "react";
 import {AbsoluteFill, useCurrentFrame} from "remotion";
 import {DepthParallaxImage} from "./components/DepthParallaxImage";
 import {KenBurnsImage} from "./components/KenBurnsImage";
-import {storyLayerPaths} from "./story-depth-paths";
+import {storyParallaxVideoPath} from "./story-depth-paths";
 import {storyMotionLoopFrames} from "./story-motion";
 
-export const STORY_PARALLAX_PREVIEW_MARKER = "story-parallax-preview-v1";
+export const STORY_PARALLAX_PREVIEW_MARKER = "story-parallax-preview-v2";
 
 void STORY_PARALLAX_PREVIEW_MARKER;
 
@@ -36,12 +36,7 @@ export const StoryParallaxPreview: React.FC<Props> = ({
           loopFrames={loopFrames}
         />
       ) : (
-        <DepthParallaxImage
-          layers={storyLayerPaths(trimmed)}
-          localFrame={frame}
-          directionSeed={trimmed}
-          loopFrames={loopFrames}
-        />
+        <DepthParallaxImage video={storyParallaxVideoPath(trimmed)} loopFrames={loopFrames} />
       )}
     </AbsoluteFill>
   );

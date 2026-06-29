@@ -5,6 +5,13 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
+import {motionVectors, storyMotionLoopFrames} from "../src/chat/story-motion.ts";
+import {FPS} from "../src/chat/fps.ts";
+import {
+  bakeKenBurnsLoopFallback,
+  bakeParallaxVideos,
+  isParallaxBakeAvailable,
+} from "./parallax-bake.mjs";
 import {
   describeDepthV2Status,
   inferDepthV2Batch,
@@ -15,14 +22,14 @@ import {
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
+const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
-/** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 13;
+/** Меняй при правках алгоритма — старые ассеты пересоберутся */
+export const DEPTH_LAYER_VERSION = 21;
 
-const DEPTH_BLUR_SIGMA = 4;
-const ALPHA_FEATHER_SIGMA = 3.2;
-/** Лёгкое размытие только под самым ближним планом */
-const BACKGROUND_PLATE_BLUR_SIGMA = 14;
+/** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
+const PARALLAX_AMPLITUDE_FRAC = 0.07;
+const PARALLAX_FRAMES = storyMotionLoopFrames(3);
 
 env.cacheDir = CACHE_DIR;
 env.allowLocalModels = false;
@@ -49,11 +56,11 @@ const safePublicAbs = (relativePath) => {
   return {relative: normalized, absolute};
 };
 
+const metaRelFor = (paths) => paths.depth.replace(/\.depth\.png$/, ".depth-meta.json");
+
 const readDepthMeta = async (paths) => {
   try {
-    const metaAbs = safePublicAbs(
-      String(paths.mid).replace(/\.layer-mid\.png$/, ".depth-meta.json"),
-    ).absolute;
+    const metaAbs = safePublicAbs(metaRelFor(paths)).absolute;
     const raw = await fs.readFile(metaAbs, "utf8");
     return JSON.parse(raw);
   } catch {
@@ -102,12 +109,6 @@ export const probeStoryDepth = async () => {
   return {provider, message: `Depth Xenova: ${STORY_DEPTH_MODEL}`};
 };
 
-const smoothstep = (edge0, edge1, x) => {
-  const span = Math.max(edge1 - edge0, 1e-6);
-  const t = Math.max(0, Math.min(1, (x - edge0) / span));
-  return t * t * (3 - 2 * t);
-};
-
 const depthToUint8 = (depthData, pixelCount) => {
   let min = Infinity;
   let max = -Infinity;
@@ -143,171 +144,20 @@ const resizeDepthToMatch = async (depthUint8, depthW, depthH, targetW, targetH) 
   return new Uint8Array(resized);
 };
 
-const blurDepthMap = async (depthUint8, width, height) => {
-  // blur на raw channels:1 даёт горизонтальные полосы — сначала в greyscale-изображение
-  const blurred = await sharp(Buffer.from(depthUint8), {
-    raw: {width, height, channels: 1},
-  })
-    .toColourspace("b-w")
-    .blur(DEPTH_BLUR_SIGMA)
-    .greyscale()
-    .raw()
-    .toBuffer();
-  return new Uint8Array(blurred);
-};
-
-const layerWeights = (depthByte) => {
-  const d = depthByte / 255;
-  const near = smoothstep(0.74, 0.96, d);
-  const far = 1 - smoothstep(0.06, 0.32, d);
-  let mid = Math.max(0, 1 - far - near);
-  const sum = far + mid + near;
-  if (sum < 1e-6) {
-    return {far: 1 / 3, mid: 1 / 3, near: 1 / 3};
-  }
-  return {far: far / sum, mid: mid / sum, near: near / sum};
-};
-
-const buildBackgroundPlate = (source, blurredSource, depthUint8, width, height) => {
-  const out = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < width * height; i += 1) {
-    const {near} = layerWeights(depthUint8[i]);
-    const hole = Math.min(1, near ** 1.35 * 0.75);
-    const si = i * 4;
-    for (let c = 0; c < 3; c += 1) {
-      out[si + c] = Math.round(source[si + c] * (1 - hole) + blurredSource[si + c] * hole);
-    }
-    out[si + 3] = 255;
-  }
-  return out;
-};
-
-const blurSourcePlate = async (source, width, height) => {
-  return sharp(source, {raw: {width, height, channels: 4}})
-    .blur(BACKGROUND_PLATE_BLUR_SIGMA)
-    .raw()
-    .toBuffer();
-};
-
-const buildBandLayer = (source, depthUint8, width, height, band) => {
-  const out = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < width * height; i += 1) {
-    const weights = layerWeights(depthUint8[i]);
-    const weight = band === "far" ? weights.far : band === "mid" ? weights.mid : weights.near;
-    const alpha = Math.round(weight * 255);
-    const si = i * 4;
-    out[si] = source[si];
-    out[si + 1] = source[si + 1];
-    out[si + 2] = source[si + 2];
-    out[si + 3] = alpha;
-  }
-  return out;
-};
-
-const erodeLayerAlpha = (buffer, width, height, radius = 2) => {
-  const out = Buffer.from(buffer);
-  for (let y = radius; y < height - radius; y += 1) {
-    for (let x = radius; x < width - radius; x += 1) {
-      const i = y * width + x;
-      let minA = 255;
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          const j = (y + dy) * width + (x + dx);
-          minA = Math.min(minA, buffer[j * 4 + 3]);
-        }
-      }
-      out[i * 4 + 3] = minA;
-    }
-  }
-  return out;
-};
-
-const featherLayerAlpha = async (buffer, width, height) => {
-  const pixelCount = width * height;
-  const alpha = Buffer.alloc(pixelCount);
-  for (let i = 0; i < pixelCount; i += 1) {
-    alpha[i] = buffer[i * 4 + 3];
-  }
-
-  const blurredAlpha = await sharp(Buffer.from(alpha), {raw: {width, height, channels: 1}})
-    .toColourspace("b-w")
-    .blur(ALPHA_FEATHER_SIGMA)
-    .greyscale()
-    .raw()
-    .toBuffer();
-
-  const out = Buffer.from(buffer);
-  for (let i = 0; i < pixelCount; i += 1) {
-    const original = buffer[i * 4 + 3];
-    const feathered = blurredAlpha[i];
-    out[i * 4 + 3] = Math.round((original * feathered) / 255);
-  }
-  return out;
-};
-
-const writeLayerPngs = async ({imageAbs, depthUint8, width, height, paths, metaExtra = {}}) => {
-  const softenedDepth = await blurDepthMap(depthUint8, width, height);
-  const source = await sharp(imageAbs).ensureAlpha().raw().toBuffer();
-  const blurredSource = await blurSourcePlate(source, width, height);
-
-  const far = buildBackgroundPlate(source, blurredSource, softenedDepth, width, height);
-  const mid = await featherLayerAlpha(
-    buildBandLayer(source, softenedDepth, width, height, "mid"),
-    width,
-    height,
+/** depth uint8 → raw-файл (8 байт w,h big-endian + w*h байт) для Python-запекателя */
+const writeDepthRaw = async (depthUint8, width, height) => {
+  await fs.mkdir(RAW_TMP_DIR, {recursive: true});
+  const header = Buffer.alloc(8);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  const body = Buffer.from(depthUint8.buffer, depthUint8.byteOffset, depthUint8.byteLength);
+  const out = Buffer.concat([header, body]);
+  const file = path.join(
+    RAW_TMP_DIR,
+    `${Date.now()}-${Math.random().toString(36).slice(2)}.raw`,
   );
-  const near = await featherLayerAlpha(
-    erodeLayerAlpha(
-      buildBandLayer(source, softenedDepth, width, height, "near"),
-      width,
-      height,
-      2,
-    ),
-    width,
-    height,
-  );
-
-  const depthAbs = safePublicAbs(paths.depth).absolute;
-  const metaAbs = safePublicAbs(
-    String(paths.mid).replace(/\.layer-mid\.png$/, ".depth-meta.json"),
-  ).absolute;
-  await fs.mkdir(path.dirname(depthAbs), {recursive: true});
-
-  await sharp(Buffer.from(softenedDepth), {raw: {width, height, channels: 1}})
-    .toColourspace("b-w")
-    .png()
-    .toFile(depthAbs);
-
-  const writeLayer = async (buffer, rel) => {
-    const abs = safePublicAbs(rel).absolute;
-    await sharp(buffer, {raw: {width, height, channels: 4}}).png().toFile(abs);
-  };
-
-  await writeLayer(far, paths.far);
-  await writeLayer(mid, paths.mid);
-  await writeLayer(near, paths.near);
-  await fs.writeFile(
-    metaAbs,
-    `${JSON.stringify({version: DEPTH_LAYER_VERSION, mode: "layers", ...metaExtra})}\n`,
-    "utf8",
-  );
-};
-
-export const isStoryDepthAvailable = async (imagePublicPath) => {
-  const paths = storyLayerPaths(imagePublicPath);
-  try {
-    const meta = await readDepthMeta(paths);
-    if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION || meta.mode !== "layers") {
-      return false;
-    }
-    await fs.access(safePublicAbs(paths.depth).absolute);
-    await fs.access(safePublicAbs(paths.far).absolute);
-    await fs.access(safePublicAbs(paths.mid).absolute);
-    await fs.access(safePublicAbs(paths.near).absolute);
-    return true;
-  } catch {
-    return false;
-  }
+  await fs.writeFile(file, out);
+  return file;
 };
 
 const inferDepthXenova = async (imageAbs) => {
@@ -365,6 +215,108 @@ const inferDepthMaps = async (targets, provider) => {
   return out;
 };
 
+/** Запечь parallax-loop из кадра + depth-карты в .parallax.mp4 (рядом — .depth.png) */
+const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, paths, metaExtra}) => {
+  const depthRaw = await writeDepthRaw(depthUint8, width, height);
+  try {
+    const {panX, panY} = motionVectors(rel);
+    const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
+    const outDepth = safePublicAbs(paths.depth).absolute;
+    await fs.mkdir(path.dirname(outVideo), {recursive: true});
+
+    await bakeParallaxVideos([
+      {
+        image: imageAbs,
+        depthRaw,
+        outVideo,
+        outDepth,
+        frames: PARALLAX_FRAMES,
+        fps: FPS,
+        amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
+        panX,
+        panY,
+      },
+    ]);
+
+    const metaAbs = safePublicAbs(metaRelFor(paths)).absolute;
+    await fs.writeFile(
+      metaAbs,
+      `${JSON.stringify({
+        version: DEPTH_LAYER_VERSION,
+        mode: "video",
+        frames: PARALLAX_FRAMES,
+        fps: FPS,
+        width,
+        height,
+        ...metaExtra,
+      })}\n`,
+      "utf8",
+    );
+  } finally {
+    await fs.rm(depthRaw, {force: true});
+  }
+};
+
+/** Fallback без depth: бесшовный Ken Burns loop в тот же .parallax.mp4 */
+const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
+  const meta = await sharp(imageAbs).metadata();
+  const width = meta.width ?? 1080;
+  const height = meta.height ?? 1920;
+  const {panX, panY} = motionVectors(rel);
+  const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
+  await fs.mkdir(path.dirname(outVideo), {recursive: true});
+
+  await bakeKenBurnsLoopFallback({
+    image: imageAbs,
+    width,
+    height,
+    outVideo,
+    frames: PARALLAX_FRAMES,
+    fps: FPS,
+    panX,
+    panY,
+  });
+
+  // Плоская depth-заглушка, чтобы isStoryDepthAvailable/verify не падали
+  const depthAbs = safePublicAbs(paths.depth).absolute;
+  await sharp({
+    create: {width, height, channels: 1, background: {r: 128, g: 128, b: 128}},
+  })
+    .toColourspace("b-w")
+    .png()
+    .toFile(depthAbs);
+
+  const metaAbs = safePublicAbs(metaRelFor(paths)).absolute;
+  await fs.writeFile(
+    metaAbs,
+    `${JSON.stringify({
+      version: DEPTH_LAYER_VERSION,
+      mode: "video",
+      frames: PARALLAX_FRAMES,
+      fps: FPS,
+      width,
+      height,
+      provider: "kenburns-fallback",
+    })}\n`,
+    "utf8",
+  );
+};
+
+export const isStoryDepthAvailable = async (imagePublicPath) => {
+  const paths = storyLayerPaths(imagePublicPath);
+  try {
+    const meta = await readDepthMeta(paths);
+    if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION || meta.mode !== "video") {
+      return false;
+    }
+    await fs.access(safePublicAbs(paths.depth).absolute);
+    await fs.access(safePublicAbs(paths.parallaxVideo).absolute);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const generateStoryDepthAssets = async (imagePublicPath, {force = false} = {}) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
   if (!rel) {
@@ -379,11 +331,16 @@ export const generateStoryDepthAssets = async (imagePublicPath, {force = false} 
   const {absolute: imageAbs} = safePublicAbs(rel);
   await fs.access(imageAbs);
 
+  if (!(await isParallaxBakeAvailable())) {
+    await bakeFallbackAsset({rel, imageAbs, paths});
+    return {skipped: false, paths, relative: rel, provider: "kenburns-fallback", fallback: true};
+  }
+
   const provider = await getResolvedDepthProvider();
   const depthMaps = await inferDepthMaps([rel], provider);
   const {depthUint8, width, height, metaExtra} = depthMaps.get(rel);
 
-  await writeLayerPngs({imageAbs, depthUint8, width, height, paths, metaExtra});
+  await bakeParallaxAsset({rel, imageAbs, depthUint8, width, height, paths, metaExtra});
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
 };
@@ -415,13 +372,30 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
   const pending = [];
   for (const imagePath of targets) {
     if (!force && (await isStoryDepthAvailable(imagePath))) {
-      logs.push(`Depth: слои уже есть → ${imagePath}`);
+      logs.push(`Parallax: ассеты уже есть → ${imagePath}`);
     } else {
       pending.push(imagePath);
     }
   }
 
   if (pending.length === 0) {
+    return logs;
+  }
+
+  if (!(await isParallaxBakeAvailable())) {
+    logs.push(
+      "Parallax: depth-запекатель недоступен (нет Python+opencv) — печём Ken Burns loop. Полный 3D-photo: ./run.sh setup-native",
+    );
+    for (const imagePath of pending) {
+      try {
+        const {absolute: imageAbs} = safePublicAbs(imagePath);
+        await bakeFallbackAsset({rel: imagePath, imageAbs, paths: storyLayerPaths(imagePath)});
+        logs.push(`Parallax: Ken Burns loop запечён → ${imagePath}`);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        logs.push(`Parallax: ошибка fallback для ${imagePath}: ${reason}`);
+      }
+    }
     return logs;
   }
 
@@ -442,7 +416,8 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
       if (!entry) {
         throw new Error("Нет depth map");
       }
-      await writeLayerPngs({
+      await bakeParallaxAsset({
+        rel: imagePath,
         imageAbs,
         depthUint8: entry.depthUint8,
         width: entry.width,
@@ -451,10 +426,10 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
         metaExtra: entry.metaExtra,
       });
       const model = entry.metaExtra?.model ? ` (${entry.metaExtra.model})` : "";
-      logs.push(`Depth: слои созданы${model} → ${imagePath}`);
+      logs.push(`Parallax: loop запечён${model} → ${imagePath}`);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      logs.push(`Depth: ошибка для ${imagePath}: ${reason}`);
+      logs.push(`Parallax: ошибка для ${imagePath}: ${reason}`);
     }
   }
 
@@ -464,6 +439,6 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
 export const ensureStoryDepthForPublicPath = async (relativePath, options = {}) => {
   const result = await generateStoryDepthAssets(relativePath, options);
   return result.skipped
-    ? `Depth: слои уже есть → ${relativePath}`
-    : `Depth: слои созданы → ${relativePath}`;
+    ? `Parallax: ассеты уже есть → ${relativePath}`
+    : `Parallax: loop запечён → ${relativePath}`;
 };

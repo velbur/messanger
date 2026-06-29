@@ -130,20 +130,8 @@ export const motionVectors = (directionSeed: string): {panX: number; panY: numbe
   };
 };
 
-export type DepthParallaxBand = "far" | "mid" | "near";
-
-/** Смещение depth-слоя: дальний и ближний движутся в противофазе */
-export const depthParallaxLayerMotion = (
-  progress: number,
-  panX: number,
-  panY: number,
-  band: DepthParallaxBand,
-): {translateX: number; translateY: number; scale: number} => {
-  const amplitude = band === "far" ? -1.3 : band === "mid" ? 1.5 : 4.5;
-  const scale = 1;
-  return {
-    translateX: panX * progress * amplitude,
-    translateY: panY * progress * amplitude * 0.55,
-    scale,
-  };
-};
+/**
+ * Depth-parallax (3D-photo) запекается заранее в .parallax.mp4 — движение
+ * считается по-пиксельно в scripts/python/parallax_bake.py, а в Remotion клип
+ * просто проигрывается на петле. Поэтому здесь больше нет per-слойных формул.
+ */

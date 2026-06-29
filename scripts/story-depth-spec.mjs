@@ -1,5 +1,9 @@
 /** Суффиксы файлов depth-параллакса рядом с story-кадром */
 export const STORY_DEPTH_SUFFIX = ".depth.png";
+/** Запечённый seamless parallax-loop (3D-photo) */
+export const STORY_PARALLAX_VIDEO_SUFFIX = ".parallax.mp4";
+
+/** @deprecated старый 2.5D через RGBA-слои */
 export const STORY_LAYER_SUFFIXES = {
   far: ".layer-far.png",
   mid: ".layer-mid.png",
@@ -16,8 +20,6 @@ export const storyLayerPaths = (imagePublicPath) => {
   const base = String(imagePublicPath).replace(/\.(png|jpe?g|webp)$/i, "");
   return {
     depth: `${base}${STORY_DEPTH_SUFFIX}`,
-    far: `${base}${STORY_LAYER_SUFFIXES.far}`,
-    mid: `${base}${STORY_LAYER_SUFFIXES.mid}`,
-    near: `${base}${STORY_LAYER_SUFFIXES.near}`,
+    parallaxVideo: `${base}${STORY_PARALLAX_VIDEO_SUFFIX}`,
   };
 };

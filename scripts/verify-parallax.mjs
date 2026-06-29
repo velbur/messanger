@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 /**
  * Автопроверка parallax без ручного просмотра mp4.
- * Сравнивает still t0/peak, depth-карту; опционально кадры из mp4.
+ *
+ * Запечённый loop ходит по sin(2π·t): нейтраль на кадрах 0/mid/last, экстремумы
+ * смещения — на ¼ (left) и ¾ (right). Поэтому:
+ *   - сила parallax = сдвиг fg vs bg между left и right (полный размах);
+ *   - бесшовность = MAE(neutral, last) ≈ 0;
+ *   - отличие от Ken Burns = у KB передний и задний план двигаются одинаково.
  */
 import {execFile} from "node:child_process";
 import {promisify} from "node:util";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
-import {access, mkdir, readFile, writeFile, rm} from "node:fs/promises";
+import {access, mkdir, writeFile, rm} from "node:fs/promises";
 import sharp from "sharp";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 
@@ -15,10 +20,17 @@ const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dirname, "..");
 
 const THRESHOLDS = {
-  minParallaxSeparationPx: 2.5,
-  minNearVsFarRatio: 1.15,
-  maxKenSeparationPx: 2,
-  minParallaxOverKenSeparation: 1.4,
+  /** Заметный parallax: размах разницы fg vs bg между экстремумами, px */
+  minParallaxSeparationPx: 8,
+  minNearVsFarRatio: 1.3,
+  /** Ken Burns: равномерный зум геометрически даёт небольшой fg/bg-сдвиг по радиусу;
+   *  главный дискриминатор — beats_kenburns (parallax кратно сильнее) */
+  maxKenSeparationPx: 16,
+  /** parallax должен быть ощутимо сильнее Ken Burns */
+  minParallaxOverKenSeparation: 2.0,
+  /** Бесшовность: средняя ошибка между кадром 0 и последним */
+  maxSeamMae: 8,
+  /** Край справа не должен быть чёрной полосой */
   maxEdgeDarkMean: 22,
   minEdgeInnerGap: 28,
 };
@@ -46,18 +58,24 @@ const loadGrey = async (absPath) => {
   return {grey: toGrey(data, pixels), w: info.width, h: info.height};
 };
 
-const loadDepth = async (absPath) => {
-  const {data, info} = await sharp(absPath).greyscale().raw().toBuffer({resolveWithObject: true});
-  return {depth: new Uint8Array(data), w: info.width, h: info.height};
+/** depth-карта ресайзится под размер кадра, чтобы маски совпадали по пикселям */
+const loadDepthMatched = async (absPath, w, h) => {
+  const {data} = await sharp(absPath)
+    .greyscale()
+    .resize(w, h, {fit: "fill"})
+    .raw()
+    .toBuffer({resolveWithObject: true});
+  return {depth: new Uint8Array(data), w, h};
 };
 
-/** Горизонтальный сдвиг между кадрами в маске (px) */
+/** Горизонтальный сдвиг между кадрами внутри маски (px) */
 const estimateHorizontalShift = (a, b, w, h, maskFn) => {
   let bestShift = 0;
   let bestCost = Infinity;
   const margin = Math.round(w * 0.06);
+  const maxShift = Math.round(w * 0.1);
 
-  for (let shift = -Math.round(w * 0.06); shift <= Math.round(w * 0.06); shift += 1) {
+  for (let shift = -maxShift; shift <= maxShift; shift += 1) {
     let cost = 0;
     let count = 0;
     for (let y = margin; y < h - margin; y += 4) {
@@ -119,18 +137,27 @@ const edgeStripeMetrics = (grey, w, h) => {
   };
 };
 
-const evaluatePair = ({greyT0, greyPeak, depth}) => {
-  const {w, h} = greyT0;
-  const fgMask = (i) => depth.depth[i] >= 118;
-  const bgMask = (i) => depth.depth[i] <= 88;
+/** Среднее абсолютное отличие двух кадров (0..255) — для проверки бесшовности */
+const meanAbsDiff = (a, b) => {
+  const n = Math.min(a.length, b.length);
+  let sum = 0;
+  for (let i = 0; i < n; i += 1) {
+    sum += Math.abs(a[i] - b[i]);
+  }
+  return sum / n;
+};
 
-  const fgT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, fgMask);
-  const fgPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, fgMask);
-  const bgT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, bgMask);
-  const bgPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, bgMask);
+/** Сдвиг переднего и заднего плана между двумя кадрами */
+const evaluatePair = ({greyA, greyB, depth}) => {
+  const {w, h} = greyA;
+  const fgMask = (i) => depth.depth[i] >= 150;
+  const bgMask = (i) => depth.depth[i] <= 90;
 
-  const nearShift = (fgT0.shiftPx - fgPeak.shiftPx) / 2;
-  const farShift = (bgT0.shiftPx - bgPeak.shiftPx) / 2;
+  const fg = estimateHorizontalShift(greyA.grey, greyB.grey, w, h, fgMask);
+  const bg = estimateHorizontalShift(greyA.grey, greyB.grey, w, h, bgMask);
+
+  const nearShift = fg.shiftPx;
+  const farShift = bg.shiftPx;
   const separation = Math.abs(nearShift - farShift);
   const ratio = Math.abs(nearShift) / Math.max(Math.abs(farShift), 0.5);
 
@@ -149,6 +176,15 @@ const extractMp4Frame = async (mp4Abs, frameIndex, outAbs) => {
     ["-y", "-i", mp4Abs, `-vf`, `select=eq(n\\,${frameIndex})`, "-vframes", "1", outAbs],
     {stdio: "pipe"},
   );
+};
+
+const tryLoadGrey = async (absPath) => {
+  try {
+    await access(absPath);
+    return await loadGrey(absPath);
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -170,42 +206,47 @@ export const verifyParallaxOutput = async ({
   const depthAbs = path.join(ROOT, "public", paths.depth);
 
   const still = (mode, label) => path.join(outAbs, `still-${mode}-${label}.png`);
-  const mp4Abs = path.join(outAbs, mp4Rel);
 
   await access(depthAbs);
-  await access(still("depthParallax", "t0"));
-  await access(still("depthParallax", "peak"));
+  await access(still("depthParallax", "left"));
+  await access(still("depthParallax", "right"));
 
-  const depth = await loadDepth(depthAbs);
-  const depthParallaxT0 = await loadGrey(still("depthParallax", "t0"));
-  const depthParallaxPeak = await loadGrey(still("depthParallax", "peak"));
-  const kenT0 = await loadGrey(still("kenburns", "t0"));
-  const kenPeak = await loadGrey(still("kenburns", "peak"));
+  const left = await loadGrey(still("depthParallax", "left"));
+  const right = await loadGrey(still("depthParallax", "right"));
+  const neutral = await tryLoadGrey(still("depthParallax", "neutral"));
+  const last = await tryLoadGrey(still("depthParallax", "last"));
+  const kenNeutral = await tryLoadGrey(still("kenburns", "neutral"));
+  const kenPeak = await tryLoadGrey(still("kenburns", "peak"));
 
-  const parallaxMotion = evaluatePair({
-    greyT0: depthParallaxT0,
-    greyPeak: depthParallaxPeak,
-    depth,
-  });
-  const kenMotion = evaluatePair({greyT0: kenT0, greyPeak: kenPeak, depth});
+  const depth = await loadDepthMatched(depthAbs, left.w, left.h);
 
-  const edge = edgeStripeMetrics(depthParallaxPeak.grey, depthParallaxPeak.w, depthParallaxPeak.h);
+  const parallaxMotion = evaluatePair({greyA: left, greyB: right, depth});
+  const kenMotion =
+    kenNeutral && kenPeak
+      ? evaluatePair({greyA: kenNeutral, greyB: kenPeak, depth})
+      : {nearShiftPx: 0, farShiftPx: 0, separationPx: 0, nearVsFarRatio: 0};
+
+  const seamMae = neutral && last ? Number(meanAbsDiff(neutral.grey, last.grey).toFixed(3)) : null;
+  const edge = edgeStripeMetrics(right.grey, right.w, right.h);
 
   let mp4Check = null;
   try {
+    const mp4Abs = path.join(outAbs, mp4Rel);
     await access(mp4Abs);
     const tmpDir = path.join(outAbs, ".verify-tmp");
     await mkdir(tmpDir, {recursive: true});
-    const midFrame = Math.round(loopFrames * 0.5);
-    const mp4T0 = path.join(tmpDir, "mp4-t0.png");
-    const mp4Mid = path.join(tmpDir, "mp4-mid.png");
-    await extractMp4Frame(mp4Abs, 0, mp4T0);
-    await extractMp4Frame(mp4Abs, midFrame, mp4Mid);
-    const mp4GreyT0 = await loadGrey(mp4T0);
-    const mp4GreyMid = await loadGrey(mp4Mid);
-    const mp4Motion = evaluatePair({greyT0: mp4GreyT0, greyPeak: mp4GreyMid, depth});
-    const mp4Edge = edgeStripeMetrics(mp4GreyMid.grey, mp4GreyMid.w, mp4GreyMid.h);
-    mp4Check = {motion: mp4Motion, edge: mp4Edge, midFrame};
+    const qFrame = Math.round(loopFrames * 0.25);
+    const tqFrame = Math.round(loopFrames * 0.75);
+    const mp4L = path.join(tmpDir, "mp4-left.png");
+    const mp4R = path.join(tmpDir, "mp4-right.png");
+    await extractMp4Frame(mp4Abs, qFrame, mp4L);
+    await extractMp4Frame(mp4Abs, tqFrame, mp4R);
+    const mp4GreyL = await loadGrey(mp4L);
+    const mp4GreyR = await loadGrey(mp4R);
+    const mp4Depth = await loadDepthMatched(depthAbs, mp4GreyL.w, mp4GreyL.h);
+    const mp4Motion = evaluatePair({greyA: mp4GreyL, greyB: mp4GreyR, depth: mp4Depth});
+    const mp4Edge = edgeStripeMetrics(mp4GreyR.grey, mp4GreyR.w, mp4GreyR.h);
+    mp4Check = {motion: mp4Motion, edge: mp4Edge, qFrame, tqFrame};
     await rm(tmpDir, {recursive: true, force: true});
   } catch {
     mp4Check = {skipped: true, reason: "mp4 или ffmpeg недоступен"};
@@ -225,26 +266,41 @@ export const verifyParallaxOutput = async ({
       : `Слабый parallax: Δ=${parallaxMotion.separationPx}px, near=${parallaxMotion.nearShiftPx}, far=${parallaxMotion.farShiftPx}`,
   });
 
-  const kenUniform =
-    kenMotion.separationPx <= THRESHOLDS.maxKenSeparationPx;
-  checks.push({
-    id: "kenburns_uniform",
-    pass: kenUniform,
-    message: kenUniform
-      ? `Ken Burns плоский: Δ=${kenMotion.separationPx}px`
-      : `Ken Burns неожиданно неравномерен: Δ=${kenMotion.separationPx}px`,
-  });
+  if (kenNeutral && kenPeak) {
+    const kenUniform = kenMotion.separationPx <= THRESHOLDS.maxKenSeparationPx;
+    checks.push({
+      id: "kenburns_uniform",
+      pass: kenUniform,
+      message: kenUniform
+        ? `Ken Burns плоский: Δ=${kenMotion.separationPx}px`
+        : `Ken Burns неожиданно неравномерен: Δ=${kenMotion.separationPx}px`,
+    });
 
-  const beatsKen =
-    parallaxMotion.separationPx >=
-    Math.max(THRESHOLDS.minParallaxSeparationPx, kenMotion.separationPx * THRESHOLDS.minParallaxOverKenSeparation);
-  checks.push({
-    id: "beats_kenburns",
-    pass: beatsKen,
-    message: beatsKen
-      ? `Parallax сильнее Ken Burns (${parallaxMotion.separationPx} vs ${kenMotion.separationPx}px)`
-      : `Parallax ≈ Ken Burns (${parallaxMotion.separationPx} vs ${kenMotion.separationPx}px)`,
-  });
+    const beatsKen =
+      parallaxMotion.separationPx >=
+      Math.max(
+        THRESHOLDS.minParallaxSeparationPx,
+        kenMotion.separationPx * THRESHOLDS.minParallaxOverKenSeparation,
+      );
+    checks.push({
+      id: "beats_kenburns",
+      pass: beatsKen,
+      message: beatsKen
+        ? `Parallax сильнее Ken Burns (${parallaxMotion.separationPx} vs ${kenMotion.separationPx}px)`
+        : `Parallax ≈ Ken Burns (${parallaxMotion.separationPx} vs ${kenMotion.separationPx}px)`,
+    });
+  }
+
+  if (seamMae != null) {
+    const seamOk = seamMae <= THRESHOLDS.maxSeamMae;
+    checks.push({
+      id: "seamless_loop",
+      pass: seamOk,
+      message: seamOk
+        ? `Loop бесшовный: MAE(0,last)=${seamMae}`
+        : `Заметный стык loop: MAE(0,last)=${seamMae}`,
+    });
+  }
 
   const edgeOk =
     edge.edgeMean >= THRESHOLDS.maxEdgeDarkMean ||
@@ -259,6 +315,14 @@ export const verifyParallaxOutput = async ({
   });
 
   if (mp4Check && !mp4Check.skipped) {
+    const mp4MotionOk = mp4Check.motion.separationPx >= THRESHOLDS.minParallaxSeparationPx;
+    checks.push({
+      id: "mp4_motion",
+      pass: mp4MotionOk,
+      message: mp4MotionOk
+        ? `MP4: parallax виден (Δ=${mp4Check.motion.separationPx}px)`
+        : `MP4: parallax слабый (Δ=${mp4Check.motion.separationPx}px)`,
+    });
     const mp4EdgeOk =
       mp4Check.edge.edgeMean >= THRESHOLDS.maxEdgeDarkMean ||
       mp4Check.edge.gap < THRESHOLDS.minEdgeInnerGap;
@@ -266,8 +330,8 @@ export const verifyParallaxOutput = async ({
       id: "mp4_edge",
       pass: mp4EdgeOk,
       message: mp4EdgeOk
-        ? `MP4 кадр ${mp4Check.midFrame}: край OK`
-        : `MP4 кадр ${mp4Check.midFrame}: полоса справа (edge=${mp4Check.edge.edgeMean})`,
+        ? `MP4 кадр ${mp4Check.tqFrame}: край OK`
+        : `MP4 кадр ${mp4Check.tqFrame}: полоса справа (edge=${mp4Check.edge.edgeMean})`,
     });
   }
 
@@ -280,6 +344,7 @@ export const verifyParallaxOutput = async ({
     thresholds: THRESHOLDS,
     parallax: parallaxMotion,
     kenburns: kenMotion,
+    seamMae,
     edge,
     mp4: mp4Check,
     checks,

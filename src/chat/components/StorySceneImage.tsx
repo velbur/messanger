@@ -68,12 +68,7 @@ const MotionScene: React.FC<{
   if (usesDepthParallax(animation)) {
     return (
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <DepthDisplacementImage
-          image={trimmed}
-          localFrame={localFrame}
-          directionSeed={trimmed}
-          loopFrames={motionLoopFrames}
-        />
+        <DepthDisplacementImage image={trimmed} loopFrames={motionLoopFrames} />
         {particles}
       </AbsoluteFill>
     );

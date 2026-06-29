@@ -9,6 +9,7 @@ let removed = 0;
 for (const pattern of [
   "**/*.depth.png",
   "**/*.depth-meta.json",
+  "**/*.parallax.mp4",
   "**/*.layer-far.png",
   "**/*.layer-mid.png",
   "**/*.layer-near.png",

@@ -17,12 +17,28 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const TEST_SLUG = "parallax-test";
 const IMAGE_REL = `images/${TEST_SLUG}/story-opening.png`;
 const DEFAULT_OUT = path.join(ROOT, "out/parallax-test");
+
+/**
+ * Запечённый loop ходит по sin(2π·t): экстремумы смещения — на ¼ и ¾,
+ * нейтраль — на 0 / mid / last. Снимаем кадры именно на этих позициях.
+ */
+const stillsForMode = (mode, frames) => {
+  const clamp = (f) => Math.max(0, Math.min(frames - 1, f));
+  if (mode === "kenburns") {
+    return [
+      {label: "neutral", frame: 0},
+      {label: "peak", frame: clamp(Math.round(frames * 0.5))},
+    ];
+  }
+  return [
+    {label: "neutral", frame: 0},
+    {label: "left", frame: clamp(Math.round(frames * 0.25))},
+    {label: "mid", frame: clamp(Math.round(frames * 0.5))},
+    {label: "right", frame: clamp(Math.round(frames * 0.75))},
+    {label: "last", frame: frames - 1},
+  ];
+};
 const MODES = ["kenburns", "depthParallax"];
-const STILL_LABELS = [
-  {label: "t0", ratio: 0},
-  {label: "mid", ratio: 0.5},
-  {label: "peak", ratio: 1},
-];
 
 const parseArg = (name) => {
   const index = process.argv.indexOf(name);
@@ -61,8 +77,8 @@ const run = async () => {
   const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: hasFlag("--force-depth")});
   console.log(
     depthResult.skipped
-      ? `Depth: кэш OK → ${IMAGE_REL}`
-      : `Depth: пересчитано (${depthResult.provider ?? "xenova"}) → слои v13`,
+      ? `Parallax: кэш OK → ${IMAGE_REL}`
+      : `Parallax: запечён loop (${depthResult.provider ?? "xenova"})`,
   );
 
   const bundleLocation = await getBundleLocation({
@@ -79,8 +95,8 @@ const run = async () => {
       inputProps,
     });
 
-    for (const {label, ratio} of STILL_LABELS) {
-      const frame = Math.min(Math.round(loopFrames * ratio), composition.durationInFrames - 1);
+    const frames = Math.min(loopFrames, composition.durationInFrames);
+    for (const {label, frame} of stillsForMode(mode, frames)) {
       const output = path.join(outDir, `still-${mode}-${label}.png`);
       console.log(`[${mode}] кадр ${frame} → ${path.relative(ROOT, output)}`);
       await renderStill({
