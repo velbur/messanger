@@ -12,11 +12,12 @@ type Props = {
 
 const BANDS = [
   {band: "far" as const, src: (layers: StoryDepthLayerPaths) => layers.far, zIndex: 1},
-  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 2},
+  {band: "mid" as const, src: (layers: StoryDepthLayerPaths) => layers.mid, zIndex: 2},
+  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 3},
 ];
 
-/** Запас по краям — без полосы при translate слоёв */
-const OVERSCAN = 1.32;
+/** Запас по краям при translate */
+const OVERSCAN = 1.38;
 
 /**
  * Настоящий 2.5D: три RGBA-слоя из depth map без дублирования полного кадра.

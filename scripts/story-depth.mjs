@@ -17,10 +17,12 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 10;
+export const DEPTH_LAYER_VERSION = 11;
 
 const DEPTH_BLUR_SIGMA = 5;
 const ALPHA_FEATHER_SIGMA = 2.5;
+/** Размытие под передним планом — когда near-слой сдвигается, виден фон, а не дубль */
+const BACKGROUND_PLATE_BLUR_SIGMA = 32;
 
 env.cacheDir = CACHE_DIR;
 env.allowLocalModels = false;
@@ -166,12 +168,25 @@ const layerWeights = (depthByte) => {
   return {far: far / sum, mid: mid / sum, near: near / sum};
 };
 
-const buildFarLayer = (source, width, height) => {
-  const out = Buffer.from(source);
+const buildBackgroundPlate = (source, blurredSource, depthUint8, width, height) => {
+  const out = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i += 1) {
-    out[i * 4 + 3] = 255;
+    const {mid, near} = layerWeights(depthUint8[i]);
+    const hole = Math.min(1, near * 1.1 + mid * 0.28);
+    const si = i * 4;
+    for (let c = 0; c < 3; c += 1) {
+      out[si + c] = Math.round(source[si + c] * (1 - hole) + blurredSource[si + c] * hole);
+    }
+    out[si + 3] = 255;
   }
   return out;
+};
+
+const blurSourcePlate = async (source, width, height) => {
+  return sharp(source, {raw: {width, height, channels: 4}})
+    .blur(BACKGROUND_PLATE_BLUR_SIGMA)
+    .raw()
+    .toBuffer();
 };
 
 const buildBandLayer = (source, depthUint8, width, height, band) => {
@@ -215,8 +230,9 @@ const featherLayerAlpha = async (buffer, width, height) => {
 const writeLayerPngs = async ({imageAbs, depthUint8, width, height, paths, metaExtra = {}}) => {
   const softenedDepth = await blurDepthMap(depthUint8, width, height);
   const source = await sharp(imageAbs).ensureAlpha().raw().toBuffer();
+  const blurredSource = await blurSourcePlate(source, width, height);
 
-  const far = buildFarLayer(source, width, height);
+  const far = buildBackgroundPlate(source, blurredSource, softenedDepth, width, height);
   const mid = await featherLayerAlpha(
     buildBandLayer(source, softenedDepth, width, height, "mid"),
     width,
