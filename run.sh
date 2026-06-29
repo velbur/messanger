@@ -31,6 +31,8 @@ usage() {
   dev                Запустить Remotion Studio в контейнере (http://localhost:3000)
   shell              Интерактивная оболочка в контейнере
 
+Полный запуск воркера (pull + кэш + старт): ./worker-start.sh
+
 Опции (для render):
   --input PATH       JSON с перепиской (по умолчанию: public/conversation.json)
   --output PATH      Выходной MP4 (по умолчанию: out/video.mp4)
@@ -62,6 +64,8 @@ usage() {
   WORKER_GPU=1 ./run.sh worker --build          # Linux + NVIDIA
   ./run.sh setup-native                         # один раз: Node + Python в проекте
   ./run.sh worker-native --port 3333            # Mac M-series, Depth V2 через MPS
+  ./worker-start.sh                             # pull + очистка кэша + воркер
+  ./worker-start.sh --docker --build            # Linux Podman + пересборка образа
   ./run.sh dev
 EOF
 }
