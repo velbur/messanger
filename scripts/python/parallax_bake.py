@@ -249,6 +249,7 @@ def bake_one(job: dict) -> dict:
     dust_count = int(job.get("dust_count", 130))
     dust_strength = float(job.get("dust_strength", 1.0))
     effect_seed = int(job.get("effect_seed", 12345))
+    zoom_frac = float(job.get("zoom_frac", 0.028))
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -277,12 +278,10 @@ def bake_one(job: dict) -> dict:
     near_gain = 1.0
     far_gain = 0.55
 
-    # overscan: ровно столько, чтобы смещения не открыли края (без лишнего кропа)
-    zoom = 1.0 + (amp / max(w, h)) * 1.7
+    # overscan: запас под parallax-смещение + опциональный лёгкий зум по loop
+    zoom_overscan = 1.0 + (amp / max(w, h)) * 1.7
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:h, 0:w].astype(np.float32)
-    base_x = (grid_x - cx) / zoom + cx
-    base_y = (grid_y - cy) / zoom + cy
 
     fg_alpha_f = fg_alpha.astype(np.float32)
 
@@ -301,6 +300,10 @@ def bake_one(job: dict) -> dict:
         for i in range(frames):
             t = i / frames
             pt = camera_phase(t)
+            # sin(π·pt): 0 на стыке loop, пик в середине — лёгкий дыхание зума
+            zoom = zoom_overscan + zoom_frac * np.sin(np.pi * pt)
+            base_x = (grid_x - cx) / zoom + cx
+            base_y = (grid_y - cy) / zoom + cy
             ox = amp * pan_x * np.sin(two_pi * pt)
             oy = amp * pan_y * 0.4 * np.cos(two_pi * pt)
 

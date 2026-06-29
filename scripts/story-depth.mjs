@@ -26,10 +26,12 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 25;
+export const DEPTH_LAYER_VERSION = 26;
 
 /** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
-const PARALLAX_AMPLITUDE_FRAC = 0.052;
+const PARALLAX_AMPLITUDE_FRAC = 0.038;
+/** Лёгкий Ken Burns-зум поверх parallax (доля масштаба, 0 = выкл) */
+const PARALLAX_ZOOM_FRAC = 0.028;
 const PARALLAX_FRAMES = storyMotionLoopFrames(3);
 
 /** Глубинные эффекты для усиления 3D (запекаются в loop) */
@@ -247,6 +249,7 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
         amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
         panX,
         panY,
+        zoomFrac: PARALLAX_ZOOM_FRAC,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
         dustCount: PARALLAX_FX.dustCount,
@@ -265,6 +268,7 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
         fps: FPS,
         width,
         height,
+        zoomFrac: PARALLAX_ZOOM_FRAC,
         fx: PARALLAX_FX,
         ...metaExtra,
       })}\n`,

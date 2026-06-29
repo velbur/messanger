@@ -112,6 +112,7 @@ export const bakeParallaxVideos = async (jobs) => {
       dust_count: job.dustCount,
       dust_strength: job.dustStrength,
       effect_seed: job.effectSeed,
+      zoom_frac: job.zoomFrac,
     })),
   });
   const data = await runPythonJson(BAKE_SCRIPT, payload);
