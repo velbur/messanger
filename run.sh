@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+NATIVE_VENV="${ROOT}/.venv"
+
 IMAGE="${IMAGE:-chat-video-generator}"
 INPUT="${ROOT}/public/conversation.json"
 OUTPUT="${ROOT}/out/video.mp4"
@@ -25,6 +27,7 @@ usage() {
   ui                 Веб-интерфейс: JSON → рендер (http://localhost:3333)
   worker             Render-воркер для удалённого рендера (порт 3333, Docker)
   worker-native      Воркер без Docker — Depth V2 на Apple GPU (Mac M1–M4)
+  setup-native       Локальное окружение: .nvmrc/fnm + npm ci + Python .venv
   dev                Запустить Remotion Studio в контейнере (http://localhost:3000)
   shell              Интерактивная оболочка в контейнере
 
@@ -57,6 +60,7 @@ usage() {
   REMOTE_RENDER_URL=http://192.168.0.136:3333 ./run.sh ui
   CONTAINER=podman RENDER_CONCURRENCY=12 ./run.sh worker --build
   WORKER_GPU=1 ./run.sh worker --build          # Linux + NVIDIA
+  ./run.sh setup-native                         # один раз: Node + Python в проекте
   ./run.sh worker-native --port 3333            # Mac M-series, Depth V2 через MPS
   ./run.sh dev
 EOF
@@ -314,24 +318,83 @@ host_has_nvidia_gpu() {
   [[ "$(uname -s)" == Linux ]] && command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1
 }
 
+# Node из .nvmrc (fnm или nvm) — изоляция от системного Node
+activate_project_node() {
+  local version=""
+  if [[ ! -f "${ROOT}/.nvmrc" ]]; then
+    return 0
+  fi
+  version="$(tr -d '[:space:]' < "${ROOT}/.nvmrc")"
+  [[ -n "$version" ]] || return 0
+
+  if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env --shell bash 2>/dev/null || fnm env)"
+    fnm install "$version" >/dev/null 2>&1 || true
+    fnm use "$version" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if [[ -s "${HOME}/.nvm/nvm.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${HOME}/.nvm/nvm.sh"
+    nvm install "$version" >/dev/null 2>&1 || true
+    nvm use "$version" >/dev/null 2>&1 || true
+  fi
+}
+
 ensure_native_node_modules() {
+  activate_project_node
   if [[ -f "${ROOT}/node_modules/tsx/package.json" ]]; then
     return 0
   fi
   if ! command -v npm >/dev/null 2>&1; then
-    echo "Нужен npm: установите Node.js или запустите ./run.sh worker (Docker)." >&2
+    echo "Нужен npm. Установите fnm/nvm и выполните: ./run.sh setup-native" >&2
     exit 1
   fi
-  echo "node_modules не найден — npm ci для нативного воркера…" >&2
+  echo "node_modules не найден — npm ci (локально в проекте)…" >&2
   if [[ -f "${ROOT}/package-lock.json" ]]; then
     npm ci --no-audit --no-fund
   else
     npm install --no-audit --no-fund
   fi
   if [[ ! -f "${ROOT}/node_modules/tsx/package.json" ]]; then
-    echo "Не удалось установить tsx. Выполните вручную: npm ci" >&2
+    echo "Не удалось установить зависимости. Выполните: ./run.sh setup-native" >&2
     exit 1
   fi
+}
+
+ensure_native_python_venv() {
+  if [[ ! -x "${NATIVE_VENV}/bin/python3" ]]; then
+    echo "Создаю Python venv: ${NATIVE_VENV}" >&2
+    python3 -m venv "${NATIVE_VENV}"
+  fi
+  if ! "${NATIVE_VENV}/bin/python3" -c "import torch, transformers" >/dev/null 2>&1; then
+    echo "Python .venv: pip install depth (может занять несколько минут)…" >&2
+    "${NATIVE_VENV}/bin/pip" install -q --upgrade pip
+    "${NATIVE_VENV}/bin/pip" install -r "${ROOT}/scripts/python/requirements-depth.txt"
+  fi
+}
+
+ensure_native_worker_env() {
+  activate_project_node
+  ensure_native_node_modules
+  ensure_native_python_venv
+  export STORY_DEPTH_PYTHON="${NATIVE_VENV}/bin/python3"
+}
+
+cmd_setup_native() {
+  echo "Нативное окружение в каталоге проекта (без Docker):"
+  echo "  Node → node_modules/ (npm ci), версия из .nvmrc при наличии fnm/nvm"
+  echo "  Python → ${NATIVE_VENV}/"
+  ensure_native_worker_env
+  echo ""
+  echo "Готово."
+  echo "  node:  $(command -v node) ($(node -v 2>/dev/null || echo '?'))"
+  echo "  npm:   $(command -v npm) ($(npm -v 2>/dev/null || echo '?'))"
+  echo "  python: ${STORY_DEPTH_PYTHON} ($("${STORY_DEPTH_PYTHON}" --version 2>/dev/null || echo '?'))"
+  echo ""
+  echo "Проверка depth: npm run depth:probe"
+  echo "Воркер:         ./run.sh worker-native --port 3333"
 }
 
 warn_clock_skew() {
@@ -646,17 +709,11 @@ cmd_worker_native() {
   parse_server_args WORKER_PORT "$@"
 
   ensure_project_dirs
-  ensure_native_node_modules
+  ensure_native_worker_env
 
   if ! command -v node >/dev/null 2>&1; then
-    echo "Нужен Node.js на хосте (не в Docker)." >&2
+    echo "Node не найден. Выполните: ./run.sh setup-native" >&2
     exit 1
-  fi
-
-  if ! python3 -c "import torch, transformers" >/dev/null 2>&1; then
-    echo "Для Depth V2 на Apple GPU установите Python-зависимости:" >&2
-    echo "  pip3 install -r scripts/python/requirements-depth.txt" >&2
-    echo "Продолжаю без них — будет Xenova (Node) или ошибка depth-v2." >&2
   fi
 
   export PORT="${WORKER_PORT}"
@@ -664,7 +721,8 @@ cmd_worker_native() {
   export STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-auto}"
 
   echo "Render-воркер (нативно, без Docker): http://0.0.0.0:${WORKER_PORT}"
-  echo "Depth: Depth Anything V2 через Apple MPS (M1–M4)"
+  echo "Node:   $(command -v node) ($(node -v))"
+  echo "Python: ${STORY_DEPTH_PYTHON} (Depth V2 / MPS на Apple Silicon)"
   echo "На другой машине: REMOTE_RENDER_URL=http://<IP-этого-Mac>:${WORKER_PORT} ./run.sh ui"
   echo "Проверка: npm run depth:probe"
   echo "Остановка: Ctrl+C"
@@ -683,6 +741,10 @@ main() {
       ;;
     worker-native)
       cmd_worker_native "$@"
+      exit 0
+      ;;
+    setup-native)
+      cmd_setup_native
       exit 0
       ;;
   esac

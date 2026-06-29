@@ -1,16 +1,28 @@
+import {existsSync} from "node:fs";
 import {spawn} from "node:child_process";
 import {readFile} from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const PYTHON = process.env.STORY_DEPTH_PYTHON?.trim() || "python3";
 const PROBE_SCRIPT = path.join(ROOT, "scripts/python/depth_v2_probe.py");
 const BATCH_SCRIPT = path.join(ROOT, "scripts/python/depth_v2_batch.py");
 const RAW_CACHE_DIR = path.join(ROOT, ".cache/depth-v2/raw");
 
+const resolvePythonBinary = () => {
+  const fromEnv = process.env.STORY_DEPTH_PYTHON?.trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const venvPython = path.join(ROOT, ".venv/bin/python3");
+  if (existsSync(venvPython)) {
+    return venvPython;
+  }
+  return "python3";
+};
+
 const runPythonJson = (scriptAbs, stdinPayload = null, {timeoutMs = 600000} = {}) =>
   new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [scriptAbs], {
+    const child = spawn(resolvePythonBinary(), [scriptAbs], {
       cwd: ROOT,
       stdio: ["pipe", "pipe", "pipe"],
       env: {...process.env},
@@ -113,7 +125,7 @@ export const readDepthRawFile = async (rawPath) => {
 export const describeDepthV2Status = async () => {
   const status = await probeDepthV2();
   if (!status.ok) {
-    return `Depth V2: недоступен (${status.error ?? "unknown"}) — pip3 install -r scripts/python/requirements-depth.txt`;
+    return `Depth V2: недоступен (${status.error ?? "unknown"}) — ./run.sh setup-native`;
   }
   if (status.cuda) {
     return `Depth V2: CUDA ${status.device ?? "gpu"}`;

@@ -1,4 +1,5 @@
 node_modules/
+.venv/
 .cache/
 data/
 !src/chat/data/
