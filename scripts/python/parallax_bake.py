@@ -175,13 +175,13 @@ def make_motes(seed: int, count: int, w: int, h: int):
     return {
         "bx": rng.uniform(0, w, count),
         "by": rng.uniform(0, h, count),
-        # больше пылинок ближе к камере — заметнее объём
-        "dm": np.clip(rng.beta(2.2, 1.8, count) * 0.7 + 0.22, 0.0, 0.97),
-        "drift": rng.uniform(2.0, 11.0, count) * scale,
+        # больше пылинок в «воздухе» между камерой и фоном — заметнее на иллюстрациях
+        "dm": np.clip(rng.beta(2.0, 2.0, count) * 0.55 + 0.32, 0.0, 0.94),
+        "drift": rng.uniform(3.0, 14.0, count) * scale,
         "phase": rng.uniform(0, 2 * np.pi, count),
         "tphase": rng.uniform(0, 2 * np.pi, count),
-        "radius": rng.uniform(0.8, 2.3, count) * scale,
-        "bright": rng.uniform(0.35, 1.0, count),
+        "radius": rng.uniform(1.4, 4.0, count) * scale,
+        "bright": rng.uniform(0.55, 1.0, count),
         "harmonic": rng.integers(1, 3, count).astype(np.float32),
     }
 
@@ -353,11 +353,11 @@ def bake_one(job: dict) -> dict:
                 for k in range(len(px)):
                     if sx[k] < 0 or sx[k] >= w or sy[k] < 0 or sy[k] >= h:
                         continue
-                    # пылинка за передним планом — скрыта
-                    if motes["dm"][k] < scene_depth[iy[k], ix[k]] - 0.04:
+                    # пылинка заметно позади поверхности — скрываем (мягкий порог)
+                    if motes["dm"][k] + 0.1 < scene_depth[iy[k], ix[k]]:
                         continue
                     stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k])
-                out = out + (dust_strength * 24.0) * acc[..., None] * dust_tint[None, None, :]
+                out = out + (dust_strength * 42.0) * acc[..., None] * dust_tint[None, None, :]
 
             frame = np.clip(out + 0.5, 0, 255).astype(np.uint8)
             proc.stdin.write(frame.tobytes())

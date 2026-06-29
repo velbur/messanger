@@ -26,7 +26,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 26;
+export const DEPTH_LAYER_VERSION = 27;
 
 /** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
 const PARALLAX_AMPLITUDE_FRAC = 0.038;
@@ -41,8 +41,8 @@ const PARALLAX_FX = {
   /** Воздушная дымка вдаль (aerial perspective) */
   hazeStrength: 0.07,
   /** Объёмные пылинки с parallax и перекрытием передним планом */
-  dustCount: 130,
-  dustStrength: 1.0,
+  dustCount: 200,
+  dustStrength: 1.5,
 };
 
 env.cacheDir = CACHE_DIR;
