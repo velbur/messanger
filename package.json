@@ -8,6 +8,7 @@
     "render": "remotion render src/index.ts ChatVideo out/video.mp4 --codec=h264 --audio-codec=aac --props=./public/conversation.json",
     "render:script": "node scripts/render.mjs",
     "compare:motion": "node --import tsx scripts/compare-story-motion.mjs",
+    "test:parallax": "node --import tsx scripts/test-parallax-image.mjs",
     "depth:probe": "node --import tsx scripts/story-depth-probe.mjs",
     "bundle:clear": "node scripts/clear-bundle-cache.mjs",
     "depth:clear": "node scripts/clear-story-depth-cache.mjs",

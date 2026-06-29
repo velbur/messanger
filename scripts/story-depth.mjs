@@ -17,7 +17,7 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 6;
+export const DEPTH_LAYER_VERSION = 7;
 
 const DEPTH_BLUR_SIGMA = 6;
 
@@ -126,17 +126,22 @@ const resizeDepthToMatch = async (depthUint8, depthW, depthH, targetW, targetH) 
   const resized = await sharp(Buffer.from(depthUint8), {
     raw: {width: depthW, height: depthH, channels: 1},
   })
+    .toColourspace("b-w")
     .resize(targetW, targetH, {fit: "fill"})
+    .greyscale()
     .raw()
     .toBuffer();
   return new Uint8Array(resized);
 };
 
 const blurDepthMap = async (depthUint8, width, height) => {
+  // blur на raw channels:1 даёт горизонтальные полосы — сначала в greyscale-изображение
   const blurred = await sharp(Buffer.from(depthUint8), {
     raw: {width, height, channels: 1},
   })
+    .toColourspace("b-w")
     .blur(DEPTH_BLUR_SIGMA)
+    .greyscale()
     .raw()
     .toBuffer();
   return new Uint8Array(blurred);
