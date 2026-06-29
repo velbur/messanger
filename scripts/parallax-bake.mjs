@@ -125,8 +125,10 @@ const pingPong = (i, frames) => {
   return tri * tri * (3 - 2 * tri);
 };
 
+/** libx264 + yuv420p требуют чётные ширину и высоту */
+export const evenEncodeDim = (n) => Math.max(2, n - (n % 2));
+
 /**
- * Fallback без depth (нет Python/opencv): печём тот же .parallax.mp4, но как
  * бесшовный Ken Burns loop через sharp + ffmpeg. Честный гибрид — рендер не падает.
  *
  * @param {{
@@ -135,7 +137,9 @@ const pingPong = (i, frames) => {
  * }} job
  */
 export const bakeKenBurnsLoopFallback = async (job) => {
-  const {image, width: W, height: H, outVideo} = job;
+  const {image, outVideo} = job;
+  const W = evenEncodeDim(job.width);
+  const H = evenEncodeDim(job.height);
   const frames = job.frames ?? 90;
   const fps = job.fps ?? 30;
   const panX = job.panX ?? 1;
@@ -156,7 +160,7 @@ export const bakeKenBurnsLoopFallback = async (job) => {
     {stdio: ["pipe", "ignore", "inherit"]},
   );
 
-  const base = sharp(image).removeAlpha();
+  const base = sharp(image).removeAlpha().extract({left: 0, top: 0, width: W, height: H});
   for (let i = 0; i < frames; i += 1) {
     const p = pingPong(i, frames);
     const zoom = 1.05 + 0.05 * p;

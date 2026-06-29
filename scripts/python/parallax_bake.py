@@ -202,6 +202,19 @@ def stamp_soft(buf: np.ndarray, cx: float, cy: float, radius: float, value: floa
     buf[ya:yb, xa:xb] += np.outer(gy, gx) * value
 
 
+def even_encode_dim(n: int) -> int:
+    """libx264 + yuv420p требуют чётные ширину и высоту."""
+    return max(2, n - (n % 2))
+
+
+def crop_to_even(img: np.ndarray) -> tuple[np.ndarray, int, int]:
+    h, w = img.shape[:2]
+    ew, eh = even_encode_dim(w), even_encode_dim(h)
+    if ew != w or eh != h:
+        img = img[:eh, :ew]
+    return img, ew, eh
+
+
 def open_ffmpeg(out_video: str, w: int, h: int, fps: int):
     ffmpeg = os.environ.get("FFMPEG_BIN", "ffmpeg")
     Path(out_video).parent.mkdir(parents=True, exist_ok=True)
@@ -233,7 +246,7 @@ def bake_one(job: dict) -> dict:
     effect_seed = int(job.get("effect_seed", 12345))
 
     img = np.array(Image.open(image_path).convert("RGB"))
-    h, w = img.shape[:2]
+    img, w, h = crop_to_even(img)
 
     depth_raw = job.get("depth_raw")
     if depth_raw and os.path.exists(depth_raw):

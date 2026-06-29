@@ -10,6 +10,7 @@ import {FPS} from "../src/chat/fps.ts";
 import {
   bakeKenBurnsLoopFallback,
   bakeParallaxVideos,
+  evenEncodeDim,
   isParallaxBakeAvailable,
 } from "./parallax-bake.mjs";
 import {
@@ -181,8 +182,8 @@ const inferDepthXenova = async (imageAbs) => {
   const depthH = depthImage.height;
 
   const meta = await sharp(imageAbs).metadata();
-  const width = meta.width ?? depthW;
-  const height = meta.height ?? depthH;
+  const width = evenEncodeDim(meta.width ?? depthW);
+  const height = evenEncodeDim(meta.height ?? depthH);
   const pixelCount = width * height;
 
   const normalized = depthToUint8(depthData, depthW * depthH);
@@ -277,8 +278,8 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
 /** Fallback без depth: бесшовный Ken Burns loop в тот же .parallax.mp4 */
 const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
   const meta = await sharp(imageAbs).metadata();
-  const width = meta.width ?? 1080;
-  const height = meta.height ?? 1920;
+  const width = evenEncodeDim(meta.width ?? 1080);
+  const height = evenEncodeDim(meta.height ?? 1920);
   const {panX, panY} = motionVectors(rel);
   const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
   await fs.mkdir(path.dirname(outVideo), {recursive: true});
