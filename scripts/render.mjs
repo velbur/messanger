@@ -1,9 +1,11 @@
 import path from "node:path";
 import {readFile} from "node:fs/promises";
 import {parseConversation} from "../src/chat/schema.ts";
+import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
+import {ensureStoryDepthForConversation} from "./story-depth.mjs";
 import {stripStorySfxFromConversation} from "./story-sfx.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
@@ -32,12 +34,20 @@ const run = async () => {
   if (isStoryVisualLayout(conversation)) {
     stripStorySfxFromConversation(conversation);
     normalizeStoryVideoLoopFlags(conversation);
-    if (isOpenRouterConfigured()) {
+    if (mergeStoryConfig(conversation).opening.animation === "depthParallax") {
+      const depthLogs = await ensureStoryDepthForConversation(conversation);
+      for (const line of depthLogs) {
+        console.log(line);
+      }
+    }
+    if (isOpenRouterConfigured() && shouldGenerateStoryVideos(conversation)) {
       await generateMissingStoryVideos(conversation, {
         publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),
       });
     }
-    await resolveStoryVideos(conversation, {failOnMissingVideos: true});
+    await resolveStoryVideos(conversation, {
+      failOnMissingVideos: shouldGenerateStoryVideos(conversation),
+    });
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }
   assertVoiceoverReadyForRender(conversation);

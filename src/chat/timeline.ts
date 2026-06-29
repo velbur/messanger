@@ -9,7 +9,7 @@ import {
   scaleTimingMs,
   TIMING_BUNDLE_MARKER,
 } from "./timing";
-import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER} from "./story";
+import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
@@ -92,7 +92,8 @@ export type StoryTimeline = {
   splitCompleteFrame: number;
   splitTransitionFrames: number;
   topPanelRatio: number;
-  openingAnimation: "video" | "none";
+  openingAnimation: StorySceneAnimation;
+  motionLoopSec: number;
   openingSfx: ResolvedStorySfxCue[];
   sfxMasterVolume: number;
   /** Premix всех story-SFX для Remotion */
@@ -258,6 +259,7 @@ const buildStoryTimeline = (
     splitTransitionFrames: 0,
     topPanelRatio: 0.45,
     openingAnimation: "video",
+    motionLoopSec: 3,
     openingSfx: [],
     sfxMasterVolume: 1,
     sfxMixSrc: undefined,
@@ -375,6 +377,7 @@ const buildStoryTimeline = (
     splitTransitionFrames,
     topPanelRatio: storyConfig.topPanelRatio,
     openingAnimation: storyConfig.opening.animation,
+    motionLoopSec: storyConfig.motionLoopSec,
     openingSfx,
     sfxMasterVolume: sfxConfig.masterVolume,
     sfxMixSrc: sfxConfig.enabled

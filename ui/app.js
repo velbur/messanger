@@ -26,6 +26,8 @@ const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const wallpaperRow = document.getElementById("wallpaperRow");
 const wallpaperOverlayHint = document.getElementById("wallpaperOverlayHint");
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
+const storyAnimationRow = document.getElementById("storyAnimationRow");
+const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
 const musicSelect = document.getElementById("musicSelect");
 const renderTargetRow = document.getElementById("renderTargetRow");
 const renderTargetSelect = document.getElementById("renderTargetSelect");
@@ -921,6 +923,7 @@ const applyDialogueToEditor = (dialogue) => {
   );
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncStoryAnimationFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
   syncEpisodesFromJson();
@@ -1978,6 +1981,63 @@ const stripWallpaperForStoryOverlay = (parsed) => {
 const resolveWallpaperPayload = () =>
   isWallpaperRelevantForLayout() ? getWallpaper() : undefined;
 
+const STORY_ANIMATION_VALUES = new Set([
+  "video",
+  "none",
+  "kenburns",
+  "parallax",
+  "depthParallax",
+]);
+
+const getStoryAnimation = () => {
+  const checked = [...storyAnimationInputs].find((input) => input.checked);
+  const value = checked?.value;
+  return STORY_ANIMATION_VALUES.has(value) ? value : "depthParallax";
+};
+
+const setStoryAnimation = (animation) => {
+  const value = STORY_ANIMATION_VALUES.has(animation) ? animation : "depthParallax";
+  for (const input of storyAnimationInputs) {
+    input.checked = input.value === value;
+  }
+};
+
+const updateStoryAnimationControls = () => {
+  const storyLayout = getVideoLayout() !== "chat";
+  storyAnimationRow?.toggleAttribute("hidden", !storyLayout);
+};
+
+const applyStoryAnimationToJson = () => {
+  if (getVideoLayout() === "chat") {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (!parsed.story) {
+    parsed.story = {};
+  }
+  if (!parsed.story.opening) {
+    parsed.story.opening = {};
+  }
+  parsed.story.opening.animation = getStoryAnimation();
+  if (typeof parsed.story.motionLoopSec !== "number") {
+    parsed.story.motionLoopSec = 3;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const syncStoryAnimationFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed || !isStoryVisualLayout(parsed)) {
+    setStoryAnimation("depthParallax");
+    return;
+  }
+  setStoryAnimation(parsed.story?.opening?.animation ?? "depthParallax");
+  updateStoryAnimationControls();
+};
+
 const isStoryVisualLayout = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
 
@@ -2029,6 +2089,8 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   jsonInput.value = JSON.stringify(parsed, null, 2);
   updateGenerateImagesControls(parsed);
   updateWallpaperControls();
+  updateStoryAnimationControls();
+  syncStoryAnimationFromJson();
 };
 
 const syncVideoLayoutFromJson = () => {
@@ -4098,8 +4160,10 @@ document.addEventListener("paste", async (e) => {
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncStoryAnimationFromJson();
   syncMessageFontSizeFromJson();
   updateWallpaperControls();
+  updateStoryAnimationControls();
   updateGenerateImagesControls();
   updateRefineDialogueControls();
   scheduleRefreshDialogue();
@@ -4123,6 +4187,14 @@ btnResetMessageFontSize?.addEventListener("click", () => {
 for (const input of videoLayoutInputs) {
   input.addEventListener("change", () => {
     applyVideoLayoutToJson(getVideoLayout());
+    applyStoryAnimationToJson();
+    scheduleRefreshDialogue();
+  });
+}
+
+for (const input of storyAnimationInputs) {
+  input.addEventListener("change", () => {
+    applyStoryAnimationToJson();
     scheduleRefreshDialogue();
   });
 }
@@ -5322,4 +5394,6 @@ loadOpenRouterStatus().then(() => {
 });
 initEditorPreferenceControls();
 updateWallpaperControls();
+updateStoryAnimationControls();
+syncStoryAnimationFromJson();
 loadBrowseOnStartup();

@@ -1,8 +1,8 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-video-particles-v11";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-motion-parallax-v12";
 
-export type StorySceneAnimation = "video" | "none";
+export type StorySceneAnimation = "video" | "none" | "kenburns" | "parallax" | "depthParallax";
 
 export type StoryOpeningConfig = {
   image?: string;
@@ -15,6 +15,8 @@ export type StoryOpeningConfig = {
 
 export type StoryConfig = {
   opening: StoryOpeningConfig;
+  /** Длина одного бесшовного цикла Ken Burns / parallax, сек */
+  motionLoopSec: number;
   splitTransitionMs: number;
   topPanelRatio: number;
   disableMessageFullscreen: boolean;
@@ -27,17 +29,27 @@ const DEFAULT_OPENING: StoryOpeningConfig = {
 
 const DEFAULT_STORY: StoryConfig = {
   opening: DEFAULT_OPENING,
+  motionLoopSec: 3,
   splitTransitionMs: 600,
   topPanelRatio: 0.45,
   disableMessageFullscreen: true,
 };
 
 const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
-  if (value === "none") {
-    return "none";
+  if (
+    value === "none" ||
+    value === "kenburns" ||
+    value === "parallax" ||
+    value === "depthParallax"
+  ) {
+    return value;
   }
   return "video";
 };
+
+export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean =>
+  isStoryVisualLayout(conversation) &&
+  mergeStoryConfig(conversation).opening.animation === "video";
 
 export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig => {
   const raw = conversation.story;
@@ -53,6 +65,10 @@ export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig =
       storyVideoDurationMs: openingRaw?.storyVideoDurationMs,
       animation: coerceStoryAnimation(openingRaw?.animation),
     },
+    motionLoopSec:
+      typeof raw?.motionLoopSec === "number" && raw.motionLoopSec >= 2 && raw.motionLoopSec <= 8
+        ? raw.motionLoopSec
+        : DEFAULT_STORY.motionLoopSec,
     splitTransitionMs: raw?.splitTransitionMs ?? DEFAULT_STORY.splitTransitionMs,
     topPanelRatio: raw?.topPanelRatio ?? DEFAULT_STORY.topPanelRatio,
     disableMessageFullscreen: raw?.disableMessageFullscreen ?? DEFAULT_STORY.disableMessageFullscreen,

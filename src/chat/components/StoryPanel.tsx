@@ -10,9 +10,10 @@ type Props = {
   layers: StorySceneLayer[];
   height: number;
   animation: StorySceneAnimation;
+  motionLoopSec?: number;
 };
 
-export const StoryPanel: React.FC<Props> = ({layers, height, animation}) => {
+export const StoryPanel: React.FC<Props> = ({layers, height, animation, motionLoopSec = 3}) => {
   const frame = useCurrentFrame();
 
   return (
@@ -39,6 +40,7 @@ export const StoryPanel: React.FC<Props> = ({layers, height, animation}) => {
               durationFrames={layer.sceneDurationFrames}
               sceneStartFrame={layer.sceneStartFrame}
               animation={animation}
+              motionLoopSec={motionLoopSec}
             />
           </AbsoluteFill>
         );

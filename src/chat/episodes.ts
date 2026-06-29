@@ -1,4 +1,5 @@
 import type {ConversationInput, MessageInput} from "./schema";
+import {mergeStoryConfig} from "./story";
 
 export type EpisodesConfig = {
   enabled?: boolean;
@@ -141,26 +142,40 @@ const sliceConversationForEpisode = (
       sliced.intro = {...sliced.intro, enabled: false};
     }
     const carryOver = findLastStorySceneBefore(conversation.messages, startIndex);
+    const baseStory = conversation.story;
+    const inheritedAnimation = baseStory?.opening?.animation ?? "none";
+    const storyDefaults = mergeStoryConfig(conversation);
     if (carryOver) {
       sliced.story = {
-        ...(sliced.story ?? {}),
+        splitTransitionMs: storyDefaults.splitTransitionMs,
+        topPanelRatio: storyDefaults.topPanelRatio,
+        disableMessageFullscreen: storyDefaults.disableMessageFullscreen,
+        motionLoopSec: storyDefaults.motionLoopSec,
+        sfx: conversation.story?.sfx,
+        sfxMix: conversation.story?.sfxMix,
         opening: {
           image: carryOver.image,
           storyVideo: carryOver.storyVideo,
           storyVideoDurationMs: carryOver.storyVideoDurationMs,
           storyVideoLoop: carryOver.storyVideoLoop,
           durationMs: 800,
-          animation: carryOver.storyVideo ? "video" : "none",
+          animation:
+            inheritedAnimation === "video" && carryOver.storyVideo ? "video" : inheritedAnimation,
         },
-      };
+      } satisfies NonNullable<ConversationInput["story"]>;
     } else if (sliced.story?.opening) {
       sliced.story = {
-        ...sliced.story,
+        splitTransitionMs: storyDefaults.splitTransitionMs,
+        topPanelRatio: storyDefaults.topPanelRatio,
+        disableMessageFullscreen: storyDefaults.disableMessageFullscreen,
+        motionLoopSec: storyDefaults.motionLoopSec,
+        sfx: conversation.story?.sfx,
+        sfxMix: conversation.story?.sfxMix,
         opening: {
           durationMs: 800,
-          animation: "none",
+          animation: inheritedAnimation === "video" ? "none" : inheritedAnimation,
         },
-      };
+      } satisfies NonNullable<ConversationInput["story"]>;
     }
     if (totalEpisodes > 1) {
       sliced.hookText = `Часть ${episodeNumber}`;

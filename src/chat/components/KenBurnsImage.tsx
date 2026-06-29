@@ -10,6 +10,7 @@ type Props = {
   directionSeed?: string;
   /** Бесшовный цикл движения на всё время сцены */
   loop?: boolean;
+  loopFrames?: number;
 };
 
 export const KenBurnsImage: React.FC<Props> = ({
@@ -19,10 +20,11 @@ export const KenBurnsImage: React.FC<Props> = ({
   animation,
   directionSeed = image,
   loop = false,
+  loopFrames,
 }) => {
   const safeDuration = Math.max(1, durationFrames);
   const progress = loop
-    ? sceneMotionLoopProgress(localFrame)
+    ? sceneMotionLoopProgress(localFrame, loopFrames)
     : sceneMotionProgress(localFrame, safeDuration);
   const {panX, panY} = motionVectors(directionSeed);
 

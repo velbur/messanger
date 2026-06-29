@@ -1,12 +1,13 @@
 import React from "react";
 import {AbsoluteFill, Img, staticFile} from "remotion";
-import {motionVectors, sceneMotionProgress} from "../story-motion";
+import {motionVectors, sceneMotionLoopProgress} from "../story-motion";
 
 type Props = {
   image: string;
   localFrame: number;
   durationFrames: number;
   directionSeed?: string;
+  loopFrames?: number;
 };
 
 /**
@@ -18,8 +19,9 @@ export const ParallaxStoryImage: React.FC<Props> = ({
   localFrame,
   durationFrames,
   directionSeed = image,
+  loopFrames,
 }) => {
-  const progress = sceneMotionProgress(localFrame, durationFrames);
+  const progress = sceneMotionLoopProgress(localFrame, loopFrames);
   const {panX, panY} = motionVectors(directionSeed);
 
   const farX = panX * progress * 3.2;

@@ -368,6 +368,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 layers={storyLayers}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
+                motionLoopSec={story.motionLoopSec}
               />
               <AbsoluteFill
                 style={{
@@ -388,6 +389,7 @@ export const ChatVideo: React.FC<Props> = ({conversation}) => {
                 layers={storyLayers}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
+                motionLoopSec={story.motionLoopSec}
               />
               <div
                 style={{

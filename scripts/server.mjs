@@ -92,7 +92,9 @@ import {
   stripStorySfxFromConversation,
 } from "./story-sfx.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
+import {mergeStoryConfig} from "../src/chat/story.ts";
 import {assignStoryMusicIfNeeded, applyConversationMusicSelection} from "./story-music.mjs";
+import {ensureStoryDepthForConversation} from "./story-depth.mjs";
 import {
   generateDialogue,
   isDialogueLlmConfigured,
@@ -2030,6 +2032,16 @@ const runRenderPreparation = async (
     }
 
     if (isStoryVisual) {
+      const storyAnimation = mergeStoryConfig(conversation).opening.animation;
+      if (storyAnimation === "depthParallax") {
+        job.phase = "Depth-слои для parallax…";
+        job.progress = 0.11;
+        const depthLogs = await ensureStoryDepthForConversation(conversation);
+        if (depthLogs.length > 0) {
+          job.logs.push(...depthLogs);
+        }
+      }
+
       const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
         failOnMissingVideos: false,
       });

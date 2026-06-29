@@ -308,6 +308,36 @@
               </div>
             </div>
 
+            <div class="row" id="storyAnimationRow" hidden>
+              <span class="label">Анимация сюжета</span>
+              <p class="dialogue-hint">
+                Ken Burns / Parallax / Depth — бесплатный бесшовный цикл (по умолчанию 3 с на всё время кадра).
+                Veo — платная ИИ-анимация по каждому story-кадру.
+              </p>
+              <div class="theme-options" role="radiogroup" aria-label="Анимация сюжета">
+                <label class="theme-option">
+                  <input type="radio" name="storyAnimation" value="depthParallax" checked />
+                  <span>Depth 3D</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="storyAnimation" value="parallax" />
+                  <span>Parallax</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="storyAnimation" value="kenburns" />
+                  <span>Ken Burns</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="storyAnimation" value="video" />
+                  <span>Veo (ИИ)</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="storyAnimation" value="none" />
+                  <span>Статика</span>
+                </label>
+              </div>
+            </div>
+
             <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">
               <span class="label">Заставки</span>
               <div class="title-cards">

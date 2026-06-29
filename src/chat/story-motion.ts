@@ -4,8 +4,14 @@ import {FPS} from "./fps";
 
 const cinematicEase = bezierEasing(0.22, 1, 0.36, 1);
 
-/** Длина одного цикла Ken Burns для бесшовного повтора, кадры */
-export const STORY_MOTION_LOOP_FRAMES = 6 * FPS;
+/** Длина одного цикла motion-анимации (Ken Burns / parallax), секунды */
+export const STORY_MOTION_LOOP_SEC = 3;
+
+/** Длина одного цикла Ken Burns / parallax для бесшовного повтора, кадры */
+export const STORY_MOTION_LOOP_FRAMES = STORY_MOTION_LOOP_SEC * FPS;
+
+export const storyMotionLoopFrames = (loopSec: number = STORY_MOTION_LOOP_SEC): number =>
+  Math.max(2, Math.round(loopSec * FPS));
 
 export const hashSeed = (value: string): number => {
   let hash = 0;

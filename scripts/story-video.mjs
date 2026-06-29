@@ -6,6 +6,7 @@ import {
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
+import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
   generateImageToVideoFile,
   getOpenRouterStoryVideoModel,
@@ -166,7 +167,7 @@ const sceneSecondsForTarget = (lookup, target) => {
 };
 
 export const countPendingStoryVideos = (conversation) => {
-  if (!isStoryVisualLayout(conversation)) {
+  if (!isStoryVisualLayout(conversation) || !shouldGenerateStoryVideos(conversation)) {
     return 0;
   }
   return collectStoryVideoTargets(conversation).filter((target) =>
@@ -179,6 +180,10 @@ export const resolveStoryVideos = async (
   {failOnMissingVideos = false, logs = []} = {},
 ) => {
   if (!isStoryVisualLayout(conversation)) {
+    return logs;
+  }
+  if (!shouldGenerateStoryVideos(conversation)) {
+    logs.push("Story-видео: режим без Veo — MP4 не требуются");
     return logs;
   }
 
@@ -240,6 +245,10 @@ export const generateMissingStoryVideos = async (
 ) => {
   const logs = [];
   if (!isStoryVisualLayout(conversation)) {
+    return logs;
+  }
+  if (!shouldGenerateStoryVideos(conversation)) {
+    logs.push("Story-видео: режим анимации без Veo — пропуск генерации");
     return logs;
   }
 

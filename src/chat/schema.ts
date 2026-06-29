@@ -250,10 +250,15 @@ export const conversationSchema = z.object({
           storyVideoProfile: z.string().min(1).optional(),
           storyVideoLoop: z.boolean().optional(),
           durationMs: z.number().min(800).max(8000).optional().default(2500),
-          animation: z.enum(["video", "none", "parallax", "kenburns"]).optional().default("video"),
+          animation: z
+            .enum(["video", "none", "kenburns", "parallax", "depthParallax"])
+            .optional()
+            .default("video"),
           storySfx: z.array(storySfxCueSchema).max(4).optional(),
         })
         .optional(),
+      /** Длина одного бесшовного цикла Ken Burns / parallax, сек (2–8) */
+      motionLoopSec: z.number().min(2).max(8).optional().default(3),
       splitTransitionMs: z.number().min(200).max(2000).optional().default(600),
       topPanelRatio: z.number().min(0.35).max(0.65).optional().default(0.45),
       /** В storySplit не показывать FullscreenImage для message.image */

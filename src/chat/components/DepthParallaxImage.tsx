@@ -1,6 +1,6 @@
 import React from "react";
 import {AbsoluteFill, Img, staticFile} from "remotion";
-import {motionVectors, sceneMotionProgress} from "../story-motion";
+import {motionVectors, sceneMotionLoopProgress} from "../story-motion";
 import type {StoryDepthLayerPaths} from "../story-depth-paths";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   localFrame: number;
   durationFrames: number;
   directionSeed?: string;
+  loopFrames?: number;
 };
 
 const BASE_MOTION = 0.35;
@@ -22,8 +23,9 @@ export const DepthParallaxImage: React.FC<Props> = ({
   localFrame,
   durationFrames,
   directionSeed = image,
+  loopFrames,
 }) => {
-  const progress = sceneMotionProgress(localFrame, durationFrames);
+  const progress = sceneMotionLoopProgress(localFrame, loopFrames);
   const {panX, panY} = motionVectors(directionSeed);
 
   const layerStyle = (motionScale: number, zIndex: number) => {
