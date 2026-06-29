@@ -1,9 +1,8 @@
 import React from "react";
 import {AbsoluteFill} from "remotion";
 import type {StorySceneAnimation} from "../story";
-import {storyLayerPaths} from "../story-depth-paths";
 import {storyMotionLoopFrames} from "../story-motion";
-import {DepthParallaxImage} from "./DepthParallaxImage";
+import {DepthDisplacementImage} from "./DepthDisplacementImage";
 import {KenBurnsImage} from "./KenBurnsImage";
 import {PerspectiveParallaxImage} from "./PerspectiveParallaxImage";
 import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
@@ -69,8 +68,8 @@ const MotionScene: React.FC<{
   if (usesDepthParallax(animation)) {
     return (
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <DepthParallaxImage
-          layers={storyLayerPaths(trimmed)}
+        <DepthDisplacementImage
+          image={trimmed}
           localFrame={localFrame}
           directionSeed={trimmed}
           loopFrames={motionLoopFrames}

@@ -1996,7 +1996,8 @@ const getStoryAnimation = () => {
 };
 
 const setStoryAnimation = (animation) => {
-  const value = STORY_ANIMATION_VALUES.has(animation) ? animation : "depthParallax";
+  const normalized = animation === "parallax" ? "depthParallax" : animation;
+  const value = STORY_ANIMATION_VALUES.has(normalized) ? normalized : "depthParallax";
   for (const input of storyAnimationInputs) {
     input.checked = input.value === value;
   }
