@@ -2116,15 +2116,19 @@ const runRenderPreparation = async (
 
     job.phase = "Обложка превью…";
     job.progress = 0.48;
-    const coverResult = await ensureConversationPreviewCovers(conversation, {
-      displayTitle: job.displayTitle,
-      imageNamespace: job.fileName,
-      onLog: (message) => job.logs.push(message),
-    });
-    Object.assign(conversation, coverResult.conversation);
-    job.episodeConversations = coverResult.episodeConversations;
-    if (coverResult.episodeConversations.length > 1) {
-      job.logs.push(`Обложки для ${coverResult.episodeConversations.length} эпизодов готовы`);
+    if (conversation.previewCover?.enabled === false) {
+      job.logs.push("Обложка превью: выключена");
+    } else {
+      const coverResult = await ensureConversationPreviewCovers(conversation, {
+        displayTitle: job.displayTitle,
+        imageNamespace: job.fileName,
+        onLog: (message) => job.logs.push(message),
+      });
+      Object.assign(conversation, coverResult.conversation);
+      job.episodeConversations = coverResult.episodeConversations;
+      if (coverResult.episodeConversations.length > 1) {
+        job.logs.push(`Обложки для ${coverResult.episodeConversations.length} эпизодов готовы`);
+      }
     }
 
     job.phase = "Проверка ассетов…";
