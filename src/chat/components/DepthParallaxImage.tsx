@@ -12,8 +12,7 @@ type Props = {
 
 const BANDS = [
   {band: "far" as const, src: (layers: StoryDepthLayerPaths) => layers.far, zIndex: 1},
-  {band: "mid" as const, src: (layers: StoryDepthLayerPaths) => layers.mid, zIndex: 2},
-  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 3},
+  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 2},
 ];
 
 /** Минимальный overscan — без ощущения «наезда» камеры */

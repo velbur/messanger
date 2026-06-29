@@ -17,7 +17,7 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 12;
+export const DEPTH_LAYER_VERSION = 13;
 
 const DEPTH_BLUR_SIGMA = 4;
 const ALPHA_FEATHER_SIGMA = 3.2;
@@ -158,7 +158,7 @@ const blurDepthMap = async (depthUint8, width, height) => {
 
 const layerWeights = (depthByte) => {
   const d = depthByte / 255;
-  const near = smoothstep(0.64, 0.9, d);
+  const near = smoothstep(0.74, 0.96, d);
   const far = 1 - smoothstep(0.06, 0.32, d);
   let mid = Math.max(0, 1 - far - near);
   const sum = far + mid + near;
@@ -204,6 +204,24 @@ const buildBandLayer = (source, depthUint8, width, height, band) => {
   return out;
 };
 
+const erodeLayerAlpha = (buffer, width, height, radius = 2) => {
+  const out = Buffer.from(buffer);
+  for (let y = radius; y < height - radius; y += 1) {
+    for (let x = radius; x < width - radius; x += 1) {
+      const i = y * width + x;
+      let minA = 255;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const j = (y + dy) * width + (x + dx);
+          minA = Math.min(minA, buffer[j * 4 + 3]);
+        }
+      }
+      out[i * 4 + 3] = minA;
+    }
+  }
+  return out;
+};
+
 const featherLayerAlpha = async (buffer, width, height) => {
   const pixelCount = width * height;
   const alpha = Buffer.alloc(pixelCount);
@@ -239,7 +257,12 @@ const writeLayerPngs = async ({imageAbs, depthUint8, width, height, paths, metaE
     height,
   );
   const near = await featherLayerAlpha(
-    buildBandLayer(source, softenedDepth, width, height, "near"),
+    erodeLayerAlpha(
+      buildBandLayer(source, softenedDepth, width, height, "near"),
+      width,
+      height,
+      2,
+    ),
     width,
     height,
   );

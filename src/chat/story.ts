@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-depth-layers-v20";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-depth-layers-v21";
 
 export type StorySceneAnimation = "video" | "none" | "kenburns" | "parallax" | "depthParallax";
 

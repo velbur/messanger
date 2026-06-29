@@ -62,7 +62,7 @@ const run = async () => {
   console.log(
     depthResult.skipped
       ? `Depth: кэш OK → ${IMAGE_REL}`
-      : `Depth: пересчитано (${depthResult.provider ?? "xenova"}) → слои v12`,
+      : `Depth: пересчитано (${depthResult.provider ?? "xenova"}) → слои v13`,
   );
 
   const bundleLocation = await getBundleLocation({
