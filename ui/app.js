@@ -1981,23 +1981,23 @@ const stripWallpaperForStoryOverlay = (parsed) => {
 const resolveWallpaperPayload = () =>
   isWallpaperRelevantForLayout() ? getWallpaper() : undefined;
 
-const STORY_ANIMATION_VALUES = new Set([
-  "video",
-  "none",
-  "kenburns",
-  "parallax",
-  "depthParallax",
-]);
+const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax"]);
+
+const normalizeStoryAnimationForUi = (animation) => {
+  if (animation === "kenburns") {
+    return "kenburns";
+  }
+  return "depthParallax";
+};
 
 const getStoryAnimation = () => {
   const checked = [...storyAnimationInputs].find((input) => input.checked);
   const value = checked?.value;
-  return STORY_ANIMATION_VALUES.has(value) ? value : "depthParallax";
+  return STORY_ANIMATION_UI_VALUES.has(value) ? value : "depthParallax";
 };
 
 const setStoryAnimation = (animation) => {
-  const normalized = animation === "parallax" ? "depthParallax" : animation;
-  const value = STORY_ANIMATION_VALUES.has(normalized) ? normalized : "depthParallax";
+  const value = normalizeStoryAnimationForUi(animation);
   for (const input of storyAnimationInputs) {
     input.checked = input.value === value;
   }
@@ -2073,7 +2073,7 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
       parsed.story.opening = {};
     }
     if (!parsed.story.opening.animation) {
-      parsed.story.opening.animation = "video";
+      parsed.story.opening.animation = "depthParallax";
     }
     if (Array.isArray(parsed.messages)) {
       for (const message of parsed.messages) {
