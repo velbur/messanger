@@ -106,6 +106,11 @@ def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
     return d
 
 
+def camera_phase(t: float) -> float:
+    """Ease по времени: камера медленнее на разворотах, loop остаётся бесшовным."""
+    return t * t * (3.0 - 2.0 * t)
+
+
 def build_foreground_alpha(depth: np.ndarray, w: int, h: int) -> np.ndarray:
     """Маска переднего плана из самых близких глубин, адаптивно по перцентилям."""
     p60 = float(np.percentile(depth, 60))
@@ -295,8 +300,9 @@ def bake_one(job: dict) -> dict:
     try:
         for i in range(frames):
             t = i / frames
-            ox = amp * pan_x * np.sin(two_pi * t)
-            oy = amp * pan_y * 0.4 * np.cos(two_pi * t)
+            pt = camera_phase(t)
+            ox = amp * pan_x * np.sin(two_pi * pt)
+            oy = amp * pan_y * 0.4 * np.cos(two_pi * pt)
 
             bg_warp, bg_mx, bg_my = warp_layer(
                 bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
@@ -330,8 +336,8 @@ def bake_one(job: dict) -> dict:
             if motes is not None:
                 acc = np.zeros((h, w), dtype=np.float32)
                 drift = motes["drift"]
-                px = motes["bx"] + drift * np.cos(two_pi * t + motes["phase"])
-                py = motes["by"] + drift * np.sin(two_pi * t + motes["phase"])
+                px = motes["bx"] + drift * np.cos(two_pi * pt + motes["phase"])
+                py = motes["by"] + drift * np.sin(two_pi * pt + motes["phase"])
                 disp_m = motes["dm"] - focus
                 sx = px + disp_m * ox
                 sy = py + disp_m * oy
