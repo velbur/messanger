@@ -17,7 +17,7 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 7;
+export const DEPTH_LAYER_VERSION = 8;
 
 const DEPTH_BLUR_SIGMA = 6;
 
@@ -156,6 +156,7 @@ const writeDepthPng = async ({depthUint8, width, height, paths, metaExtra = {}})
   await fs.mkdir(path.dirname(depthAbs), {recursive: true});
 
   await sharp(Buffer.from(softenedDepth), {raw: {width, height, channels: 1}})
+    .toColourspace("b-w")
     .png()
     .toFile(depthAbs);
 
