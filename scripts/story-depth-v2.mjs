@@ -113,9 +113,13 @@ export const readDepthRawFile = async (rawPath) => {
 export const describeDepthV2Status = async () => {
   const status = await probeDepthV2();
   if (!status.ok) {
-    return `Depth V2: недоступен (${status.error ?? "unknown"})`;
+    return `Depth V2: недоступен (${status.error ?? "unknown"}) — pip3 install -r scripts/python/requirements-depth.txt`;
   }
-  return status.cuda
-    ? `Depth V2: GPU ${status.device ?? "cuda"}`
-    : "Depth V2: CPU (без CUDA — медленно, задайте WORKER_GPU=1 на воркере)";
+  if (status.cuda) {
+    return `Depth V2: CUDA ${status.device ?? "gpu"}`;
+  }
+  if (status.mps) {
+    return `Depth V2: Apple GPU (MPS)`;
+  }
+  return "Depth V2: CPU (медленно; на Mac: ./run.sh worker-native, на Linux+NVIDIA: WORKER_GPU=1 ./run.sh worker)";
 };

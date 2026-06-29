@@ -23,7 +23,8 @@ usage() {
   build              Собрать Docker-образ
   render             Срендерить видео (по умолчанию public/conversation.json -> out/video.mp4)
   ui                 Веб-интерфейс: JSON → рендер (http://localhost:3333)
-  worker             Render-воркер для удалённого рендера (порт 3333, без UI-прокси)
+  worker             Render-воркер для удалённого рендера (порт 3333, Docker)
+  worker-native      Воркер без Docker — Depth V2 на Apple GPU (Mac M1–M4)
   dev                Запустить Remotion Studio в контейнере (http://localhost:3000)
   shell              Интерактивная оболочка в контейнере
 
@@ -44,7 +45,7 @@ usage() {
   WORKER_PORT        Порт render-воркера (по умолчанию: 3333)
   RENDER_CONCURRENCY Число потоков рендера на воркере
   REMOTE_RENDER_URL  На Mac: URL воркера, напр. http://192.168.0.136:3333
-  WORKER_GPU         1 — CUDA-образ и --gpus для depth V2 на воркере
+  WORKER_GPU         1 — только Linux + NVIDIA (CUDA в Docker). На Mac: worker-native
   STORY_DEPTH_PROVIDER  auto | depth-v2 | xenova (по умолчанию auto)
   STORY_DEPTH_V2_MODEL  HF-модель, напр. depth-anything/Depth-Anything-V2-Large-hf
 
@@ -55,7 +56,8 @@ usage() {
   ./run.sh ui
   REMOTE_RENDER_URL=http://192.168.0.136:3333 ./run.sh ui
   CONTAINER=podman RENDER_CONCURRENCY=12 ./run.sh worker --build
-  WORKER_GPU=1 ./run.sh worker --build
+  WORKER_GPU=1 ./run.sh worker --build          # Linux + NVIDIA
+  ./run.sh worker-native --port 3333            # Mac M-series, Depth V2 через MPS
   ./run.sh dev
 EOF
 }
@@ -308,6 +310,10 @@ lock_file_hash() {
   fi
 }
 
+host_has_nvidia_gpu() {
+  [[ "$(uname -s)" == Linux ]] && command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1
+}
+
 warn_clock_skew() {
   if ! command -v curl >/dev/null 2>&1; then
     return 0
@@ -360,8 +366,14 @@ cmd_build() {
     -t "$IMAGE"
   )
   if [[ "${WORKER_GPU:-0}" == 1 ]]; then
-    build_args+=(--build-arg "PYTORCH_CUDA=1")
-    echo "Сборка с CUDA (Depth Anything V2 на GPU)…"
+    if host_has_nvidia_gpu; then
+      build_args+=(--build-arg "PYTORCH_CUDA=1")
+      echo "Сборка с CUDA (Depth Anything V2, Linux + NVIDIA)…"
+    elif [[ "$(uname -s)" == Darwin ]]; then
+      echo "WORKER_GPU=1 на Mac не даёт GPU в Docker — используйте ./run.sh worker-native" >&2
+    else
+      echo "WORKER_GPU=1: NVIDIA GPU не найден — образ без CUDA" >&2
+    fi
   fi
   if [[ "${BUILD_NO_CACHE:-0}" == 1 ]]; then
     build_args+=(--no-cache)
@@ -496,7 +508,7 @@ run_server_container() {
   if [[ -n "${RENDER_CONCURRENCY}" ]]; then
     env_args+=(-e "RENDER_CONCURRENCY=${RENDER_CONCURRENCY}")
   fi
-  if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 ]]; then
+  if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 && host_has_nvidia_gpu ]]; then
     env_args+=(-e "STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}")
   fi
   if [[ -n "${STORY_DEPTH_V2_MODEL:-}" ]]; then
@@ -527,10 +539,16 @@ run_server_container() {
 
   local -a gpu_args=()
   if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 ]]; then
-    if [[ "$CONTAINER" == docker ]]; then
-      gpu_args=(--gpus all)
+    if host_has_nvidia_gpu; then
+      if [[ "$CONTAINER" == docker ]]; then
+        gpu_args=(--gpus all)
+      else
+        gpu_args=(--device nvidia.com/gpu=all)
+      fi
+    elif [[ "$(uname -s)" == Darwin ]]; then
+      echo "На Mac Docker не видит GPU (нет NVIDIA). Depth V2: ./run.sh worker-native" >&2
     else
-      gpu_args=(--device nvidia.com/gpu=all)
+      echo "WORKER_GPU=1, но nvidia-smi недоступен — запуск без GPU" >&2
     fi
   fi
 
@@ -583,11 +601,14 @@ cmd_worker() {
     ensure_image
   fi
 
-  echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
-  if [[ "${WORKER_GPU:-0}" == 1 ]]; then
-    echo "Depth: Depth Anything V2 (GPU), STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}"
+  echo "Render-воркер (Docker): http://0.0.0.0:${WORKER_PORT}"
+  if [[ "$(uname -s)" == Darwin ]]; then
+    echo "Mac: GPU в Docker недоступен. Для Depth V2 на M4: ./run.sh worker-native --port ${WORKER_PORT}"
+    echo "Docker-воркер на Mac использует Xenova depth (CPU внутри контейнера)."
+  elif host_has_nvidia_gpu && [[ "${WORKER_GPU:-0}" == 1 ]]; then
+    echo "Depth: Depth Anything V2 (CUDA), STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}"
   else
-    echo "Depth: auto (на GPU-воркере задайте WORKER_GPU=1 ./run.sh worker --build)"
+    echo "Depth: auto (Linux+NVIDIA: WORKER_GPU=1 ./run.sh worker --build)"
   fi
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
   echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
@@ -599,6 +620,35 @@ cmd_worker() {
   run_server_container "chat-video-worker" "${WORKER_PORT}" \
     "NATIVE_PROJECT_ROOT=${ROOT}" \
     "REMOTE_RENDER_URL=${REMOTE_RENDER_URL:-}"
+}
+
+cmd_worker_native() {
+  parse_server_args WORKER_PORT "$@"
+
+  ensure_project_dirs
+
+  if ! command -v node >/dev/null 2>&1; then
+    echo "Нужен Node.js на хосте (не в Docker)." >&2
+    exit 1
+  fi
+
+  if ! python3 -c "import torch, transformers" >/dev/null 2>&1; then
+    echo "Для Depth V2 на Apple GPU установите Python-зависимости:" >&2
+    echo "  pip3 install -r scripts/python/requirements-depth.txt" >&2
+    echo "Продолжаю без них — будет Xenova (Node) или ошибка depth-v2." >&2
+  fi
+
+  export PORT="${WORKER_PORT}"
+  export NATIVE_PROJECT_ROOT="${ROOT}"
+  export STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-auto}"
+
+  echo "Render-воркер (нативно): http://0.0.0.0:${WORKER_PORT}"
+  echo "Depth: Depth Anything V2 через Apple MPS (M1–M4), без Docker"
+  echo "На другой машине: REMOTE_RENDER_URL=http://<IP-этого-Mac>:${WORKER_PORT} ./run.sh ui"
+  echo "Проверка: npm run depth:probe"
+  echo "Остановка: Ctrl+C"
+
+  exec node --max-old-space-size=4096 --import tsx scripts/server.mjs
 }
 
 main() {
@@ -627,6 +677,9 @@ main() {
       ;;
     worker)
       cmd_worker "$@"
+      ;;
+    worker-native)
+      cmd_worker_native "$@"
       ;;
     dev)
       cmd_dev

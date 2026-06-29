@@ -1,0 +1,8 @@
+# Depth Anything V2 на Mac (MPS) или Linux (CUDA/CPU). Установка на хост, не в Docker:
+#   pip3 install -r scripts/python/requirements-depth.txt
+torch
+torchvision
+transformers>=4.40
+accelerate
+pillow
+numpy

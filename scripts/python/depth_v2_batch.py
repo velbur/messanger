@@ -12,11 +12,36 @@ import sys
 from pathlib import Path
 
 
-def resolve_model_id(cuda: bool) -> str:
+def pick_accelerator():
+    import torch
+
+    if torch.cuda.is_available():
+        return {
+            "kind": "cuda",
+            "pipeline_device": 0,
+            "dtype": torch.float16,
+            "fast": True,
+        }
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return {
+            "kind": "mps",
+            "pipeline_device": "mps",
+            "dtype": torch.float32,
+            "fast": True,
+        }
+    return {
+        "kind": "cpu",
+        "pipeline_device": -1,
+        "dtype": torch.float32,
+        "fast": False,
+    }
+
+
+def resolve_model_id(fast_accelerator: bool) -> str:
     from_env = os.environ.get("STORY_DEPTH_V2_MODEL", "").strip()
     if from_env:
         return from_env
-    if cuda:
+    if fast_accelerator:
         return "depth-anything/Depth-Anything-V2-Large-hf"
     return "depth-anything/Depth-Anything-V2-Small-hf"
 
@@ -33,20 +58,17 @@ def main() -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     import numpy as np
-    import torch
     from PIL import Image
     from transformers import pipeline
 
-    cuda = bool(torch.cuda.is_available())
-    device = 0 if cuda else -1
-    model_id = str(req.get("model") or resolve_model_id(cuda))
-    dtype = torch.float16 if cuda else torch.float32
+    accel = pick_accelerator()
+    model_id = str(req.get("model") or resolve_model_id(accel["fast"]))
 
     pipe = pipeline(
         task="depth-estimation",
         model=model_id,
-        device=device,
-        torch_dtype=dtype,
+        device=accel["pipeline_device"],
+        torch_dtype=accel["dtype"],
     )
 
     results = []
@@ -78,12 +100,22 @@ def main() -> None:
                 "width": target_w,
                 "height": target_h,
                 "raw": str(raw_path),
-                "device": "cuda" if cuda else "cpu",
+                "device": accel["kind"],
                 "model": model_id,
             }
         )
 
-    json.dump({"ok": True, "results": results, "cuda": cuda, "model": model_id}, sys.stdout)
+    json.dump(
+        {
+            "ok": True,
+            "results": results,
+            "accelerator": accel["kind"],
+            "cuda": accel["kind"] == "cuda",
+            "mps": accel["kind"] == "mps",
+            "model": model_id,
+        },
+        sys.stdout,
+    )
     sys.stdout.write("\n")
 
 
