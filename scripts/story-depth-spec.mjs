@@ -8,6 +8,10 @@ export const STORY_LAYER_SUFFIXES = {
 
 export const STORY_DEPTH_MODEL = "Xenova/depth-anything-small-hf";
 
+/** Hugging Face Depth Anything V2 (Python + CUDA на воркере) */
+export const STORY_DEPTH_V2_MODEL_LARGE = "depth-anything/Depth-Anything-V2-Large-hf";
+export const STORY_DEPTH_V2_MODEL_SMALL = "depth-anything/Depth-Anything-V2-Small-hf";
+
 export const storyLayerPaths = (imagePublicPath) => {
   const base = String(imagePublicPath).replace(/\.(png|jpe?g|webp)$/i, "");
   return {

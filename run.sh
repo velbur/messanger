@@ -44,6 +44,9 @@ usage() {
   WORKER_PORT        Порт render-воркера (по умолчанию: 3333)
   RENDER_CONCURRENCY Число потоков рендера на воркере
   REMOTE_RENDER_URL  На Mac: URL воркера, напр. http://192.168.0.136:3333
+  WORKER_GPU         1 — CUDA-образ и --gpus для depth V2 на воркере
+  STORY_DEPTH_PROVIDER  auto | depth-v2 | xenova (по умолчанию auto)
+  STORY_DEPTH_V2_MODEL  HF-модель, напр. depth-anything/Depth-Anything-V2-Large-hf
 
 Примеры:
   ./run.sh build
@@ -52,6 +55,7 @@ usage() {
   ./run.sh ui
   REMOTE_RENDER_URL=http://192.168.0.136:3333 ./run.sh ui
   CONTAINER=podman RENDER_CONCURRENCY=12 ./run.sh worker --build
+  WORKER_GPU=1 ./run.sh worker --build
   ./run.sh dev
 EOF
 }
@@ -355,6 +359,10 @@ cmd_build() {
     --build-arg "LOCK_HASH=${lock_hash}"
     -t "$IMAGE"
   )
+  if [[ "${WORKER_GPU:-0}" == 1 ]]; then
+    build_args+=(--build-arg "PYTORCH_CUDA=1")
+    echo "Сборка с CUDA (Depth Anything V2 на GPU)…"
+  fi
   if [[ "${BUILD_NO_CACHE:-0}" == 1 ]]; then
     build_args+=(--no-cache)
   fi
@@ -488,6 +496,12 @@ run_server_container() {
   if [[ -n "${RENDER_CONCURRENCY}" ]]; then
     env_args+=(-e "RENDER_CONCURRENCY=${RENDER_CONCURRENCY}")
   fi
+  if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 ]]; then
+    env_args+=(-e "STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}")
+  fi
+  if [[ -n "${STORY_DEPTH_V2_MODEL:-}" ]]; then
+    env_args+=(-e "STORY_DEPTH_V2_MODEL=${STORY_DEPTH_V2_MODEL}")
+  fi
   if [[ $# -gt 0 ]]; then
     for item in "$@"; do
       env_args+=(-e "$item")
@@ -511,6 +525,15 @@ run_server_container() {
 
   "$CONTAINER" rm -f "$container_name" >/dev/null 2>&1 || true
 
+  local -a gpu_args=()
+  if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 ]]; then
+    if [[ "$CONTAINER" == docker ]]; then
+      gpu_args=(--gpus all)
+    else
+      gpu_args=(--device nvidia.com/gpu=all)
+    fi
+  fi
+
   stop_server() {
     echo ""
     echo "Остановка контейнера…"
@@ -520,6 +543,7 @@ run_server_container() {
   trap stop_server INT TERM
 
   "$CONTAINER" run --rm -it --init --name "$container_name" \
+    "${gpu_args[@]}" \
     -p "${host_port}:3333" \
     "${env_args[@]}" \
     "${volume_args[@]}" \
@@ -560,6 +584,11 @@ cmd_worker() {
   fi
 
   echo "Render-воркер: http://0.0.0.0:${WORKER_PORT}"
+  if [[ "${WORKER_GPU:-0}" == 1 ]]; then
+    echo "Depth: Depth Anything V2 (GPU), STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}"
+  else
+    echo "Depth: auto (на GPU-воркере задайте WORKER_GPU=1 ./run.sh worker --build)"
+  fi
   echo "На Mac: REMOTE_RENDER_URL=http://<IP-этой-машины>:${WORKER_PORT} ./run.sh ui"
   echo "Важно: после git pull перезапустите воркер (монтируются src/, scripts/, public/, .cache/)."
   echo "Озвучка: только на Mac (OpenRouter); WAV синхронизируются на воркер при рендере."

@@ -81,10 +81,19 @@ RUN set -eux; \
 
 COPY . .
 
-# Silero TTS на воркере (CPU). Без torch — запасной MMS через Node на воркере.
-RUN python3 -m pip install --no-cache-dir --break-system-packages \
-    --index-url https://download.pytorch.org/whl/cpu \
-    torch torchaudio
+# Silero TTS (CPU) + Depth Anything V2 (опционально CUDA на воркере)
+ARG PYTORCH_CUDA=0
+RUN if [ "$PYTORCH_CUDA" = "1" ]; then \
+      python3 -m pip install --no-cache-dir --break-system-packages \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/cu124; \
+    else \
+      python3 -m pip install --no-cache-dir --break-system-packages \
+        torch torchaudio \
+        --index-url https://download.pytorch.org/whl/cpu; \
+    fi \
+  && python3 -m pip install --no-cache-dir --break-system-packages \
+    transformers accelerate pillow numpy
 
 RUN mkdir -p out public/audio
 
