@@ -1,5 +1,5 @@
 import path from "node:path";
-import {mkdir, readFile, writeFile} from "node:fs/promises";
+import {mkdir, readFile, writeFile, copyFile, access} from "node:fs/promises";
 import {parseConversation} from "../src/chat/schema.ts";
 import {mergeStoryConfig, needsStoryDepthLayers, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {isStoryVisualLayout, resolveConversationImages} from "./image-assets.mjs";
@@ -10,6 +10,7 @@ import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
 import {resolveRemoteRenderUrl, renderChatVideoOnRemote} from "./remote-render-client.mjs";
+import {PUBLIC_DIR} from "./image-assets.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const MODES = ["kenburns", "parallax", "depthParallax", "video"];
@@ -40,6 +41,24 @@ const inputRel = parseArg("--input", "json/story-split-demo.json");
 const outDirRel = parseArg("--out-dir", "out/motion-compare");
 const withVeo = hasFlag("--with-veo");
 const forceLocal = hasFlag("--local");
+
+/** Фон обложки для воркера без OpenRouter (старый server всё ещё вызывает ensureConversationPreviewCovers) */
+const ensureRemotePreviewCoverSrc = async (conversation, renderName) => {
+  const coverDir = path.join(PUBLIC_DIR, "images", renderName);
+  const srcPath = path.join(coverDir, "preview-cover.src.png");
+  try {
+    await access(srcPath);
+    return;
+  } catch {
+    // continue
+  }
+  const openingRef = String(conversation.story?.opening?.image ?? "").trim();
+  if (!openingRef) {
+    return;
+  }
+  await mkdir(coverDir, {recursive: true});
+  await copyFile(path.join(PUBLIC_DIR, openingRef), srcPath);
+};
 
 const run = async () => {
   const inputAbs = path.join(ROOT, inputRel);
@@ -105,11 +124,15 @@ const run = async () => {
 
     await resolveConversationImages(conversation, {failOnMissingImages: true});
 
+    const renderName = `compare-${mode}`;
+    if (useRemote) {
+      await ensureRemotePreviewCoverSrc(conversation, renderName);
+    }
+
     const jsonPath = path.join(outDir, `compare-${mode}.json`);
     await writeFile(jsonPath, `${JSON.stringify(conversation, null, 2)}\n`, "utf8");
 
     const outputPath = path.join(outDir, `compare-${mode}.mp4`);
-    const renderName = `compare-${mode}`;
     console.log(`[${mode}] Рендер → ${path.relative(ROOT, outputPath)}`);
     if (useRemote) {
       await renderChatVideoOnRemote({
