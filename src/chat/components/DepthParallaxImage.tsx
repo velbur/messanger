@@ -12,9 +12,11 @@ type Props = {
 
 const BANDS = [
   {band: "far" as const, src: (layers: StoryDepthLayerPaths) => layers.far, zIndex: 1},
-  {band: "mid" as const, src: (layers: StoryDepthLayerPaths) => layers.mid, zIndex: 2},
-  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 3},
+  {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 2},
 ];
+
+/** Запас по краям — без полосы при translate слоёв */
+const OVERSCAN = 1.32;
 
 /**
  * Настоящий 2.5D: три RGBA-слоя из depth map без дублирования полного кадра.
@@ -39,13 +41,14 @@ export const DepthParallaxImage: React.FC<Props> = ({
             src={staticFile(src(layers))}
             style={{
               position: "absolute",
-              inset: 0,
+              left: "50%",
+              top: "50%",
               zIndex,
-              width: "100%",
-              height: "100%",
+              width: `${OVERSCAN * 100}%`,
+              height: `${OVERSCAN * 100}%`,
               objectFit: "cover",
               transformOrigin: "center center",
-              transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
+              transform: `translate(-50%, -50%) scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
               willChange: "transform",
             }}
           />

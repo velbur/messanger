@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Быстрый тест Ken Burns vs Depth parallax на одной картинке.
- * Не рендерит весь чат — только заставку opening (~3 с) + 3 кадра-сравнения.
+ * Быстрый тест Ken Burns vs Depth parallax на одной картинке (без чата).
  *
  *   npm run test:parallax -- --image path/to.png
  *   npm run test:parallax -- --image path/to.png --force-depth
@@ -9,10 +8,7 @@
 import path from "node:path";
 import {mkdir, copyFile, access} from "node:fs/promises";
 import {renderStill, renderMedia, selectComposition} from "@remotion/renderer";
-import {parseConversation} from "../src/chat/schema.ts";
-import {buildTimeline} from "../src/chat/timeline.ts";
 import {storyMotionLoopFrames} from "../src/chat/story-motion.ts";
-import {FPS} from "../src/chat/fps.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets} from "./story-depth.mjs";
 
@@ -37,38 +33,11 @@ const parseArg = (name) => {
 
 const hasFlag = (name) => process.argv.includes(name);
 
-const buildConversation = (animation) =>
-  parseConversation({
-    contactName: "Test",
-    myName: "Я",
-    wallpaper: "dark",
-    locale: "ru",
-    layout: "storyOverlay",
-    hookText: "Parallax test",
-    story: {
-      opening: {
-        image: IMAGE_REL,
-        durationMs: 3500,
-        animation,
-      },
-      motionLoopSec: 3,
-      disableMessageFullscreen: true,
-    },
-    intro: {enabled: false},
-    endCard: {enabled: false},
-    outro: {enabled: false},
-    music: {enabled: false},
-    voiceover: {enabled: false},
-    previewCover: {enabled: false},
-    messages: [{author: "them", text: "…", sentAt: "12:00"}],
-  });
-
-const openingPeakFrame = (conversation) => {
-  const timeline = buildTimeline(conversation);
-  const loopFrames = storyMotionLoopFrames(conversation.story?.motionLoopSec ?? 3);
-  const start = timeline.story.openingStartFrame;
-  return {start, loopFrames, timeline};
-};
+const previewProps = (animation) => ({
+  image: IMAGE_REL,
+  animation,
+  motionLoopSec: 3,
+});
 
 const run = async () => {
   const imageArg = parseArg("--image");
@@ -91,67 +60,62 @@ const run = async () => {
   const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: hasFlag("--force-depth")});
   console.log(
     depthResult.skipped
-      ? `Depth: кэш OK → ${IMAGE_REL}.depth.png`
-      : `Depth: пересчитано (${depthResult.provider ?? "xenova"}) → ${IMAGE_REL}.depth.png`,
+      ? `Depth: кэш OK → ${IMAGE_REL}`
+      : `Depth: пересчитано (${depthResult.provider ?? "xenova"}) → слои v10`,
   );
 
   const bundleLocation = await getBundleLocation({
     onStatus: (message) => console.log(message),
   });
 
-  for (const mode of MODES) {
-    const conversation = buildConversation(mode);
-    const {start, loopFrames} = openingPeakFrame(conversation);
+  const loopFrames = storyMotionLoopFrames(3);
 
+  for (const mode of MODES) {
+    const inputProps = previewProps(mode);
     const composition = await selectComposition({
       serveUrl: bundleLocation,
-      id: "ChatVideo",
-      inputProps: {conversation},
+      id: "StoryParallaxPreview",
+      inputProps,
     });
 
     for (const {label, ratio} of STILL_LABELS) {
-      const offset = Math.round(loopFrames * ratio);
-      const frame = Math.min(start + offset, composition.durationInFrames - 1);
+      const frame = Math.min(Math.round(loopFrames * ratio), composition.durationInFrames - 1);
       const output = path.join(outDir, `still-${mode}-${label}.png`);
       console.log(`[${mode}] кадр ${frame} → ${path.relative(ROOT, output)}`);
       await renderStill({
         composition,
         serveUrl: bundleLocation,
         output,
-        inputProps: {conversation},
+        inputProps,
         frame,
         imageFormat: "png",
       });
     }
   }
 
-  const parallaxConversation = buildConversation("depthParallax");
-  const {start, loopFrames} = openingPeakFrame(parallaxConversation);
-  const clipEnd = Math.min(start + loopFrames - 1, start + FPS * 3 - 1);
-
+  const clipPath = path.join(outDir, "depthParallax-loop.mp4");
+  const clipProps = previewProps("depthParallax");
   const clipComposition = await selectComposition({
     serveUrl: bundleLocation,
-    id: "ChatVideo",
-    inputProps: {conversation: parallaxConversation},
+    id: "StoryParallaxPreview",
+    inputProps: clipProps,
   });
 
-  const clipPath = path.join(outDir, "depthParallax-loop.mp4");
-  console.log(`[depthParallax] клип кадры ${start}–${clipEnd} → ${path.relative(ROOT, clipPath)}`);
+  console.log(`[depthParallax] клип 0–${loopFrames - 1} → ${path.relative(ROOT, clipPath)}`);
   await renderMedia({
     composition: clipComposition,
     serveUrl: bundleLocation,
     codec: "h264",
     audioCodec: "aac",
     outputLocation: clipPath,
-    inputProps: {conversation: parallaxConversation},
-    frameRange: [start, clipEnd],
+    inputProps: clipProps,
     concurrency: 2,
     x264Preset: "veryfast",
   });
 
   console.log(`\nГотово: ${path.relative(ROOT, outDir)}/`);
   console.log("  still-kenburns-*.png  vs  still-depthParallax-*.png");
-  console.log("  depthParallax-loop.mp4 — 3 с анимации");
+  console.log("  depthParallax-loop.mp4 — 3 с, только картинка (без чата)");
 };
 
 run().catch((error) => {

@@ -176,8 +176,9 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("sfxMixSrc") &&
       bundleJs.includes("preview-cover-baked-v3") &&
       bundleJs.includes("preview-cover-art-v3") &&
-      bundleJs.includes("story-depth-mask-v15") &&
-      bundleJs.includes("DepthDisplacementImage") &&
+      bundleJs.includes("story-depth-layers-v18") &&
+      bundleJs.includes("story-parallax-preview-v1") &&
+      bundleJs.includes("DepthParallaxImage") &&
       bundleJs.includes("default-conversation.json")
     );
   } catch {

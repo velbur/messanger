@@ -3,8 +3,10 @@ import {Composition} from "remotion";
 import {ChatVideo} from "./chat/ChatVideo";
 import {PHOTO_THUMBNAIL_MARKER, PhotoThumbnail} from "./chat/PhotoThumbnail";
 import {PreviewCoverArt, PREVIEW_COVER_ART_MARKER} from "./chat/components/PreviewCoverArt";
+import {StoryParallaxPreview, STORY_PARALLAX_PREVIEW_MARKER} from "./chat/StoryParallaxPreview";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
+import {storyMotionLoopFrames} from "./chat/story-motion";
 import {buildTimeline} from "./chat/timeline";
 import sample from "./default-conversation.json";
 
@@ -23,6 +25,7 @@ type PreviewCoverProps = {
 
 void PHOTO_THUMBNAIL_MARKER;
 void PREVIEW_COVER_ART_MARKER;
+void STORY_PARALLAX_PREVIEW_MARKER;
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -69,6 +72,19 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           image: "images/msg-15.png",
           title: "Заголовок ролика",
+        }}
+      />
+      <Composition
+        id="StoryParallaxPreview"
+        component={StoryParallaxPreview}
+        width={1080}
+        height={1920}
+        fps={FPS}
+        durationInFrames={storyMotionLoopFrames(3)}
+        defaultProps={{
+          image: "images/parallax-test/story-opening.png",
+          animation: "depthParallax",
+          motionLoopSec: 3,
         }}
       />
     </>

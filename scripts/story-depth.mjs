@@ -17,9 +17,10 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 8;
+export const DEPTH_LAYER_VERSION = 10;
 
-const DEPTH_BLUR_SIGMA = 6;
+const DEPTH_BLUR_SIGMA = 5;
+const ALPHA_FEATHER_SIGMA = 2.5;
 
 env.cacheDir = CACHE_DIR;
 env.allowLocalModels = false;
@@ -99,6 +100,12 @@ export const probeStoryDepth = async () => {
   return {provider, message: `Depth Xenova: ${STORY_DEPTH_MODEL}`};
 };
 
+const smoothstep = (edge0, edge1, x) => {
+  const span = Math.max(edge1 - edge0, 1e-6);
+  const t = Math.max(0, Math.min(1, (x - edge0) / span));
+  return t * t * (3 - 2 * t);
+};
+
 const depthToUint8 = (depthData, pixelCount) => {
   let min = Infinity;
   let max = -Infinity;
@@ -147,8 +154,80 @@ const blurDepthMap = async (depthUint8, width, height) => {
   return new Uint8Array(blurred);
 };
 
-const writeDepthPng = async ({depthUint8, width, height, paths, metaExtra = {}}) => {
+const layerWeights = (depthByte) => {
+  const d = depthByte / 255;
+  const near = smoothstep(0.52, 0.78, d);
+  const far = 1 - smoothstep(0.08, 0.34, d);
+  let mid = Math.max(0, 1 - far - near);
+  const sum = far + mid + near;
+  if (sum < 1e-6) {
+    return {far: 1 / 3, mid: 1 / 3, near: 1 / 3};
+  }
+  return {far: far / sum, mid: mid / sum, near: near / sum};
+};
+
+const buildFarLayer = (source, width, height) => {
+  const out = Buffer.from(source);
+  for (let i = 0; i < width * height; i += 1) {
+    out[i * 4 + 3] = 255;
+  }
+  return out;
+};
+
+const buildBandLayer = (source, depthUint8, width, height, band) => {
+  const out = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i += 1) {
+    const weights = layerWeights(depthUint8[i]);
+    const weight = band === "far" ? weights.far : band === "mid" ? weights.mid : weights.near;
+    const alpha = Math.round(weight * 255);
+    const si = i * 4;
+    out[si] = source[si];
+    out[si + 1] = source[si + 1];
+    out[si + 2] = source[si + 2];
+    out[si + 3] = alpha;
+  }
+  return out;
+};
+
+const featherLayerAlpha = async (buffer, width, height) => {
+  const pixelCount = width * height;
+  const alpha = Buffer.alloc(pixelCount);
+  for (let i = 0; i < pixelCount; i += 1) {
+    alpha[i] = buffer[i * 4 + 3];
+  }
+
+  const blurredAlpha = await sharp(Buffer.from(alpha), {raw: {width, height, channels: 1}})
+    .toColourspace("b-w")
+    .blur(ALPHA_FEATHER_SIGMA)
+    .greyscale()
+    .raw()
+    .toBuffer();
+
+  const out = Buffer.from(buffer);
+  for (let i = 0; i < pixelCount; i += 1) {
+    const original = buffer[i * 4 + 3];
+    const feathered = blurredAlpha[i];
+    out[i * 4 + 3] = Math.round((original * feathered) / 255);
+  }
+  return out;
+};
+
+const writeLayerPngs = async ({imageAbs, depthUint8, width, height, paths, metaExtra = {}}) => {
   const softenedDepth = await blurDepthMap(depthUint8, width, height);
+  const source = await sharp(imageAbs).ensureAlpha().raw().toBuffer();
+
+  const far = buildFarLayer(source, width, height);
+  const mid = await featherLayerAlpha(
+    buildBandLayer(source, softenedDepth, width, height, "mid"),
+    width,
+    height,
+  );
+  const near = await featherLayerAlpha(
+    buildBandLayer(source, softenedDepth, width, height, "near"),
+    width,
+    height,
+  );
+
   const depthAbs = safePublicAbs(paths.depth).absolute;
   const metaAbs = safePublicAbs(
     String(paths.mid).replace(/\.layer-mid\.png$/, ".depth-meta.json"),
@@ -160,9 +239,17 @@ const writeDepthPng = async ({depthUint8, width, height, paths, metaExtra = {}})
     .png()
     .toFile(depthAbs);
 
+  const writeLayer = async (buffer, rel) => {
+    const abs = safePublicAbs(rel).absolute;
+    await sharp(buffer, {raw: {width, height, channels: 4}}).png().toFile(abs);
+  };
+
+  await writeLayer(far, paths.far);
+  await writeLayer(mid, paths.mid);
+  await writeLayer(near, paths.near);
   await fs.writeFile(
     metaAbs,
-    `${JSON.stringify({version: DEPTH_LAYER_VERSION, mode: "displacement", ...metaExtra})}\n`,
+    `${JSON.stringify({version: DEPTH_LAYER_VERSION, mode: "layers", ...metaExtra})}\n`,
     "utf8",
   );
 };
@@ -171,10 +258,13 @@ export const isStoryDepthAvailable = async (imagePublicPath) => {
   const paths = storyLayerPaths(imagePublicPath);
   try {
     const meta = await readDepthMeta(paths);
-    if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION) {
+    if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION || meta.mode !== "layers") {
       return false;
     }
     await fs.access(safePublicAbs(paths.depth).absolute);
+    await fs.access(safePublicAbs(paths.far).absolute);
+    await fs.access(safePublicAbs(paths.mid).absolute);
+    await fs.access(safePublicAbs(paths.near).absolute);
     return true;
   } catch {
     return false;
@@ -254,7 +344,7 @@ export const generateStoryDepthAssets = async (imagePublicPath, {force = false} 
   const depthMaps = await inferDepthMaps([rel], provider);
   const {depthUint8, width, height, metaExtra} = depthMaps.get(rel);
 
-  await writeDepthPng({depthUint8, width, height, paths, metaExtra});
+  await writeLayerPngs({imageAbs, depthUint8, width, height, paths, metaExtra});
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
 };
@@ -313,7 +403,8 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
       if (!entry) {
         throw new Error("Нет depth map");
       }
-      await writeDepthPng({
+      await writeLayerPngs({
+        imageAbs,
         depthUint8: entry.depthUint8,
         width: entry.width,
         height: entry.height,
