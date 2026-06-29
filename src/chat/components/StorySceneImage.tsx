@@ -31,9 +31,11 @@ const MotionScene: React.FC<{
   motionLoopFrames: number;
 }> = ({image, animation, localFrame, durationFrames, motionLoopFrames}) => {
   const trimmed = image.trim();
-  const particles = (
-    <StoryAtmosphereParticles seed={trimmed} intensity={animation === "none" ? 0.35 : 0.72} />
-  );
+  // depthParallax уже несёт объёмные пылинки, запечённые в loop → плоский
+  // CSS-оверлей приглушаем, чтобы не было «снегопада» из двух систем
+  const particleIntensity =
+    animation === "none" ? 0.35 : usesDepthParallax(animation) ? 0.28 : 0.72;
+  const particles = <StoryAtmosphereParticles seed={trimmed} intensity={particleIntensity} />;
 
   if (animation === "none") {
     return (

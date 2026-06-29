@@ -5,7 +5,7 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
-import {motionVectors, storyMotionLoopFrames} from "../src/chat/story-motion.ts";
+import {hashSeed, motionVectors, storyMotionLoopFrames} from "../src/chat/story-motion.ts";
 import {FPS} from "../src/chat/fps.ts";
 import {
   bakeKenBurnsLoopFallback,
@@ -25,11 +25,22 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 21;
+export const DEPTH_LAYER_VERSION = 22;
 
 /** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
 const PARALLAX_AMPLITUDE_FRAC = 0.07;
 const PARALLAX_FRAMES = storyMotionLoopFrames(3);
+
+/** Глубинные эффекты для усиления 3D (запекаются в loop) */
+const PARALLAX_FX = {
+  /** Расфокус фона vs резкий передний план (кинематографическая глубина) */
+  dofStrength: 0.6,
+  /** Воздушная дымка вдаль (aerial perspective) */
+  hazeStrength: 0.07,
+  /** Объёмные пылинки с parallax и перекрытием передним планом */
+  dustCount: 130,
+  dustStrength: 1.0,
+};
 
 env.cacheDir = CACHE_DIR;
 env.allowLocalModels = false;
@@ -235,6 +246,11 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
         amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
         panX,
         panY,
+        dofStrength: PARALLAX_FX.dofStrength,
+        hazeStrength: PARALLAX_FX.hazeStrength,
+        dustCount: PARALLAX_FX.dustCount,
+        dustStrength: PARALLAX_FX.dustStrength,
+        effectSeed: hashSeed(rel),
       },
     ]);
 
@@ -248,6 +264,7 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
         fps: FPS,
         width,
         height,
+        fx: PARALLAX_FX,
         ...metaExtra,
       })}\n`,
       "utf8",

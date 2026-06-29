@@ -158,6 +158,50 @@ def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, 
     return warped, map_x, map_y
 
 
+def make_motes(seed: int, count: int, w: int, h: int):
+    """Облако пылинок в 3D-пространстве сцены (для объёмного parallax).
+
+    Каждая пылинка живёт на своей глубине → при движении «камеры» ближние
+    смещаются сильнее дальних, а ещё их перекрывает передний план. Всё движение
+    периодично по t → клип остаётся бесшовным loop.
+    """
+    rng = np.random.default_rng(seed)
+    scale = min(w, h) / 720.0
+    return {
+        "bx": rng.uniform(0, w, count),
+        "by": rng.uniform(0, h, count),
+        # больше пылинок ближе к камере — заметнее объём
+        "dm": np.clip(rng.beta(2.2, 1.8, count) * 0.7 + 0.22, 0.0, 0.97),
+        "drift": rng.uniform(2.0, 11.0, count) * scale,
+        "phase": rng.uniform(0, 2 * np.pi, count),
+        "tphase": rng.uniform(0, 2 * np.pi, count),
+        "radius": rng.uniform(0.8, 2.3, count) * scale,
+        "bright": rng.uniform(0.35, 1.0, count),
+        "harmonic": rng.integers(1, 3, count).astype(np.float32),
+    }
+
+
+def stamp_soft(buf: np.ndarray, cx: float, cy: float, radius: float, value: float) -> None:
+    """Мягкая гауссова точка в аккумулятор (с обрезкой по краям)."""
+    if value <= 0.0:
+        return
+    rad = max(0.6, radius)
+    size = int(np.ceil(rad * 3))
+    h, w = buf.shape
+    ix, iy = int(np.floor(cx)), int(np.floor(cy))
+    x0, x1 = ix - size, ix + size + 1
+    y0, y1 = iy - size, iy + size + 1
+    if x1 <= 0 or y1 <= 0 or x0 >= w or y0 >= h:
+        return
+    xa, xb = max(0, x0), min(w, x1)
+    ya, yb = max(0, y0), min(h, y1)
+    xs = np.arange(xa, xb) - cx
+    ys = np.arange(ya, yb) - cy
+    gx = np.exp(-(xs * xs) / (2.0 * rad * rad))
+    gy = np.exp(-(ys * ys) / (2.0 * rad * rad))
+    buf[ya:yb, xa:xb] += np.outer(gy, gx) * value
+
+
 def open_ffmpeg(out_video: str, w: int, h: int, fps: int):
     ffmpeg = os.environ.get("FFMPEG_BIN", "ffmpeg")
     Path(out_video).parent.mkdir(parents=True, exist_ok=True)
@@ -181,6 +225,12 @@ def bake_one(job: dict) -> dict:
     amp = float(job.get("amplitude_px", 30.0))
     pan_x = float(job.get("pan_x", 1.0))
     pan_y = float(job.get("pan_y", -1.0))
+    # Глубинно-зависимые эффекты (усиливают ощущение 3D)
+    dof_strength = float(job.get("dof_strength", 0.6))
+    haze_strength = float(job.get("haze_strength", 0.07))
+    dust_count = int(job.get("dust_count", 130))
+    dust_strength = float(job.get("dust_strength", 1.0))
+    effect_seed = int(job.get("effect_seed", 12345))
 
     img = np.array(Image.open(image_path).convert("RGB"))
     h, w = img.shape[:2]
@@ -218,6 +268,15 @@ def bake_one(job: dict) -> dict:
 
     fg_alpha_f = fg_alpha.astype(np.float32)
 
+    # Depth-of-field / aerial haze считаем по «дальности» от фокальной плоскости
+    focus_span = max(focus, 1e-3)
+    dof_sigma = max(1.0, min(w, h) * 0.013)
+    # тёплый ambient для дымки — берём из ярких (ламповых) пикселей
+    ambient = np.clip(np.percentile(img.reshape(-1, 3), 85, axis=0), 0, 255).astype(np.float32)
+    dust_tint = np.array([1.0, 0.93, 0.8], dtype=np.float32)
+
+    motes = make_motes(effect_seed, dust_count, w, h) if dust_count > 0 else None
+
     proc = open_ffmpeg(out_video, w, h, fps)
     two_pi = 2.0 * np.pi
     try:
@@ -226,7 +285,7 @@ def bake_one(job: dict) -> dict:
             ox = amp * pan_x * np.sin(two_pi * t)
             oy = amp * pan_y * 0.4 * np.cos(two_pi * t)
 
-            bg_warp, _, _ = warp_layer(
+            bg_warp, bg_mx, bg_my = warp_layer(
                 bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
             )
             fg_warp, map_x, map_y = warp_layer(
@@ -237,6 +296,47 @@ def bake_one(job: dict) -> dict:
             )[..., None]
 
             out = bg_warp.astype(np.float32) * (1.0 - a_warp) + fg_warp.astype(np.float32) * a_warp
+
+            # Глубина на каждый выходной пиксель — для DOF, дымки и перекрытия пылинок
+            depth_n = cv2.remap(depth, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+            depth_f = cv2.remap(
+                depth_bg, bg_mx, bg_my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
+            )
+            scene_depth = a_warp[..., 0] * depth_n + (1.0 - a_warp[..., 0]) * depth_f
+            farness = np.clip((focus - scene_depth) / focus_span, 0.0, 1.0)
+
+            if dof_strength > 0.0:
+                w_dof = (farness ** 1.2 * dof_strength)[..., None]
+                blurred = cv2.GaussianBlur(out, (0, 0), sigmaX=dof_sigma, sigmaY=dof_sigma)
+                out = out * (1.0 - w_dof) + blurred * w_dof
+
+            if haze_strength > 0.0:
+                w_haze = (farness * haze_strength)[..., None]
+                out = out * (1.0 - w_haze) + ambient[None, None, :] * w_haze
+
+            if motes is not None:
+                acc = np.zeros((h, w), dtype=np.float32)
+                drift = motes["drift"]
+                px = motes["bx"] + drift * np.cos(two_pi * t + motes["phase"])
+                py = motes["by"] + drift * np.sin(two_pi * t + motes["phase"])
+                disp_m = motes["dm"] - focus
+                sx = px + disp_m * ox
+                sy = py + disp_m * oy
+                twinkle = 0.55 + 0.45 * np.sin(two_pi * motes["harmonic"] * t + motes["tphase"])
+                far_m = np.clip((focus - motes["dm"]) / focus_span, 0.0, 1.0)
+                r_eff = motes["radius"] * (1.0 + far_m * 2.0)
+                b_eff = motes["bright"] * twinkle / (1.0 + far_m * 1.2)
+                ix = np.clip(sx.astype(int), 0, w - 1)
+                iy = np.clip(sy.astype(int), 0, h - 1)
+                for k in range(len(px)):
+                    if sx[k] < 0 or sx[k] >= w or sy[k] < 0 or sy[k] >= h:
+                        continue
+                    # пылинка за передним планом — скрыта
+                    if motes["dm"][k] < scene_depth[iy[k], ix[k]] - 0.04:
+                        continue
+                    stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k])
+                out = out + (dust_strength * 24.0) * acc[..., None] * dust_tint[None, None, :]
+
             frame = np.clip(out + 0.5, 0, 255).astype(np.uint8)
             proc.stdin.write(frame.tobytes())
         proc.stdin.close()
