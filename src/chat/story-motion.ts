@@ -139,12 +139,11 @@ export const depthParallaxLayerMotion = (
   panY: number,
   band: DepthParallaxBand,
 ): {translateX: number; translateY: number; scale: number} => {
-  const amplitude = band === "far" ? -1.4 : band === "mid" ? 1.8 : 5.5;
-  const scaleBase = band === "far" ? 1.04 : band === "mid" ? 1.05 : 1.06;
-  const scaleBump = progress * 0.012;
+  const amplitude = band === "far" ? -1.3 : band === "mid" ? 1.5 : 4.5;
+  const scale = 1;
   return {
     translateX: panX * progress * amplitude,
-    translateY: panY * progress * amplitude * 0.72,
-    scale: scaleBase + scaleBump,
+    translateY: panY * progress * amplitude * 0.55,
+    scale,
   };
 };

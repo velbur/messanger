@@ -119,26 +119,18 @@ const edgeStripeMetrics = (grey, w, h) => {
   };
 };
 
-const bandMask = (depth, band) => (i) => {
-  const d = depth[i];
-  if (band === "near") {
-    return d >= 150;
-  }
-  if (band === "far") {
-    return d <= 95;
-  }
-  return d > 95 && d < 150;
-};
-
 const evaluatePair = ({greyT0, greyPeak, depth}) => {
   const {w, h} = greyT0;
-  const nearT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, bandMask(depth.depth, "near"));
-  const nearPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, bandMask(depth.depth, "near"));
-  const farT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, bandMask(depth.depth, "far"));
-  const farPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, bandMask(depth.depth, "far"));
+  const fgMask = (i) => depth.depth[i] >= 118;
+  const bgMask = (i) => depth.depth[i] <= 88;
 
-  const nearShift = (nearT0.shiftPx - nearPeak.shiftPx) / 2;
-  const farShift = (farT0.shiftPx - farPeak.shiftPx) / 2;
+  const fgT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, fgMask);
+  const fgPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, fgMask);
+  const bgT0 = estimateHorizontalShift(greyT0.grey, greyPeak.grey, w, h, bgMask);
+  const bgPeak = estimateHorizontalShift(greyPeak.grey, greyT0.grey, w, h, bgMask);
+
+  const nearShift = (fgT0.shiftPx - fgPeak.shiftPx) / 2;
+  const farShift = (bgT0.shiftPx - bgPeak.shiftPx) / 2;
   const separation = Math.abs(nearShift - farShift);
   const ratio = Math.abs(nearShift) / Math.max(Math.abs(farShift), 0.5);
 

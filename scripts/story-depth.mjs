@@ -17,12 +17,12 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 11;
+export const DEPTH_LAYER_VERSION = 12;
 
-const DEPTH_BLUR_SIGMA = 5;
-const ALPHA_FEATHER_SIGMA = 2.5;
-/** Размытие под передним планом — когда near-слой сдвигается, виден фон, а не дубль */
-const BACKGROUND_PLATE_BLUR_SIGMA = 32;
+const DEPTH_BLUR_SIGMA = 4;
+const ALPHA_FEATHER_SIGMA = 3.2;
+/** Лёгкое размытие только под самым ближним планом */
+const BACKGROUND_PLATE_BLUR_SIGMA = 14;
 
 env.cacheDir = CACHE_DIR;
 env.allowLocalModels = false;
@@ -158,8 +158,8 @@ const blurDepthMap = async (depthUint8, width, height) => {
 
 const layerWeights = (depthByte) => {
   const d = depthByte / 255;
-  const near = smoothstep(0.52, 0.78, d);
-  const far = 1 - smoothstep(0.08, 0.34, d);
+  const near = smoothstep(0.64, 0.9, d);
+  const far = 1 - smoothstep(0.06, 0.32, d);
   let mid = Math.max(0, 1 - far - near);
   const sum = far + mid + near;
   if (sum < 1e-6) {
@@ -171,8 +171,8 @@ const layerWeights = (depthByte) => {
 const buildBackgroundPlate = (source, blurredSource, depthUint8, width, height) => {
   const out = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i += 1) {
-    const {mid, near} = layerWeights(depthUint8[i]);
-    const hole = Math.min(1, near * 1.1 + mid * 0.28);
+    const {near} = layerWeights(depthUint8[i]);
+    const hole = Math.min(1, near ** 1.35 * 0.75);
     const si = i * 4;
     for (let c = 0; c < 3; c += 1) {
       out[si + c] = Math.round(source[si + c] * (1 - hole) + blurredSource[si + c] * hole);

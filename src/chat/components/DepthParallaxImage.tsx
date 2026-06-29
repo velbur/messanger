@@ -16,8 +16,8 @@ const BANDS = [
   {band: "near" as const, src: (layers: StoryDepthLayerPaths) => layers.near, zIndex: 3},
 ];
 
-/** Запас по краям при translate */
-const OVERSCAN = 1.38;
+/** Минимальный overscan — без ощущения «наезда» камеры */
+const OVERSCAN = 1.12;
 
 /**
  * Настоящий 2.5D: три RGBA-слоя из depth map без дублирования полного кадра.
