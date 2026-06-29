@@ -1,0 +1,142 @@
+{
+  "contactName": "Наташа",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": false,
+    "src": "music/romantic.mp3"
+  },
+  "voiceover": {
+    "enabled": false,
+    "provider": "openrouter",
+    "themVoice": "female",
+    "meVoice": "male",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 1.5,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/vecher-futbola-s-neozhidannym-finalom/preview-cover.png",
+    "title": "Вечер футбола с неожиданным финалом",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/ya-tebe-chto-konditer/story-opening.png",
+      "imagePrompt": "Шумный спорт-бар, полный болельщиков. Мужчина сидит за столиком, его взгляд прикован к большому экрану с футболом.",
+      "durationMs": 2500,
+      "animation": "depthParallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "them",
+      "text": "Дорогой, у нас на кухне кран протёк. Посмотришь, когда вернёшься?",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-1.wav",
+      "voiceDurationMs": 5440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "спокойная просьба, мягко, ровно, негромко",
+      "sentAt": "22:15"
+    },
+    {
+      "author": "me",
+      "text": "Я тебе что, сантехник? Дай футбол досмотреть.",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-2.wav",
+      "voiceDurationMs": 3640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "раздражение, резко, громче, с пренебрежением",
+      "sentAt": "22:16"
+    },
+    {
+      "author": "them",
+      "text": "Ладно, неважно. Уже всё в порядке.",
+      "storyImage": "images/ya-tebe-chto-konditer/story-msg-3.png",
+      "storyImagePrompt": "Женщина на чистой, убранной кухне вытирает руки о полотенце, на лице довольная улыбка.",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-3.wav",
+      "voiceDurationMs": 3120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "сдержанная обида, тихо, сухо, безэмоционально",
+      "sentAt": "23:50"
+    },
+    {
+      "author": "me",
+      "text": "В смысле? Как?",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-4.wav",
+      "voiceDurationMs": 2000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "настороженное удивление, быстро, напряжённо, громче",
+      "sentAt": "23:50"
+    },
+    {
+      "author": "them",
+      "text": "Сосед помог, Игорь из 34-й.",
+      "storyImage": "images/ya-tebe-chto-konditer/story-msg-5.png",
+      "storyImagePrompt": "Симпатичный мужчина лет 30-ти с ящиком инструментов улыбается, стоя в дверях кухни.",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-5.wav",
+      "voiceDurationMs": 3720,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "спокойная констатация, ровно, слегка многозначительно",
+      "sentAt": "23:51"
+    },
+    {
+      "author": "me",
+      "text": "И что он за это попросил?",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-6.wav",
+      "voiceDurationMs": 2760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ревнивая тревога, жёстко, отрывисто, с нажимом",
+      "sentAt": "23:51"
+    },
+    {
+      "author": "them",
+      "text": "Предложил на выбор: испечь ему пирог или переспать с ним.",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-7.wav",
+      "voiceDurationMs": 5040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ледяное спокойствие, медленно, чётко, с паузой",
+      "sentAt": "23:52"
+    },
+    {
+      "author": "me",
+      "text": "И какой пирог ты ему испекла? Надеюсь, яблочный? 😋",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-8.wav",
+      "voiceDurationMs": 6000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервный сарказм, натянуто бодро, быстрее, с усмешкой",
+      "sentAt": "23:52"
+    },
+    {
+      "author": "them",
+      "text": "Я тебе что, кондитер?",
+      "storyImage": "images/ya-tebe-chto-konditer/story-msg-9.png",
+      "storyImagePrompt": "Женщина на кухне с хитрой, загадочной ухмылкой, смотрит прямо на зрителя.",
+      "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-9.wav",
+      "voiceDurationMs": 2560,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "язвительная месть, холодно, отчётливо, с нажимом",
+      "sentAt": "23:53"
+    }
+  ]
+}
