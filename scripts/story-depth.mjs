@@ -26,10 +26,10 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 24;
+export const DEPTH_LAYER_VERSION = 25;
 
 /** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
-const PARALLAX_AMPLITUDE_FRAC = 0.085;
+const PARALLAX_AMPLITUDE_FRAC = 0.052;
 const PARALLAX_FRAMES = storyMotionLoopFrames(3);
 
 /** Глубинные эффекты для усиления 3D (запекаются в loop) */
