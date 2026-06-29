@@ -49,6 +49,8 @@ import {
   deletePublicImage,
   deleteStoryImageAssets,
   resolveUploadMaxBytes,
+  MAX_BINARY_UPLOAD_BYTES,
+  uploadJsonBodyLimitBytes,
 } from "./image-assets.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
@@ -126,6 +128,7 @@ import {
 } from "./dialogue-db.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
 import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
+import {uploadAssetToRemote} from "./remote-upload.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JSON_DIR = path.join(ROOT, "json");
@@ -556,7 +559,42 @@ const enqueueRender = (jobId) => {
 };
 
 const app = express();
-app.use(express.json({limit: "20mb"}));
+
+app.post(
+  "/api/assets/upload-binary",
+  express.raw({type: "application/octet-stream", limit: MAX_BINARY_UPLOAD_BYTES}),
+  async (req, res) => {
+    try {
+      const targetRef = String(req.headers["x-asset-ref"] ?? "")
+        .trim()
+        .replace(/^\/+/, "");
+      if (!targetRef || targetRef.includes("..")) {
+        res.status(400).json({error: "Заголовок X-Asset-Ref обязателен"});
+        return;
+      }
+      const buffer = req.body;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.status(400).json({error: "Пустое тело запроса"});
+        return;
+      }
+      const maxBytes = resolveUploadMaxBytes(targetRef);
+      if (buffer.length > maxBytes) {
+        res.status(400).json({
+          error: `Файл слишком большой (макс. ${Math.round(maxBytes / (1024 * 1024))} МБ)`,
+        });
+        return;
+      }
+      const publicPath = await saveImageBuffer(buffer, targetRef);
+      res.json({ok: true, publicPath});
+    } catch (error) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
+);
+
+app.use(express.json({limit: uploadJsonBodyLimitBytes()}));
 
 app.get("/api/audio", async (_req, res) => {
   try {
@@ -1384,8 +1422,9 @@ app.post("/api/voiceover/upload", async (req, res) => {
     const match = String(payload).match(/^data:([^;]+);base64,(.+)$/);
     const base64 = match ? match[2] : String(payload);
     const buffer = Buffer.from(base64, "base64");
-    if (buffer.length > 8 * 1024 * 1024) {
-      res.status(400).json({error: "Файл слишком большой (макс. 8 МБ)"});
+    const maxBytes = resolveUploadMaxBytes(relativePath);
+    if (buffer.length > maxBytes) {
+      res.status(400).json({error: `Файл слишком большой (макс. ${Math.round(maxBytes / (1024 * 1024))} МБ)`});
       return;
     }
     await mkdir(path.dirname(abs), {recursive: true});
@@ -1885,15 +1924,7 @@ const syncImagesToRemote = async (
       logs.push(`Файл не найден локально, пропущен: ${ref}`);
       continue;
     }
-    const resp = await fetch(`${remoteUrl}/api/images/upload`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({targetRef: ref, contentBase64: buffer.toString("base64")}),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(`Не удалось отправить ${ref} на воркер: ${data.error ?? resp.status}`);
-    }
+    await uploadAssetToRemote(remoteUrl, ref, buffer);
     logs.push(`Картинка отправлена на воркер: ${ref}`);
   }
 };

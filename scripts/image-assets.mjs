@@ -15,6 +15,12 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]);
 export const isImageUrl = (value) => URL_RE.test(String(value).trim());
 
 /** Лимит тела upload (base64) по типу ассета */
+export const MAX_BINARY_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/** Лимит express.json для base64-upload: worst-case mp4 × 4/3 + запас */
+export const uploadJsonBodyLimitBytes = () =>
+  Math.ceil((MAX_BINARY_UPLOAD_BYTES * 4) / 3) + 512 * 1024;
+
 export const resolveUploadMaxBytes = (targetRef, fileName) => {
   const ref = String(targetRef ?? fileName ?? "")
     .trim()

@@ -1,6 +1,7 @@
 import path from "node:path";
 import {access, mkdir, writeFile} from "node:fs/promises";
 import {existsSync} from "node:fs";
+import {uploadAssetToRemote} from "./remote-upload.mjs";
 import {PUBLIC_DIR} from "./image-assets.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
@@ -291,18 +292,7 @@ export const syncVoiceToRemote = async (conversation, remoteBaseUrl, logs) => {
       throw new Error(`Озвучка не найдена локально: ${ref}`);
     }
     const buffer = await import("node:fs/promises").then((fs) => fs.readFile(absolute));
-    const resp = await fetch(`${remoteBaseUrl}/api/voiceover/upload`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        path: ref,
-        dataBase64: buffer.toString("base64"),
-      }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      throw new Error(`Не удалось отправить ${ref} на воркер: ${data.error ?? resp.status}`);
-    }
+    await uploadAssetToRemote(remoteBaseUrl, ref, buffer);
     logs.push(`Озвучка отправлена на воркер: ${ref}`);
   }
 };

@@ -2,6 +2,7 @@ import {mkdir, writeFile} from "node:fs/promises";
 import path from "node:path";
 import {existsSync} from "node:fs";
 import {PUBLIC_DIR} from "./image-assets.mjs";
+import {uploadAssetToRemote} from "./remote-upload.mjs";
 import {SFX_CATALOG, getSfxCatalogMap, SFX_CATALOG_VERSION} from "./sfx-catalog.mjs";
 import {isOpenRouterConfigured, chatCompletionJson} from "./openrouter-client.mjs";
 import {isStoryVisualLayout, messageHasStoryImage} from "../src/chat/story.ts";
@@ -490,15 +491,7 @@ export const syncStorySfxToRemote = async (conversation, remoteBaseUrl, logs) =>
       logs.push(`SFX не найден локально, пропущен: ${ref}`);
       continue;
     }
-    const resp = await fetch(`${remoteBaseUrl}/api/images/upload`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({targetRef: ref, contentBase64: buffer.toString("base64")}),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(`Не удалось отправить SFX ${ref} на воркер: ${data.error ?? resp.status}`);
-    }
+    await uploadAssetToRemote(remoteBaseUrl, ref, buffer);
     logs.push(`SFX отправлен на воркер: ${ref}`);
   }
 };
