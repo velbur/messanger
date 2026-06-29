@@ -10,6 +10,7 @@
     "compare:motion": "node --import tsx scripts/compare-story-motion.mjs",
     "depth:probe": "node --import tsx scripts/story-depth-probe.mjs",
     "bundle:clear": "node scripts/clear-bundle-cache.mjs",
+    "depth:clear": "node scripts/clear-story-depth-cache.mjs",
     "lint": "tsc --noEmit",
     "verify-render": "node scripts/verify-render.mjs",
     "sounds:generate": "node scripts/generate-sounds.mjs",

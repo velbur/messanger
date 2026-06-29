@@ -1,0 +1,22 @@
+import {glob} from "node:fs/promises";
+import {rm} from "node:fs/promises";
+import path from "node:path";
+
+const ROOT = path.resolve(import.meta.dirname, "..");
+const PUBLIC_IMAGES = path.join(ROOT, "public/images");
+
+let removed = 0;
+for (const pattern of [
+  "**/*.depth.png",
+  "**/*.depth-meta.json",
+  "**/*.layer-far.png",
+  "**/*.layer-mid.png",
+  "**/*.layer-near.png",
+]) {
+  for await (const abs of glob(pattern, {cwd: PUBLIC_IMAGES})) {
+    await rm(path.join(PUBLIC_IMAGES, abs), {force: true});
+    removed += 1;
+  }
+}
+
+console.log(`Depth-кэш очищен: удалено ${removed} файлов в public/images/`);

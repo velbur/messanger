@@ -17,7 +17,7 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 
 /** Меняй при правках алгоритма — старые depth-карты пересоберутся */
-export const DEPTH_LAYER_VERSION = 5;
+export const DEPTH_LAYER_VERSION = 6;
 
 const DEPTH_BLUR_SIGMA = 6;
 

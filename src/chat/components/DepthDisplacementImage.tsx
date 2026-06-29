@@ -1,5 +1,5 @@
-import React, {useId} from "react";
-import {AbsoluteFill, staticFile} from "remotion";
+import React from "react";
+import {AbsoluteFill, Img, staticFile} from "remotion";
 import {storyLayerPaths} from "../story-depth-paths";
 import {motionVectors, sceneMotionLoopProgress} from "../story-motion";
 
@@ -10,8 +10,18 @@ type Props = {
   loopFrames?: number;
 };
 
+const coverStyle: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  transformOrigin: "center center",
+};
+
 /**
- * Parallax через SVG displacement по .depth.png — один кадр, без трёх RGBA-слоёв (нет полос).
+ * Два слоя: фон движется медленно, передний план (по .depth.png) — быстрее.
+ * CSS mask работает в headless Chrome; SVG feDisplacementMap в Remotion — нет.
  */
 export const DepthDisplacementImage: React.FC<Props> = ({
   image,
@@ -21,59 +31,39 @@ export const DepthDisplacementImage: React.FC<Props> = ({
 }) => {
   const trimmed = image.trim();
   const paths = storyLayerPaths(trimmed);
+  const depthMask = `url(${staticFile(paths.depth)})`;
   const progress = sceneMotionLoopProgress(localFrame, loopFrames);
   const {panX, panY} = motionVectors(directionSeed);
-  const filterId = useId().replace(/:/g, "");
 
-  const dispX = progress * panX * 22;
-  const dispY = progress * panY * 10;
-  const dispScale = Math.hypot(dispX, dispY);
-  const baseScale = 1.02 + progress * 0.025;
+  const farTx = panX * progress * -4;
+  const farTy = panY * progress * -2.5;
+  const nearTx = panX * progress * 6;
+  const nearTy = panY * progress * 3.5;
 
   return (
-    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#080808"}}>
-      <div
+    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#060606"}}>
+      <Img
+        src={staticFile(trimmed)}
         style={{
-          width: "100%",
-          height: "100%",
-          transform: `scale(${baseScale})`,
-          transformOrigin: "center center",
+          ...coverStyle,
+          transform: `scale(1.05) translate(${farTx}%, ${farTy}%)`,
         }}
-      >
-        <svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 1000 1000"
-          preserveAspectRatio="xMidYMid slice"
-          style={{display: "block"}}
-        >
-          <defs>
-            <filter id={filterId} x="-15%" y="-15%" width="130%" height="130%">
-              <feImage
-                href={staticFile(paths.depth)}
-                result="depthMap"
-                preserveAspectRatio="xMidYMid slice"
-              />
-              <feDisplacementMap
-                in="SourceGraphic"
-                in2="depthMap"
-                scale={dispScale}
-                xChannelSelector="R"
-                yChannelSelector="R"
-              />
-            </filter>
-          </defs>
-          <image
-            href={staticFile(trimmed)}
-            x="0"
-            y="0"
-            width="1000"
-            height="1000"
-            preserveAspectRatio="xMidYMid slice"
-            filter={`url(#${filterId})`}
-          />
-        </svg>
-      </div>
+      />
+      <Img
+        src={staticFile(trimmed)}
+        style={{
+          ...coverStyle,
+          transform: `scale(1.09) translate(${nearTx}%, ${nearTy}%)`,
+          WebkitMaskImage: depthMask,
+          maskImage: depthMask,
+          WebkitMaskSize: "cover",
+          maskSize: "cover",
+          WebkitMaskPosition: "center",
+          maskPosition: "center",
+          WebkitMaskRepeat: "no-repeat",
+          maskRepeat: "no-repeat",
+        }}
+      />
     </AbsoluteFill>
   );
 };

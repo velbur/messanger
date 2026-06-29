@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-depth-displacement-v14";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-depth-mask-v15";
 
 export type StorySceneAnimation = "video" | "none" | "kenburns" | "parallax" | "depthParallax";
 
@@ -24,7 +24,7 @@ export type StoryConfig = {
 
 const DEFAULT_OPENING: StoryOpeningConfig = {
   durationMs: 2500,
-  animation: "video",
+  animation: "depthParallax",
 };
 
 const DEFAULT_STORY: StoryConfig = {
@@ -37,6 +37,7 @@ const DEFAULT_STORY: StoryConfig = {
 
 const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   if (
+    value === "video" ||
     value === "none" ||
     value === "kenburns" ||
     value === "parallax" ||
@@ -44,7 +45,7 @@ const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   ) {
     return value;
   }
-  return "video";
+  return "depthParallax";
 };
 
 export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean =>
