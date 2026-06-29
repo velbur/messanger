@@ -4,6 +4,9 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_IMAGES = path.join(ROOT, "public/images");
+const PARALLAX_RAW = path.join(ROOT, ".cache/parallax-raw");
+
+await rm(PARALLAX_RAW, {recursive: true, force: true});
 
 let removed = 0;
 for (const pattern of [
@@ -20,4 +23,4 @@ for (const pattern of [
   }
 }
 
-console.log(`Depth-кэш очищен: удалено ${removed} файлов в public/images/`);
+console.log(`Depth-кэш очищен: удалено ${removed} файлов в public/images/, .cache/parallax-raw`);

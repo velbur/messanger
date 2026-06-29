@@ -25,7 +25,7 @@ usage() {
 Подготовка и запуск render-воркера (порт 3333 по умолчанию):
   1. git pull
   2. зависимости (npm ci / Python venv или Docker-образ)
-  3. очистка Remotion bundle + depth/parallax-кэша
+  3. npm run bundle:clear && npm run depth:clear
   4. запуск воркера
 
 Опции:
@@ -123,10 +123,16 @@ git_pull() {
 
 clear_caches() {
   [[ "$DO_CLEAR" -eq 1 ]] || return 0
-  echo "==> Очистка кэшей (bundle + depth/parallax)"
+  echo "==> Очистка кэшей: npm run bundle:clear && npm run depth:clear"
 
+  if [[ -f "${ROOT}/node_modules/tsx/package.json" ]] && command -v npm >/dev/null 2>&1; then
+    npm run bundle:clear
+    npm run depth:clear
+    return 0
+  fi
+
+  echo "    node_modules нет — ручная очистка (после setup-native будет npm run depth:clear)"
   rm -rf "${ROOT}/.cache/remotion-bundle" "${ROOT}/.cache/parallax-raw"
-
   local removed=0
   if [[ -d "${ROOT}/public/images" ]]; then
     while IFS= read -r -d '' f; do
@@ -143,10 +149,7 @@ clear_caches() {
       \) -print0 2>/dev/null
     )
   fi
-
-  echo "    Remotion bundle: .cache/remotion-bundle"
-  echo "    Parallax raw:    .cache/parallax-raw"
-  echo "    Depth-ассеты:    удалено ${removed} файлов в public/images/"
+  echo "    удалено ${removed} depth/parallax-файлов в public/images/"
 }
 
 start_native() {
