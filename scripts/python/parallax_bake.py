@@ -7,8 +7,8 @@
     план сдвигается, за ним виден реальный фон, а не «двоение лица»;
   - смещение по-пиксельное, пропорционально глубине (а не жёсткий translate
     cutout-слоёв) → нет halo и ступенек на силуэте;
-  - камера ходит по sin(2π·t) → клип сам по себе бесшовный loop (кадр 0 = кадр N,
-    скорость непрерывна, без рывка на стыке);
+  - камера: `motion: "linear"` — одно плавное движение 0→1 за всю длину клипа;
+    `motion: "loop"` — sin(2π·t) для бесшовного 3 с цикла (legacy);
   - всё запекается в MP4 → в Remotion остаётся только проиграть видео (быстро,
     без WebGL, не трогает путь рендера Veo/Ken Burns).
 
@@ -250,6 +250,7 @@ def bake_one(job: dict) -> dict:
     dust_strength = float(job.get("dust_strength", 1.0))
     effect_seed = int(job.get("effect_seed", 12345))
     zoom_frac = float(job.get("zoom_frac", 0.028))
+    motion = str(job.get("motion", "linear"))
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -278,8 +279,9 @@ def bake_one(job: dict) -> dict:
     near_gain = 1.0
     far_gain = 0.55
 
-    # overscan: запас под parallax-смещение + опциональный лёгкий зум по loop
-    zoom_overscan = 1.0 + (amp / max(w, h)) * 1.7
+    # overscan: запас под parallax-смещение + опциональный зум
+    overscan_gain = 2.4 if motion == "linear" else 1.7
+    zoom_overscan = 1.0 + (amp / max(w, h)) * overscan_gain
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:h, 0:w].astype(np.float32)
 
@@ -296,16 +298,24 @@ def bake_one(job: dict) -> dict:
 
     proc = open_ffmpeg(out_video, w, h, fps)
     two_pi = 2.0 * np.pi
+    linear = motion == "linear"
     try:
         for i in range(frames):
-            t = i / frames
-            pt = camera_phase(t)
-            # sin(π·pt): 0 на стыке loop, пик в середине — лёгкий дыхание зума
-            zoom = zoom_overscan + zoom_frac * np.sin(np.pi * pt)
+            if linear:
+                t = i / max(frames - 1, 1)
+                pt = camera_phase(t)
+                zoom = zoom_overscan + zoom_frac * pt
+                ox = amp * pan_x * pt
+                oy = amp * pan_y * 0.35 * pt
+            else:
+                t = i / frames
+                pt = camera_phase(t)
+                zoom = zoom_overscan + zoom_frac * np.sin(np.pi * pt)
+                ox = amp * pan_x * np.sin(two_pi * pt)
+                oy = amp * pan_y * 0.4 * np.cos(two_pi * pt)
+
             base_x = (grid_x - cx) / zoom + cx
             base_y = (grid_y - cy) / zoom + cy
-            ox = amp * pan_x * np.sin(two_pi * pt)
-            oy = amp * pan_y * 0.4 * np.cos(two_pi * pt)
 
             bg_warp, bg_mx, bg_my = warp_layer(
                 bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
@@ -339,12 +349,18 @@ def bake_one(job: dict) -> dict:
             if motes is not None:
                 acc = np.zeros((h, w), dtype=np.float32)
                 drift = motes["drift"]
-                px = motes["bx"] + drift * np.cos(two_pi * pt + motes["phase"])
-                py = motes["by"] + drift * np.sin(two_pi * pt + motes["phase"])
+                if linear:
+                    px = motes["bx"] + drift * pt * np.cos(motes["phase"])
+                    py = motes["by"] + drift * pt * np.sin(motes["phase"])
+                    twinkle_t = t
+                else:
+                    px = motes["bx"] + drift * np.cos(two_pi * pt + motes["phase"])
+                    py = motes["by"] + drift * np.sin(two_pi * pt + motes["phase"])
+                    twinkle_t = t
                 disp_m = motes["dm"] - focus
                 sx = px + disp_m * ox
                 sy = py + disp_m * oy
-                twinkle = 0.55 + 0.45 * np.sin(two_pi * motes["harmonic"] * t + motes["tphase"])
+                twinkle = 0.55 + 0.45 * np.sin(two_pi * motes["harmonic"] * twinkle_t + motes["tphase"])
                 far_m = np.clip((focus - motes["dm"]) / focus_span, 0.0, 1.0)
                 r_eff = motes["radius"] * (1.0 + far_m * 2.0)
                 b_eff = motes["bright"] * twinkle / (1.0 + far_m * 1.2)
@@ -357,7 +373,7 @@ def bake_one(job: dict) -> dict:
                     if motes["dm"][k] + 0.1 < scene_depth[iy[k], ix[k]]:
                         continue
                     stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k])
-                out = out + (dust_strength * 42.0) * acc[..., None] * dust_tint[None, None, :]
+                out = out + (dust_strength * 30.0) * acc[..., None] * dust_tint[None, None, :]
 
             frame = np.clip(out + 0.5, 0, 255).astype(np.uint8)
             proc.stdin.write(frame.tobytes())

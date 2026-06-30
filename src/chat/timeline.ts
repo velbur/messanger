@@ -526,6 +526,35 @@ const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): Stor
   }));
 };
 
+const MIN_PARALLAX_BAKE_FRAMES = 45;
+const MAX_PARALLAX_BAKE_FRAMES = 900;
+
+/** Длина bake parallax-clip (кадры) для каждого story-изображения по таймлайну */
+export const storyParallaxBakeFramesByImage = (
+  conversation: ConversationInput,
+): Map<string, number> => {
+  const map = new Map<string, number>();
+  const {story, outroStartFrame} = buildTimeline(conversation);
+  if (!story.enabled) {
+    return map;
+  }
+
+  const segments = buildStorySegments(story, outroStartFrame);
+  for (const segment of segments) {
+    const rel = segment.image?.trim()?.replace(/^\/+/, "");
+    if (!rel) {
+      continue;
+    }
+    const raw = segment.endFrame - segment.startFrame;
+    const frames = Math.max(
+      MIN_PARALLAX_BAKE_FRAMES,
+      Math.min(MAX_PARALLAX_BAKE_FRAMES, raw),
+    );
+    map.set(rel, Math.max(map.get(rel) ?? 0, frames));
+  }
+  return map;
+};
+
 const smoothstep = (value: number): number => {
   const x = Math.max(0, Math.min(1, value));
   return x * x * (3 - 2 * x);

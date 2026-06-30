@@ -112,6 +112,7 @@ export const bakeParallaxVideos = async (jobs) => {
       dust_count: job.dustCount,
       dust_strength: job.dustStrength,
       effect_seed: job.effectSeed,
+      motion: job.motion ?? "linear",
       zoom_frac: job.zoomFrac,
     })),
   });
@@ -119,7 +120,13 @@ export const bakeParallaxVideos = async (jobs) => {
   return data.results ?? [];
 };
 
-/** Бесшовный пинг-понг 0→1→0 (как sceneMotionLoopProgress, но без зависимости от TS) */
+/** Плавный прогресс 0→1 за длину клипа (ease на разворотах) */
+const linearEase = (i, frames) => {
+  const t = i / Math.max(frames - 1, 1);
+  return t * t * (3 - 2 * t);
+};
+
+/** Бесшовный пинг-понг 0→1→0 (legacy loop) */
 const pingPong = (i, frames) => {
   const t = i / frames;
   const tri = t < 0.5 ? t * 2 : 2 - t * 2;
@@ -130,11 +137,12 @@ const pingPong = (i, frames) => {
 export const evenEncodeDim = (n) => Math.max(2, n - (n % 2));
 
 /**
- * бесшовный Ken Burns loop через sharp + ffmpeg. Честный гибрид — рендер не падает.
+ * Ken Burns clip через sharp + ffmpeg (linear — одно движение за сцену).
  *
  * @param {{
  *   image: string, width: number, height: number, outVideo: string,
  *   frames?: number, fps?: number, panX?: number, panY?: number,
+ *   motion?: "linear" | "loop",
  * }} job
  */
 export const bakeKenBurnsLoopFallback = async (job) => {
@@ -145,6 +153,8 @@ export const bakeKenBurnsLoopFallback = async (job) => {
   const fps = job.fps ?? 30;
   const panX = job.panX ?? 1;
   const panY = job.panY ?? -1;
+  const motion = job.motion ?? "linear";
+  const progressAt = motion === "loop" ? pingPong : linearEase;
 
   await mkdir(path.dirname(outVideo), {recursive: true});
   const ffmpeg = process.env.FFMPEG_BIN ?? "ffmpeg";
@@ -163,8 +173,8 @@ export const bakeKenBurnsLoopFallback = async (job) => {
 
   const base = sharp(image).removeAlpha().extract({left: 0, top: 0, width: W, height: H});
   for (let i = 0; i < frames; i += 1) {
-    const p = pingPong(i, frames);
-    const zoom = 1.05 + 0.05 * p;
+    const p = progressAt(i, frames);
+    const zoom = 1.05 + 0.08 * p;
     const sw = Math.max(W + 2, Math.round(W * zoom));
     const sh = Math.max(H + 2, Math.round(H * zoom));
     const maxLeft = sw - W;

@@ -5,8 +5,9 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
-import {hashSeed, motionVectors, storyMotionLoopFrames} from "../src/chat/story-motion.ts";
+import {hashSeed, motionVectors} from "../src/chat/story-motion.ts";
 import {FPS} from "../src/chat/fps.ts";
+import {storyParallaxBakeFramesByImage} from "../src/chat/timeline.ts";
 import {
   bakeKenBurnsLoopFallback,
   bakeParallaxVideos,
@@ -26,23 +27,22 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 27;
+export const DEPTH_LAYER_VERSION = 28;
 
-/** Доля ширины кадра, на которую гуляет «камера» (амплитуда parallax) */
-const PARALLAX_AMPLITUDE_FRAC = 0.038;
+/** Доля ширины кадра — одно линейное движение за всю сцену (большая амплитуда) */
+const PARALLAX_AMPLITUDE_FRAC = 0.095;
 /** Лёгкий Ken Burns-зум поверх parallax (доля масштаба, 0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0.028;
-const PARALLAX_FRAMES = storyMotionLoopFrames(3);
+const PARALLAX_ZOOM_FRAC = 0.032;
+/** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
+const PARALLAX_DEFAULT_FRAMES = 90;
+const PARALLAX_MOTION = "linear";
 
-/** Глубинные эффекты для усиления 3D (запекаются в loop) */
+/** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
-  /** Расфокус фона vs резкий передний план (кинематографическая глубина) */
   dofStrength: 0.6,
-  /** Воздушная дымка вдаль (aerial perspective) */
   hazeStrength: 0.07,
-  /** Объёмные пылинки с parallax и перекрытием передним планом */
-  dustCount: 200,
-  dustStrength: 1.5,
+  dustCount: 150,
+  dustStrength: 1.1,
 };
 
 env.cacheDir = CACHE_DIR;
@@ -229,8 +229,17 @@ const inferDepthMaps = async (targets, provider) => {
   return out;
 };
 
-/** Запечь parallax-loop из кадра + depth-карты в .parallax.mp4 (рядом — .depth.png) */
-const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, paths, metaExtra}) => {
+/** Запечь parallax-clip из кадра + depth-карты в .parallax.mp4 (рядом — .depth.png) */
+const bakeParallaxAsset = async ({
+  rel,
+  imageAbs,
+  depthUint8,
+  width,
+  height,
+  paths,
+  metaExtra,
+  frames = PARALLAX_DEFAULT_FRAMES,
+}) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
     const {panX, panY} = motionVectors(rel);
@@ -244,11 +253,12 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
         depthRaw,
         outVideo,
         outDepth,
-        frames: PARALLAX_FRAMES,
+        frames,
         fps: FPS,
         amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
         panX,
         panY,
+        motion: PARALLAX_MOTION,
         zoomFrac: PARALLAX_ZOOM_FRAC,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
@@ -264,7 +274,8 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
       `${JSON.stringify({
         version: DEPTH_LAYER_VERSION,
         mode: "video",
-        frames: PARALLAX_FRAMES,
+        motion: PARALLAX_MOTION,
+        frames,
         fps: FPS,
         width,
         height,
@@ -279,8 +290,8 @@ const bakeParallaxAsset = async ({rel, imageAbs, depthUint8, width, height, path
   }
 };
 
-/** Fallback без depth: бесшовный Ken Burns loop в тот же .parallax.mp4 */
-const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
+/** Fallback без depth: Ken Burns clip в тот же .parallax.mp4 */
+const bakeFallbackAsset = async ({rel, imageAbs, paths, frames = PARALLAX_DEFAULT_FRAMES}) => {
   const meta = await sharp(imageAbs).metadata();
   const width = evenEncodeDim(meta.width ?? 1080);
   const height = evenEncodeDim(meta.height ?? 1920);
@@ -293,10 +304,11 @@ const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
     width,
     height,
     outVideo,
-    frames: PARALLAX_FRAMES,
+    frames,
     fps: FPS,
     panX,
     panY,
+    motion: PARALLAX_MOTION,
   });
 
   // Плоская depth-заглушка, чтобы isStoryDepthAvailable/verify не падали
@@ -314,7 +326,8 @@ const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
     `${JSON.stringify({
       version: DEPTH_LAYER_VERSION,
       mode: "video",
-      frames: PARALLAX_FRAMES,
+      motion: PARALLAX_MOTION,
+      frames,
       fps: FPS,
       width,
       height,
@@ -324,11 +337,17 @@ const bakeFallbackAsset = async ({rel, imageAbs, paths}) => {
   );
 };
 
-export const isStoryDepthAvailable = async (imagePublicPath) => {
+export const isStoryDepthAvailable = async (imagePublicPath, {requiredFrames} = {}) => {
   const paths = storyLayerPaths(imagePublicPath);
   try {
     const meta = await readDepthMeta(paths);
     if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION || meta.mode !== "video") {
+      return false;
+    }
+    if (meta.motion !== PARALLAX_MOTION) {
+      return false;
+    }
+    if (requiredFrames && Number(meta.frames) < requiredFrames) {
       return false;
     }
     await fs.access(safePublicAbs(paths.depth).absolute);
@@ -339,14 +358,17 @@ export const isStoryDepthAvailable = async (imagePublicPath) => {
   }
 };
 
-export const generateStoryDepthAssets = async (imagePublicPath, {force = false} = {}) => {
+export const generateStoryDepthAssets = async (
+  imagePublicPath,
+  {force = false, frames = PARALLAX_DEFAULT_FRAMES} = {},
+) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
   if (!rel) {
     throw new Error("Пустой путь к story-изображению");
   }
 
   const paths = storyLayerPaths(rel);
-  if (!force && (await isStoryDepthAvailable(rel))) {
+  if (!force && (await isStoryDepthAvailable(rel, {requiredFrames: frames}))) {
     return {skipped: true, paths, relative: rel};
   }
 
@@ -354,7 +376,7 @@ export const generateStoryDepthAssets = async (imagePublicPath, {force = false} 
   await fs.access(imageAbs);
 
   if (!(await isParallaxBakeAvailable())) {
-    await bakeFallbackAsset({rel, imageAbs, paths});
+    await bakeFallbackAsset({rel, imageAbs, paths, frames});
     return {skipped: false, paths, relative: rel, provider: "kenburns-fallback", fallback: true};
   }
 
@@ -362,7 +384,7 @@ export const generateStoryDepthAssets = async (imagePublicPath, {force = false} 
   const depthMaps = await inferDepthMaps([rel], provider);
   const {depthUint8, width, height, metaExtra} = depthMaps.get(rel);
 
-  await bakeParallaxAsset({rel, imageAbs, depthUint8, width, height, paths, metaExtra});
+  await bakeParallaxAsset({rel, imageAbs, depthUint8, width, height, paths, metaExtra, frames});
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
 };
@@ -377,6 +399,7 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
   }
 
   const logs = [];
+  const bakeFramesByImage = storyParallaxBakeFramesByImage(conversation);
   const targets = [];
 
   const openingImage = conversation?.story?.opening?.image?.trim();
@@ -393,10 +416,11 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
 
   const pending = [];
   for (const imagePath of targets) {
-    if (!force && (await isStoryDepthAvailable(imagePath))) {
+    const frames = bakeFramesByImage.get(imagePath) ?? PARALLAX_DEFAULT_FRAMES;
+    if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: frames}))) {
       logs.push(`Parallax: ассеты уже есть → ${imagePath}`);
     } else {
-      pending.push(imagePath);
+      pending.push({imagePath, frames});
     }
   }
 
@@ -408,11 +432,16 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     logs.push(
       "Parallax: depth-запекатель недоступен (нет Python+opencv) — печём Ken Burns loop. Полный 3D-photo: ./run.sh setup-native",
     );
-    for (const imagePath of pending) {
+    for (const {imagePath, frames} of pending) {
       try {
         const {absolute: imageAbs} = safePublicAbs(imagePath);
-        await bakeFallbackAsset({rel: imagePath, imageAbs, paths: storyLayerPaths(imagePath)});
-        logs.push(`Parallax: Ken Burns loop запечён → ${imagePath}`);
+        await bakeFallbackAsset({
+          rel: imagePath,
+          imageAbs,
+          paths: storyLayerPaths(imagePath),
+          frames,
+        });
+        logs.push(`Parallax: Ken Burns clip запечён → ${imagePath}`);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         logs.push(`Parallax: ошибка fallback для ${imagePath}: ${reason}`);
@@ -428,9 +457,12 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     logs.push(`Depth Xenova: ${STORY_DEPTH_MODEL}`);
   }
 
-  const depthMaps = await inferDepthMaps(pending, provider);
+  const depthMaps = await inferDepthMaps(
+    pending.map(({imagePath}) => imagePath),
+    provider,
+  );
 
-  for (const imagePath of pending) {
+  for (const {imagePath, frames} of pending) {
     try {
       const {absolute: imageAbs} = safePublicAbs(imagePath);
       const paths = storyLayerPaths(imagePath);
@@ -446,9 +478,10 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
         height: entry.height,
         paths,
         metaExtra: entry.metaExtra,
+        frames,
       });
       const model = entry.metaExtra?.model ? ` (${entry.metaExtra.model})` : "";
-      logs.push(`Parallax: loop запечён${model} → ${imagePath}`);
+      logs.push(`Parallax: clip запечён (${frames} кадров)${model} → ${imagePath}`);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       logs.push(`Parallax: ошибка для ${imagePath}: ${reason}`);
@@ -462,5 +495,5 @@ export const ensureStoryDepthForPublicPath = async (relativePath, options = {}) 
   const result = await generateStoryDepthAssets(relativePath, options);
   return result.skipped
     ? `Parallax: ассеты уже есть → ${relativePath}`
-    : `Parallax: loop запечён → ${relativePath}`;
+    : `Parallax: clip запечён → ${relativePath}`;
 };

@@ -6,7 +6,6 @@ import {PreviewCoverArt, PREVIEW_COVER_ART_MARKER} from "./chat/components/Previ
 import {StoryParallaxPreview, STORY_PARALLAX_PREVIEW_MARKER} from "./chat/StoryParallaxPreview";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
-import {storyMotionLoopFrames} from "./chat/story-motion";
 import {buildTimeline} from "./chat/timeline";
 import sample from "./default-conversation.json";
 
@@ -80,11 +79,11 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         fps={FPS}
-        durationInFrames={storyMotionLoopFrames(3)}
+        durationInFrames={90}
         defaultProps={{
           image: "images/parallax-test/story-opening.png",
           animation: "depthParallax",
-          motionLoopSec: 3,
+          durationFrames: 90,
         }}
       />
     </>
