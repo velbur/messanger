@@ -800,7 +800,8 @@ const showBrowseView = async (kind = editorKind) => {
   if (editorVisible) {
     editorSnapshots[editorKind] = captureEditorSnapshot();
   }
-  editorKind = kind === "shorts" ? "shorts" : kind === "video" ? "video" : "series";
+  editorKind = normalizeEditorKind(kind);
+  activeMainTab = editorKind;
   syncEditorKindUi();
   editorVisible = false;
   updateContentViewVisibility();
@@ -812,44 +813,11 @@ const showBrowseView = async (kind = editorKind) => {
     }
   } else {
     selectedSeriesId = null;
-    await loadDialoguesList("shorts");
+    await loadDialoguesList(editorKind);
   }
 };
 
-const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
-  const isContentTab = tabId === "series" || tabId === "shorts" || tabId === "video";
-  activeMainTab = tabId;
-
-  if (isContentTab) {
-    if (tabId !== editorKind && !skipEditorSwitch) {
-      if (editorVisible) {
-        await switchEditorKind(tabId);
-      } else {
-        editorKind = normalizeEditorKind(tabId);
-        syncEditorKindUi();
-        await loadDialoguesList(editorKind);
-      }
-    } else if (tabId !== editorKind && skipEditorSwitch) {
-      editorKind = normalizeEditorKind(tabId);
-      syncEditorKindUi();
-    } else if (!editorVisible) {
-      if (editorKind === "series") {
-        if (selectedSeriesId) {
-          await showSeriesPartsView(selectedSeriesId);
-        } else {
-          await showSeriesListView();
-        }
-      } else {
-        await loadDialoguesList(editorKind);
-      }
-    }
-  }
-
-  updateContentViewVisibility();
-  if (editorKind === "series" && !editorVisible) {
-    updateSeriesBrowseVisibility();
-  }
-
+const updateTabButtonStates = (tabId, isContentTab) => {
   const buttons = {
     series: tabBtnSeries,
     shorts: tabBtnShorts,
@@ -862,9 +830,58 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
     if (!button) {
       continue;
     }
-    const active = isContentTab ? id === editorKind : id === tabId;
+    const active = isContentTab
+      ? id === (editorVisible ? editorKind : activeMainTab)
+      : id === tabId;
     button.classList.toggle("tabs__btn--active", active);
     button.setAttribute("aria-selected", String(active));
+  }
+};
+
+const refreshBrowseList = async (kind = editorKind) => {
+  if (kind === "series") {
+    if (selectedSeriesId) {
+      await loadSeriesParts(selectedSeriesId);
+      return;
+    }
+    await showSeriesListView();
+    return;
+  }
+  await loadDialoguesList(kind);
+};
+
+const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
+  const isContentTab = tabId === "series" || tabId === "shorts" || tabId === "video";
+  activeMainTab = tabId;
+
+  try {
+    if (isContentTab) {
+      if (tabId !== editorKind && !skipEditorSwitch) {
+        if (editorVisible) {
+          await switchEditorKind(tabId);
+        } else {
+          editorKind = normalizeEditorKind(tabId);
+          syncEditorKindUi();
+        }
+      } else if (tabId !== editorKind && skipEditorSwitch) {
+        editorKind = normalizeEditorKind(tabId);
+        syncEditorKindUi();
+      }
+    }
+  } finally {
+    updateContentViewVisibility();
+    updateTabButtonStates(tabId, isContentTab);
+    if (editorKind === "series" && !editorVisible) {
+      updateSeriesBrowseVisibility();
+    }
+  }
+
+  if (isContentTab && !editorVisible) {
+    try {
+      await refreshBrowseList(editorKind);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   if (tabId === "api") {
@@ -883,8 +900,12 @@ tabBtnSeries?.addEventListener("click", () => {
   }
   setActiveTab("series");
 });
-tabBtnShorts?.addEventListener("click", () => setActiveTab("shorts"));
-tabBtnVideo?.addEventListener("click", () => setActiveTab("video"));
+tabBtnShorts?.addEventListener("click", () => {
+  void setActiveTab("shorts");
+});
+tabBtnVideo?.addEventListener("click", () => {
+  void setActiveTab("video");
+});
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
 

@@ -2640,7 +2640,13 @@ app.use(
 app.use("/music", express.static(PUBLIC_MUSIC_DIR));
 app.use("/images", express.static(IMAGES_DIR));
 app.use("/audio", express.static(AUDIO_DIR));
-app.use(express.static(UI_DIR));
+app.use(express.static(UI_DIR, {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".html") || filePath.endsWith(".js") || filePath.endsWith(".css")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 
 app.get("/", (_req, res) => {
   res.sendFile(path.join(UI_DIR, "index.html"));
