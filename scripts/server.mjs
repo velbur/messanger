@@ -79,6 +79,7 @@ import {
   getOpenRouterTextModel,
   getOpenRouterImageModel,
   getOpenRouterStoryImageModel,
+  getOpenRouterStoryImageSize,
   resolveOpenRouterImageModel,
   getOpenRouterTtsModel,
   getOpenRouterVoiceoverStatus,
@@ -763,6 +764,7 @@ app.get("/api/images/openrouter", async (_req, res) => {
     textModel: getOpenRouterTextModel(),
     imageModel: getOpenRouterImageModel(),
     storyImageModel: getOpenRouterStoryImageModel(),
+    storyImageSize: getOpenRouterStoryImageSize(),
     imageGenerationAvailable: isOpenRouterConfigured(),
   });
 });
@@ -786,7 +788,7 @@ app.get("/api/status", async (_req, res) => {
       textModel: getOpenRouterTextModel(),
       imageModel: getOpenRouterImageModel(),
       storyImageModel: getOpenRouterStoryImageModel(),
-    storyImageModel: getOpenRouterStoryImageModel(),
+      storyImageSize: getOpenRouterStoryImageSize(),
       ttsModel: getOpenRouterTtsModel(),
       imageGenerationAvailable: isOpenRouterConfigured(),
     },
@@ -1080,6 +1082,7 @@ app.post("/api/images/generate", async (req, res) => {
       model: resolveOpenRouterImageModel(isStoryKind ? "story" : "chat"),
       aspectRatio:
         aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
+      imageSize: isStoryKind ? getOpenRouterStoryImageSize() : undefined,
     });
 
     const refHint =
@@ -1155,7 +1158,6 @@ app.post("/api/images/correct", async (req, res) => {
       provider: result.provider,
       mode: "correct",
       imageModel: getOpenRouterImageModel(),
-    storyImageModel: getOpenRouterStoryImageModel(),
     });
   } catch (error) {
     if (error instanceof ImageCorrectionUnchangedError) {
@@ -1203,6 +1205,7 @@ app.post("/api/preview-cover", async (req, res) => {
       referenceDataUrl,
       aspectRatio: "9:16",
       model: getOpenRouterStoryImageModel(),
+      imageSize: getOpenRouterStoryImageSize(),
     });
 
     const finalRef =
@@ -1225,7 +1228,6 @@ app.post("/api/preview-cover", async (req, res) => {
       title: coverTitle,
       provider: "openrouter",
       imageModel: getOpenRouterStoryImageModel(),
-    storyImageModel: getOpenRouterStoryImageModel(),
       usedImageReference: Boolean(referenceDataUrl),
     });
   } catch (error) {

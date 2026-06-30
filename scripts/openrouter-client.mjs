@@ -12,6 +12,8 @@ const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";
+/** Story 9:16 — выше детализация (Gemini Flash Image поддерживает 2K) */
+const DEFAULT_STORY_IMAGE_SIZE = "2K";
 const MAX_RETRIES = 3;
 
 export const loadOpenRouterEnv = async () => {
@@ -77,6 +79,7 @@ export const getOpenRouterConfig = () => {
     ttsVoiceMale: process.env.OPENROUTER_TTS_VOICE_MALE?.trim() || "Puck",
     aspectRatio: process.env.OPENROUTER_IMAGE_ASPECT_RATIO?.trim() || DEFAULT_ASPECT_RATIO,
     imageSize: process.env.OPENROUTER_IMAGE_SIZE?.trim() || DEFAULT_IMAGE_SIZE,
+    storyImageSize: process.env.OPENROUTER_STORY_IMAGE_SIZE?.trim() || DEFAULT_STORY_IMAGE_SIZE,
     siteUrl: process.env.OPENROUTER_SITE_URL?.trim() || undefined,
     appName: process.env.OPENROUTER_APP_NAME?.trim() || "messanger",
   };
@@ -100,6 +103,9 @@ export const getOpenRouterImageModel = () =>
 
 export const getOpenRouterStoryImageModel = () =>
   getOpenRouterConfig()?.storyImageModel ?? DEFAULT_STORY_IMAGE_MODEL;
+
+export const getOpenRouterStoryImageSize = () =>
+  getOpenRouterConfig()?.storyImageSize ?? DEFAULT_STORY_IMAGE_SIZE;
 
 /** story | story-opening → story-модель; иначе chat-модель */
 export const resolveOpenRouterImageModel = (kind) => {

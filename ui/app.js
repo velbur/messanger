@@ -5337,7 +5337,9 @@ const renderApiStatusPanel = (data) => {
       `Чат-картинки (4:3): ${openrouter.imageModel ?? openrouterImageModel}${
         openrouter.imageGenerationAvailable ? " (доступно)" : ""
       }`,
-      `Story-кадры (9:16): ${openrouter.storyImageModel ?? openrouterStoryImageModel}`,
+      `Story-кадры (9:16): ${openrouter.storyImageModel ?? openrouterStoryImageModel}${
+        openrouter.storyImageSize ? `, ${openrouter.storyImageSize}` : ""
+      }`,
       `Озвучка: ${openrouter.ttsModel ?? data.voiceover?.model ?? "google/gemini-3.1-flash-tts-preview"}`,
     ].join("\n");
   }

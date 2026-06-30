@@ -8,7 +8,7 @@
 import path from "node:path";
 import {mkdir, readFile, writeFile} from "node:fs/promises";
 import {buildStoryImageGenerationPrompt} from "./image-prompt-llm.mjs";
-import {generateImageBuffer, loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {generateImageBuffer, getOpenRouterStoryImageModel, getOpenRouterStoryImageSize, loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -55,7 +55,7 @@ const main = async () => {
 
   const models = parseModels();
   console.log(`Промпт → ${path.relative(ROOT, path.join(OUT_DIR, "prompt.txt"))}`);
-  console.log(`Формат: ${STORY_IMAGE_ASPECT_RATIO}, 1K\n`);
+  console.log(`Формат: ${STORY_IMAGE_ASPECT_RATIO}, ${getOpenRouterStoryImageSize()}\n`);
 
   for (const model of models) {
     const outPath = path.join(OUT_DIR, `${slug(model)}.png`);
@@ -65,7 +65,7 @@ const main = async () => {
         prompt,
         model,
         aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-        imageSize: "1K",
+        imageSize: getOpenRouterStoryImageSize(),
       });
       await writeFile(outPath, buffer);
       console.log(`ok → ${path.relative(ROOT, outPath)} (${used})`);
