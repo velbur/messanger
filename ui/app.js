@@ -1673,14 +1673,30 @@ btnNewPartInSeries?.addEventListener("click", () => {
   openNewPartInSeriesEditor();
 });
 btnNewShort?.addEventListener("click", async () => {
-  editorKind = "shorts";
-  syncEditorKindUi();
-  await newDialogue({openEditor: true});
+  try {
+    editorKind = "shorts";
+    syncEditorKindUi();
+    editorVisible = true;
+    activeMainTab = "shorts";
+    updateContentViewVisibility();
+    await newDialogue({openEditor: true});
+  } catch (err) {
+    console.error(err);
+    alert(err instanceof Error ? err.message : String(err));
+  }
 });
 btnNewVideo?.addEventListener("click", async () => {
-  editorKind = "video";
-  syncEditorKindUi();
-  await newDialogue({openEditor: true});
+  try {
+    editorKind = "video";
+    syncEditorKindUi();
+    editorVisible = true;
+    activeMainTab = "video";
+    updateContentViewVisibility();
+    await newDialogue({openEditor: true});
+  } catch (err) {
+    console.error(err);
+    alert(err instanceof Error ? err.message : String(err));
+  }
 });
 
 const openLightbox = (src) => {
