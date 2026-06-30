@@ -294,7 +294,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
     return [
       `- layout must be "${layoutValue}".`,
       "- story.opening.imagePrompt: illustrated establishing scene before messages appear (night, location, mood).",
-      "- story.opening.animation: video (default).",
+      "- story.opening.animation: depthParallax (default).",
       "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide illustrated scene for the top panel.",
       "- storyImagePrompt changes on plot beats, not on every line. Hold previous frame between beats.",
       "- storyImagePrompt describes the scene/environment as a drawn illustration, not a photo. No chat UI or text overlays.",
@@ -307,7 +307,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
   return [
     `- layout обязательно "${layoutValue}".`,
     "- story.opening.imagePrompt: рисованный establishing shot до появления сообщений (ночь, место, настроение).",
-    "- story.opening.animation: video (по умолчанию).",
+    "- story.opening.animation: depthParallax (по умолчанию).",
     "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий рисованный кадр для верхней панели.",
     "- storyImagePrompt меняется на поворотах сюжета, не на каждой реплике.",
     "- storyImagePrompt описывает сцену/обстановку как иллюстрацию, не как фото. Без UI чата и без текста на кадре.",
@@ -980,7 +980,7 @@ const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay") =>
     conversation.story.opening = {};
   }
   if (!conversation.story.opening.animation) {
-    conversation.story.opening.animation = "video";
+    conversation.story.opening.animation = "depthParallax";
   }
   if (Array.isArray(conversation.messages)) {
     for (const message of conversation.messages) {

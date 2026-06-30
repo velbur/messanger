@@ -1946,6 +1946,7 @@ const prepareJsonForRender = () => {
   applyVoiceoverToJson();
   applyEpisodesToJson();
   applyMusicToJson();
+  applyStoryAnimationToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
@@ -2188,7 +2189,20 @@ const syncStoryAnimationFromJson = () => {
     setStoryAnimation("depthParallax");
     return;
   }
-  setStoryAnimation(parsed.story?.opening?.animation ?? "depthParallax");
+  const raw = parsed.story?.opening?.animation;
+  const uiValue = normalizeStoryAnimationForUi(raw ?? "depthParallax");
+  setStoryAnimation(uiValue);
+  // legacy LLM/схема: animation "video" → в UI только depthParallax / Ken Burns
+  if (raw === "video" || raw === "parallax") {
+    if (!parsed.story) {
+      parsed.story = {};
+    }
+    if (!parsed.story.opening) {
+      parsed.story.opening = {};
+    }
+    parsed.story.opening.animation = uiValue;
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  }
   updateStoryAnimationControls();
 };
 
