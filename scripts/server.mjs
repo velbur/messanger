@@ -1086,6 +1086,7 @@ app.post("/api/images/generate", async (req, res) => {
       aspectRatio:
         aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
       imageSize: isStoryKind ? getOpenRouterStoryImageSize() : undefined,
+      kind: isStoryKind ? "story" : "chat",
     });
 
     const refHint =
@@ -1209,6 +1210,7 @@ app.post("/api/preview-cover", async (req, res) => {
       aspectRatio: "9:16",
       model: getOpenRouterStoryImageModel(),
       imageSize: getOpenRouterStoryImageSize(),
+      kind: "story",
     });
 
     const finalRef =

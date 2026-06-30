@@ -9,9 +9,13 @@ const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 const DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 /** Story-кадры 9:16 — иллюстрация, не фотореализм */
 const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
-const CHAT_IMAGE_FALLBACK_MODELS = [
-  "google/gemini-2.5-flash-image",
-  "openai/gpt-5-image-mini",
+const PREFERRED_IMAGE_MODELS = ["google/gemini-2.5-flash-image"];
+const CHAT_IMAGE_FALLBACK_MODELS = ["google/gemini-2.5-flash-image"];
+const STORY_IMAGE_FALLBACK_MODELS = ["google/gemini-2.5-flash-image"];
+const BROKEN_IMAGE_MODEL_HINTS = [
+  "openai/gpt-5.4-image",
+  "openai/gpt-5-image",
+  "gpt-5.4-image-2",
 ];
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
@@ -212,6 +216,21 @@ const extractImagesFromMessage = (message) => {
 
 const uniqueModels = (models) => [...new Set(models.filter(Boolean))];
 
+const isLikelyBrokenImageModel = (model) => {
+  const normalized = String(model ?? "").toLowerCase();
+  return BROKEN_IMAGE_MODEL_HINTS.some((hint) => normalized.includes(hint));
+};
+
+const buildImageModelPlan = ({model, kind}) => {
+  const config = getOpenRouterConfig();
+  const requested = model || (kind === "story" ? config?.storyImageModel : config?.imageModel);
+  const fallbacks = kind === "story" ? STORY_IMAGE_FALLBACK_MODELS : CHAT_IMAGE_FALLBACK_MODELS;
+  const ordered = isLikelyBrokenImageModel(requested)
+    ? [...PREFERRED_IMAGE_MODELS, requested, ...fallbacks]
+    : [...PREFERRED_IMAGE_MODELS, requested, ...fallbacks];
+  return uniqueModels(ordered);
+};
+
 const buildImageRequestContent = (prompt, referenceDataUrl) => {
   const content = [];
   if (referenceDataUrl) {
@@ -260,6 +279,26 @@ const parseDataUrl = (dataUrl) => {
     mime: match[1],
     buffer: Buffer.from(match[2], "base64"),
   };
+};
+
+const resolveImageBufferFromUrl = async (imageUrl) => {
+  const url = String(imageUrl ?? "").trim();
+  if (!url) {
+    throw new Error("Не удалось извлечь image_url из ответа OpenRouter");
+  }
+  if (url.startsWith("data:")) {
+    return parseDataUrl(url);
+  }
+  if (/^https?:\/\//i.test(url)) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Не удалось скачать изображение (${response.status})`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mime = response.headers.get("content-type")?.split(";")[0]?.trim() || "image/png";
+    return {mime, buffer};
+  }
+  throw new Error("Ответ не содержит корректный URL изображения");
 };
 
 export const parseJsonFromLlm = (text) => {
@@ -350,58 +389,70 @@ export const generateImageBuffer = async ({
   model,
   aspectRatio,
   imageSize,
+  kind = "chat",
 }) => {
   const config = requireConfig();
   const resolvedAspectRatio = aspectRatio || config.aspectRatio;
-  const resolvedImageSize = imageSize || config.imageSize;
-  const models = uniqueModels([model || config.imageModel, ...CHAT_IMAGE_FALLBACK_MODELS]);
-  const modalityPlans = [["image", "text"], ["image"]];
+  const resolvedImageSize =
+    imageSize || (kind === "story" ? config.storyImageSize : config.imageSize);
+  const models = buildImageModelPlan({model, kind});
+  const modalityPlans = [["image"], ["image", "text"]];
+  const strictPrompt = `${prompt}\n\nВерни только изображение. Без поясняющего текста.`;
 
   let lastError;
+  const failures = [];
 
   for (const resolvedModel of models) {
     for (const modalities of modalityPlans) {
-      try {
-        const message = await requestImageMessage({
-          model: resolvedModel,
-          prompt,
-          referenceDataUrl,
-          aspectRatio: resolvedAspectRatio,
-          imageSize: resolvedImageSize,
-          modalities,
-        });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const activePrompt = attempt === 0 ? prompt : strictPrompt;
+        try {
+          const message = await requestImageMessage({
+            model: resolvedModel,
+            prompt: activePrompt,
+            referenceDataUrl,
+            aspectRatio: resolvedAspectRatio,
+            imageSize: resolvedImageSize,
+            modalities,
+          });
 
-        const images = extractImagesFromMessage(message);
-        if (!images.length) {
-          const text = extractMessageText({choices: [{message}]});
-          throw new Error(
-            text
-              ? `Модель не вернула изображение: ${String(text).slice(0, 200)}`
-              : "Модель не вернула изображение",
+          const images = extractImagesFromMessage(message);
+          if (!images.length) {
+            const text = extractMessageText({choices: [{message}]});
+            const detail = text ? `: ${String(text).slice(0, 160)}` : "";
+            throw new Error(`Модель не вернула изображение${detail}`);
+          }
+
+          const imageUrl = getImageUrl(images[0]);
+          const {mime, buffer} = await resolveImageBufferFromUrl(imageUrl);
+          return {
+            buffer,
+            mime,
+            model: resolvedModel,
+            aspectRatio: resolvedAspectRatio,
+            imageSize: resolvedImageSize,
+            text: typeof message?.content === "string" ? message.content : null,
+          };
+        } catch (error) {
+          lastError = error;
+          failures.push(
+            `${resolvedModel} (${modalities.join("+")}): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           );
         }
-
-        const imageUrl = getImageUrl(images[0]);
-        if (!imageUrl) {
-          throw new Error("Не удалось извлечь image_url из ответа OpenRouter");
-        }
-
-        const {mime, buffer} = parseDataUrl(imageUrl);
-        return {
-          buffer,
-          mime,
-          model: resolvedModel,
-          aspectRatio: resolvedAspectRatio,
-          imageSize: resolvedImageSize,
-          text: typeof message?.content === "string" ? message.content : null,
-        };
-      } catch (error) {
-        lastError = error;
       }
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "Не удалось сгенерировать изображение"));
+  const suffix =
+    failures.length > 0
+      ? `. Попробовано: ${failures.slice(0, 3).join("; ")}`
+      : "";
+  if (lastError instanceof Error) {
+    throw new Error(`${lastError.message}${suffix}`);
+  }
+  throw new Error(`Не удалось сгенерировать изображение${suffix}`);
 };
 
 const extensionForMime = (mime) => {

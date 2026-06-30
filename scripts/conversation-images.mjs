@@ -73,6 +73,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
         aspectRatio: STORY_IMAGE_ASPECT_RATIO,
         model: getOpenRouterStoryImageModel(),
         imageSize: getOpenRouterStoryImageSize(),
+        kind: "story",
       });
       const targetRef = `images/${namespace}/story-opening.png`;
       const publicPath = await saveImageBuffer(buffer, targetRef);
@@ -111,6 +112,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       aspectRatio: STORY_IMAGE_ASPECT_RATIO,
       model: getOpenRouterStoryImageModel(),
       imageSize: getOpenRouterStoryImageSize(),
+      kind: "story",
     });
 
     const targetRef = `images/${namespace}/story-msg-${messageIndex + 1}.png`;
@@ -175,6 +177,7 @@ export const generateMissingConversationImages = async (
       prompt: finalPrompt,
       referenceDataUrl,
       aspectRatio: CHAT_IMAGE_ASPECT_RATIO,
+      kind: "chat",
     });
 
     const targetRef = `images/${namespace}/msg-${messageIndex + 1}.png`;

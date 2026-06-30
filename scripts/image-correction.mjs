@@ -93,6 +93,7 @@ export const correctFrameImage = async ({
     prompt,
     referenceDataUrl: dataUrl,
     aspectRatio,
+    kind: "chat",
   });
 
   if (buffersAlmostEqual(sourceBuffer, buffer)) {

@@ -86,6 +86,7 @@ export const ensureConversationPreviewCovers = async (
       aspectRatio: "9:16",
       model: getOpenRouterStoryImageModel(),
       imageSize: getOpenRouterStoryImageSize(),
+      kind: "story",
     });
     await saveImageBuffer(buffer, srcRel);
     log(`Фон обложки сохранён: ${srcRel}`);
