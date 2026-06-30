@@ -95,7 +95,6 @@ const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptI
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
 const dialogueMessageCount = document.getElementById("dialogueMessageCount");
 const dialogueImageCount = document.getElementById("dialogueImageCount");
-const dialogueLanguage = document.getElementById("dialogueLanguage");
 const dialogueModel = document.getElementById("dialogueModel");
 const dialogueModelOption = document.getElementById("dialogueModelOption");
 const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
@@ -266,7 +265,7 @@ const initEditorPreferenceControls = () => {
   }
 };
 
-const getDialogueLanguage = () => (dialogueLanguage?.value === "en" ? "en" : "ru");
+const getDialogueLanguage = () => "ru";
 
 let dialogueModelsCatalog = {models: [], defaultId: ""};
 
@@ -301,6 +300,20 @@ const getDefaultMessageCount = () =>
     : editorKind === "video"
       ? DEFAULT_VIDEO_MESSAGE_COUNT
       : DEFAULT_SERIES_MESSAGE_COUNT;
+
+const getDialogueMessageCount = () => {
+  if (editorKind === "video") {
+    return DEFAULT_VIDEO_MESSAGE_COUNT;
+  }
+  return Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount();
+};
+
+const getDialogueImageCount = () => {
+  if (editorKind === "video") {
+    return 0;
+  }
+  return Number(dialogueImageCount?.value ?? 0) || 0;
+};
 
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
@@ -637,8 +650,8 @@ const captureEditorSnapshot = () => ({
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
   dialogueModel: getDialogueModel(),
-  messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
-  imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
+  messageCount: getDialogueMessageCount(),
+  imageCount: getDialogueImageCount(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -2532,12 +2545,6 @@ const applyShortsGenDefaults = () => {
   populateDialogueModelOptions(DEFAULT_SHORTS_DIALOGUE_MODEL);
 };
 
-dialogueLanguage?.addEventListener("change", () => {
-  if (editorKind === "shorts" && jsonInput.value.trim()) {
-    applyMessengerLocaleToJson();
-  }
-});
-
 const syncMusicFromJson = () => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -2980,22 +2987,17 @@ const applyMessengerLocaleToJson = () => {
   if (!parsed) {
     return;
   }
-  const isEn = getDialogueLanguage() === "en";
-  parsed.locale = isEn ? "en" : "ru";
-  parsed.contactStatus = isEn ? "online" : "в сети";
-  parsed.contactStatusTyping = isEn ? "typing..." : "печатает...";
-  if (isEn) {
-    if (!parsed.myName || parsed.myName === "Я" || parsed.myName === "Алиса") {
-      parsed.myName = "Me";
-    }
-  } else if (parsed.myName === "Me") {
+  parsed.locale = "ru";
+  parsed.contactStatus = "в сети";
+  parsed.contactStatusTyping = "печатает...";
+  if (parsed.myName === "Me") {
     parsed.myName = "Я";
   }
   if (parsed.outro?.enabled) {
     parsed.outro = {
       ...(parsed.outro ?? {}),
       enabled: true,
-      text: parsed.outro?.text ?? (isEn ? "Subscribe :)" : "Подпишись :)"),
+      text: parsed.outro?.text ?? "Подпишись :)",
       pauseBeforeMs: parsed.outro?.pauseBeforeMs ?? 700,
       durationMs: parsed.outro?.durationMs ?? 2800,
     };
@@ -5064,26 +5066,30 @@ const clearShortsJsonBeforeGenerate = () => {
 };
 
 const getDialogueGenOptions = () => ({
-  messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
-  imageCount: editorKind === "video" ? 0 : Number(dialogueImageCount?.value ?? 0) || 0,
+  messageCount: getDialogueMessageCount(),
+  imageCount: getDialogueImageCount(),
   language: getDialogueLanguage(),
   model: getDialogueModel(),
   videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
   textMode: editorKind === "video" ? getVideoTextMode() : undefined,
 });
 
-const formatDialogueGenSummary = ({messageCount, imageCount, language, model, videoLayout, textMode}) => {
-  const lang = language === "en" ? "EN" : "RU";
-  const photos =
-    editorKind === "video" ? "" : imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
-  const layout =
-    editorKind === "shorts" && videoLayout
-      ? `, ${VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout}`
-      : editorKind === "video" && textMode
-        ? `, ${VIDEO_TEXT_MODE_LABELS[textMode] ?? textMode}`
-        : "";
-  const modelLabel = model ? `, ${findDialogueModelLabel(model)}` : "";
-  return `≤${messageCount} сообщ.${photos}, ${lang}${layout}${modelLabel}`;
+const formatDialogueGenSummary = ({messageCount, imageCount, model, videoLayout, textMode}) => {
+  const parts = [];
+  if (editorKind !== "video") {
+    const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
+    parts.push(`≤${messageCount} сообщ.${photos}`);
+  }
+  if (editorKind === "shorts" && videoLayout) {
+    parts.push(VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout);
+  }
+  if (editorKind === "video" && textMode) {
+    parts.push(VIDEO_TEXT_MODE_LABELS[textMode] ?? textMode);
+  }
+  if (model) {
+    parts.push(findDialogueModelLabel(model));
+  }
+  return parts.join(", ");
 };
 
 const generateDialogueFromPrompt = async () => {
@@ -5107,8 +5113,8 @@ const generateDialogueFromPrompt = async () => {
   };
 
   if (editorKind === "shorts") {
-    body.includeImages = Number(dialogueImageCount?.value ?? 0) > 0;
-    body.imageCount = Number(dialogueImageCount?.value ?? 0) || 0;
+    body.includeImages = getDialogueImageCount() > 0;
+    body.imageCount = getDialogueImageCount();
     body.videoLayout = getVideoLayout();
   }
 
@@ -5116,6 +5122,7 @@ const generateDialogueFromPrompt = async () => {
     body.imageCount = 0;
     body.includeImages = false;
     body.textMode = getVideoTextMode();
+    body.messageCount = getDialogueMessageCount();
   }
 
   if (editorKind === "series") {
@@ -5161,11 +5168,16 @@ const checkDialogueLogicFromPrompt = async () => {
     json,
     ...getDialogueGenOptions(),
     mode: editorKind,
-    includeImages: Number(dialogueImageCount?.value ?? 0) > 0,
-    imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
+    includeImages: getDialogueImageCount() > 0,
+    imageCount: getDialogueImageCount(),
   };
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
+  }
+  if (editorKind === "video") {
+    body.imageCount = 0;
+    body.includeImages = false;
+    body.messageCount = getDialogueMessageCount();
   }
 
   const res = await fetch("/api/dialogues/logic", {
@@ -5295,8 +5307,8 @@ const regenerateEndingFromPrompt = async () => {
       json,
       displayTitle: dialogueTitleInput?.value?.trim() ?? "",
       tailCount: 3,
-      messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()),
-      imageCount: Number(dialogueImageCount?.value ?? 0),
+      messageCount: getDialogueMessageCount(),
+      imageCount: getDialogueImageCount(),
       language: getDialogueLanguage(),
       videoLayout: getVideoLayout(),
       model: getDialogueModel(),
