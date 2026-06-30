@@ -909,8 +909,6 @@ tabBtnVideo?.addEventListener("click", () => {
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
 
-syncEditorKindUi();
-
 const CYRILLIC_TO_LATIN = {
   а: "a",
   б: "b",
@@ -5658,4 +5656,5 @@ initEditorPreferenceControls();
 updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
+syncEditorKindUi();
 loadBrowseOnStartup();
