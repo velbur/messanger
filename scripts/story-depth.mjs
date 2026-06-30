@@ -27,24 +27,24 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 33;
+export const DEPTH_LAYER_VERSION = 34;
 
-/** Доля ширины кадра — смещение камеры (умеренное, без «резины» на лицах) */
-const PARALLAX_AMPLITUDE_FRAC = 0.088;
-/** Лёгкий Ken Burns-зум поверх parallax (доля масштаба, 0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0.018;
+/** Доля ширины кадра — небольшой сдвиг, передний план rigid (без резины) */
+const PARALLAX_AMPLITUDE_FRAC = 0.058;
+/** Ken Burns-зум поверх parallax (0 = выкл) */
+const PARALLAX_ZOOM_FRAC = 0;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
-/** Профиль движения: round-trip = туда и обратно за одну сцену */
-const PARALLAX_SWEEP = "round-trip";
+/** Профиль движения: быстрый размах в ~⅓ сцены, дальше статика */
+const PARALLAX_SWEEP = "quick-round-trip";
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
-  dofStrength: 0.45,
-  hazeStrength: 0.05,
-  dustCount: 120,
-  dustStrength: 1.0,
+  dofStrength: 0.32,
+  hazeStrength: 0.035,
+  dustCount: 0,
+  dustStrength: 0,
 };
 
 env.cacheDir = CACHE_DIR;
@@ -263,6 +263,7 @@ const bakeParallaxAsset = async ({
         panX: pan.panX,
         panY: pan.panY,
         motion: PARALLAX_MOTION,
+        sweep: PARALLAX_SWEEP,
         zoomFrac: PARALLAX_ZOOM_FRAC,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,

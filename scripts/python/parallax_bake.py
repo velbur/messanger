@@ -118,7 +118,7 @@ def depth_stiffness_mask(depth: np.ndarray) -> np.ndarray:
 
 def compress_displacement(disp: np.ndarray) -> np.ndarray:
     """Сжать крайние значения глубины — меньше растяжки на ближнем плане."""
-    return np.tanh(disp * 2.4) * 0.36
+    return np.tanh(disp * 1.9) * 0.28
 
 
 def camera_phase(t: float) -> float:
@@ -126,10 +126,26 @@ def camera_phase(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def scene_sweep_phase(t: float) -> float:
-    """За одну сцену: 0 → пик → 0 (сначала в pan_x, потом обратно)."""
+def scene_sweep_phase(t: float, sweep: str = "round-trip") -> float:
+    """Профиль движения камеры по длине клипа."""
+    if sweep == "quick-round-trip":
+        # Быстрый размах в первой трети сцены, дальше статика — меньше «уплывания»
+        span = 0.34
+        if t >= span:
+            return 0.0
+        local = t / span
+        tri = local * 2.0 if local < 0.5 else 2.0 - local * 2.0
+        return camera_phase(tri)
     tri = t * 2.0 if t < 0.5 else 2.0 - t * 2.0
     return camera_phase(tri)
+
+
+def warp_rigid(src: np.ndarray, base_x, base_y, shift_x: float, shift_y: float):
+    """Сдвиг слоя целиком — без depth-warp (лица и предметы не тянутся)."""
+    map_x = (base_x - shift_x).astype(np.float32)
+    map_y = (base_y - shift_y).astype(np.float32)
+    warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    return warped, map_x, map_y
 
 
 def build_foreground_alpha(depth: np.ndarray, w: int, h: int) -> np.ndarray:
@@ -271,6 +287,7 @@ def bake_one(job: dict) -> dict:
     effect_seed = int(job.get("effect_seed", 12345))
     zoom_frac = float(job.get("zoom_frac", 0.028))
     motion = str(job.get("motion", "linear"))
+    sweep = str(job.get("sweep", "round-trip"))
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -296,12 +313,12 @@ def bake_one(job: dict) -> dict:
 
     focus = float(np.percentile(depth, 50))
     # меньше разницы fg/bg → меньше «разрыва» на контурах лиц и предметов
-    near_gain = 0.88
-    far_gain = 0.68
+    near_gain = 0.92
+    far_gain = 0.72
     depth_stiff = depth_stiffness_mask(depth)
 
     # overscan: запас под parallax-смещение + опциональный зум
-    overscan_gain = 1.9 if motion == "linear" else 1.6
+    overscan_gain = 1.65 if motion == "linear" else 1.5
     zoom_overscan = 1.0 + (amp / max(w, h)) * overscan_gain
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -325,10 +342,10 @@ def bake_one(job: dict) -> dict:
         for i in range(frames):
             if linear:
                 t = i / max(frames - 1, 1)
-                sweep = scene_sweep_phase(t)
-                zoom = zoom_overscan + zoom_frac * sweep
-                ox = amp * pan_x * sweep
-                oy = amp * pan_y * 0.22 * sweep
+                sweep_val = scene_sweep_phase(t, sweep)
+                zoom = zoom_overscan + zoom_frac * sweep_val
+                ox = amp * pan_x * sweep_val
+                oy = amp * pan_y * 0.18 * sweep_val
             else:
                 t = i / frames
                 pt = camera_phase(t)
@@ -342,8 +359,8 @@ def bake_one(job: dict) -> dict:
             bg_warp, bg_mx, bg_my = warp_layer(
                 bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain, depth_stiff
             )
-            fg_warp, map_x, map_y = warp_layer(
-                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain, depth_stiff
+            fg_warp, map_x, map_y = warp_rigid(
+                img, base_x, base_y, ox * near_gain, oy * near_gain
             )
             a_warp = cv2.remap(
                 fg_alpha_f, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT

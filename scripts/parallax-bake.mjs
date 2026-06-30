@@ -113,6 +113,7 @@ export const bakeParallaxVideos = async (jobs) => {
       dust_strength: job.dustStrength,
       effect_seed: job.effectSeed,
       motion: job.motion ?? "linear",
+      sweep: job.sweep ?? "round-trip",
       zoom_frac: job.zoomFrac,
     })),
   });
