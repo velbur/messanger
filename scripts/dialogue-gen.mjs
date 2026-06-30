@@ -377,17 +377,6 @@ const buildVideoMessageCountRules = (messageCount, language = "ru") => {
   return buildMessageCountRules(messageCount, language);
 };
 
-const buildVideoImageRules = (language = "ru") =>
-  language === "en"
-    ? [
-        "- Video format: text/narration only. Do not use imagePrompt or image.",
-        "- If the scene needs a visual, describe it in text.",
-      ]
-    : [
-        "- Формат Video: только текст/повествование. Не используй imagePrompt и image.",
-        "- Если сцене нужен визуал — опиши его словами в text.",
-      ];
-
 const buildContextImageRules = ({language = "ru", ussrStyle = false} = {}) => {
   const styleHint = ussrStyle
     ? language === "en"
