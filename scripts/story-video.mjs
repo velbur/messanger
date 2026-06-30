@@ -270,7 +270,7 @@ export const generateMissingStoryVideos = async (
   const animation = conversation.story?.opening?.animation;
   const isSeedance = animation === "video-seedance";
   const model = isSeedance ? "bytedance/seedance-2.0-fast" : getOpenRouterStoryVideoModel();
-  const resolution = isSeedance ? "720p" : getOpenRouterStoryVideoResolution();
+  const resolution = getOpenRouterStoryVideoResolution();
   const sceneSeconds = buildStorySceneSeconds(conversation);
   let generated = 0;
 
