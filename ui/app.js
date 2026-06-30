@@ -29,8 +29,6 @@ const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]')
 const videoTextModeRow = document.getElementById("videoTextModeRow");
 const videoTextModeInputs = document.querySelectorAll('input[name="videoTextMode"]');
 const layoutRow = document.getElementById("layoutRow");
-const dialogueGenMessageCountRow = document.getElementById("dialogueGenMessageCountRow");
-const dialogueGenImageCountRow = document.getElementById("dialogueGenImageCountRow");
 const imagesGenerateRow = document.getElementById("imagesGenerateRow");
 const storyAnimationRow = document.getElementById("storyAnimationRow");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
@@ -93,8 +91,6 @@ const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
-const dialogueMessageCount = document.getElementById("dialogueMessageCount");
-const dialogueImageCount = document.getElementById("dialogueImageCount");
 const dialogueModel = document.getElementById("dialogueModel");
 const dialogueModelOption = document.getElementById("dialogueModelOption");
 const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
@@ -301,19 +297,9 @@ const getDefaultMessageCount = () =>
       ? DEFAULT_VIDEO_MESSAGE_COUNT
       : DEFAULT_SERIES_MESSAGE_COUNT;
 
-const getDialogueMessageCount = () => {
-  if (editorKind === "video") {
-    return DEFAULT_VIDEO_MESSAGE_COUNT;
-  }
-  return Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount();
-};
+const getDialogueMessageCount = () => getDefaultMessageCount();
 
-const getDialogueImageCount = () => {
-  if (editorKind === "video") {
-    return 0;
-  }
-  return Number(dialogueImageCount?.value ?? 0) || 0;
-};
+const getDialogueImageCount = () => 0;
 
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
@@ -474,12 +460,6 @@ const syncEditorKindUi = () => {
   if (videoTextModeRow) {
     videoTextModeRow.hidden = !isVideo;
   }
-  if (dialogueGenMessageCountRow) {
-    dialogueGenMessageCountRow.hidden = isVideo;
-  }
-  if (dialogueGenImageCountRow) {
-    dialogueGenImageCountRow.hidden = isVideo;
-  }
   if (imagesGenerateRow) {
     imagesGenerateRow.hidden = isVideo;
   }
@@ -488,7 +468,7 @@ const syncEditorKindUi = () => {
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
       : isVideo
         ? "Задание для горизонтального ролика: сюжет, тон и финал. Режим «переписка» или «повествование» — ниже."
-        : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео и число фото — ниже.";
+        : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео — ниже.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
@@ -650,8 +630,6 @@ const captureEditorSnapshot = () => ({
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
   dialogueModel: getDialogueModel(),
-  messageCount: getDialogueMessageCount(),
-  imageCount: getDialogueImageCount(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -670,12 +648,6 @@ const restoreEditorSnapshot = async (snapshot) => {
     }
   }
   populateDialogueModelOptions(snapshot?.dialogueModel);
-  if (dialogueMessageCount && snapshot?.messageCount) {
-    dialogueMessageCount.value = String(snapshot.messageCount);
-  }
-  if (dialogueImageCount && snapshot?.imageCount !== undefined) {
-    dialogueImageCount.value = String(snapshot.imageCount);
-  }
   if (seriesIdInput) {
     seriesIdInput.value = snapshot?.seriesId || "usssr";
   }
@@ -5074,12 +5046,8 @@ const getDialogueGenOptions = () => ({
   textMode: editorKind === "video" ? getVideoTextMode() : undefined,
 });
 
-const formatDialogueGenSummary = ({messageCount, imageCount, model, videoLayout, textMode}) => {
+const formatDialogueGenSummary = ({model, videoLayout, textMode}) => {
   const parts = [];
-  if (editorKind !== "video") {
-    const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
-    parts.push(`≤${messageCount} сообщ.${photos}`);
-  }
   if (editorKind === "shorts" && videoLayout) {
     parts.push(VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout);
   }
