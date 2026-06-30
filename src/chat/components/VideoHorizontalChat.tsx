@@ -91,6 +91,7 @@ export const VideoHorizontalChat: React.FC<Props> = ({
                 key={event.index}
                 author={event.author}
                 text={event.text}
+                image={event.image}
                 sentAt={event.sentAt}
                 revealFrame={event.revealFrame}
                 emphasizeFinale={event.index === lastEventIndex}

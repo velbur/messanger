@@ -41,7 +41,7 @@ export const getCompositionDimensions = (
     ? {width: VIDEO_COMPOSITION.width, height: VIDEO_COMPOSITION.height}
     : {width: 1080, height: 1920};
 
-/** Убираем story и картинки — в Video-режиме только текст */
+/** Убираем story-кадры — в Video остаются фото в пузырях чата, как в Shorts. */
 export const stripVideoLayoutAssets = (conversation: ConversationInput): ConversationInput => {
   if (!isVideoLayout(conversation)) {
     return conversation;
@@ -53,9 +53,6 @@ export const stripVideoLayoutAssets = (conversation: ConversationInput): Convers
     hookText: undefined,
     messages: conversation.messages.map((message) => {
       const next = {...message};
-      delete next.image;
-      delete next.imagePrompt;
-      delete next.imageEditPrompt;
       delete next.storyImage;
       delete next.storyImagePrompt;
       delete next.storyVideo;

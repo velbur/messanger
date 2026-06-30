@@ -118,7 +118,7 @@ const buildJsonFormatBlock = ({
         '      "sentAt": "HH:MM"',
         "    },",
       );
-    } else if (!withVideoLayout) {
+    } else if (!withStoryVisual) {
       lines.push(
         "    {",
         '      "author": "them",',
@@ -176,7 +176,7 @@ const buildJsonFormatBlock = ({
       '      "sentAt": "HH:MM"',
       "    },",
     );
-  } else if (!withVideoLayout) {
+  } else if (!withStoryVisual) {
     lines.push(
       "    {",
       '      "author": "them",',
@@ -517,9 +517,7 @@ export const normalizeGenerationOptions = ({
 
   let resolvedImageCount;
   const ic = Number(imageCount);
-  if (normalizedMode === "video") {
-    resolvedImageCount = 0;
-  } else if (Number.isFinite(ic)) {
+  if (Number.isFinite(ic)) {
     resolvedImageCount = Math.max(0, Math.min(Math.round(ic), 15));
   } else if (fromPrompt.imageCount != null) {
     resolvedImageCount = fromPrompt.imageCount;
@@ -598,7 +596,9 @@ const buildTemplateVars = async ({
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language).join("\n"),
     IMAGE_RULES: isVideoMode
-      ? buildVideoImageRules(language).join("\n")
+      ? imageCount == null
+        ? buildContextImageRules({language, ussrStyle: false}).join("\n")
+        : buildImageRules(imageCount, {language}).join("\n")
       : storyVisual
         ? buildStoryImageRules({language, videoLayout: storyLayout}).join("\n")
         : imageCount == null
@@ -967,9 +967,6 @@ const applyVideoDefaults = (conversation, textMode = "narration") => {
   delete conversation.hookText;
   if (Array.isArray(conversation.messages)) {
     for (const message of conversation.messages) {
-      delete message.image;
-      delete message.imagePrompt;
-      delete message.imageEditPrompt;
       delete message.storyImage;
       delete message.storyImagePrompt;
       delete message.storyVideo;
@@ -1279,7 +1276,7 @@ export const generateDialogue = async ({
     prompt,
     messageCount,
     imageCount,
-    includeImages: normalizedMode === "video" ? false : includeImages,
+    includeImages,
     language,
     mode: normalizedMode,
   });

@@ -445,9 +445,6 @@ const syncEditorKindUi = () => {
   if (videoTextModeRow) {
     videoTextModeRow.hidden = !isVideo;
   }
-  if (imagesGenerateRow) {
-    imagesGenerateRow.hidden = isVideo;
-  }
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
@@ -4967,12 +4964,6 @@ const updateGenerateImagesControls = (conversation = null) => {
   }
 
   const parsed = conversation ?? parseConversationJson();
-  if (editorKind === "video" || parsed?.layout === "video") {
-    btnGenerateImages.disabled = true;
-    btnGenerateImages.title = "В режиме Video изображения не используются";
-    updatePreviewCoverControls(parsed);
-    return;
-  }
   const pending = countPendingImages(parsed);
   const canGenerate = openrouterImageAvailable && pending > 0;
 
