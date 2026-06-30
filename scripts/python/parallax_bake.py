@@ -107,8 +107,14 @@ def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
 
 
 def camera_phase(t: float) -> float:
-    """Ease по времени: камера медленнее на разворотах, loop остаётся бесшовным."""
+    """Ease по времени: камера медленнее на разворотах."""
     return t * t * (3.0 - 2.0 * t)
+
+
+def scene_sweep_phase(t: float) -> float:
+    """За одну сцену: 0 → пик → 0 (сначала в pan_x, потом обратно)."""
+    tri = t * 2.0 if t < 0.5 else 2.0 - t * 2.0
+    return camera_phase(tri)
 
 
 def build_foreground_alpha(depth: np.ndarray, w: int, h: int) -> np.ndarray:
@@ -301,10 +307,10 @@ def bake_one(job: dict) -> dict:
         for i in range(frames):
             if linear:
                 t = i / max(frames - 1, 1)
-                pt = camera_phase(t)
-                zoom = zoom_overscan + zoom_frac * pt
-                ox = amp * pan_x * pt
-                oy = amp * pan_y * 0.35 * pt
+                sweep = scene_sweep_phase(t)
+                zoom = zoom_overscan + zoom_frac * sweep
+                ox = amp * pan_x * sweep
+                oy = amp * pan_y * 0.35 * sweep
             else:
                 t = i / frames
                 pt = camera_phase(t)
@@ -348,8 +354,8 @@ def bake_one(job: dict) -> dict:
                 acc = np.zeros((h, w), dtype=np.float32)
                 drift = motes["drift"]
                 if linear:
-                    px = motes["bx"] + drift * pt * np.cos(motes["phase"])
-                    py = motes["by"] + drift * pt * np.sin(motes["phase"])
+                    px = motes["bx"] + drift * sweep * np.cos(motes["phase"])
+                    py = motes["by"] + drift * sweep * np.sin(motes["phase"])
                     twinkle_t = t
                 else:
                     px = motes["bx"] + drift * np.cos(two_pi * pt + motes["phase"])

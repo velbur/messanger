@@ -27,7 +27,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 30;
+export const DEPTH_LAYER_VERSION = 31;
 
 /** Доля ширины кадра — одно линейное движение за всю сцену (большая амплитуда) */
 const PARALLAX_AMPLITUDE_FRAC = 0.095;
@@ -36,6 +36,8 @@ const PARALLAX_ZOOM_FRAC = 0.032;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
+/** Профиль движения: round-trip = туда и обратно за одну сцену */
+const PARALLAX_SWEEP = "round-trip";
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -277,6 +279,7 @@ const bakeParallaxAsset = async ({
         version: DEPTH_LAYER_VERSION,
         mode: "video",
         motion: PARALLAX_MOTION,
+        sweep: PARALLAX_SWEEP,
         frames,
         fps: FPS,
         width,
@@ -338,6 +341,7 @@ const bakeFallbackAsset = async ({
       version: DEPTH_LAYER_VERSION,
       mode: "video",
       motion: PARALLAX_MOTION,
+      sweep: PARALLAX_SWEEP,
       frames,
       fps: FPS,
       width,
@@ -350,7 +354,10 @@ const bakeFallbackAsset = async ({
   );
 };
 
-export const isStoryDepthAvailable = async (imagePublicPath, {requiredFrames} = {}) => {
+export const isStoryDepthAvailable = async (
+  imagePublicPath,
+  {requiredFrames, requiredPanX} = {},
+) => {
   const paths = storyLayerPaths(imagePublicPath);
   try {
     const meta = await readDepthMeta(paths);
@@ -358,6 +365,12 @@ export const isStoryDepthAvailable = async (imagePublicPath, {requiredFrames} = 
       return false;
     }
     if (meta.motion !== PARALLAX_MOTION) {
+      return false;
+    }
+    if (meta.sweep !== PARALLAX_SWEEP) {
+      return false;
+    }
+    if (requiredPanX !== undefined && Number(meta.panX) !== requiredPanX) {
       return false;
     }
     if (requiredFrames && Number(meta.frames) < requiredFrames) {
@@ -435,7 +448,7 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
       sceneIndex: 0,
     };
     const {panX, panY} = parallaxMotionVectorsForScene(plan.sceneIndex);
-    if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: plan.frames}))) {
+    if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: plan.frames, requiredPanX: panX}))) {
       logs.push(`Parallax: ассеты уже есть → ${imagePath}`);
     } else {
       pending.push({imagePath, frames: plan.frames, sceneIndex: plan.sceneIndex, panX, panY});

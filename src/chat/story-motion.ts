@@ -139,7 +139,7 @@ export const parallaxMotionVectorsForScene = (
 });
 
 /**
- * Depth-parallax (3D-photo) запекается заранее в .parallax.mp4 — движение
- * считается по-пиксельно в scripts/python/parallax_bake.py, а в Remotion клип
- * просто проигрывается на петле. Поэтому здесь больше нет per-слойных формул.
+ * Depth-parallax (3D-photo) запекается заранее в .parallax.mp4.
+ * За сцену: размах 0→пик→0 (туда-обратно); panX по sceneIndex задаёт,
+ * в какую сторону сначала «выезжает» камера (чётные вправо, нечётные влево).
  */

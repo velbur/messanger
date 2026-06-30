@@ -120,10 +120,11 @@ export const bakeParallaxVideos = async (jobs) => {
   return data.results ?? [];
 };
 
-/** Плавный прогресс 0→1 за длину клипа (ease на разворотах) */
-const linearEase = (i, frames) => {
+/** Плавный размах 0→1→0 за сцену (туда и обратно) */
+const sceneSweep = (i, frames) => {
   const t = i / Math.max(frames - 1, 1);
-  return t * t * (3 - 2 * t);
+  const tri = t < 0.5 ? t * 2 : 2 - t * 2;
+  return tri * tri * (3 - 2 * tri);
 };
 
 /** Бесшовный пинг-понг 0→1→0 (legacy loop) */
@@ -154,7 +155,7 @@ export const bakeKenBurnsLoopFallback = async (job) => {
   const panX = job.panX ?? 1;
   const panY = job.panY ?? -1;
   const motion = job.motion ?? "linear";
-  const progressAt = motion === "loop" ? pingPong : linearEase;
+  const progressAt = motion === "loop" ? pingPong : sceneSweep;
 
   await mkdir(path.dirname(outVideo), {recursive: true});
   const ffmpeg = process.env.FFMPEG_BIN ?? "ffmpeg";
