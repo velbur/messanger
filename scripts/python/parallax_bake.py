@@ -110,19 +110,9 @@ def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
     return d_8u.astype(np.float32) / 255.0
 
 
-def depth_stiffness_mask(depth: np.ndarray) -> np.ndarray:
-    """На резких перепадах глубины (лицо, предметы) уменьшаем смещение — меньше «резины»."""
-    gx = cv2.Sobel(depth, cv2.CV_32F, 1, 0, ksize=5)
-    gy = cv2.Sobel(depth, cv2.CV_32F, 0, 1, ksize=5)
-    grad = np.hypot(gx, gy)
-    grad_cap = float(np.percentile(grad, 90)) + 1e-6
-    stiff = 1.0 - np.clip(grad / grad_cap, 0.0, 1.0) * 0.88
-    return np.clip(stiff, 0.1, 1.0)
-
-
 def compress_displacement(disp: np.ndarray) -> np.ndarray:
     """Сжать крайние значения глубины — меньше растяжки на ближнем плане."""
-    return np.tanh(disp * 1.9) * 0.28
+    return np.tanh(disp * 1.9) * 0.45
 
 
 def camera_phase(t: float) -> float:
@@ -169,21 +159,26 @@ def inpaint_background(img_rgb: np.ndarray, fg_alpha: np.ndarray, depth: np.ndar
     return bg_rgb, depth_bg
 
 
-def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy, stiff=None):
+def warp_rigid(src: np.ndarray, base_x, base_y, shift_x: float, shift_y: float):
+    """Сдвиг слоя целиком — без depth-warp (лица и предметы не тянутся)."""
+    map_x = (base_x - shift_x).astype(np.float32)
+    map_y = (base_y - shift_y).astype(np.float32)
+    warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    return warped, map_x, map_y
+
+def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy):
     """Backward-warp по глубине: pixel сэмплится из src со смещением (d-focus)*offset.
 
     Два прохода уточняют глубину в точке сэмпла → меньше «тянучки» на разрывах.
     """
-    if stiff is None:
-        stiff = depth_stiffness_mask(depth_layer)
-    disp = compress_displacement(depth_layer - focus) * stiff
+    disp = compress_displacement(depth_layer - focus)
     map_x = (base_x - disp * ox).astype(np.float32)
     map_y = (base_y - disp * oy).astype(np.float32)
     for _ in range(2):
         d_at = cv2.remap(
             depth_layer, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
         )
-        disp = compress_displacement(d_at - focus) * stiff
+        disp = compress_displacement(d_at - focus)
         map_x = (base_x - disp * ox).astype(np.float32)
         map_y = (base_y - disp * oy).astype(np.float32)
     warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -300,10 +295,9 @@ def bake_one(job: dict) -> dict:
         cv2.imwrite(out_depth, (np.clip(depth, 0, 1) * 255).astype(np.uint8))
 
     focus = float(np.percentile(depth, 50))
-    # меньше разницы fg/bg → меньше «разрыва» на контурах лиц и предметов
-    near_gain = 0.92
-    far_gain = 0.72
-    depth_stiff = depth_stiffness_mask(depth)
+    # Разница между fg и bg создаёт эффект 3D (parallax)
+    near_gain = 1.0
+    far_gain = 0.6
 
     # overscan: запас под parallax-смещение + опциональный зум
     overscan_gain = 1.65 if motion == "linear" else 1.5
@@ -345,10 +339,10 @@ def bake_one(job: dict) -> dict:
             base_y = (grid_y - cy) / zoom + cy
 
             bg_warp, bg_mx, bg_my = warp_layer(
-                bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain, depth_stiff
+                bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
             )
             fg_warp, map_x, map_y = warp_layer(
-                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain, depth_stiff
+                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain
             )
             a_warp = cv2.remap(
                 fg_alpha_f, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
