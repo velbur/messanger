@@ -27,7 +27,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 28;
+export const DEPTH_LAYER_VERSION = 29;
 
 /** Доля ширины кадра — одно линейное движение за всю сцену (большая амплитуда) */
 const PARALLAX_AMPLITUDE_FRAC = 0.095;
@@ -41,8 +41,8 @@ const PARALLAX_MOTION = "linear";
 const PARALLAX_FX = {
   dofStrength: 0.6,
   hazeStrength: 0.07,
-  dustCount: 150,
-  dustStrength: 1.1,
+  dustCount: 180,
+  dustStrength: 1.25,
 };
 
 env.cacheDir = CACHE_DIR;

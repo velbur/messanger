@@ -164,24 +164,21 @@ def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, 
 
 
 def make_motes(seed: int, count: int, w: int, h: int):
-    """Облако пылинок в 3D-пространстве сцены (для объёмного parallax).
-
-    Каждая пылинка живёт на своей глубине → при движении «камеры» ближние
-    смещаются сильнее дальних, а ещё их перекрывает передний план. Всё движение
-    периодично по t → клип остаётся бесшовным loop.
-    """
+    """Облако пылинок в 3D-пространстве сцены (для объёмного parallax)."""
     rng = np.random.default_rng(seed)
     scale = min(w, h) / 720.0
+    # больше частиц в верхней части кадра (небо/воздух) — на лицах их depth-occlusion режет
+    by = rng.uniform(0, h * 0.82, count)
+    by = np.where(rng.random(count) < 0.35, rng.uniform(h * 0.55, h, count), by)
     return {
         "bx": rng.uniform(0, w, count),
-        "by": rng.uniform(0, h, count),
-        # больше пылинок в «воздухе» между камерой и фоном — заметнее на иллюстрациях
-        "dm": np.clip(rng.beta(2.0, 2.0, count) * 0.55 + 0.32, 0.0, 0.94),
-        "drift": rng.uniform(3.0, 14.0, count) * scale,
+        "by": by,
+        "dm": np.clip(rng.beta(1.4, 2.2, count) * 0.48 + 0.36, 0.34, 0.86),
+        "drift": rng.uniform(5.0, 18.0, count) * scale,
         "phase": rng.uniform(0, 2 * np.pi, count),
         "tphase": rng.uniform(0, 2 * np.pi, count),
-        "radius": rng.uniform(1.4, 4.0, count) * scale,
-        "bright": rng.uniform(0.55, 1.0, count),
+        "radius": rng.uniform(1.8, 5.5, count) * scale,
+        "bright": rng.uniform(0.65, 1.0, count),
         "harmonic": rng.integers(1, 3, count).astype(np.float32),
     }
 
@@ -292,7 +289,8 @@ def bake_one(job: dict) -> dict:
     dof_sigma = max(1.0, min(w, h) * 0.013)
     # тёплый ambient для дымки — берём из ярких (ламповых) пикселей
     ambient = np.clip(np.percentile(img.reshape(-1, 3), 85, axis=0), 0, 255).astype(np.float32)
-    dust_tint = np.array([1.0, 0.93, 0.8], dtype=np.float32)
+    dust_tint = np.array([1.0, 0.96, 0.86], dtype=np.float32)
+    dust_gain = 38.0
 
     motes = make_motes(effect_seed, dust_count, w, h) if dust_count > 0 else None
 
@@ -369,11 +367,13 @@ def bake_one(job: dict) -> dict:
                 for k in range(len(px)):
                     if sx[k] < 0 or sx[k] >= w or sy[k] < 0 or sy[k] >= h:
                         continue
-                    # пылинка заметно позади поверхности — скрываем (мягкий порог)
-                    if motes["dm"][k] + 0.1 < scene_depth[iy[k], ix[k]]:
+                    # мягкое перекрытие передним планом (жёсткий порог прятал почти всё)
+                    depth_delta = float(scene_depth[iy[k], ix[k]] - motes["dm"][k])
+                    if depth_delta > 0.16:
                         continue
-                    stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k])
-                out = out + (dust_strength * 30.0) * acc[..., None] * dust_tint[None, None, :]
+                    occ = 1.0 if depth_delta <= 0.02 else max(0.0, 1.0 - (depth_delta - 0.02) / 0.14)
+                    stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k] * occ)
+                out = out + (dust_strength * dust_gain) * acc[..., None] * dust_tint[None, None, :]
 
             frame = np.clip(out + 0.5, 0, 255).astype(np.uint8)
             proc.stdin.write(frame.tobytes())
