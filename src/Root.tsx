@@ -7,6 +7,7 @@ import {StoryParallaxPreview, STORY_PARALLAX_PREVIEW_MARKER} from "./chat/StoryP
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
+import {getCompositionDimensions} from "./chat/video";
 import sample from "./default-conversation.json";
 
 type ChatVideoProps = {
@@ -41,8 +42,11 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={({props}) => {
           const conversation = parseConversation(props.conversation);
           const timeline = buildTimeline(conversation);
+          const {width, height} = getCompositionDimensions(conversation);
           return {
             durationInFrames: timeline.durationInFrames,
+            width,
+            height,
             props: {
               ...props,
               conversation,

@@ -54,7 +54,7 @@ const rowToListItem = (row) => ({
   wallpaper: row.wallpaper,
   music: row.music,
   dialoguePrompt: row.dialogue_prompt ?? "",
-  kind: row.kind === "series" ? "series" : "shorts",
+  kind: row.kind === "series" ? "series" : row.kind === "video" ? "video" : "shorts",
   seriesId: row.series_id ?? "",
   partNumber: row.part_number ?? null,
   messageCount: countMessages(row.conversation_json),
@@ -83,7 +83,7 @@ const defaultTitle = (conversation) => {
 };
 
 export const listDialogues = ({kind} = {}) => {
-  const normalizedKind = kind === "series" || kind === "shorts" ? kind : null;
+  const normalizedKind = kind === "series" || kind === "shorts" || kind === "video" ? kind : null;
   const rows = normalizedKind
     ? getDb()
         .prepare(
@@ -184,7 +184,15 @@ export const getDialogue = (id) => {
   };
 };
 
-const normalizeKind = (kind) => (kind === "series" ? "series" : "shorts");
+const normalizeKind = (kind) => {
+  if (kind === "series") {
+    return "series";
+  }
+  if (kind === "video") {
+    return "video";
+  }
+  return "shorts";
+};
 
 const normalizeSeriesId = (seriesId, kind) => {
   if (kind !== "series") {

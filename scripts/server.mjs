@@ -146,6 +146,9 @@ const PORT = Number(process.env.PORT ?? 3333);
 const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
 
 const resolveRequestVideoLayout = ({videoLayout, dialogueStyle, conversation, mode}) => {
+  if (mode === "video" || conversation?.layout === "video") {
+    return "video";
+  }
   if (mode !== "shorts") {
     return "chat";
   }
@@ -1290,7 +1293,7 @@ app.get("/api/dialogues", (req, res) => {
     const kind = req.query.kind;
     res.json({
       dialogues: listDialogues({
-        kind: kind === "series" || kind === "shorts" ? kind : undefined,
+        kind: kind === "series" || kind === "shorts" || kind === "video" ? kind : undefined,
       }),
     });
   } catch (error) {
@@ -1467,8 +1470,8 @@ app.post("/api/dialogues/generate", async (req, res) => {
       partNumber,
       useSeriesContext,
       model,
+      textMode,
     } = req.body ?? {};
-    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       res.status(400).json({error: "Поле prompt обязательно"});
       return;
     }
@@ -1479,7 +1482,8 @@ app.post("/api/dialogues/generate", async (req, res) => {
       return;
     }
 
-    const mode = modeRaw === "series" ? "series" : "shorts";
+    const mode =
+      modeRaw === "series" ? "series" : modeRaw === "video" ? "video" : "shorts";
     let contextMessages;
 
     if (mode === "series" && useSeriesContext !== false) {
@@ -1501,9 +1505,10 @@ app.post("/api/dialogues/generate", async (req, res) => {
     const result = await generateDialogue({
       prompt,
       videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, mode}),
+      textMode: textMode === "chat" ? "chat" : textMode === "narration" ? "narration" : undefined,
       previousMessages: mode === "series" ? contextMessages : undefined,
-      includeImages,
-      imageCount,
+      includeImages: mode === "video" ? false : includeImages,
+      imageCount: mode === "video" ? 0 : imageCount,
       messageCount,
       language,
       mode,
@@ -1556,7 +1561,8 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
-    const mode = modeRaw === "series" ? "series" : "shorts";
+    const mode =
+      modeRaw === "series" ? "series" : modeRaw === "video" ? "video" : "shorts";
     const normalizedSeriesId =
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
 
@@ -1612,7 +1618,8 @@ app.post("/api/dialogues/refine", async (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
-    const mode = modeRaw === "series" ? "series" : "shorts";
+    const mode =
+      modeRaw === "series" ? "series" : modeRaw === "video" ? "video" : "shorts";
 
     const normalizedSeriesId =
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
@@ -1677,7 +1684,8 @@ app.post("/api/dialogues/logic", async (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
-    const mode = modeRaw === "series" ? "series" : "shorts";
+    const mode =
+      modeRaw === "series" ? "series" : modeRaw === "video" ? "video" : "shorts";
     const normalizedSeriesId =
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
     const displayTitle =
@@ -1739,7 +1747,8 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
     }
 
     const conversation = parseConversation(JSON.parse(jsonText));
-    const mode = modeRaw === "series" ? "series" : "shorts";
+    const mode =
+      modeRaw === "series" ? "series" : modeRaw === "video" ? "video" : "shorts";
     const result = await regenerateEnding({
       conversation,
       displayTitle: typeof displayTitle === "string" ? displayTitle : "",
@@ -1823,7 +1832,7 @@ app.post("/api/dialogues", async (req, res) => {
       wallpaper: wallpaper === "dark" ? "dark" : "default",
       music: typeof music === "string" ? music : "",
       dialoguePrompt: typeof dialoguePrompt === "string" ? dialoguePrompt : "",
-      kind: kind === "series" ? "series" : "shorts",
+      kind: kind === "series" ? "series" : kind === "video" ? "video" : "shorts",
       seriesId: typeof seriesId === "string" ? seriesId : "",
       partNumber,
     });
@@ -1869,7 +1878,8 @@ app.put("/api/dialogues/:id", async (req, res) => {
       wallpaper: wallpaper === "dark" ? "dark" : wallpaper === "default" ? "default" : undefined,
       music: typeof music === "string" ? music : undefined,
       dialoguePrompt: typeof dialoguePrompt === "string" ? dialoguePrompt : undefined,
-      kind: kind === "series" ? "series" : kind === "shorts" ? "shorts" : undefined,
+      kind:
+        kind === "series" ? "series" : kind === "video" ? "video" : kind === "shorts" ? "shorts" : undefined,
       seriesId: typeof seriesId === "string" ? seriesId : undefined,
       partNumber: partNumber !== undefined ? partNumber : undefined,
     });

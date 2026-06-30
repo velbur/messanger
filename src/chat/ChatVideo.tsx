@@ -34,6 +34,8 @@ import {StatusBar} from "./components/StatusBar";
 import {StoryPanel} from "./components/StoryPanel";
 import {TypingIndicator} from "./components/TypingIndicator";
 import {Wallpaper} from "./components/Wallpaper";
+import {VideoComposition} from "./VideoComposition";
+import {isVideoLayout} from "./video";
 
 type Props = {
   conversation: ConversationInput;
@@ -178,6 +180,13 @@ const ChatBody: React.FC<ChatBodyProps> = ({
 };
 
 export const ChatVideo: React.FC<Props> = ({conversation}) => {
+  if (isVideoLayout(conversation)) {
+    return <VideoComposition conversation={conversation} />;
+  }
+  return <VerticalChatVideo conversation={conversation} />;
+};
+
+const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
   const frame = useCurrentFrame();
   const timeline = useMemo(() => buildTimeline(conversation), [conversation]);
   const sounds = useMemo(() => mergeConversationSounds(conversation), [conversation]);

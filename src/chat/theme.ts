@@ -249,3 +249,22 @@ export const splitPanelHeights = (
 
 export const splitChatScale = (bottomPanelHeight: number): number =>
   Math.min(1, bottomPanelHeight / SPLIT_LAYOUT.frameHeight);
+
+/** Горизонтальный Video (16:9) — чат или повествование */
+export const VIDEO_LAYOUT = {
+  frameWidth: 1920,
+  frameHeight: 1080,
+  chatColumnWidth: 920,
+  chatPaddingX: 48,
+  chatPaddingTop: 32,
+  chatPaddingBottom: 28,
+  narrationPaddingX: 140,
+  narrationMaxWidth: 1320,
+  narrationFontSize: S(58),
+  narrationLineHeight: 1.38,
+  narrationAuthorSize: S(28),
+  narrationAuthorGap: 20,
+} as const;
+
+/** Масштаб типографики чата под высоту 1080 (базовый макет — 1920 вертикаль) */
+export const videoChatTypographyScale = VIDEO_LAYOUT.frameHeight / SPLIT_LAYOUT.frameHeight;

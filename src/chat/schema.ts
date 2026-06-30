@@ -2,7 +2,8 @@ import {z, ZodError} from "zod";
 import {expandEmojis} from "./emoji";
 import {normalizeMessengerLocale} from "./locale";
 import {sanitizeMessageText} from "./message-text";
-import {stripChatBubbleImages} from "./story";
+import {isStoryVisualLayout, stripChatBubbleImages} from "./story";
+import {stripVideoLayoutAssets} from "./video";
 
 export const storySfxCueSchema = z.object({
   id: z.string().min(1),
@@ -228,8 +229,17 @@ export const conversationSchema = z.object({
       splitAfter: z.array(z.number().int().min(0)).max(19).optional(),
     })
     .optional(),
-  /** chat — классический чат; storySplit — сюжет сверху + чат снизу; storyOverlay — сюжет на весь экран + чат поверх */
-  layout: z.enum(["chat", "storySplit", "storyOverlay"]).optional().default("storyOverlay"),
+  /** chat — классический чат; storySplit/storyOverlay — Shorts; video — горизонт 16:9 */
+  layout: z
+    .enum(["chat", "storySplit", "storyOverlay", "video"])
+    .optional()
+    .default("storyOverlay"),
+  /** Горизонтальный Video: чат или текст на экране */
+  video: z
+    .object({
+      textMode: z.enum(["chat", "narration"]).optional().default("narration"),
+    })
+    .optional(),
   /** Настройки storySplit / storyOverlay */
   story: z
     .object({
@@ -341,7 +351,7 @@ export const parseConversation = (input: unknown): ConversationInput => {
   const parsed = conversationSchema.parse(prepared);
   const custom = parsed.emojiAliases;
 
-  return stripChatBubbleImages(
+  const stripped = stripChatBubbleImages(
     normalizeMessengerLocale({
       ...parsed,
       messages: parsed.messages.map((message) => ({
@@ -350,4 +360,6 @@ export const parseConversation = (input: unknown): ConversationInput => {
       })),
     }),
   );
+
+  return stripVideoLayoutAssets(stripped);
 };

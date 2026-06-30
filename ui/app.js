@@ -26,6 +26,12 @@ const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const wallpaperRow = document.getElementById("wallpaperRow");
 const wallpaperOverlayHint = document.getElementById("wallpaperOverlayHint");
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
+const videoTextModeRow = document.getElementById("videoTextModeRow");
+const videoTextModeInputs = document.querySelectorAll('input[name="videoTextMode"]');
+const layoutRow = document.getElementById("layoutRow");
+const dialogueGenMessageCountRow = document.getElementById("dialogueGenMessageCountRow");
+const dialogueGenImageCountRow = document.getElementById("dialogueGenImageCountRow");
+const imagesGenerateRow = document.getElementById("imagesGenerateRow");
 const storyAnimationRow = document.getElementById("storyAnimationRow");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
 const musicSelect = document.getElementById("musicSelect");
@@ -49,10 +55,12 @@ const timingSpeedValue = document.getElementById("timingSpeedValue");
 const btnRefreshDialogue = document.getElementById("btnRefreshDialogue");
 const tabBtnSeries = document.getElementById("tabBtnSeries");
 const tabBtnShorts = document.getElementById("tabBtnShorts");
+const tabBtnVideo = document.getElementById("tabBtnVideo");
 const tabBtnPrompt = document.getElementById("tabBtnPrompt");
 const tabBtnApi = document.getElementById("tabBtnApi");
 const tabPanelSeries = document.getElementById("tabPanelSeries");
 const tabPanelShorts = document.getElementById("tabPanelShorts");
+const tabPanelVideo = document.getElementById("tabPanelVideo");
 const tabPanelEditor = document.getElementById("tabPanelEditor");
 const tabPanelPrompt = document.getElementById("tabPanelPrompt");
 const tabPanelApi = document.getElementById("tabPanelApi");
@@ -68,13 +76,16 @@ const seriesDialoguesList = document.getElementById("seriesDialoguesList");
 const seriesPartsList = document.getElementById("seriesPartsList");
 const seriesPartsTitle = document.getElementById("seriesPartsTitle");
 const shortsDialoguesList = document.getElementById("shortsDialoguesList");
+const videoDialoguesList = document.getElementById("videoDialoguesList");
 const btnRefreshSeriesList = document.getElementById("btnRefreshSeriesList");
 const btnRefreshSeriesParts = document.getElementById("btnRefreshSeriesParts");
 const btnRefreshShortsList = document.getElementById("btnRefreshShortsList");
+const btnRefreshVideoList = document.getElementById("btnRefreshVideoList");
 const btnNewSeries = document.getElementById("btnNewSeries");
 const btnNewPartInSeries = document.getElementById("btnNewPartInSeries");
 const btnBackToSeriesList = document.getElementById("btnBackToSeriesList");
 const btnNewShort = document.getElementById("btnNewShort");
+const btnNewVideo = document.getElementById("btnNewVideo");
 const btnBackToList = document.getElementById("btnBackToList");
 const apiStatusContent = document.getElementById("apiStatusContent");
 const btnRefreshApiStatus = document.getElementById("btnRefreshApiStatus");
@@ -144,6 +155,10 @@ const VIDEO_LAYOUT_LABELS = {
   chat: "чат",
   storySplit: "split",
   storyOverlay: "overlay",
+};
+const VIDEO_TEXT_MODE_LABELS = {
+  chat: "переписка",
+  narration: "повествование",
 };
 const SHORTS_PROMPT_STORAGE_KEY = "messanger.shortsPrompt";
 
@@ -268,8 +283,24 @@ const findDialogueModelLabel = (modelId) => {
   return item?.label ?? modelId;
 };
 
+const DEFAULT_VIDEO_MESSAGE_COUNT = 20;
+
+const normalizeEditorKind = (kind) => {
+  if (kind === "series") {
+    return "series";
+  }
+  if (kind === "video") {
+    return "video";
+  }
+  return "shorts";
+};
+
 const getDefaultMessageCount = () =>
-  editorKind === "shorts" ? DEFAULT_SHORTS_MESSAGE_COUNT : DEFAULT_SERIES_MESSAGE_COUNT;
+  editorKind === "shorts"
+    ? DEFAULT_SHORTS_MESSAGE_COUNT
+    : editorKind === "video"
+      ? DEFAULT_VIDEO_MESSAGE_COUNT
+      : DEFAULT_SERIES_MESSAGE_COUNT;
 
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
@@ -399,6 +430,7 @@ let currentPartNumber = null;
 const editorSnapshots = {
   series: null,
   shorts: null,
+  video: null,
 };
 let currentDialogueOutputFile = null;
 
@@ -415,21 +447,42 @@ const setDialogueSaveStatus = (text, isError = false) => {
 
 const syncEditorKindUi = () => {
   const isSeries = editorKind === "series";
+  const isVideo = editorKind === "video";
+  const isShorts = editorKind === "shorts";
   if (seriesFieldsRow) {
     seriesFieldsRow.hidden = !isSeries;
   }
   if (seriesTitleCardsRow) {
     seriesTitleCardsRow.hidden = !isSeries;
   }
+  if (layoutRow) {
+    layoutRow.hidden = isVideo;
+  }
+  if (videoTextModeRow) {
+    videoTextModeRow.hidden = !isVideo;
+  }
+  if (dialogueGenMessageCountRow) {
+    dialogueGenMessageCountRow.hidden = isVideo;
+  }
+  if (dialogueGenImageCountRow) {
+    dialogueGenImageCountRow.hidden = isVideo;
+  }
+  if (imagesGenerateRow) {
+    imagesGenerateRow.hidden = isVideo;
+  }
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
-      : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео и число фото — ниже.";
+      : isVideo
+        ? "Задание для горизонтального ролика: сюжет, тон и финал. Режим «переписка» или «повествование» — ниже."
+        : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео и число фото — ниже.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
       ? "Опишите часть истории, героев и финал сцены…"
-      : "Опишите сюжет, героев и желаемый финал…";
+      : isVideo
+        ? "Опишите сюжет, героев и желаемый финал…"
+        : "Опишите сюжет, героев и желаемый финал…";
   }
   if (dialogueTitleHint) {
     dialogueTitleHint.textContent = isSeries
@@ -439,10 +492,12 @@ const syncEditorKindUi = () => {
   if (dialogueTitleInput) {
     dialogueTitleInput.placeholder = isSeries ? "poka_v_sssr_part3" : "Когда кот сел на клавиатуру";
   }
-  if (preRenderChecklist && isSeries) {
+  if (preRenderChecklist && (isSeries || isVideo)) {
     preRenderChecklist.hidden = true;
   }
   updateSeriesPartHint();
+  updateStoryAnimationControls();
+  updateWallpaperControls();
 };
 
 const updateSeriesPartHint = () => {
@@ -478,6 +533,12 @@ const resolveTitlePayload = () => {
     return {};
   }
   if (editorKind === "shorts") {
+    return {
+      title: slugifyProjectName(raw),
+      titleDisplay: raw,
+    };
+  }
+  if (editorKind === "video") {
     return {
       title: slugifyProjectName(raw),
       titleDisplay: raw,
@@ -644,7 +705,7 @@ const restoreEditorSnapshot = async (snapshot) => {
 };
 
 const switchEditorKind = async (nextKind) => {
-  const normalized = nextKind === "shorts" ? "shorts" : "series";
+  const normalized = normalizeEditorKind(nextKind);
   if (normalized === editorKind) {
     return;
   }
@@ -659,7 +720,8 @@ const switchEditorKind = async (nextKind) => {
 };
 
 const updateContentViewVisibility = () => {
-  const isContentTab = activeMainTab === "series" || activeMainTab === "shorts";
+  const isContentTab =
+    activeMainTab === "series" || activeMainTab === "shorts" || activeMainTab === "video";
   if (tabPanelSeries) {
     tabPanelSeries.hidden = !isContentTab || editorVisible || activeMainTab !== "series";
     tabPanelSeries.classList.toggle(
@@ -672,6 +734,13 @@ const updateContentViewVisibility = () => {
     tabPanelShorts.classList.toggle(
       "tab-panel--active",
       isContentTab && !editorVisible && activeMainTab === "shorts",
+    );
+  }
+  if (tabPanelVideo) {
+    tabPanelVideo.hidden = !isContentTab || editorVisible || activeMainTab !== "video";
+    tabPanelVideo.classList.toggle(
+      "tab-panel--active",
+      isContentTab && !editorVisible && activeMainTab === "video",
     );
   }
   if (tabPanelEditor) {
@@ -731,7 +800,7 @@ const showBrowseView = async (kind = editorKind) => {
   if (editorVisible) {
     editorSnapshots[editorKind] = captureEditorSnapshot();
   }
-  editorKind = kind === "shorts" ? "shorts" : "series";
+  editorKind = kind === "shorts" ? "shorts" : kind === "video" ? "video" : "series";
   syncEditorKindUi();
   editorVisible = false;
   updateContentViewVisibility();
@@ -748,7 +817,7 @@ const showBrowseView = async (kind = editorKind) => {
 };
 
 const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
-  const isContentTab = tabId === "series" || tabId === "shorts";
+  const isContentTab = tabId === "series" || tabId === "shorts" || tabId === "video";
   activeMainTab = tabId;
 
   if (isContentTab) {
@@ -756,12 +825,12 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
       if (editorVisible) {
         await switchEditorKind(tabId);
       } else {
-        editorKind = tabId;
+        editorKind = normalizeEditorKind(tabId);
         syncEditorKindUi();
         await loadDialoguesList(editorKind);
       }
     } else if (tabId !== editorKind && skipEditorSwitch) {
-      editorKind = tabId;
+      editorKind = normalizeEditorKind(tabId);
       syncEditorKindUi();
     } else if (!editorVisible) {
       if (editorKind === "series") {
@@ -771,7 +840,7 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
           await showSeriesListView();
         }
       } else {
-        await loadDialoguesList("shorts");
+        await loadDialoguesList(editorKind);
       }
     }
   }
@@ -784,6 +853,7 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
   const buttons = {
     series: tabBtnSeries,
     shorts: tabBtnShorts,
+    video: tabBtnVideo,
     prompt: tabBtnPrompt,
     api: tabBtnApi,
   };
@@ -814,6 +884,7 @@ tabBtnSeries?.addEventListener("click", () => {
   setActiveTab("series");
 });
 tabBtnShorts?.addEventListener("click", () => setActiveTab("shorts"));
+tabBtnVideo?.addEventListener("click", () => setActiveTab("video"));
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
 
@@ -897,7 +968,7 @@ const applyDialogueToEditor = (dialogue) => {
   dialogueTitleInput.value = dialogue.titleDisplay || dialogue.title || "";
   if (dialoguePromptInput) {
     const fromDb = dialogue.dialoguePrompt ?? "";
-    if (editorKind === "shorts") {
+    if (editorKind === "shorts" || editorKind === "video") {
       dialoguePromptInput.value = fromDb.trim() || readLastShortsPrompt();
       saveLastShortsPrompt(dialoguePromptInput.value);
     } else {
@@ -924,12 +995,13 @@ const applyDialogueToEditor = (dialogue) => {
   );
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
   syncEpisodesFromJson();
   updateWallpaperControls();
-  if (editorKind === "shorts") {
+  if (editorKind === "shorts" || editorKind === "video") {
     applyMessengerLocaleToJson();
   }
   showExistingOutputDownload();
@@ -1048,7 +1120,7 @@ const openDialogue = async (id) => {
   if (!res.ok) {
     throw new Error(data.error ?? "Не удалось открыть диалог");
   }
-  editorKind = data.kind === "series" ? "series" : "shorts";
+  editorKind = normalizeEditorKind(data.kind);
   activeMainTab = editorKind;
   if (editorKind === "series" && data.seriesId) {
     selectedSeriesId = data.seriesId.trim();
@@ -1056,7 +1128,7 @@ const openDialogue = async (id) => {
   syncEditorKindUi();
   currentDialogueId = data.id;
   applyDialogueToEditor(data);
-  if (editorKind === "shorts") {
+  if (editorKind === "shorts" || editorKind === "video") {
     applyTitleCardFieldsToJson();
   }
   editorSnapshots[editorKind] = captureEditorSnapshot();
@@ -1152,7 +1224,9 @@ const newDialogue = async ({openEditor = false} = {}) => {
   setDialogueSaveStatus(
     editorKind === "series"
       ? "Новая часть серии — вставьте JSON или сгенерируйте диалог"
-      : "Новый Shorts — вставьте JSON или сгенерируйте диалог",
+      : editorKind === "video"
+        ? "Новый Video — вставьте JSON или сгенерируйте сценарий"
+        : "Новый Shorts — вставьте JSON или сгенерируйте диалог",
   );
   dialoguePanel.hidden = true;
   dialogueEditor.replaceChildren();
@@ -1160,6 +1234,11 @@ const newDialogue = async ({openEditor = false} = {}) => {
   if (editorKind === "shorts") {
     applyShortsGenDefaults();
     setVideoLayout("storyOverlay");
+  }
+  if (editorKind === "video") {
+    applyShortsGenDefaults();
+    setVideoTextMode("narration");
+    applyVideoLayoutToJson("video");
   }
   editorSnapshots[editorKind] = captureEditorSnapshot();
   if (openEditor) {
@@ -1236,12 +1315,12 @@ const renderDialogueListItem = (item) => {
           updateContentViewVisibility();
           await showSeriesPartsView(selectedSeriesId);
         } else {
-          await showBrowseView(item.kind === "series" ? "series" : "shorts");
+          await showBrowseView(normalizeEditorKind(item.kind));
         }
       } else if (item.kind === "series" && selectedSeriesId) {
         await loadSeriesParts(selectedSeriesId);
       } else {
-        await loadDialoguesList(item.kind === "series" ? "series" : "shorts");
+        await loadDialoguesList(normalizeEditorKind(item.kind));
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
@@ -1265,7 +1344,7 @@ const renderDialogueListItem = (item) => {
 };
 
 const fetchDialoguesList = async (kind) => {
-  const normalizedKind = kind === "series" || kind === "shorts" ? kind : "series";
+  const normalizedKind = normalizeEditorKind(kind);
   const res = await fetch(`/api/dialogues?kind=${encodeURIComponent(normalizedKind)}`);
   const data = await res.json();
   if (!res.ok) {
@@ -1274,8 +1353,15 @@ const fetchDialoguesList = async (kind) => {
   return data.dialogues ?? [];
 };
 
-const getBrowseListElement = (kind) =>
-  kind === "shorts" ? shortsDialoguesList : seriesDialoguesList;
+const getBrowseListElement = (kind) => {
+  if (kind === "shorts") {
+    return shortsDialoguesList;
+  }
+  if (kind === "video") {
+    return videoDialoguesList;
+  }
+  return seriesDialoguesList;
+};
 
 const groupSeriesDialogues = (dialogues) => {
   const groups = new Map();
@@ -1302,6 +1388,8 @@ const renderEmptyList = (container, kind, context = "list") => {
     empty.textContent = "В этой серии пока нет частей. Нажмите «Новая часть».";
   } else if (kind === "series") {
     empty.textContent = "Пока нет серий. Нажмите «Новый сериал».";
+  } else if (kind === "video") {
+    empty.textContent = "Пока нет Video. Нажмите «Новый Video».";
   } else {
     empty.textContent = "Пока нет Shorts. Нажмите «Новый Shorts».";
   }
@@ -1353,6 +1441,21 @@ const renderShortsDialoguesList = (dialogues) => {
   container.replaceChildren();
   if (!dialogues.length) {
     renderEmptyList(container, "shorts");
+    return;
+  }
+  for (const item of dialogues) {
+    container.append(renderDialogueListItem(item));
+  }
+};
+
+const renderVideoDialoguesList = (dialogues) => {
+  const container = videoDialoguesList;
+  if (!container) {
+    return;
+  }
+  container.replaceChildren();
+  if (!dialogues.length) {
+    renderEmptyList(container, "video");
     return;
   }
   for (const item of dialogues) {
@@ -1415,6 +1518,10 @@ const loadSeriesParts = async (seriesId) => {
 const renderDialoguesList = (dialogues, kind) => {
   if (kind === "shorts") {
     renderShortsDialoguesList(dialogues);
+    return;
+  }
+  if (kind === "video") {
+    renderVideoDialoguesList(dialogues);
     return;
   }
   if (selectedSeriesId) {
@@ -1537,6 +1644,7 @@ btnRefreshSeriesParts?.addEventListener("click", () => {
   }
 });
 btnRefreshShortsList?.addEventListener("click", () => loadDialoguesList("shorts"));
+btnRefreshVideoList?.addEventListener("click", () => loadDialoguesList("video"));
 btnNewSeries?.addEventListener("click", () => {
   openNewSeriesEditor();
 });
@@ -1545,6 +1653,11 @@ btnNewPartInSeries?.addEventListener("click", () => {
 });
 btnNewShort?.addEventListener("click", async () => {
   editorKind = "shorts";
+  syncEditorKindUi();
+  await newDialogue({openEditor: true});
+});
+btnNewVideo?.addEventListener("click", async () => {
+  editorKind = "video";
   syncEditorKindUi();
   await newDialogue({openEditor: true});
 });
@@ -1831,7 +1944,7 @@ const applyGeneratedDialogue = async (data) => {
   const conversation = prepareConversationForEditor(data.conversation);
   jsonInput.value = JSON.stringify(conversation, null, 2);
   applyMessengerLocaleToJson();
-  if (editorKind === "shorts" && data.displayTitle) {
+  if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
   }
@@ -1961,7 +2074,16 @@ const setWallpaper = (mode) => {
   }
 };
 
-const isWallpaperRelevantForLayout = (layout = getVideoLayout()) => layout !== "storyOverlay";
+const isWallpaperRelevantForLayout = () => {
+  if (editorKind === "video") {
+    const parsed = parseConversationJson();
+    if (parsed?.layout === "video") {
+      return parsed.video?.textMode === "chat";
+    }
+    return getVideoTextMode() === "chat";
+  }
+  return getVideoLayout() !== "storyOverlay";
+};
 
 const updateWallpaperControls = () => {
   const active = isWallpaperRelevantForLayout();
@@ -2060,9 +2182,75 @@ const setVideoLayout = (layout) => {
   }
 };
 
+const getVideoTextMode = () => {
+  const checked = [...videoTextModeInputs].find((input) => input.checked);
+  return checked?.value === "chat" ? "chat" : "narration";
+};
+
+const setVideoTextMode = (textMode) => {
+  const value = textMode === "chat" ? "chat" : "narration";
+  for (const input of videoTextModeInputs) {
+    input.checked = input.value === value;
+  }
+};
+
+const stripVideoOnlyAssets = (parsed) => {
+  if (!parsed || typeof parsed !== "object") {
+    return parsed;
+  }
+  delete parsed.story;
+  delete parsed.hookText;
+  if (Array.isArray(parsed.messages)) {
+    for (const message of parsed.messages) {
+      delete message.image;
+      delete message.imagePrompt;
+      delete message.imageEditPrompt;
+      delete message.storyImage;
+      delete message.storyImagePrompt;
+      delete message.storyVideo;
+      delete message.storyVideoDurationMs;
+      delete message.storyVideoProfile;
+      delete message.storyVideoLoop;
+      delete message.storySfx;
+    }
+  }
+  return parsed;
+};
+
+const applyVideoTextModeToJson = (textMode = getVideoTextMode()) => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  parsed.layout = "video";
+  parsed.video = {textMode: textMode === "chat" ? "chat" : "narration"};
+  stripVideoOnlyAssets(parsed);
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  updateGenerateImagesControls(parsed);
+  updateWallpaperControls();
+};
+
+const syncVideoTextModeFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed || parsed.layout !== "video") {
+    setVideoTextMode("narration");
+    return;
+  }
+  setVideoTextMode(parsed.video?.textMode === "chat" ? "chat" : "narration");
+};
+
 const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   const parsed = parseConversationJson();
   if (!parsed) {
+    return;
+  }
+  if (layout === "video" || editorKind === "video") {
+    parsed.layout = "video";
+    parsed.video = {textMode: getVideoTextMode()};
+    stripVideoOnlyAssets(parsed);
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+    updateGenerateImagesControls(parsed);
+    updateWallpaperControls();
     return;
   }
   if (layout === "storySplit" || layout === "storyOverlay") {
@@ -2098,6 +2286,11 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
 const syncVideoLayoutFromJson = () => {
   const parsed = parseConversationJson();
   if (!parsed) {
+    return;
+  }
+  if (parsed.layout === "video") {
+    syncVideoTextModeFromJson();
+    updateWallpaperControls();
     return;
   }
   setVideoLayout(
@@ -4162,6 +4355,7 @@ document.addEventListener("paste", async (e) => {
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
   syncMessageFontSizeFromJson();
   updateWallpaperControls();
@@ -4190,6 +4384,13 @@ for (const input of videoLayoutInputs) {
   input.addEventListener("change", () => {
     applyVideoLayoutToJson(getVideoLayout());
     applyStoryAnimationToJson();
+    scheduleRefreshDialogue();
+  });
+}
+
+for (const input of videoTextModeInputs) {
+  input.addEventListener("change", () => {
+    applyVideoTextModeToJson(getVideoTextMode());
     scheduleRefreshDialogue();
   });
 }
@@ -4772,6 +4973,12 @@ const updateGenerateImagesControls = (conversation = null) => {
   }
 
   const parsed = conversation ?? parseConversationJson();
+  if (editorKind === "video" || parsed?.layout === "video") {
+    btnGenerateImages.disabled = true;
+    btnGenerateImages.title = "В режиме Video изображения не используются";
+    updatePreviewCoverControls(parsed);
+    return;
+  }
   const pending = countPendingImages(parsed);
   const canGenerate = openrouterImageAvailable && pending > 0;
 
@@ -4823,19 +5030,23 @@ const clearShortsJsonBeforeGenerate = () => {
 
 const getDialogueGenOptions = () => ({
   messageCount: Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount(),
-  imageCount: Number(dialogueImageCount?.value ?? 0) || 0,
+  imageCount: editorKind === "video" ? 0 : Number(dialogueImageCount?.value ?? 0) || 0,
   language: getDialogueLanguage(),
   model: getDialogueModel(),
   videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
+  textMode: editorKind === "video" ? getVideoTextMode() : undefined,
 });
 
-const formatDialogueGenSummary = ({messageCount, imageCount, language, model, videoLayout}) => {
+const formatDialogueGenSummary = ({messageCount, imageCount, language, model, videoLayout, textMode}) => {
   const lang = language === "en" ? "EN" : "RU";
-  const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
+  const photos =
+    editorKind === "video" ? "" : imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
   const layout =
     editorKind === "shorts" && videoLayout
       ? `, ${VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout}`
-      : "";
+      : editorKind === "video" && textMode
+        ? `, ${VIDEO_TEXT_MODE_LABELS[textMode] ?? textMode}`
+        : "";
   const modelLabel = model ? `, ${findDialogueModelLabel(model)}` : "";
   return `≤${messageCount} сообщ.${photos}, ${lang}${layout}${modelLabel}`;
 };
@@ -4845,7 +5056,7 @@ const generateDialogueFromPrompt = async () => {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
   }
 
-  if (editorKind === "shorts") {
+  if (editorKind === "shorts" || editorKind === "video") {
     clearShortsJsonBeforeGenerate();
   }
 
@@ -4866,6 +5077,12 @@ const generateDialogueFromPrompt = async () => {
     body.videoLayout = getVideoLayout();
   }
 
+  if (editorKind === "video") {
+    body.imageCount = 0;
+    body.includeImages = false;
+    body.textMode = getVideoTextMode();
+  }
+
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
     body.partNumber = currentPartNumber ?? (await resolveSeriesPartNumber());
@@ -4884,7 +5101,7 @@ const generateDialogueFromPrompt = async () => {
 
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
   applyMessengerLocaleToJson();
-  if (editorKind === "shorts" && data.displayTitle) {
+  if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
   }
@@ -4932,7 +5149,7 @@ const checkDialogueLogicFromPrompt = async () => {
   }
   jsonInput.value = JSON.stringify(merged, null, 2);
   applyMessengerLocaleToJson();
-  if (editorKind === "shorts" && data.displayTitle) {
+  if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
   }
@@ -5016,7 +5233,7 @@ const refineDialogueFromPrompt = async () => {
 
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
   applyMessengerLocaleToJson();
-  if (editorKind === "shorts" && data.displayTitle) {
+  if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     dialogueTitleInput.value = data.displayTitle;
     updateProjectPathsHint();
   }
@@ -5071,7 +5288,7 @@ const formatGenerateDialogueResult = (data) => {
     lines.push(`Сообщений: ${data.expandedFrom} → ${data.messageCount ?? "?"}`);
   }
   lines.push(`Попыток: ${data.attempts ?? "?"}`);
-  if (editorKind === "shorts" && data.displayTitle) {
+  if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     lines.push(`Название: «${data.displayTitle}»`);
   }
   return {title: "Диалог готов", log: lines.join("\n")};

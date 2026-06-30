@@ -18,6 +18,18 @@ import {
 export const isStoryVisualLayout = (layout) =>
   layout === "storySplit" || layout === "storyOverlay";
 
+export const isVideoContentLayout = (layout) => layout === "video";
+
+const normalizeContentMode = (mode) => {
+  if (mode === "series") {
+    return "series";
+  }
+  if (mode === "video") {
+    return "video";
+  }
+  return "shorts";
+};
+
 const normalizeVideoLayout = (layout) =>
   isStoryVisualLayout(layout) ? layout : "chat";
 import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
@@ -60,6 +72,8 @@ const buildJsonFormatBlock = ({
   language = "ru",
   withStoryVisual = false,
   storyLayout = "storyOverlay",
+  withVideoLayout = false,
+  videoTextMode = "narration",
 } = {}) => {
   const resolvedMyName =
     language === "en" && (myName === "Алиса" || myName === "Я") ? "Me" : myName;
@@ -74,7 +88,12 @@ const buildJsonFormatBlock = ({
       `  "myName": "${resolvedMyName}",`,
       '  "wallpaper": "default" | "dark",',
     );
-    if (withStoryVisual) {
+    if (withVideoLayout) {
+      lines.push('  "layout": "video",');
+      lines.push(
+        `  "video": { "textMode": "${videoTextMode === "chat" ? "chat" : "narration"}" },`,
+      );
+    } else if (withStoryVisual) {
       lines.push(`  "layout": "${storyLayout}",`);
       lines.push('  "story": {');
       lines.push('    "opening": {');
@@ -99,7 +118,7 @@ const buildJsonFormatBlock = ({
         '      "sentAt": "HH:MM"',
         "    },",
       );
-    } else {
+    } else if (!withVideoLayout) {
       lines.push(
         "    {",
         '      "author": "them",',
@@ -127,7 +146,12 @@ const buildJsonFormatBlock = ({
     `  "myName": "${resolvedMyName}",`,
     '  "wallpaper": "default" | "dark",',
   );
-  if (withStoryVisual) {
+  if (withVideoLayout) {
+    lines.push('  "layout": "video",');
+    lines.push(
+      `  "video": { "textMode": "${videoTextMode === "chat" ? "chat" : "narration"}" },`,
+    );
+  } else if (withStoryVisual) {
     lines.push(`  "layout": "${storyLayout}",`);
     lines.push('  "story": {');
     lines.push('    "opening": {');
@@ -152,7 +176,7 @@ const buildJsonFormatBlock = ({
       '      "sentAt": "HH:MM"',
       "    },",
     );
-  } else {
+  } else if (!withVideoLayout) {
     lines.push(
       "    {",
       '      "author": "them",',
@@ -388,30 +412,43 @@ const buildTemplateVars = async ({
   mode = "shorts",
   ussrStyle = false,
   videoLayout = "chat",
+  videoTextMode = "narration",
 } = {}) => {
   const logicRules = await readPromptFile(promptKeyForLogicRules(language));
-  const storyVisual = isStoryVisualLayout(videoLayout);
+  const isVideoMode = mode === "video";
+  const storyVisual = !isVideoMode && isStoryVisualLayout(videoLayout);
   const storyLayout = normalizeVideoLayout(videoLayout);
   return {
     JSON_FORMAT: buildJsonFormatBlock({
-      withDisplayTitle: mode === "shorts",
-      myName: mode === "shorts" ? (language === "en" ? "Me" : "Я") : language === "en" ? "Alice" : "Алиса",
-      fullConversation: mode === "shorts",
+      withDisplayTitle: mode === "shorts" || mode === "video",
+      myName:
+        mode === "shorts" || mode === "video"
+          ? language === "en"
+            ? "Me"
+            : "Я"
+          : language === "en"
+            ? "Alice"
+            : "Алиса",
+      fullConversation: mode === "shorts" || mode === "video",
       language,
       withStoryVisual: storyVisual,
       storyLayout,
+      withVideoLayout: isVideoMode,
+      videoTextMode,
     }).join("\n"),
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
     MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language).join("\n"),
-    IMAGE_RULES: storyVisual
-      ? buildStoryImageRules({language, videoLayout: storyLayout}).join("\n")
-      : buildImageRules(imageCount, {
-          ussrStyle: ussrStyle || mode === "series",
-          language,
-        }).join("\n"),
+    IMAGE_RULES: isVideoMode
+      ? imageCountUserHint(0, language)
+      : storyVisual
+        ? buildStoryImageRules({language, videoLayout: storyLayout}).join("\n")
+        : buildImageRules(imageCount, {
+            ussrStyle: ussrStyle || mode === "series",
+            language,
+          }).join("\n"),
     SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
     STORY_PLAN: "",
     LITERARY_EDITOR: "",
@@ -455,6 +492,8 @@ const buildShortsSystemPrompt = async ({
   messageCount = 20,
   language = "ru",
   videoLayout = "chat",
+  mode = "shorts",
+  videoTextMode = "narration",
 } = {}) => {
   const key = promptKeyForShortsSystem(language);
   const template = await readPromptFile(key);
@@ -467,8 +506,9 @@ const buildShortsSystemPrompt = async ({
       imageCount,
       messageCount,
       language,
-      mode: "shorts",
+      mode,
       videoLayout,
+      videoTextMode,
     }),
   );
 };
@@ -524,11 +564,19 @@ const buildSystemPrompt = async ({
   language = "ru",
   seriesId = DEFAULT_SERIES_ID,
   videoLayout = "chat",
+  videoTextMode = "narration",
 } = {}) => {
   if (mode === "series") {
     return buildSeriesSystemPrompt({imageCount, messageCount, language, seriesId});
   }
-  return buildShortsSystemPrompt({imageCount, messageCount, language, videoLayout});
+  return buildShortsSystemPrompt({
+    imageCount,
+    messageCount,
+    language,
+    videoLayout: mode === "video" ? "video" : videoLayout,
+    mode,
+    videoTextMode,
+  });
 };
 
 const buildUserPrompt = async ({
@@ -749,6 +797,31 @@ const removeGenericGeneratedImageRefs = (conversation) => {
   return conversation;
 };
 
+const applyVideoDefaults = (conversation, textMode = "narration") => {
+  if (!conversation || typeof conversation !== "object") {
+    return conversation;
+  }
+  conversation.layout = "video";
+  conversation.video = {textMode: textMode === "chat" ? "chat" : "narration"};
+  delete conversation.story;
+  delete conversation.hookText;
+  if (Array.isArray(conversation.messages)) {
+    for (const message of conversation.messages) {
+      delete message.image;
+      delete message.imagePrompt;
+      delete message.imageEditPrompt;
+      delete message.storyImage;
+      delete message.storyImagePrompt;
+      delete message.storyVideo;
+      delete message.storyVideoDurationMs;
+      delete message.storyVideoProfile;
+      delete message.storyVideoLoop;
+      delete message.storySfx;
+    }
+  }
+  return conversation;
+};
+
 const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay") => {
   if (!conversation || typeof conversation !== "object") {
     return conversation;
@@ -773,8 +846,13 @@ const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay") =>
   return conversation;
 };
 
-const parseGeneratedPayload = (data, mode, {videoLayout = "chat"} = {}) => {
-  if (mode !== "shorts" || !data || typeof data !== "object") {
+const parseGeneratedPayload = (data, mode, {videoLayout = "chat", videoTextMode = "narration"} = {}) => {
+  const normalizedMode = normalizeContentMode(mode);
+  if (normalizedMode !== "shorts" && normalizedMode !== "video") {
+    return {conversation: validateConversation(data), displayTitle: ""};
+  }
+
+  if (!data || typeof data !== "object") {
     return {conversation: validateConversation(data), displayTitle: ""};
   }
 
@@ -782,6 +860,11 @@ const parseGeneratedPayload = (data, mode, {videoLayout = "chat"} = {}) => {
   const displayTitle = String(raw.displayTitle ?? "").trim();
   delete raw.displayTitle;
   let conversation = removeGenericGeneratedImageRefs(validateConversation(raw));
+  if (normalizedMode === "video") {
+    conversation = applyVideoDefaults(conversation, videoTextMode);
+    return {conversation, displayTitle};
+  }
+
   const targetLayout = isStoryVisualLayout(conversation.layout)
     ? conversation.layout
     : isStoryVisualLayout(videoLayout)
@@ -983,7 +1066,10 @@ const expandShortsDialogue = async ({
 };
 
 export const resolveGenerationVideoLayout = ({videoLayout, conversation, mode = "shorts"} = {}) => {
-  if (mode !== "shorts") {
+  if (normalizeContentMode(mode) === "video") {
+    return "video";
+  }
+  if (normalizeContentMode(mode) !== "shorts") {
     return "chat";
   }
   if (isStoryVisualLayout(videoLayout)) {
@@ -998,6 +1084,7 @@ export const resolveGenerationVideoLayout = ({videoLayout, conversation, mode = 
 export const generateDialogue = async ({
   prompt,
   videoLayout = "storyOverlay",
+  textMode = "narration",
   previousMessages,
   includeImages,
   imageCount,
@@ -1016,8 +1103,13 @@ export const generateDialogue = async ({
     throw new Error("Промпт диалога обязателен");
   }
 
-  const gen = normalizeGenerationOptions({messageCount, imageCount, includeImages, language});
-  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const normalizedMode = normalizeContentMode(mode);
+  const gen = normalizeGenerationOptions({
+    messageCount,
+    imageCount: normalizedMode === "video" ? 0 : imageCount,
+    includeImages: normalizedMode === "video" ? false : includeImages,
+    language,
+  });
   const contextMessages =
     normalizedMode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0
       ? previousMessages
@@ -1038,6 +1130,7 @@ export const generateDialogue = async ({
     language: gen.language,
     seriesId,
     videoLayout: genVideoLayout,
+    videoTextMode: textMode,
   });
   const user = await buildUserPrompt({
     prompt: fullPrompt,
@@ -1059,6 +1152,7 @@ export const generateDialogue = async ({
     parseResult: (data) => {
       const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode, {
         videoLayout: genVideoLayout,
+        videoTextMode: textMode,
       });
       return {conversation, displayTitle, mode: normalizedMode};
     },

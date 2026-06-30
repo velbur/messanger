@@ -39,6 +39,16 @@
           class="tabs__btn"
           role="tab"
           aria-selected="false"
+          data-tab="video"
+          id="tabBtnVideo"
+        >
+          Video
+        </button>
+        <button
+          type="button"
+          class="tabs__btn"
+          role="tab"
+          aria-selected="false"
           data-tab="prompt"
           id="tabBtnPrompt"
         >
@@ -113,6 +123,24 @@
           Отдельные переписки без связи между собой.
         </p>
         <div id="shortsDialoguesList" class="dialogues-list"></div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelVideo" role="tabpanel" hidden>
+        <div class="browse-panel__head">
+          <span class="label">Video</span>
+          <div class="browse-panel__actions">
+            <button type="button" id="btnRefreshVideoList" class="btn btn-secondary btn-small">
+              Обновить
+            </button>
+            <button type="button" id="btnNewVideo" class="btn btn-primary btn-small">
+              Новый Video
+            </button>
+          </div>
+        </div>
+        <p class="dialogue-hint">
+          Горизонтальные ролики 16:9 — переписка или повествование текстом на экране, без картинок.
+        </p>
+        <div id="videoDialoguesList" class="dialogues-list"></div>
       </section>
 
       <section class="panel tab-panel" id="tabPanelEditor" role="tabpanel" hidden>
@@ -191,8 +219,8 @@
                 </button>
                 <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
-              <div class="dialogue-gen-options">
-                <label class="dialogue-gen-option">
+              <div class="dialogue-gen-options" id="dialogueGenOptions">
+                <label class="dialogue-gen-option" id="dialogueGenMessageCountRow">
                   <span class="dialogue-gen-option__label">Сообщений</span>
                   <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
                     <option value="10" selected>до 10</option>
@@ -203,7 +231,7 @@
                     <option value="40">до 40</option>
                   </select>
                 </label>
-                <label class="dialogue-gen-option">
+                <label class="dialogue-gen-option" id="dialogueGenImageCountRow">
                   <span class="dialogue-gen-option__label">Фото</span>
                   <select id="dialogueImageCount" class="select select--compact" title="Сколько фото-сообщений с imagePrompt">
                     <option value="0" selected>0</option>
@@ -287,6 +315,23 @@
                 <button type="button" id="btnResetMessageFontSize" class="btn btn-secondary btn-small">
                   Сброс
                 </button>
+              </div>
+            </div>
+
+            <div class="row" id="videoTextModeRow" hidden>
+              <span class="label">Подача текста</span>
+              <p class="dialogue-hint">
+                Переписка — мессенджер в горизонтальном кадре. Повествование — крупный текст на экране, по одной реплике.
+              </p>
+              <div class="theme-options" role="radiogroup" aria-label="Подача текста">
+                <label class="theme-option">
+                  <input type="radio" name="videoTextMode" value="narration" checked />
+                  <span>Повествование</span>
+                </label>
+                <label class="theme-option">
+                  <input type="radio" name="videoTextMode" value="chat" />
+                  <span>Переписка</span>
+                </label>
               </div>
             </div>
 
@@ -432,7 +477,7 @@
                 <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
-              <div class="actions actions--inline">
+              <div class="actions actions--inline" id="imagesGenerateRow">
                 <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
                   Сгенерировать изображения
                 </button>

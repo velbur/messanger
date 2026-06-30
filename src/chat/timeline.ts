@@ -10,6 +10,7 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
+import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
@@ -147,8 +148,10 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     ? msToFrames(scaleConversationMs(conversation, intro.durationMs))
     : 0;
   const storyVisual = isStoryVisualLayout(conversation);
+  const videoLayout = isVideoLayout(conversation);
   const storyConfig = mergeStoryConfig(conversation);
-  const disableMessageFullscreen = storyVisual && storyConfig.disableMessageFullscreen;
+  const disableMessageFullscreen =
+    videoLayout || (storyVisual && storyConfig.disableMessageFullscreen);
 
   const events: MessageTimelineEvent[] = [];
   let cursor = introFrames;
