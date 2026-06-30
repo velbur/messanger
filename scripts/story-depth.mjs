@@ -27,12 +27,12 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 36;
+export const DEPTH_LAYER_VERSION = 37;
 
 /** Доля ширины кадра — амплитуда движения камеры */
-const PARALLAX_AMPLITUDE_FRAC = 0.065;
+const PARALLAX_AMPLITUDE_FRAC = 0.085;
 /** Ken Burns-зум поверх parallax (0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0.025;
+const PARALLAX_ZOOM_FRAC = 0.035;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
