@@ -27,17 +27,17 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 34;
+export const DEPTH_LAYER_VERSION = 35;
 
-/** Доля ширины кадра — небольшой сдвиг, передний план rigid (без резины) */
-const PARALLAX_AMPLITUDE_FRAC = 0.058;
+/** Доля ширины кадра — очень аккуратное смещение, чтобы не было "резины" */
+const PARALLAX_AMPLITUDE_FRAC = 0.035;
 /** Ken Burns-зум поверх parallax (0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0;
+const PARALLAX_ZOOM_FRAC = 0.015;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
-/** Профиль движения: быстрый размах в ~⅓ сцены, дальше статика */
-const PARALLAX_SWEEP = "quick-round-trip";
+/** Профиль движения: round-trip = туда и обратно за одну сцену */
+const PARALLAX_SWEEP = "round-trip";
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {

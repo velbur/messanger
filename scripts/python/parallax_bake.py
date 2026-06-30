@@ -101,9 +101,13 @@ def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
     lo = float(np.percentile(d, 2))
     hi = float(np.percentile(d, 98))
     d = np.clip((d - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-    sigma = max(1.0, min(w, h) * 0.0055)
-    d = cv2.GaussianBlur(d, (0, 0), sigmaX=sigma, sigmaY=sigma)
-    return d
+    
+    # Используем bilateral filter, чтобы выровнять глубину внутри объектов (лиц)
+    # и сохранить резкие границы. Обычный GaussianBlur делает из объектов "холмы",
+    # из-за чего они растягиваются ("плывут") при parallax-сдвиге.
+    d_8u = (d * 255).astype(np.uint8)
+    d_8u = cv2.bilateralFilter(d_8u, d=7, sigmaColor=45, sigmaSpace=45)
+    return d_8u.astype(np.float32) / 255.0
 
 
 def depth_stiffness_mask(depth: np.ndarray) -> np.ndarray:
@@ -128,24 +132,8 @@ def camera_phase(t: float) -> float:
 
 def scene_sweep_phase(t: float, sweep: str = "round-trip") -> float:
     """Профиль движения камеры по длине клипа."""
-    if sweep == "quick-round-trip":
-        # Быстрый размах в первой трети сцены, дальше статика — меньше «уплывания»
-        span = 0.34
-        if t >= span:
-            return 0.0
-        local = t / span
-        tri = local * 2.0 if local < 0.5 else 2.0 - local * 2.0
-        return camera_phase(tri)
     tri = t * 2.0 if t < 0.5 else 2.0 - t * 2.0
     return camera_phase(tri)
-
-
-def warp_rigid(src: np.ndarray, base_x, base_y, shift_x: float, shift_y: float):
-    """Сдвиг слоя целиком — без depth-warp (лица и предметы не тянутся)."""
-    map_x = (base_x - shift_x).astype(np.float32)
-    map_y = (base_y - shift_y).astype(np.float32)
-    warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-    return warped, map_x, map_y
 
 
 def build_foreground_alpha(depth: np.ndarray, w: int, h: int) -> np.ndarray:
@@ -359,8 +347,8 @@ def bake_one(job: dict) -> dict:
             bg_warp, bg_mx, bg_my = warp_layer(
                 bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain, depth_stiff
             )
-            fg_warp, map_x, map_y = warp_rigid(
-                img, base_x, base_y, ox * near_gain, oy * near_gain
+            fg_warp, map_x, map_y = warp_layer(
+                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain, depth_stiff
             )
             a_warp = cv2.remap(
                 fg_alpha_f, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
