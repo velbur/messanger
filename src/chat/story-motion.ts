@@ -130,6 +130,14 @@ export const motionVectors = (directionSeed: string): {panX: number; panY: numbe
   };
 };
 
+/** Чередование направления parallax-камеры: чётные сцены вправо, нечётные влево */
+export const parallaxMotionVectorsForScene = (
+  sceneIndex: number,
+): {panX: number; panY: number} => ({
+  panX: sceneIndex % 2 === 0 ? 1 : -1,
+  panY: -1,
+});
+
 /**
  * Depth-parallax (3D-photo) запекается заранее в .parallax.mp4 — движение
  * считается по-пиксельно в scripts/python/parallax_bake.py, а в Remotion клип

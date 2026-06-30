@@ -5,9 +5,9 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
-import {hashSeed, motionVectors} from "../src/chat/story-motion.ts";
+import {hashSeed, parallaxMotionVectorsForScene} from "../src/chat/story-motion.ts";
 import {FPS} from "../src/chat/fps.ts";
-import {storyParallaxBakeFramesByImage} from "../src/chat/timeline.ts";
+import {storyParallaxBakePlanByImage} from "../src/chat/timeline.ts";
 import {
   bakeKenBurnsLoopFallback,
   bakeParallaxVideos,
@@ -27,7 +27,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 29;
+export const DEPTH_LAYER_VERSION = 30;
 
 /** Доля ширины кадра — одно линейное движение за всю сцену (большая амплитуда) */
 const PARALLAX_AMPLITUDE_FRAC = 0.095;
@@ -239,10 +239,12 @@ const bakeParallaxAsset = async ({
   paths,
   metaExtra,
   frames = PARALLAX_DEFAULT_FRAMES,
+  panX,
+  panY,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
-    const {panX, panY} = motionVectors(rel);
+    const pan = {panX, panY};
     const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
     const outDepth = safePublicAbs(paths.depth).absolute;
     await fs.mkdir(path.dirname(outVideo), {recursive: true});
@@ -256,8 +258,8 @@ const bakeParallaxAsset = async ({
         frames,
         fps: FPS,
         amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
-        panX,
-        panY,
+        panX: pan.panX,
+        panY: pan.panY,
         motion: PARALLAX_MOTION,
         zoomFrac: PARALLAX_ZOOM_FRAC,
         dofStrength: PARALLAX_FX.dofStrength,
@@ -280,6 +282,8 @@ const bakeParallaxAsset = async ({
         width,
         height,
         zoomFrac: PARALLAX_ZOOM_FRAC,
+        panX: pan.panX,
+        panY: pan.panY,
         fx: PARALLAX_FX,
         ...metaExtra,
       })}\n`,
@@ -291,11 +295,18 @@ const bakeParallaxAsset = async ({
 };
 
 /** Fallback без depth: Ken Burns clip в тот же .parallax.mp4 */
-const bakeFallbackAsset = async ({rel, imageAbs, paths, frames = PARALLAX_DEFAULT_FRAMES}) => {
+const bakeFallbackAsset = async ({
+  rel,
+  imageAbs,
+  paths,
+  frames = PARALLAX_DEFAULT_FRAMES,
+  panX,
+  panY,
+}) => {
   const meta = await sharp(imageAbs).metadata();
   const width = evenEncodeDim(meta.width ?? 1080);
   const height = evenEncodeDim(meta.height ?? 1920);
-  const {panX, panY} = motionVectors(rel);
+  const pan = {panX, panY};
   const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
   await fs.mkdir(path.dirname(outVideo), {recursive: true});
 
@@ -306,8 +317,8 @@ const bakeFallbackAsset = async ({rel, imageAbs, paths, frames = PARALLAX_DEFAUL
     outVideo,
     frames,
     fps: FPS,
-    panX,
-    panY,
+    panX: pan.panX,
+    panY: pan.panY,
     motion: PARALLAX_MOTION,
   });
 
@@ -332,6 +343,8 @@ const bakeFallbackAsset = async ({rel, imageAbs, paths, frames = PARALLAX_DEFAUL
       width,
       height,
       provider: "kenburns-fallback",
+      panX: pan.panX,
+      panY: pan.panY,
     })}\n`,
     "utf8",
   );
@@ -376,15 +389,28 @@ export const generateStoryDepthAssets = async (
   await fs.access(imageAbs);
 
   if (!(await isParallaxBakeAvailable())) {
-    await bakeFallbackAsset({rel, imageAbs, paths, frames});
+    const {panX, panY} = parallaxMotionVectorsForScene(0);
+    await bakeFallbackAsset({rel, imageAbs, paths, frames, panX, panY});
     return {skipped: false, paths, relative: rel, provider: "kenburns-fallback", fallback: true};
   }
 
   const provider = await getResolvedDepthProvider();
   const depthMaps = await inferDepthMaps([rel], provider);
   const {depthUint8, width, height, metaExtra} = depthMaps.get(rel);
+  const {panX, panY} = parallaxMotionVectorsForScene(0);
 
-  await bakeParallaxAsset({rel, imageAbs, depthUint8, width, height, paths, metaExtra, frames});
+  await bakeParallaxAsset({
+    rel,
+    imageAbs,
+    depthUint8,
+    width,
+    height,
+    paths,
+    metaExtra,
+    frames,
+    panX,
+    panY,
+  });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
 };
@@ -399,28 +425,20 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
   }
 
   const logs = [];
-  const bakeFramesByImage = storyParallaxBakeFramesByImage(conversation);
-  const targets = [];
-
-  const openingImage = conversation?.story?.opening?.image?.trim();
-  if (openingImage) {
-    targets.push(openingImage);
-  }
-
-  for (const message of conversation?.messages ?? []) {
-    const storyImage = message?.storyImage?.trim();
-    if (storyImage) {
-      targets.push(storyImage);
-    }
-  }
+  const bakePlanByImage = storyParallaxBakePlanByImage(conversation);
+  const targets = [...bakePlanByImage.keys()];
 
   const pending = [];
   for (const imagePath of targets) {
-    const frames = bakeFramesByImage.get(imagePath) ?? PARALLAX_DEFAULT_FRAMES;
-    if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: frames}))) {
+    const plan = bakePlanByImage.get(imagePath) ?? {
+      frames: PARALLAX_DEFAULT_FRAMES,
+      sceneIndex: 0,
+    };
+    const {panX, panY} = parallaxMotionVectorsForScene(plan.sceneIndex);
+    if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: plan.frames}))) {
       logs.push(`Parallax: ассеты уже есть → ${imagePath}`);
     } else {
-      pending.push({imagePath, frames});
+      pending.push({imagePath, frames: plan.frames, sceneIndex: plan.sceneIndex, panX, panY});
     }
   }
 
@@ -432,7 +450,7 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     logs.push(
       "Parallax: depth-запекатель недоступен (нет Python+opencv) — печём Ken Burns loop. Полный 3D-photo: ./run.sh setup-native",
     );
-    for (const {imagePath, frames} of pending) {
+    for (const {imagePath, frames, panX, panY} of pending) {
       try {
         const {absolute: imageAbs} = safePublicAbs(imagePath);
         await bakeFallbackAsset({
@@ -440,6 +458,8 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
           imageAbs,
           paths: storyLayerPaths(imagePath),
           frames,
+          panX,
+          panY,
         });
         logs.push(`Parallax: Ken Burns clip запечён → ${imagePath}`);
       } catch (error) {
@@ -462,7 +482,7 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     provider,
   );
 
-  for (const {imagePath, frames} of pending) {
+  for (const {imagePath, frames, sceneIndex, panX, panY} of pending) {
     try {
       const {absolute: imageAbs} = safePublicAbs(imagePath);
       const paths = storyLayerPaths(imagePath);
@@ -479,9 +499,14 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
         paths,
         metaExtra: entry.metaExtra,
         frames,
+        panX,
+        panY,
       });
       const model = entry.metaExtra?.model ? ` (${entry.metaExtra.model})` : "";
-      logs.push(`Parallax: clip запечён (${frames} кадров)${model} → ${imagePath}`);
+      const dir = panX > 0 ? "вправо" : "влево";
+      logs.push(
+        `Parallax: clip запечён (${frames} кадров, сцена ${sceneIndex}, ${dir})${model} → ${imagePath}`,
+      );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       logs.push(`Parallax: ошибка для ${imagePath}: ${reason}`);

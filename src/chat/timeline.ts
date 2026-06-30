@@ -529,28 +529,48 @@ const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): Stor
 const MIN_PARALLAX_BAKE_FRAMES = 45;
 const MAX_PARALLAX_BAKE_FRAMES = 900;
 
-/** Длина bake parallax-clip (кадры) для каждого story-изображения по таймлайну */
-export const storyParallaxBakeFramesByImage = (
+export type StoryParallaxBakePlan = {
+  frames: number;
+  /** Порядковый номер story-сцены (0 = opening) — для чередования pan */
+  sceneIndex: number;
+};
+
+/** План bake parallax: длина clip и индекс сцены для каждого story-изображения */
+export const storyParallaxBakePlanByImage = (
   conversation: ConversationInput,
-): Map<string, number> => {
-  const map = new Map<string, number>();
+): Map<string, StoryParallaxBakePlan> => {
+  const map = new Map<string, StoryParallaxBakePlan>();
   const {story, outroStartFrame} = buildTimeline(conversation);
   if (!story.enabled) {
     return map;
   }
 
   const segments = buildStorySegments(story, outroStartFrame);
-  for (const segment of segments) {
+  segments.forEach((segment, sceneIndex) => {
     const rel = segment.image?.trim()?.replace(/^\/+/, "");
     if (!rel) {
-      continue;
+      return;
     }
     const raw = segment.endFrame - segment.startFrame;
     const frames = Math.max(
       MIN_PARALLAX_BAKE_FRAMES,
       Math.min(MAX_PARALLAX_BAKE_FRAMES, raw),
     );
-    map.set(rel, Math.max(map.get(rel) ?? 0, frames));
+    const prev = map.get(rel);
+    if (!prev || frames >= prev.frames) {
+      map.set(rel, {frames, sceneIndex});
+    }
+  });
+  return map;
+};
+
+/** Длина bake parallax-clip (кадры) для каждого story-изображения по таймлайну */
+export const storyParallaxBakeFramesByImage = (
+  conversation: ConversationInput,
+): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (const [rel, plan] of storyParallaxBakePlanByImage(conversation)) {
+    map.set(rel, plan.frames);
   }
   return map;
 };
