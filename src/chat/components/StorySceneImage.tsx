@@ -28,8 +28,9 @@ const MotionScene: React.FC<{
   animation: StorySceneAnimation;
   localFrame: number;
   durationFrames: number;
+  sceneStartFrame: number;
   motionLoopFrames: number;
-}> = ({image, animation, localFrame, durationFrames, motionLoopFrames}) => {
+}> = ({image, animation, localFrame, durationFrames, sceneStartFrame, motionLoopFrames}) => {
   const trimmed = image.trim();
   // depthParallax уже несёт объёмные пылинки, запечённые в loop → плоский
   // CSS-оверлей приглушаем, чтобы не было «снегопада» из двух систем
@@ -70,7 +71,11 @@ const MotionScene: React.FC<{
   if (usesDepthParallax(animation)) {
     return (
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        <DepthDisplacementImage image={trimmed} />
+        <DepthDisplacementImage
+          image={trimmed}
+          sceneStartFrame={sceneStartFrame}
+          durationFrames={durationFrames}
+        />
         {particles}
       </AbsoluteFill>
     );
@@ -119,6 +124,7 @@ export const StorySceneImage: React.FC<Props> = ({
         animation={animation === "video" ? "kenburns" : animation}
         localFrame={localFrame}
         durationFrames={durationFrames}
+        sceneStartFrame={sceneStartFrame}
         motionLoopFrames={motionLoopFrameCount}
       />
     );

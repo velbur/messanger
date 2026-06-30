@@ -33,7 +33,11 @@ export const StoryParallaxPreview: React.FC<Props> = ({
           animation="kenburns"
         />
       ) : (
-        <DepthParallaxImage video={storyParallaxVideoPath(trimmed)} />
+        <DepthParallaxImage
+          video={storyParallaxVideoPath(trimmed)}
+          sceneStartFrame={0}
+          durationFrames={durationFrames}
+        />
       )}
     </AbsoluteFill>
   );

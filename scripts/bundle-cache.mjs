@@ -176,7 +176,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("sfxMixSrc") &&
       bundleJs.includes("preview-cover-baked-v3") &&
       bundleJs.includes("preview-cover-art-v3") &&
-      bundleJs.includes("story-parallax-video-v23") &&
+      bundleJs.includes("story-parallax-video-v24") &&
       bundleJs.includes("story-parallax-preview-v3") &&
       bundleJs.includes("DepthParallaxImage") &&
       bundleJs.includes("default-conversation.json")
