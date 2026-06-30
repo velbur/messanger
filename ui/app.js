@@ -129,7 +129,8 @@ let textGenBusy = false;
 let openrouterConfigured = false;
 let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
-let openrouterImageModel = "openai/gpt-5.4-image-2";
+let openrouterImageModel = "openai/gpt-5-image-mini";
+let openrouterStoryImageModel = "google/gemini-2.5-flash-image";
 let openrouterTtsProfile = "young-emotional-v2";
 
 const canGenerateImages = () => openrouterImageAvailable;
@@ -380,8 +381,8 @@ const updateImageProviderControls = () => {
       btn.textContent = hasFile ? "Перегенерировать" : "Сгенерировать";
       btn.title = available
         ? hasFile
-          ? `Заменить story-кадр через OpenRouter (${openrouterImageModel})`
-          : `Генерация story-кадра через OpenRouter (${openrouterImageModel})`
+          ? `Заменить story-кадр через OpenRouter (${openrouterStoryImageModel})`
+          : `Генерация story-кадра через OpenRouter (${openrouterStoryImageModel})`
         : getImageProviderUnavailableHint();
     }
   }
@@ -5283,6 +5284,9 @@ const applyApiStatusToEditor = (data) => {
     if (typeof data.openrouter.imageModel === "string" && data.openrouter.imageModel) {
       openrouterImageModel = data.openrouter.imageModel;
     }
+    if (typeof data.openrouter.storyImageModel === "string" && data.openrouter.storyImageModel) {
+      openrouterStoryImageModel = data.openrouter.storyImageModel;
+    }
   }
   if (typeof data?.voiceover?.ttsProfile === "string" && data.voiceover.ttsProfile) {
     openrouterTtsProfile = data.voiceover.ttsProfile;
@@ -5330,9 +5334,10 @@ const renderApiStatusPanel = (data) => {
   } else {
     openrouterText.textContent = [
       `Текст: ${openrouter.textModel ?? openrouterTextModel}`,
-      `Изображения: ${openrouter.imageModel ?? openrouterImageModel}${
+      `Чат-картинки (4:3): ${openrouter.imageModel ?? openrouterImageModel}${
         openrouter.imageGenerationAvailable ? " (доступно)" : ""
       }`,
+      `Story-кадры (9:16): ${openrouter.storyImageModel ?? openrouterStoryImageModel}`,
       `Озвучка: ${openrouter.ttsModel ?? data.voiceover?.model ?? "google/gemini-3.1-flash-tts-preview"}`,
     ].join("\n");
   }

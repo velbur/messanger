@@ -14,7 +14,7 @@ import {
   loadPreviewCoverReferenceDataUrl,
   resolvePreviewCoverSceneHint,
 } from "./preview-cover.mjs";
-import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {generateImageBuffer, getOpenRouterStoryImageModel, isOpenRouterConfigured} from "./openrouter-client.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -84,6 +84,7 @@ export const ensureConversationPreviewCovers = async (
       prompt,
       referenceDataUrl,
       aspectRatio: "9:16",
+      model: getOpenRouterStoryImageModel(),
     });
     await saveImageBuffer(buffer, srcRel);
     log(`Фон обложки сохранён: ${srcRel}`);

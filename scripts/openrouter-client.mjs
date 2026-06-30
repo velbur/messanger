@@ -5,7 +5,10 @@ import {OPENROUTER_TTS_PROFILE} from "../src/chat/voiceover.ts";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
-const DEFAULT_IMAGE_MODEL = "openai/gpt-5.4-image-2";
+/** Картинки в пузырях чата (4:3) */
+const DEFAULT_IMAGE_MODEL = "openai/gpt-5-image-mini";
+/** Story-кадры 9:16 — иллюстрация, не фотореализм; дешевле GPT Image 2 */
+const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";
@@ -67,6 +70,8 @@ export const getOpenRouterConfig = () => {
     baseUrl: (process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, ""),
     textModel: process.env.OPENROUTER_TEXT_MODEL?.trim() || DEFAULT_TEXT_MODEL,
     imageModel: process.env.OPENROUTER_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL,
+    storyImageModel:
+      process.env.OPENROUTER_STORY_IMAGE_MODEL?.trim() || DEFAULT_STORY_IMAGE_MODEL,
     ttsModel: process.env.OPENROUTER_TTS_MODEL?.trim() || DEFAULT_TTS_MODEL,
     ttsVoiceFemale: process.env.OPENROUTER_TTS_VOICE_FEMALE?.trim() || "Leda",
     ttsVoiceMale: process.env.OPENROUTER_TTS_VOICE_MALE?.trim() || "Puck",
@@ -92,6 +97,17 @@ export const getOpenRouterTextModel = () =>
 
 export const getOpenRouterImageModel = () =>
   getOpenRouterConfig()?.imageModel ?? DEFAULT_IMAGE_MODEL;
+
+export const getOpenRouterStoryImageModel = () =>
+  getOpenRouterConfig()?.storyImageModel ?? DEFAULT_STORY_IMAGE_MODEL;
+
+/** story | story-opening → story-модель; иначе chat-модель */
+export const resolveOpenRouterImageModel = (kind) => {
+  if (kind === "story" || kind === "story-opening") {
+    return getOpenRouterStoryImageModel();
+  }
+  return getOpenRouterImageModel();
+};
 
 export const getOpenRouterTtsModel = () =>
   getOpenRouterConfig()?.ttsModel ?? DEFAULT_TTS_MODEL;

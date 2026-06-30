@@ -78,6 +78,8 @@ import {
   isOpenRouterConfigured,
   getOpenRouterTextModel,
   getOpenRouterImageModel,
+  getOpenRouterStoryImageModel,
+  resolveOpenRouterImageModel,
   getOpenRouterTtsModel,
   getOpenRouterVoiceoverStatus,
   formatOpenRouterError,
@@ -760,6 +762,7 @@ app.get("/api/images/openrouter", async (_req, res) => {
     configured: isOpenRouterConfigured(),
     textModel: getOpenRouterTextModel(),
     imageModel: getOpenRouterImageModel(),
+    storyImageModel: getOpenRouterStoryImageModel(),
     imageGenerationAvailable: isOpenRouterConfigured(),
   });
 });
@@ -782,6 +785,8 @@ app.get("/api/status", async (_req, res) => {
       configured: isOpenRouterConfigured(),
       textModel: getOpenRouterTextModel(),
       imageModel: getOpenRouterImageModel(),
+      storyImageModel: getOpenRouterStoryImageModel(),
+    storyImageModel: getOpenRouterStoryImageModel(),
       ttsModel: getOpenRouterTtsModel(),
       imageGenerationAvailable: isOpenRouterConfigured(),
     },
@@ -1072,6 +1077,7 @@ app.post("/api/images/generate", async (req, res) => {
     const {buffer} = await generateImageBuffer({
       prompt: finalPrompt,
       referenceDataUrl,
+      model: resolveOpenRouterImageModel(isStoryKind ? "story" : "chat"),
       aspectRatio:
         aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
     });
@@ -1090,7 +1096,7 @@ app.post("/api/images/generate", async (req, res) => {
       imagePrompt: imagePromptSuggested,
       promptSource,
       provider: "openrouter",
-      imageModel: getOpenRouterImageModel(),
+      imageModel: resolveOpenRouterImageModel(isStoryKind ? "story" : "chat"),
       usedImageReference: Boolean(referenceDataUrl),
       referenceMessageIndex: imageRefs?.primaryReference?.messageIndex ?? null,
     });
@@ -1149,6 +1155,7 @@ app.post("/api/images/correct", async (req, res) => {
       provider: result.provider,
       mode: "correct",
       imageModel: getOpenRouterImageModel(),
+    storyImageModel: getOpenRouterStoryImageModel(),
     });
   } catch (error) {
     if (error instanceof ImageCorrectionUnchangedError) {
@@ -1195,6 +1202,7 @@ app.post("/api/preview-cover", async (req, res) => {
       prompt: finalPrompt,
       referenceDataUrl,
       aspectRatio: "9:16",
+      model: getOpenRouterStoryImageModel(),
     });
 
     const finalRef =
@@ -1216,7 +1224,8 @@ app.post("/api/preview-cover", async (req, res) => {
       promptUsed: finalPrompt,
       title: coverTitle,
       provider: "openrouter",
-      imageModel: getOpenRouterImageModel(),
+      imageModel: getOpenRouterStoryImageModel(),
+    storyImageModel: getOpenRouterStoryImageModel(),
       usedImageReference: Boolean(referenceDataUrl),
     });
   } catch (error) {
@@ -2645,7 +2654,7 @@ await syncAudioToPublic();
 
 if (isOpenRouterConfigured()) {
   console.log(
-    `OpenRouter: ключ загружен (text ${getOpenRouterTextModel()}, image ${getOpenRouterImageModel()})`,
+    `OpenRouter: ключ загружен (text ${getOpenRouterTextModel()}, chat-image ${getOpenRouterImageModel()}, story-image ${getOpenRouterStoryImageModel()})`,
   );
 } else {
   console.log("OpenRouter: не настроен (OPENROUTER_API_KEY в docs/.env)");

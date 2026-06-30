@@ -7,7 +7,7 @@ import {
   resolveStoryFramePrompts,
 } from "./image-prompt-llm.mjs";
 import {readStylePrompt, readStoryStylePrompt} from "./image-prompt.mjs";
-import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {generateImageBuffer, getOpenRouterStoryImageModel, isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {saveImageBuffer} from "./image-assets.mjs";
@@ -71,6 +71,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       const {buffer} = await generateImageBuffer({
         prompt: finalPrompt,
         aspectRatio: STORY_IMAGE_ASPECT_RATIO,
+        model: getOpenRouterStoryImageModel(),
       });
       const targetRef = `images/${namespace}/story-opening.png`;
       const publicPath = await saveImageBuffer(buffer, targetRef);
@@ -107,6 +108,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     const {buffer} = await generateImageBuffer({
       prompt: finalPrompt,
       aspectRatio: STORY_IMAGE_ASPECT_RATIO,
+      model: getOpenRouterStoryImageModel(),
     });
 
     const targetRef = `images/${namespace}/story-msg-${messageIndex + 1}.png`;
