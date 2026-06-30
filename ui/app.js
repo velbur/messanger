@@ -139,7 +139,7 @@ let textGenBusy = false;
 let openrouterConfigured = false;
 let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
-let openrouterImageModel = "openai/gpt-5-image-mini";
+let openrouterImageModel = "google/gemini-2.5-flash-image";
 let openrouterStoryImageModel = "google/gemini-2.5-flash-image";
 let openrouterTtsProfile = "young-emotional-v2";
 

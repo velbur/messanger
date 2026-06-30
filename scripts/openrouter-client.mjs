@@ -6,9 +6,13 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 /** Картинки в пузырях чата (4:3) */
-const DEFAULT_IMAGE_MODEL = "openai/gpt-5-image-mini";
-/** Story-кадры 9:16 — иллюстрация, не фотореализм; дешевле GPT Image 2 */
+const DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image";
+/** Story-кадры 9:16 — иллюстрация, не фотореализм */
 const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
+const CHAT_IMAGE_FALLBACK_MODELS = [
+  "google/gemini-2.5-flash-image",
+  "openai/gpt-5-image-mini",
+];
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";
@@ -185,7 +189,67 @@ const extractMessageText = (payload) => {
   return "";
 };
 
-const getImageUrl = (image) => image?.image_url?.url || image?.imageUrl?.url || null;
+const getImageUrl = (image) =>
+  image?.image_url?.url || image?.imageUrl?.url || image?.url || null;
+
+const extractImagesFromMessage = (message) => {
+  const images = [];
+  if (Array.isArray(message?.images)) {
+    images.push(...message.images);
+  }
+  const content = message?.content;
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      if (part?.type === "image_url" && part.image_url?.url) {
+        images.push({image_url: part.image_url});
+      } else if (part?.type === "image" && part.url) {
+        images.push({image_url: {url: part.url}});
+      }
+    }
+  }
+  return images;
+};
+
+const uniqueModels = (models) => [...new Set(models.filter(Boolean))];
+
+const buildImageRequestContent = (prompt, referenceDataUrl) => {
+  const content = [];
+  if (referenceDataUrl) {
+    content.push({
+      type: "image_url",
+      image_url: {url: referenceDataUrl},
+    });
+    content.push({
+      type: "text",
+      text: "Референс предыдущего кадра. Сохрани тот же стиль, палитру и обстановку, измени только то, что описано ниже.",
+    });
+  }
+  content.push({
+    type: "text",
+    text: `${prompt}\n\nСгенерируй изображение по описанию. Не отвечай текстом без картинки.`,
+  });
+  return content;
+};
+
+const requestImageMessage = async ({
+  model,
+  prompt,
+  referenceDataUrl,
+  aspectRatio,
+  imageSize,
+  modalities,
+}) => {
+  const {data} = await postChatCompletion({
+    model,
+    messages: [{role: "user", content: buildImageRequestContent(prompt, referenceDataUrl)}],
+    modalities,
+    image_config: {
+      aspect_ratio: aspectRatio,
+      image_size: imageSize,
+    },
+  });
+  return data?.choices?.[0]?.message;
+};
 
 const parseDataUrl = (dataUrl) => {
   const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
@@ -288,61 +352,56 @@ export const generateImageBuffer = async ({
   imageSize,
 }) => {
   const config = requireConfig();
-  const resolvedModel = model || config.imageModel;
   const resolvedAspectRatio = aspectRatio || config.aspectRatio;
   const resolvedImageSize = imageSize || config.imageSize;
+  const models = uniqueModels([model || config.imageModel, ...CHAT_IMAGE_FALLBACK_MODELS]);
+  const modalityPlans = [["image", "text"], ["image"]];
 
-  const content = [];
-  if (referenceDataUrl) {
-    content.push({
-      type: "image_url",
-      image_url: {url: referenceDataUrl},
-    });
-    content.push({
-      type: "text",
-      text: "Референс предыдущего кадра. Сохрани тот же стиль, палитру и обстановку, измени только то, что описано ниже.",
-    });
+  let lastError;
+
+  for (const resolvedModel of models) {
+    for (const modalities of modalityPlans) {
+      try {
+        const message = await requestImageMessage({
+          model: resolvedModel,
+          prompt,
+          referenceDataUrl,
+          aspectRatio: resolvedAspectRatio,
+          imageSize: resolvedImageSize,
+          modalities,
+        });
+
+        const images = extractImagesFromMessage(message);
+        if (!images.length) {
+          const text = extractMessageText({choices: [{message}]});
+          throw new Error(
+            text
+              ? `Модель не вернула изображение: ${String(text).slice(0, 200)}`
+              : "Модель не вернула изображение",
+          );
+        }
+
+        const imageUrl = getImageUrl(images[0]);
+        if (!imageUrl) {
+          throw new Error("Не удалось извлечь image_url из ответа OpenRouter");
+        }
+
+        const {mime, buffer} = parseDataUrl(imageUrl);
+        return {
+          buffer,
+          mime,
+          model: resolvedModel,
+          aspectRatio: resolvedAspectRatio,
+          imageSize: resolvedImageSize,
+          text: typeof message?.content === "string" ? message.content : null,
+        };
+      } catch (error) {
+        lastError = error;
+      }
+    }
   }
-  content.push({
-    type: "text",
-    text: prompt,
-  });
 
-  const {data} = await postChatCompletion({
-    model: resolvedModel,
-    messages: [{role: "user", content}],
-    modalities: ["image", "text"],
-    image_config: {
-      aspect_ratio: resolvedAspectRatio,
-      image_size: resolvedImageSize,
-    },
-  });
-
-  const message = data?.choices?.[0]?.message;
-  const images = message?.images || [];
-  if (!images.length) {
-    const text = message?.content;
-    throw new Error(
-      text
-        ? `Модель не вернула изображение: ${String(text).slice(0, 200)}`
-        : "Модель не вернула изображение",
-    );
-  }
-
-  const imageUrl = getImageUrl(images[0]);
-  if (!imageUrl) {
-    throw new Error("Не удалось извлечь image_url из ответа OpenRouter");
-  }
-
-  const {mime, buffer} = parseDataUrl(imageUrl);
-  return {
-    buffer,
-    mime,
-    model: resolvedModel,
-    aspectRatio: resolvedAspectRatio,
-    imageSize: resolvedImageSize,
-    text: typeof message?.content === "string" ? message.content : null,
-  };
+  throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "Не удалось сгенерировать изображение"));
 };
 
 const extensionForMime = (mime) => {
