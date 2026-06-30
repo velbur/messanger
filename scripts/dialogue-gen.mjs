@@ -334,7 +334,20 @@ const buildHookRules = (language = "ru", mode = "shorts") => {
       ];
 };
 
-const buildMessageCountRules = (messageCount = 20, language = "ru") => {
+const buildMessageCountRules = (messageCount, language = "ru") => {
+  if (messageCount == null) {
+    return language === "en"
+      ? [
+          "- Choose the number of messages from the user's brief — as many as the scene needs.",
+          "- If the brief does not specify a limit, pick a natural length for the format without padding.",
+          "- If the brief explicitly states a limit (e.g. «10 messages», «up to 15 lines») — follow it strictly.",
+        ]
+      : [
+          "- Число сообщений определи из задания пользователя — столько, сколько нужно сцене.",
+          "- Если лимит в задании не указан — выбери естественную длину для формата, без воды и растягивания.",
+          "- Если в задании явно указан лимит (например «10 сообщений», «до 15 реплик») — строго соблюдай его.",
+        ];
+  }
   if (language === "en") {
     return [
       `- messages array: at most ${messageCount} messages.`,
@@ -345,6 +358,125 @@ const buildMessageCountRules = (messageCount = 20, language = "ru") => {
     `- В массиве messages — не больше ${messageCount} сообщений.`,
     "- Если сцене достаточно меньше реплик — пиши короче, не растягивай ради объёма.",
   ];
+};
+
+const buildVideoMessageCountRules = (messageCount, language = "ru") => {
+  if (messageCount == null) {
+    return language === "en"
+      ? [
+          "- Choose script length (messages count) from the user's brief.",
+          "- If no limit is stated — pick a natural length for a horizontal video script, without filler.",
+          "- If the brief explicitly states a message/beat limit — follow it strictly.",
+        ]
+      : [
+          "- Длину сценария (число реплик в messages) определи из задания пользователя.",
+          "- Если лимит не указан — выбери естественную длину для горизонтального ролика, без воды.",
+          "- Если в задании явно указан лимит реплик/сообщений — строго соблюдай его.",
+        ];
+  }
+  return buildMessageCountRules(messageCount, language);
+};
+
+const buildVideoImageRules = (language = "ru") =>
+  language === "en"
+    ? [
+        "- Video format: text/narration only. Do not use imagePrompt or image.",
+        "- If the scene needs a visual, describe it in text.",
+      ]
+    : [
+        "- Формат Video: только текст/повествование. Не используй imagePrompt и image.",
+        "- Если сцене нужен визуал — опиши его словами в text.",
+      ];
+
+const buildContextImageRules = ({language = "ru", ussrStyle = false} = {}) => {
+  const styleHint = ussrStyle
+    ? language === "en"
+      ? "- imagePrompt: 1–3 sentences, everyday USSR 1984 scene."
+      : "- imagePrompt: 1–3 предложения, бытовая сцена СССР 1984."
+    : language === "en"
+      ? "- imagePrompt: 1–3 sentences describing what should be in the photo."
+      : "- imagePrompt: 1–3 предложения, что должно быть на фото.";
+  const bracketRule =
+    language === "en"
+      ? "- Never put photo descriptions in square brackets in text. Visual description belongs only in imagePrompt."
+      : "- В text не пиши описание фото в квадратных скобках. Описание кадра — только в imagePrompt.";
+  return language === "en"
+    ? [
+        "- Choose how many photo messages (imagePrompt) fit the user's brief: 0 if text alone works; otherwise as many as the scene needs (usually 0–2 for Shorts).",
+        "- If the brief says «no photos» / «text only» — use 0 photo messages.",
+        "- If the brief explicitly states a photo count — follow it strictly.",
+        styleHint,
+        bracketRule,
+        ussrStyle
+          ? "- Place photos where they help the USSR-era scene, not at random."
+          : "- Place photos where they help the joke or story beat, not at random.",
+      ]
+    : [
+        "- Число фото-сообщений (imagePrompt) выбери по заданию: 0, если хватает текста; иначе столько, сколько уместно сцене (для Shorts обычно 0–2).",
+        "- Если в задании «без фото» / только текст — не добавляй imagePrompt.",
+        "- Если в задании явно указано число фото — строго соблюдай его.",
+        styleHint,
+        bracketRule,
+        ussrStyle
+          ? "- Вставляй фото там, где они помогают бытовой сцене СССР, а не ради количества."
+          : "- Вставляй фото там, где они усиливают шутку или сюжетный ход, а не ради количества.",
+      ];
+};
+
+const parseCountFromPatterns = (text, patterns) => {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const value = Number(match[1]);
+      if (Number.isFinite(value) && value >= 0) {
+        return value;
+      }
+    }
+  }
+  return null;
+};
+
+export const parsePromptGenerationLimits = (prompt) => {
+  const text = String(prompt ?? "");
+  const limits = {messageCount: null, imageCount: null};
+  if (!text.trim()) {
+    return limits;
+  }
+
+  if (/\b(?:без\s+фото|no\s+photos?|text\s+only|только\s+текст)\b/i.test(text)) {
+    limits.imageCount = 0;
+  }
+
+  const imageCount =
+    limits.imageCount ??
+    parseCountFromPatterns(text, [
+      /(?:^|[\s,.:;—-])(?:до|не\s+больше|не\s+более|максимум|max|up\s+to)\s*(\d{1,2})\s*(?:фото|photos?)/i,
+      /(?:^|[\s,.:;—-])ровно\s*(\d{1,2})\s*(?:фото|photos?)/i,
+      /(?:^|[\s,.:;—-])(\d{1,2})\s*(?:фото|photos?)/i,
+    ]);
+  if (imageCount != null) {
+    limits.imageCount = Math.max(0, Math.min(imageCount, 15));
+  }
+
+  const messageCount = parseCountFromPatterns(text, [
+    /(?:^|[\s,.:;—-])(?:до|не\s+больше|не\s+более|максимум|max|up\s+to)\s*(\d{1,2})\s*(?:сообщ|реплик|messages?)/i,
+    /(?:^|[\s,.:;—-])ровно\s*(\d{1,2})\s*(?:сообщ|реплик|messages?)/i,
+    /(?:^|[\s,.:;—-])(\d{1,2})\s*(?:сообщений|сообщения|реплик|messages?)/i,
+  ]);
+  if (messageCount != null) {
+    limits.messageCount = Math.max(1, Math.min(messageCount, 80));
+  }
+
+  return limits;
+};
+
+const messageCountUserHint = (messageCount, language = "ru") => {
+  if (messageCount == null) {
+    return null;
+  }
+  return language === "en"
+    ? `At most ${messageCount} messages in messages.`
+    : `Не больше ${messageCount} сообщений в messages.`;
 };
 
 const buildLanguageRules = (language = "ru", mode = "shorts") => {
@@ -367,29 +499,49 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
 };
 
 export const normalizeGenerationOptions = ({
+  prompt,
   messageCount,
   imageCount,
   includeImages,
   language,
+  mode,
 } = {}) => {
-  const mc = Number(messageCount);
-  const normalizedMessageCount =
-    Number.isFinite(mc) && mc > 0 ? Math.min(Math.round(mc), 80) : 20;
+  const fromPrompt = parsePromptGenerationLimits(prompt);
+  const normalizedMode = normalizeContentMode(mode);
 
-  let ic = Number(imageCount);
-  if (!Number.isFinite(ic)) {
-    ic = includeImages === false ? 0 : includeImages === true ? 2 : 0;
+  const mc = Number(messageCount);
+  const resolvedMessageCount =
+    Number.isFinite(mc) && mc > 0
+      ? Math.min(Math.round(mc), 80)
+      : fromPrompt.messageCount;
+
+  let resolvedImageCount;
+  const ic = Number(imageCount);
+  if (normalizedMode === "video") {
+    resolvedImageCount = 0;
+  } else if (Number.isFinite(ic)) {
+    resolvedImageCount = Math.max(0, Math.min(Math.round(ic), 15));
+  } else if (fromPrompt.imageCount != null) {
+    resolvedImageCount = fromPrompt.imageCount;
+  } else if (includeImages === false) {
+    resolvedImageCount = 0;
+  } else {
+    resolvedImageCount = null;
   }
-  const normalizedImageCount = Math.max(0, Math.min(Math.round(ic), 15));
 
   return {
-    messageCount: normalizedMessageCount,
-    imageCount: normalizedImageCount,
+    messageCount: resolvedMessageCount,
+    imageCount: resolvedImageCount,
     language: language === "en" ? "en" : "ru",
   };
 };
 
 const imageCountUserHint = (imageCount, language = "ru") => {
+  if (imageCount == null) {
+    return language === "en"
+      ? "Choose how many photo messages to include based on the brief (0 unless photos help the story)."
+      : "Число фото-сообщений выбери по заданию (0, если хватает текста; иначе столько, сколько уместно сцене).";
+  }
   if (imageCount <= 0) {
     return language === "en"
       ? "Text messages only — no imagePrompt, no image."
@@ -406,8 +558,8 @@ const imageCountUserHint = (imageCount, language = "ru") => {
 };
 
 const buildTemplateVars = async ({
-  imageCount = 0,
-  messageCount = 20,
+  imageCount = null,
+  messageCount = null,
   language = "ru",
   mode = "shorts",
   ussrStyle = false,
@@ -418,6 +570,7 @@ const buildTemplateVars = async ({
   const isVideoMode = mode === "video";
   const storyVisual = !isVideoMode && isStoryVisualLayout(videoLayout);
   const storyLayout = normalizeVideoLayout(videoLayout);
+  const ussr = ussrStyle || mode === "series";
   return {
     JSON_FORMAT: buildJsonFormatBlock({
       withDisplayTitle: mode === "shorts" || mode === "video",
@@ -437,18 +590,23 @@ const buildTemplateVars = async ({
       videoTextMode,
     }).join("\n"),
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
-    MESSAGE_COUNT_RULES: buildMessageCountRules(messageCount, language).join("\n"),
+    MESSAGE_COUNT_RULES: (isVideoMode
+      ? buildVideoMessageCountRules(messageCount, language)
+      : buildMessageCountRules(messageCount, language)
+    ).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language).join("\n"),
     IMAGE_RULES: isVideoMode
-      ? imageCountUserHint(0, language)
+      ? buildVideoImageRules(language).join("\n")
       : storyVisual
         ? buildStoryImageRules({language, videoLayout: storyLayout}).join("\n")
-        : buildImageRules(imageCount, {
-            ussrStyle: ussrStyle || mode === "series",
-            language,
-          }).join("\n"),
+        : imageCount == null
+          ? buildContextImageRules({language, ussrStyle: ussr}).join("\n")
+          : buildImageRules(imageCount, {
+              ussrStyle: ussr,
+              language,
+            }).join("\n"),
     SHORTS_NAME_RULES: buildShortsNameRules(language).join("\n"),
     STORY_PLAN: "",
     LITERARY_EDITOR: "",
@@ -582,8 +740,8 @@ const buildSystemPrompt = async ({
 const buildUserPrompt = async ({
   prompt,
   previousMessages,
-  imageCount = 0,
-  messageCount = 20,
+  imageCount = null,
+  messageCount = null,
   language = "ru",
   mode = "shorts",
 }) => {
@@ -597,16 +755,14 @@ const buildUserPrompt = async ({
         : "Напиши самостоятельную переписку по этому заданию:",
     prompt.trim(),
     imageCountUserHint(imageCount, language),
-    language === "en"
-      ? `At most ${messageCount} messages in messages.`
-      : `Не больше ${messageCount} сообщений в messages.`,
+    messageCountUserHint(messageCount, language),
     language === "en"
       ? "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian."
       : "Пиши переписку на русском.",
     language === "en"
       ? "Keep the dialogue logically consistent from first message to finale."
       : "Держи логическую состоятельность переписки от первого сообщения до финала.",
-  ];
+  ].filter(Boolean);
 
   if (mode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0) {
     parts.push(
@@ -649,8 +805,8 @@ const buildShortsExpandUserPrompt = ({
   prompt,
   conversation,
   displayTitle,
-  imageCount = 0,
-  messageCount = 20,
+  imageCount = null,
+  messageCount = null,
   language = "ru",
 }) => {
   const draft = displayTitle ? {displayTitle, ...conversation} : conversation;
@@ -663,7 +819,7 @@ const buildShortsExpandUserPrompt = ({
       "Keep strong lines, add development, detail, dialogue, and a finale.",
       "If the draft name or plot doesn't match the brief — fix contactName and characters per the brief.",
       "Return full JSON with the complete messages array — don't stop halfway.",
-      `At most ${messageCount} messages in messages.`,
+      messageCountUserHint(messageCount, language),
       "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian.",
       "Keep the dialogue logically consistent from first message to finale.",
       imageCountUserHint(imageCount, language),
@@ -672,7 +828,9 @@ const buildShortsExpandUserPrompt = ({
       JSON.stringify(draft, null, 2),
       "",
       "Return only the full JSON.",
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
   return [
     "Задание пользователя:",
@@ -682,7 +840,7 @@ const buildShortsExpandUserPrompt = ({
     "Сохрани удачные реплики, добавь развитие, детали, диалог и финал.",
     "Если в черновике имя или сюжет не совпадают с заданием — исправь contactName и героев по заданию.",
     "Верни полный JSON с полным массивом messages — не обрывай историю на полпути.",
-    `Не больше ${messageCount} сообщений в messages.`,
+    messageCountUserHint(messageCount, language),
     "Пиши переписку на русском.",
     "Держи логическую состоятельность переписки от первого сообщения до финала.",
     imageCountUserHint(imageCount, language),
@@ -691,7 +849,9 @@ const buildShortsExpandUserPrompt = ({
     JSON.stringify(draft, null, 2),
     "",
     "Верни только полный JSON.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 };
 
 const buildRegenerateMessageSystemPrompt = async ({
@@ -745,23 +905,23 @@ const buildRegenerateMessageUserPrompt = ({
 const buildRefineUserPrompt = ({
   conversation,
   refinePrompt,
-  imageCount = 0,
-  messageCount = 20,
+  imageCount = null,
+  messageCount = null,
   language = "ru",
 }) => {
+  const imageHint =
+    imageCount === 0
+      ? language === "en"
+        ? "Text messages only — no imagePrompt, no image."
+        : "Только текстовые сообщения, без imagePrompt и без image."
+      : imageCountUserHint(imageCount, language);
   const parts = [
     language === "en"
       ? "Refine the current chat per these notes:"
       : "Доработай текущую переписку по этим замечаниям:",
     refinePrompt.trim(),
-    imageCount <= 0
-      ? language === "en"
-        ? "Text messages only — no imagePrompt, no image."
-        : "Только текстовые сообщения, без imagePrompt и без image."
-      : imageCountUserHint(imageCount, language),
-    language === "en"
-      ? `At most ${messageCount} messages in messages.`
-      : `Не больше ${messageCount} сообщений в messages.`,
+    imageHint,
+    messageCountUserHint(messageCount, language),
     language === "en"
       ? "Keep the dialogue in English for a native English-speaking audience."
       : "Переписка на русском.",
@@ -770,7 +930,7 @@ const buildRefineUserPrompt = ({
     JSON.stringify(conversation, null, 2),
     "",
     language === "en" ? "Return only the full updated JSON." : "Верни только полный обновлённый JSON.",
-  ];
+  ].filter(Boolean);
   return parts.join("\n");
 };
 
@@ -935,37 +1095,42 @@ const buildLogicUserPrompt = ({
   prompt,
   conversation,
   displayTitle,
-  messageCount = 20,
+  messageCount = null,
   language = "ru",
   mode = "shorts",
 }) => {
   const draft = displayTitle && mode === "shorts" ? {displayTitle, ...conversation} : conversation;
+  const countHint = messageCountUserHint(messageCount, language);
   if (language === "en") {
     return [
       "User brief:",
       prompt?.trim() || "(not provided)",
       "",
       "Check and fix logic in the draft below. Do not change wording unless required for logic.",
-      `At most ${messageCount} messages in messages.`,
+      countHint,
       "",
       "Draft:",
       JSON.stringify(draft, null, 2),
       "",
       "Return only the full valid JSON.",
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
   return [
     "Задание пользователя:",
     prompt?.trim() || "(не указано)",
     "",
     "Проверь и исправь логику в черновике ниже. Не меняй формулировки без необходимости для логики.",
-    `Не больше ${messageCount} сообщений в messages.`,
+    countHint,
     "",
     "Черновик:",
     JSON.stringify(draft, null, 2),
     "",
     "Верни только полный валидный JSON.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 };
 
 export const checkDialogueLogic = async ({
@@ -973,8 +1138,8 @@ export const checkDialogueLogic = async ({
   conversation,
   displayTitle,
   mode = "shorts",
-  imageCount = 0,
-  messageCount = 20,
+  imageCount,
+  messageCount,
   language = "ru",
   model,
   maxAttempts = 3,
@@ -987,8 +1152,14 @@ export const checkDialogueLogic = async ({
     throw new Error("Текущая переписка обязательна");
   }
 
-  const gen = normalizeGenerationOptions({messageCount, imageCount, language});
-  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const normalizedMode = mode === "series" ? "series" : mode === "video" ? "video" : "shorts";
+  const gen = normalizeGenerationOptions({
+    prompt,
+    messageCount,
+    imageCount,
+    language,
+    mode: normalizedMode,
+  });
   const validated = validateConversation(conversation);
   const before = JSON.stringify(validated);
   const system = await buildLogicSystemPrompt({
@@ -1105,10 +1276,12 @@ export const generateDialogue = async ({
 
   const normalizedMode = normalizeContentMode(mode);
   const gen = normalizeGenerationOptions({
+    prompt,
     messageCount,
-    imageCount: normalizedMode === "video" ? 0 : imageCount,
+    imageCount,
     includeImages: normalizedMode === "video" ? false : includeImages,
     language,
+    mode: normalizedMode,
   });
   const contextMessages =
     normalizedMode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0
@@ -1216,8 +1389,15 @@ export const refineDialogue = async ({
     throw new Error("Текущая переписка обязательна");
   }
 
-  const gen = normalizeGenerationOptions({messageCount, imageCount, includeImages, language});
-  const normalizedMode = mode === "series" ? "series" : "shorts";
+  const normalizedMode = normalizeContentMode(mode);
+  const gen = normalizeGenerationOptions({
+    prompt: refinePrompt,
+    messageCount,
+    imageCount,
+    includeImages,
+    language,
+    mode: normalizedMode,
+  });
   const validated = validateConversation(conversation);
   const genVideoLayout = resolveGenerationVideoLayout({
     videoLayout,
@@ -1358,8 +1538,13 @@ export const regenerateEnding = async ({
     throw new Error("Текущая переписка обязательна");
   }
 
-  const gen = normalizeGenerationOptions({messageCount, imageCount, language});
   const normalizedMode = mode === "series" ? "series" : "shorts";
+  const gen = normalizeGenerationOptions({
+    messageCount,
+    imageCount,
+    language,
+    mode: normalizedMode,
+  });
   const validated = validateConversation(conversation);
   const messages = validated.messages;
   const safeTail = Math.max(1, Math.min(Math.round(tailCount) || 3, messages.length - 1));
@@ -1381,13 +1566,21 @@ export const regenerateEnding = async ({
   });
 
   const draft = displayTitle && normalizedMode === "shorts" ? {displayTitle, ...validated} : validated;
+  const countRule =
+    gen.messageCount == null
+      ? gen.language === "en"
+        ? "Keep total message count similar to the draft unless the brief requires otherwise."
+        : "Общее число сообщений сохрани сопоставимым с черновиком, если задание не требует иного."
+      : gen.language === "en"
+        ? `Total messages must not exceed ${gen.messageCount}.`
+        : `Всего сообщений — не больше ${gen.messageCount}.`;
   const user =
     gen.language === "en"
       ? [
           "Rewrite only the ending of this chat.",
           `Keep messages 1..${keepCount} exactly as in the draft (same text, order, images).`,
           `Replace the last ${safeTail} message(s) with a stronger finale that fits the setup.`,
-          `Total messages must not exceed ${gen.messageCount}.`,
+          countRule,
           "",
           "Draft:",
           JSON.stringify({...draft, messages}, null, 2),
@@ -1398,7 +1591,7 @@ export const regenerateEnding = async ({
           "Перепиши только финал этой переписки.",
           `Сообщения 1..${keepCount} оставь как в черновике (тот же текст, порядок, фото).`,
           `Последние ${safeTail} сообщения замени на более сильный финал, согласованный с завязкой.`,
-          `Всего сообщений — не больше ${gen.messageCount}.`,
+          countRule,
           "",
           "Черновик:",
           JSON.stringify({...draft, messages}, null, 2),

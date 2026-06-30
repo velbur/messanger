@@ -141,10 +141,8 @@ let openrouterTtsProfile = "young-emotional-v2";
 
 const canGenerateImages = () => openrouterImageAvailable;
 
-const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
-const DEFAULT_SERIES_MESSAGE_COUNT = 20;
 
 const VIDEO_LAYOUT_LABELS = {
   chat: "чат",
@@ -278,8 +276,6 @@ const findDialogueModelLabel = (modelId) => {
   return item?.label ?? modelId;
 };
 
-const DEFAULT_VIDEO_MESSAGE_COUNT = 20;
-
 const normalizeEditorKind = (kind) => {
   if (kind === "series") {
     return "series";
@@ -289,17 +285,6 @@ const normalizeEditorKind = (kind) => {
   }
   return "shorts";
 };
-
-const getDefaultMessageCount = () =>
-  editorKind === "shorts"
-    ? DEFAULT_SHORTS_MESSAGE_COUNT
-    : editorKind === "video"
-      ? DEFAULT_VIDEO_MESSAGE_COUNT
-      : DEFAULT_SERIES_MESSAGE_COUNT;
-
-const getDialogueMessageCount = () => getDefaultMessageCount();
-
-const getDialogueImageCount = () => 0;
 
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
@@ -5038,8 +5023,6 @@ const clearShortsJsonBeforeGenerate = () => {
 };
 
 const getDialogueGenOptions = () => ({
-  messageCount: getDialogueMessageCount(),
-  imageCount: getDialogueImageCount(),
   language: getDialogueLanguage(),
   model: getDialogueModel(),
   videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
@@ -5081,16 +5064,11 @@ const generateDialogueFromPrompt = async () => {
   };
 
   if (editorKind === "shorts") {
-    body.includeImages = getDialogueImageCount() > 0;
-    body.imageCount = getDialogueImageCount();
     body.videoLayout = getVideoLayout();
   }
 
   if (editorKind === "video") {
-    body.imageCount = 0;
-    body.includeImages = false;
     body.textMode = getVideoTextMode();
-    body.messageCount = getDialogueMessageCount();
   }
 
   if (editorKind === "series") {
@@ -5136,16 +5114,9 @@ const checkDialogueLogicFromPrompt = async () => {
     json,
     ...getDialogueGenOptions(),
     mode: editorKind,
-    includeImages: getDialogueImageCount() > 0,
-    imageCount: getDialogueImageCount(),
   };
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
-  }
-  if (editorKind === "video") {
-    body.imageCount = 0;
-    body.includeImages = false;
-    body.messageCount = getDialogueMessageCount();
   }
 
   const res = await fetch("/api/dialogues/logic", {
@@ -5275,8 +5246,6 @@ const regenerateEndingFromPrompt = async () => {
       json,
       displayTitle: dialogueTitleInput?.value?.trim() ?? "",
       tailCount: 3,
-      messageCount: getDialogueMessageCount(),
-      imageCount: getDialogueImageCount(),
       language: getDialogueLanguage(),
       videoLayout: getVideoLayout(),
       model: getDialogueModel(),
