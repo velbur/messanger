@@ -26,6 +26,8 @@ const wallpaperInputs = document.querySelectorAll('input[name="wallpaper"]');
 const wallpaperRow = document.getElementById("wallpaperRow");
 const wallpaperOverlayHint = document.getElementById("wallpaperOverlayHint");
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
+const dialogueGenMessageCountRow = document.getElementById("dialogueGenMessageCountRow");
+const dialogueGenImageCountRow = document.getElementById("dialogueGenImageCountRow");
 const videoTextModeRow = document.getElementById("videoTextModeRow");
 const videoTextModeInputs = document.querySelectorAll('input[name="videoTextMode"]');
 const layoutRow = document.getElementById("layoutRow");
@@ -91,6 +93,8 @@ const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
+const dialogueMessageCount = document.getElementById("dialogueMessageCount");
+const dialogueImageCount = document.getElementById("dialogueImageCount");
 const dialogueModel = document.getElementById("dialogueModel");
 const dialogueModelOption = document.getElementById("dialogueModelOption");
 const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
@@ -142,6 +146,8 @@ let openrouterTtsProfile = "young-emotional-v2";
 const canGenerateImages = () => openrouterImageAvailable;
 
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
+const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
+const DEFAULT_SERIES_MESSAGE_COUNT = 20;
 const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
 
 const VIDEO_LAYOUT_LABELS = {
@@ -285,6 +291,14 @@ const normalizeEditorKind = (kind) => {
   }
   return "shorts";
 };
+
+const getDefaultMessageCount = () =>
+  editorKind === "series" ? DEFAULT_SERIES_MESSAGE_COUNT : DEFAULT_SHORTS_MESSAGE_COUNT;
+
+const getDialogueMessageCount = () =>
+  Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount();
+
+const getDialogueImageCount = () => Number(dialogueImageCount?.value ?? 0) || 0;
 
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
@@ -445,12 +459,18 @@ const syncEditorKindUi = () => {
   if (videoTextModeRow) {
     videoTextModeRow.hidden = !isVideo;
   }
+  if (dialogueGenMessageCountRow) {
+    dialogueGenMessageCountRow.hidden = isVideo;
+  }
+  if (dialogueGenImageCountRow) {
+    dialogueGenImageCountRow.hidden = isVideo;
+  }
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
       : isVideo
         ? "Задание для горизонтального ролика: сюжет, тон и финал. Режим «переписка» или «повествование» — ниже."
-        : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео — ниже.";
+        : "Задание для Shorts: тон, жанр и сюжет — в вашем тексте. Формат видео и число фото — ниже.";
   }
   if (dialoguePromptInput) {
     dialoguePromptInput.placeholder = isSeries
@@ -612,6 +632,8 @@ const captureEditorSnapshot = () => ({
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
   dialogueModel: getDialogueModel(),
+  messageCount: getDialogueMessageCount(),
+  imageCount: getDialogueImageCount(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -630,6 +652,12 @@ const restoreEditorSnapshot = async (snapshot) => {
     }
   }
   populateDialogueModelOptions(snapshot?.dialogueModel);
+  if (dialogueMessageCount && snapshot?.messageCount) {
+    dialogueMessageCount.value = String(snapshot.messageCount);
+  }
+  if (dialogueImageCount && snapshot?.imageCount !== undefined) {
+    dialogueImageCount.value = String(snapshot.imageCount);
+  }
   if (seriesIdInput) {
     seriesIdInput.value = snapshot?.seriesId || "usssr";
   }
@@ -5013,15 +5041,26 @@ const clearShortsJsonBeforeGenerate = () => {
   updateRefineDialogueControls();
 };
 
-const getDialogueGenOptions = () => ({
-  language: getDialogueLanguage(),
-  model: getDialogueModel(),
-  videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
-  textMode: editorKind === "video" ? getVideoTextMode() : undefined,
-});
+const getDialogueGenOptions = () => {
+  const options = {
+    language: getDialogueLanguage(),
+    model: getDialogueModel(),
+    videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
+    textMode: editorKind === "video" ? getVideoTextMode() : undefined,
+  };
+  if (editorKind === "shorts" || editorKind === "series") {
+    options.messageCount = getDialogueMessageCount();
+    options.imageCount = getDialogueImageCount();
+  }
+  return options;
+};
 
-const formatDialogueGenSummary = ({model, videoLayout, textMode}) => {
+const formatDialogueGenSummary = ({messageCount, imageCount, model, videoLayout, textMode}) => {
   const parts = [];
+  if (editorKind === "shorts" || editorKind === "series") {
+    const photos = imageCount > 0 ? `, фото ≤${imageCount}` : ", без фото";
+    parts.push(`≤${messageCount} сообщ.${photos}`);
+  }
   if (editorKind === "shorts" && videoLayout) {
     parts.push(VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout);
   }
@@ -5056,6 +5095,8 @@ const generateDialogueFromPrompt = async () => {
 
   if (editorKind === "shorts") {
     body.videoLayout = getVideoLayout();
+    body.includeImages = getDialogueImageCount() > 0;
+    body.imageCount = getDialogueImageCount();
   }
 
   if (editorKind === "video") {
@@ -5106,6 +5147,10 @@ const checkDialogueLogicFromPrompt = async () => {
     ...getDialogueGenOptions(),
     mode: editorKind,
   };
+  if (editorKind === "shorts" || editorKind === "series") {
+    body.includeImages = getDialogueImageCount() > 0;
+    body.imageCount = getDialogueImageCount();
+  }
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
   }
@@ -5237,6 +5282,8 @@ const regenerateEndingFromPrompt = async () => {
       json,
       displayTitle: dialogueTitleInput?.value?.trim() ?? "",
       tailCount: 3,
+      messageCount: getDialogueMessageCount(),
+      imageCount: getDialogueImageCount(),
       language: getDialogueLanguage(),
       videoLayout: getVideoLayout(),
       model: getDialogueModel(),

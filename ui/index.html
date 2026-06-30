@@ -220,6 +220,28 @@
                 <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
               <div class="dialogue-gen-options" id="dialogueGenOptions">
+                <label class="dialogue-gen-option" id="dialogueGenMessageCountRow">
+                  <span class="dialogue-gen-option__label">Сообщений</span>
+                  <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
+                    <option value="10" selected>до 10</option>
+                    <option value="15">до 15</option>
+                    <option value="20">до 20</option>
+                    <option value="25">до 25</option>
+                    <option value="30">до 30</option>
+                    <option value="40">до 40</option>
+                  </select>
+                </label>
+                <label class="dialogue-gen-option" id="dialogueGenImageCountRow">
+                  <span class="dialogue-gen-option__label">Фото</span>
+                  <select id="dialogueImageCount" class="select select--compact" title="Сколько фото-сообщений с imagePrompt">
+                    <option value="0" selected>0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                </label>
                 <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
                   <span class="dialogue-gen-option__label">Модель</span>
                   <select id="dialogueModel" class="select select--compact" title="OpenRouter — для генерации и проверки диалога">
@@ -646,6 +668,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=video-photos" type="module"></script>
+    <script src="/app.js?v=shorts-gen-counts" type="module"></script>
   </body>
 </html>
