@@ -2,7 +2,7 @@ import type {ConversationInput} from "./schema";
 
 export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v24";
 
-export type StorySceneAnimation = "video" | "video-seedance" | "none" | "kenburns" | "parallax" | "depthParallax";
+export type StorySceneAnimation = "video" | "none" | "kenburns" | "parallax" | "depthParallax";
 
 export type StoryOpeningConfig = {
   image?: string;
@@ -38,7 +38,6 @@ const DEFAULT_STORY: StoryConfig = {
 const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   if (
     value === "video" ||
-    value === "video-seedance" ||
     value === "none" ||
     value === "kenburns" ||
     value === "parallax" ||
@@ -49,10 +48,9 @@ const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   return "depthParallax";
 };
 
-export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean => {
-  const animation = mergeStoryConfig(conversation).opening.animation;
-  return isStoryVisualLayout(conversation) && (animation === "video" || animation === "video-seedance");
-};
+export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean =>
+  isStoryVisualLayout(conversation) &&
+  mergeStoryConfig(conversation).opening.animation === "video";
 
 export const needsStoryDepthLayers = (conversation: ConversationInput): boolean => {
   const animation = mergeStoryConfig(conversation).opening.animation;

@@ -267,9 +267,7 @@ export const generateMissingStoryVideos = async (
     throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
   }
 
-  const animation = conversation.story?.opening?.animation;
-  const isSeedance = animation === "video-seedance";
-  const model = isSeedance ? "bytedance/seedance-2.0-fast" : getOpenRouterStoryVideoModel();
+  const model = getOpenRouterStoryVideoModel();
   const resolution = getOpenRouterStoryVideoResolution();
   const sceneSeconds = buildStorySceneSeconds(conversation);
   let generated = 0;
@@ -294,7 +292,7 @@ export const generateMissingStoryVideos = async (
     const imageUrl = publicImageUrl(publicBaseUrl, target.image);
 
     const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
-    const duration = isSeedance ? Math.max(3, Math.min(5, Math.ceil(sceneSec))) : snapStoryVideoDuration(sceneSec);
+    const duration = snapStoryVideoDuration(sceneSec);
 
     const runGeneration = (prompt) =>
       generateImageToVideoFile({
