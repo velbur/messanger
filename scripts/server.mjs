@@ -1472,6 +1472,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       model,
       textMode,
     } = req.body ?? {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       res.status(400).json({error: "Поле prompt обязательно"});
       return;
     }
