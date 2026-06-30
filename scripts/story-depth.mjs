@@ -27,12 +27,12 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 32;
+export const DEPTH_LAYER_VERSION = 33;
 
-/** Доля ширины кадра — одно линейное движение за всю сцену (большая амплитуда) */
-const PARALLAX_AMPLITUDE_FRAC = 0.13;
+/** Доля ширины кадра — смещение камеры (умеренное, без «резины» на лицах) */
+const PARALLAX_AMPLITUDE_FRAC = 0.088;
 /** Лёгкий Ken Burns-зум поверх parallax (доля масштаба, 0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0.032;
+const PARALLAX_ZOOM_FRAC = 0.018;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
@@ -41,10 +41,10 @@ const PARALLAX_SWEEP = "round-trip";
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
-  dofStrength: 0.6,
-  hazeStrength: 0.07,
-  dustCount: 180,
-  dustStrength: 1.25,
+  dofStrength: 0.45,
+  hazeStrength: 0.05,
+  dustCount: 120,
+  dustStrength: 1.0,
 };
 
 env.cacheDir = CACHE_DIR;

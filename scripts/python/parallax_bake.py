@@ -101,9 +101,24 @@ def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
     lo = float(np.percentile(d, 2))
     hi = float(np.percentile(d, 98))
     d = np.clip((d - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-    sigma = max(1.0, min(w, h) * 0.0035)
+    sigma = max(1.0, min(w, h) * 0.0055)
     d = cv2.GaussianBlur(d, (0, 0), sigmaX=sigma, sigmaY=sigma)
     return d
+
+
+def depth_stiffness_mask(depth: np.ndarray) -> np.ndarray:
+    """На резких перепадах глубины (лицо, предметы) уменьшаем смещение — меньше «резины»."""
+    gx = cv2.Sobel(depth, cv2.CV_32F, 1, 0, ksize=5)
+    gy = cv2.Sobel(depth, cv2.CV_32F, 0, 1, ksize=5)
+    grad = np.hypot(gx, gy)
+    grad_cap = float(np.percentile(grad, 90)) + 1e-6
+    stiff = 1.0 - np.clip(grad / grad_cap, 0.0, 1.0) * 0.88
+    return np.clip(stiff, 0.1, 1.0)
+
+
+def compress_displacement(disp: np.ndarray) -> np.ndarray:
+    """Сжать крайние значения глубины — меньше растяжки на ближнем плане."""
+    return np.tanh(disp * 2.4) * 0.36
 
 
 def camera_phase(t: float) -> float:
@@ -150,19 +165,21 @@ def inpaint_background(img_rgb: np.ndarray, fg_alpha: np.ndarray, depth: np.ndar
     return bg_rgb, depth_bg
 
 
-def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy):
+def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy, stiff=None):
     """Backward-warp по глубине: pixel сэмплится из src со смещением (d-focus)*offset.
 
     Два прохода уточняют глубину в точке сэмпла → меньше «тянучки» на разрывах.
     """
-    disp = depth_layer - focus
+    if stiff is None:
+        stiff = depth_stiffness_mask(depth_layer)
+    disp = compress_displacement(depth_layer - focus) * stiff
     map_x = (base_x - disp * ox).astype(np.float32)
     map_y = (base_y - disp * oy).astype(np.float32)
     for _ in range(2):
         d_at = cv2.remap(
             depth_layer, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
         )
-        disp = d_at - focus
+        disp = compress_displacement(d_at - focus) * stiff
         map_x = (base_x - disp * ox).astype(np.float32)
         map_y = (base_y - disp * oy).astype(np.float32)
     warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -278,12 +295,13 @@ def bake_one(job: dict) -> dict:
         cv2.imwrite(out_depth, (np.clip(depth, 0, 1) * 255).astype(np.uint8))
 
     focus = float(np.percentile(depth, 50))
-    # ближний план двигается заметно сильнее фона
-    near_gain = 1.0
-    far_gain = 0.55
+    # меньше разницы fg/bg → меньше «разрыва» на контурах лиц и предметов
+    near_gain = 0.88
+    far_gain = 0.68
+    depth_stiff = depth_stiffness_mask(depth)
 
     # overscan: запас под parallax-смещение + опциональный зум
-    overscan_gain = 2.4 if motion == "linear" else 1.7
+    overscan_gain = 1.9 if motion == "linear" else 1.6
     zoom_overscan = 1.0 + (amp / max(w, h)) * overscan_gain
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -310,7 +328,7 @@ def bake_one(job: dict) -> dict:
                 sweep = scene_sweep_phase(t)
                 zoom = zoom_overscan + zoom_frac * sweep
                 ox = amp * pan_x * sweep
-                oy = amp * pan_y * 0.35 * sweep
+                oy = amp * pan_y * 0.22 * sweep
             else:
                 t = i / frames
                 pt = camera_phase(t)
@@ -322,10 +340,10 @@ def bake_one(job: dict) -> dict:
             base_y = (grid_y - cy) / zoom + cy
 
             bg_warp, bg_mx, bg_my = warp_layer(
-                bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
+                bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain, depth_stiff
             )
             fg_warp, map_x, map_y = warp_layer(
-                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain
+                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain, depth_stiff
             )
             a_warp = cv2.remap(
                 fg_alpha_f, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
