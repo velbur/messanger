@@ -97,6 +97,9 @@ const btnBackToSeriesList = document.getElementById("btnBackToSeriesList");
 const btnNewShort = document.getElementById("btnNewShort");
 const btnNewVideo = document.getElementById("btnNewVideo");
 const btnBackToList = document.getElementById("btnBackToList");
+const headerSubtitle = document.getElementById("headerSubtitle");
+const headerLinkShorts = document.getElementById("headerLinkShorts");
+const headerLinkHome = document.getElementById("headerLinkHome");
 const apiStatusContent = document.getElementById("apiStatusContent");
 const btnRefreshApiStatus = document.getElementById("btnRefreshApiStatus");
 const dialogueTitleInput = document.getElementById("dialogueTitleInput");
@@ -449,6 +452,54 @@ let editorImageDraftNamespace = `shorts-draft-${Date.now().toString(36)}`;
 let editorKind = "series";
 let editorVisible = false;
 let activeMainTab = "series";
+
+const parseAppRoute = () => {
+  const segments = window.location.pathname.split("/").filter(Boolean);
+  if (segments[0] === "shorts") {
+    return {
+      mode: "shorts",
+      dialogueId: segments[1] ? decodeURIComponent(segments[1]) : null,
+    };
+  }
+  return {mode: "full", dialogueId: null};
+};
+
+let appRoute = parseAppRoute();
+const isShortsApp = () => appRoute.mode === "shorts";
+
+const applyAppShell = () => {
+  document.body.classList.toggle("app--shorts-only", isShortsApp());
+  if (headerLinkShorts) {
+    headerLinkShorts.hidden = isShortsApp();
+  }
+  if (headerLinkHome) {
+    headerLinkHome.hidden = !isShortsApp();
+  }
+  if (headerSubtitle) {
+    headerSubtitle.textContent = isShortsApp()
+      ? "Shorts: вертикальные ролики из переписок, сохранение в базу и сборка MP4"
+      : "Редактор переписок, сохранение в локальную базу и сборка MP4";
+  }
+  document.title = isShortsApp()
+    ? "Shorts · Chat Video Generator"
+    : "Chat Video Generator";
+};
+
+const syncShortsBrowserPath = ({dialogueId = null, replace = false} = {}) => {
+  if (!isShortsApp()) {
+    return;
+  }
+  const nextPath = dialogueId ? `/shorts/${encodeURIComponent(dialogueId)}` : "/shorts";
+  if (window.location.pathname === nextPath) {
+    return;
+  }
+  const state = {shortsApp: true, dialogueId: dialogueId ?? null};
+  if (replace) {
+    history.replaceState(state, "", nextPath);
+  } else {
+    history.pushState(state, "", nextPath);
+  }
+};
 let selectedSeriesId = null;
 let currentPartNumber = null;
 
@@ -843,6 +894,9 @@ const showBrowseView = async (kind = editorKind) => {
     selectedSeriesId = null;
     await loadDialoguesList(editorKind);
   }
+  if (isShortsApp() && editorKind === "shorts") {
+    syncShortsBrowserPath();
+  }
 };
 
 const updateTabButtonStates = (tabId, isContentTab) => {
@@ -929,6 +983,10 @@ tabBtnSeries?.addEventListener("click", () => {
   setActiveTab("series");
 });
 tabBtnShorts?.addEventListener("click", () => {
+  if (!isShortsApp()) {
+    window.location.href = "/shorts";
+    return;
+  }
   void setActiveTab("shorts");
 });
 tabBtnVideo?.addEventListener("click", () => {
@@ -1162,7 +1220,7 @@ const formatDate = (ts) => {
   });
 };
 
-const openDialogue = async (id) => {
+const openDialogue = async (id, {syncUrl = true, replaceUrl = false} = {}) => {
   const res = await fetch(`/api/dialogues/${id}`);
   const data = await res.json();
   if (!res.ok) {
@@ -1184,6 +1242,9 @@ const openDialogue = async (id) => {
   updateSeriesBrowseVisibility();
   await setActiveTab(editorKind, {skipEditorSwitch: true});
   await refreshDialogue();
+  if (syncUrl && isShortsApp() && editorKind === "shorts") {
+    syncShortsBrowserPath({dialogueId: id, replace: replaceUrl});
+  }
 };
 
 const saveCurrentDialogue = async () => {
@@ -1225,6 +1286,7 @@ const saveCurrentDialogue = async () => {
     throw new Error(data.error ?? "Ошибка сохранения");
   }
 
+  const isNewDialogue = !currentDialogueId;
   currentDialogueId = data.id;
   dialogueTitleInput.value = data.titleDisplay || data.title || dialogueTitleInput.value;
   if (data.conversation) {
@@ -1247,6 +1309,9 @@ const saveCurrentDialogue = async () => {
       ? ` · убрано ${prunedCount} пуст${prunedCount === 1 ? "ое" : prunedCount < 5 ? "ых" : ""} сообщ.`
       : "";
   setDialogueSaveStatus(`Сохранено ${formatDate(data.updatedAt)}${prunedNote}`);
+  if (isShortsApp() && editorKind === "shorts" && editorVisible && data.id) {
+    syncShortsBrowserPath({dialogueId: data.id, replace: isNewDialogue});
+  }
   return data;
 };
 
@@ -1294,6 +1359,9 @@ const newDialogue = async ({openEditor = false} = {}) => {
     editorVisible = true;
     updateContentViewVisibility();
     await setActiveTab(editorKind, {skipEditorSwitch: true});
+  }
+  if (isShortsApp() && editorKind === "shorts") {
+    syncShortsBrowserPath();
   }
 };
 
@@ -1605,9 +1673,20 @@ const loadDialoguesList = async (kind = editorKind) => {
 };
 
 const loadBrowseOnStartup = async () => {
+  applyAppShell();
   try {
-    await showSeriesListView();
-    await loadDialoguesList("shorts");
+    if (isShortsApp()) {
+      editorKind = "shorts";
+      activeMainTab = "shorts";
+      syncEditorKindUi();
+      await showBrowseView("shorts");
+      if (appRoute.dialogueId) {
+        await openDialogue(appRoute.dialogueId, {replaceUrl: true});
+      }
+    } else {
+      await showSeriesListView();
+      await loadDialoguesList("shorts");
+    }
   } catch {
     /* пустой список */
   }
@@ -6509,4 +6588,32 @@ updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
 syncEditorKindUi();
+
+window.addEventListener("popstate", () => {
+  void (async () => {
+    appRoute = parseAppRoute();
+    applyAppShell();
+    if (!isShortsApp()) {
+      return;
+    }
+    editorKind = "shorts";
+    activeMainTab = "shorts";
+    syncEditorKindUi();
+    if (appRoute.dialogueId) {
+      if (appRoute.dialogueId !== currentDialogueId) {
+        try {
+          await openDialogue(appRoute.dialogueId, {replaceUrl: true});
+        } catch (err) {
+          alert(err instanceof Error ? err.message : String(err));
+          syncShortsBrowserPath({replace: true});
+        }
+      }
+      return;
+    }
+    if (editorVisible) {
+      await showBrowseView("shorts");
+    }
+  })();
+});
+
 loadBrowseOnStartup();

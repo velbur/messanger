@@ -46,6 +46,36 @@ body {
   font-size: 0.95rem;
 }
 
+.header-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.header-nav__link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #00a884;
+  text-decoration: none;
+}
+
+.header-nav__link:hover {
+  text-decoration: underline;
+}
+
+.app--shorts-only #tabBtnSeries,
+.app--shorts-only #tabBtnVideo,
+.app--shorts-only #tabPanelSeries,
+.app--shorts-only #tabPanelVideo {
+  display: none !important;
+}
+
+body:not(.app--shorts-only) #tabBtnShorts,
+body:not(.app--shorts-only) #tabPanelShorts {
+  display: none !important;
+}
+
 .tabs {
   display: flex;
   gap: 8px;

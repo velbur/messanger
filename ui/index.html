@@ -10,7 +10,13 @@
     <main class="page">
       <header class="header">
         <h1>Chat Video Generator</h1>
-        <p class="subtitle">Редактор переписок, сохранение в локальную базу и сборка MP4 для Shorts</p>
+        <p class="subtitle" id="headerSubtitle">
+          Редактор переписок, сохранение в локальную базу и сборка MP4 для Shorts
+        </p>
+        <nav class="header-nav" id="headerNav" aria-label="Разделы приложения">
+          <a href="/shorts" class="header-nav__link" id="headerLinkShorts" hidden>Shorts</a>
+          <a href="/" class="header-nav__link" id="headerLinkHome" hidden>← Сериал и Video</a>
+        </nav>
       </header>
 
       <nav class="tabs" role="tablist" aria-label="Разделы редактора">

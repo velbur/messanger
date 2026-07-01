@@ -2832,9 +2832,13 @@ app.use(express.static(UI_DIR, {
   },
 }));
 
-app.get("/", (_req, res) => {
+const sendUiIndex = (_req, res) => {
   res.sendFile(path.join(UI_DIR, "index.html"));
-});
+};
+
+app.get("/", sendUiIndex);
+app.get("/shorts", sendUiIndex);
+app.get("/shorts/:dialogueId", sendUiIndex);
 
 const formatZodError = (error) =>
   error.issues
