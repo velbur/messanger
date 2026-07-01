@@ -70,6 +70,7 @@ import {
   resolveFramePrompts,
   resolveStoryFramePrompts,
   suggestImagePrompt,
+  suggestStoryImagePrompt,
   buildImageGenerationPrompt,
   buildStoryImageGenerationPrompt,
 } from "./image-prompt-llm.mjs";
@@ -945,6 +946,55 @@ app.post("/api/images/suggest-prompt", async (req, res) => {
       ...llm,
       promptSource: "openrouter",
       charCount: llm.imagePrompt.length,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatOpenRouterError(error)});
+  }
+});
+
+app.post("/api/images/suggest-story-prompt", async (req, res) => {
+  try {
+    const {json: jsonText, messageIndex, stylePrompt, force, kind: rawKind} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
+      return;
+    }
+
+    const conversation = JSON.parse(jsonText);
+    const kind =
+      rawKind === "opening" || rawKind === "message"
+        ? rawKind
+        : messageIndex == null
+          ? "opening"
+          : "message";
+
+    if (kind === "message") {
+      if (typeof messageIndex !== "number" || messageIndex < 0) {
+        res.status(400).json({error: "Поле messageIndex обязательно для story-кадра сообщения"});
+        return;
+      }
+    }
+
+    const style =
+      typeof stylePrompt === "string" && stylePrompt.trim()
+        ? stylePrompt.trim()
+        : await readStoryStylePrompt();
+
+    const llm = await suggestStoryImagePrompt({
+      conversation,
+      messageIndex: kind === "opening" ? null : messageIndex,
+      stylePrompt: style,
+      kind,
+      force: force === true,
+    });
+
+    res.json({
+      ...llm,
+      charCount: llm.imagePrompt?.length ?? 0,
     });
   } catch (error) {
     res.status(400).json({error: formatOpenRouterError(error)});

@@ -235,6 +235,105 @@ const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = ""} = {}) 
     .join("\n");
 };
 
+const llmStoryOpeningPrompt = async (conversation, style) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const contactName = conversation?.contactName?.trim() || "Собеседник";
+  const dialogue = buildFullDialogueTranscriptForLlm(
+    messages,
+    Math.min(2, Math.max(0, messages.length - 1)),
+    contactName,
+  );
+  const {data, model} = await openRouterChatJson({
+    messages: [
+      {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
+      {
+        role: "user",
+        content: [
+          `Контакт: ${contactName}`,
+          "Цель: establishing shot до начала переписки",
+          dialogue.text ? `Контекст будущей переписки:\n${dialogue.text}` : "",
+          "Опиши фотореалистичный кинематографичный establishing shot для верхней панели 9:16.",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
+    ],
+    temperature: 0.25,
+    maxTokens: 1200,
+  });
+  const imagePrompt = normalizeSpace(data?.imagePrompt);
+  if (!imagePrompt) {
+    throw new Error("LLM не вернул story imagePrompt");
+  }
+  return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+};
+
+const llmStoryMessagePrompt = async (conversation, messageIndex, style) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  if (messageIndex < 0 || messageIndex >= messages.length) {
+    throw new Error("Некорректный индекс сообщения для story-кадра");
+  }
+  const contactName = conversation?.contactName?.trim() || "Собеседник";
+  const dialogue = buildFullDialogueTranscriptForLlm(messages, messageIndex, contactName);
+  const {data, model} = await openRouterChatJson({
+    messages: [
+      {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
+      {
+        role: "user",
+        content: [
+          `Контакт: ${contactName}`,
+          `Целевое сообщение №${messageIndex + 1}`,
+          dialogue.text,
+          "Опиши кинематографичный кадр сцены для верхней панели в момент этого сообщения.",
+        ].join("\n\n"),
+      },
+    ],
+    temperature: 0.25,
+    maxTokens: 1200,
+  });
+  const imagePrompt = normalizeSpace(data?.imagePrompt);
+  if (!imagePrompt) {
+    throw new Error("LLM не вернул story imagePrompt");
+  }
+  return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+};
+
+export const suggestStoryImagePrompt = async ({
+  conversation,
+  messageIndex = null,
+  stylePrompt,
+  kind,
+  force = false,
+}) => {
+  const resolvedKind = kind ?? (messageIndex == null ? "opening" : "message");
+  const style = normalizeSpace(stylePrompt) || normalizeSpace(await readStoryStylePrompt());
+
+  if (resolvedKind === "opening") {
+    const manual = normalizeSpace(conversation?.story?.opening?.imagePrompt);
+    if (manual && !force) {
+      return {imagePrompt: manual, promptSource: "manual", skippedLlm: true, imageReferences: null};
+    }
+    if (!isOpenRouterConfigured()) {
+      throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY)");
+    }
+    return llmStoryOpeningPrompt(conversation, style);
+  }
+
+  if (messageIndex == null || messageIndex < 0) {
+    throw new Error("Укажите messageIndex для story-кадра сообщения");
+  }
+
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const manual = normalizeSpace(messages[messageIndex]?.storyImagePrompt);
+  if (manual && !force) {
+    return {imagePrompt: manual, promptSource: "manual", skippedLlm: true, imageReferences: null};
+  }
+  if (!isOpenRouterConfigured()) {
+    throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY)");
+  }
+  return llmStoryMessagePrompt(conversation, messageIndex, style);
+};
+
 export const resolveStoryFramePrompts = async ({
   conversation,
   messageIndex = null,
@@ -278,29 +377,7 @@ export const resolveStoryFramePrompts = async ({
   }
 
   if (isOpenRouterConfigured()) {
-    const contactName = conversation?.contactName?.trim() || "Собеседник";
-    const dialogue = buildFullDialogueTranscriptForLlm(messages, messageIndex, contactName);
-    const {data, model} = await openRouterChatJson({
-      messages: [
-        {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
-        {
-          role: "user",
-          content: [
-            `Контакт: ${contactName}`,
-            `Целевое сообщение №${messageIndex + 1}`,
-            dialogue.text,
-            "Опиши кинематографичный кадр сцены для верхней панели в момент этого сообщения.",
-          ].join("\n\n"),
-        },
-      ],
-      temperature: 0.25,
-      maxTokens: 1200,
-    });
-    const imagePrompt = normalizeSpace(data?.imagePrompt);
-    if (!imagePrompt) {
-      throw new Error("LLM не вернул story imagePrompt");
-    }
-    return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+    return llmStoryMessagePrompt(conversation, messageIndex, style);
   }
 
   const frame = buildFrameBrief({message, messageIndex, messages, contactName: conversation?.contactName});

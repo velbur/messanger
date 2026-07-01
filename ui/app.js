@@ -432,6 +432,12 @@ const updateImageProviderControls = () => {
           : `Генерация story-кадра через OpenRouter (${openrouterStoryImageModel})`
         : getImageProviderUnavailableHint();
     }
+    for (const btn of slot.querySelectorAll("[data-action='suggest-story-prompt']")) {
+      btn.disabled = !openrouterConfigured;
+      btn.title = openrouterConfigured
+        ? "Собрать промпт story-кадра по переписке (Gemini)"
+        : "Задайте OPENROUTER_API_KEY в docs/.env";
+    }
   }
 };
 let defaultMusicId = "romantic-beautiful-dream.mp3";
@@ -3215,7 +3221,7 @@ const setJsonStoryImage = (messageIndex, publicPath) => {
   }
 };
 
-const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt) => {
+const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt, {removeIfEmpty = true} = {}) => {
   try {
     const parsed = JSON.parse(jsonInput.value);
     if (!Array.isArray(parsed.messages) || !parsed.messages[messageIndex]) {
@@ -3224,13 +3230,19 @@ const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt) => {
     const trimmed = String(storyImagePrompt ?? "").trim();
     if (trimmed) {
       parsed.messages[messageIndex].storyImagePrompt = trimmed;
-    } else {
+    } else if (removeIfEmpty) {
       delete parsed.messages[messageIndex].storyImagePrompt;
+    } else {
+      parsed.messages[messageIndex].storyImagePrompt = "";
     }
     jsonInput.value = JSON.stringify(parsed, null, 2);
   } catch {
     /* ignore */
   }
+};
+
+const ensureStoryImageSlot = (messageIndex) => {
+  setJsonStoryImagePrompt(messageIndex, "", {removeIfEmpty: false});
 };
 
 const setJsonStoryOpeningImage = (publicPath) => {
@@ -3696,6 +3708,40 @@ const suggestImagePrompt = async (item, {force = false} = {}) => {
   return data;
 };
 
+const suggestStoryImagePrompt = async ({messageIndex = null, force = false} = {}) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала вставьте JSON переписки");
+  }
+  if (!openrouterConfigured) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env");
+  }
+  const kind = messageIndex == null ? "opening" : "message";
+  const res = await fetch("/api/images/suggest-story-prompt", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      messageIndex: messageIndex ?? undefined,
+      kind,
+      stylePrompt: getStoryStylePrompt(),
+      force,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации промпта");
+  }
+  if (data.imagePrompt) {
+    if (messageIndex == null) {
+      setJsonStoryOpeningPrompt(data.imagePrompt);
+    } else {
+      setJsonStoryImagePrompt(messageIndex, data.imagePrompt);
+    }
+  }
+  return data;
+};
+
 const generateFrameImage = async (item) => {
   const json = jsonInput.value.trim();
   if (!json) {
@@ -4061,6 +4107,35 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
   const actions = document.createElement("div");
   actions.className = "image-slot__actions";
 
+  const btnSuggest = document.createElement("button");
+  btnSuggest.type = "button";
+  btnSuggest.className = "btn btn-secondary btn-small";
+  btnSuggest.dataset.action = "suggest-story-prompt";
+  btnSuggest.textContent = "Промпт от Gemini";
+  btnSuggest.disabled = !openrouterConfigured;
+  btnSuggest.addEventListener("click", async () => {
+    btnSuggest.disabled = true;
+    const prevLabel = btnSuggest.textContent;
+    btnSuggest.textContent = "Gemini…";
+    try {
+      const data = await suggestStoryImagePrompt({
+        messageIndex,
+        force: Boolean(promptInput.value.trim()),
+      });
+      if (data.imagePrompt) {
+        promptInput.value = data.imagePrompt;
+        flushStoryImagePromptToJson(messageIndex, data.imagePrompt);
+      }
+      updateGenerateImagesControls();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      btnSuggest.textContent = prevLabel;
+      updateImageProviderControls();
+    }
+  });
+  actions.append(btnSuggest);
+
   const btnGenerate = document.createElement("button");
   btnGenerate.type = "button";
   btnGenerate.className = "btn btn-primary btn-small";
@@ -4150,9 +4225,10 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
     btnAdd.type = "button";
     btnAdd.className = "btn btn-secondary btn-small";
     btnAdd.textContent = "+ Сюжетный кадр";
-    btnAdd.hidden = Boolean(promptValue);
+    btnAdd.hidden =
+      message?.storyImagePrompt !== undefined || Boolean(String(message?.storyImage ?? "").trim());
     btnAdd.addEventListener("click", () => {
-      setJsonStoryImagePrompt(messageIndex, "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.");
+      ensureStoryImageSlot(messageIndex);
       refreshDialogue();
     });
     actions.append(btnAdd);
@@ -4600,8 +4676,10 @@ const renderDialogueSceneBlock = ({
     message.storyImagePrompt?.trim() ||
     isStoryVisual;
 
+  const hasStoryPromptField = Object.hasOwn(message, "storyImagePrompt");
+
   if (hasStorySlot || isStoryVisual) {
-    if (message.storyImage?.trim() || message.storyImagePrompt?.trim()) {
+    if (message.storyImage?.trim() || hasStoryPromptField) {
       controls.append(
         renderStoryImageSlot({
           messageIndex,
@@ -4618,10 +4696,7 @@ const renderDialogueSceneBlock = ({
       btnAddStory.className = "btn btn-secondary btn-small";
       btnAddStory.textContent = "+ Кадр сцены";
       btnAddStory.addEventListener("click", () => {
-        setJsonStoryImagePrompt(
-          messageIndex,
-          "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.",
-        );
+        ensureStoryImageSlot(messageIndex);
         refreshDialogue();
       });
       addStoryRow.append(btnAddStory);
@@ -4640,10 +4715,7 @@ const renderDialogueSceneBlock = ({
     btnAdd.className = "btn btn-secondary btn-small";
     btnAdd.textContent = "+ Изображение";
     btnAdd.addEventListener("click", () => {
-      setJsonStoryImagePrompt(
-        messageIndex,
-        "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.",
-      );
+      setJsonImagePrompt(messageIndex, "");
       refreshDialogue();
     });
     addRow.append(btnAdd);
