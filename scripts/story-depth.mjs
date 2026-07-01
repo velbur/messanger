@@ -32,7 +32,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 39;
+export const DEPTH_LAYER_VERSION = 40;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.128;
@@ -47,6 +47,8 @@ const PARALLAX_SWEEP = "round-trip";
 export const VIDEO_PARALLAX_HOLD_SWEEP = "forward";
 /** Без Ken Burns-зума в bake — кадр 0 совпадает с hold PNG */
 export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0;
+/** Сильнее смещение слоёв на 15 с фазе после Veo */
+export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.2;
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -255,6 +257,7 @@ const bakeParallaxAsset = async ({
   sweep = PARALLAX_SWEEP,
   zoomFrac = PARALLAX_ZOOM_FRAC,
   holdHandoff = false,
+  amplitudeFrac = PARALLAX_AMPLITUDE_FRAC,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
@@ -271,13 +274,14 @@ const bakeParallaxAsset = async ({
         outDepth,
         frames,
         fps: FPS,
-        amplitudePx: Math.max(12, Math.round(width * PARALLAX_AMPLITUDE_FRAC)),
+        amplitudePx: Math.max(12, Math.round(width * amplitudeFrac)),
         panX: pan.panX,
         panY: pan.panY,
         motion: PARALLAX_MOTION,
         sweep,
         zoomFrac,
         holdHandoff,
+        panYGain: holdHandoff ? 0.42 : undefined,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
         dustCount: PARALLAX_FX.dustCount,
@@ -300,6 +304,7 @@ const bakeParallaxAsset = async ({
         height,
         zoomFrac,
         holdHandoff,
+        amplitudeFrac,
         panX: pan.panX,
         panY: pan.panY,
         fx: PARALLAX_FX,
@@ -323,6 +328,7 @@ const bakeFallbackAsset = async ({
   sweep = PARALLAX_SWEEP,
   zoomFrac = PARALLAX_ZOOM_FRAC,
   holdHandoff = false,
+  amplitudeFrac = PARALLAX_AMPLITUDE_FRAC,
 }) => {
   const meta = await sharp(imageAbs).metadata();
   const width = evenEncodeDim(meta.width ?? 1080);
@@ -413,6 +419,7 @@ export const generateStoryDepthAssets = async (
     sweep = PARALLAX_SWEEP,
     holdHandoff = false,
     zoomFrac = PARALLAX_ZOOM_FRAC,
+    amplitudeFrac = PARALLAX_AMPLITUDE_FRAC,
   } = {},
 ) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
@@ -460,6 +467,7 @@ export const generateStoryDepthAssets = async (
     sweep,
     zoomFrac,
     holdHandoff,
+    amplitudeFrac,
   });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
@@ -488,6 +496,7 @@ export const ensureVideoParallaxHoldDepth = async (
     sweep,
     holdHandoff: true,
     zoomFrac: VIDEO_PARALLAX_HOLD_ZOOM_FRAC,
+    amplitudeFrac: VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC,
   });
 };
 

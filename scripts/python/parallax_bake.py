@@ -272,6 +272,7 @@ def bake_one(job: dict) -> dict:
     effect_seed = int(job.get("effect_seed", 12345))
     zoom_frac = float(job.get("zoom_frac", 0.028))
     hold_handoff = bool(job.get("hold_handoff", False))
+    pan_y_gain = float(job.get("pan_y_gain", 0.18))
     motion = str(job.get("motion", "linear"))
     sweep = str(job.get("sweep", "round-trip"))
 
@@ -327,7 +328,10 @@ def bake_one(job: dict) -> dict:
         for i in range(frames):
             if linear:
                 t = i / max(frames - 1, 1)
-                sweep_val = scene_sweep_phase(t, sweep)
+                if hold_handoff and sweep in ("forward", "one-way"):
+                    sweep_val = t
+                else:
+                    sweep_val = scene_sweep_phase(t, sweep)
                 if hold_handoff and sweep in ("forward", "one-way"):
                     # Кадр 0 = пиксель-в-пиксель с hold PNG (стык с последним кадром Veo)
                     zoom_end = zoom_overscan + zoom_frac
@@ -335,7 +339,7 @@ def bake_one(job: dict) -> dict:
                 else:
                     zoom = zoom_overscan + zoom_frac * sweep_val
                 ox = amp * pan_x * sweep_val
-                oy = amp * pan_y * 0.18 * sweep_val
+                oy = amp * pan_y * pan_y_gain * sweep_val
             else:
                 t = i / frames
                 pt = camera_phase(t)
