@@ -31,7 +31,7 @@ type Props = {
   fallbackAnimation?: "kenburns" | "depthParallax";
 };
 
-/** Hold-кадр плавно проявляется поверх замершего видео (видео не гасим — иначе чёрный кадр) */
+/** Ken Burns hold: плавный crossfade с замершего Veo */
 const HOLD_CROSSFADE_FRAMES = 12;
 
 const baseCoverStyle: React.CSSProperties = {
@@ -61,6 +61,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const localFrame = Math.max(0, frame - sceneStartFrame);
+  const isDepthParallax = fallbackAnimation === "depthParallax";
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
@@ -68,11 +69,14 @@ export const StorySceneVideo: React.FC<Props> = ({
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
   const showVideo = localFrame < playFrames;
 
-  // Зум идёт непрерывно через всю сцену — поэтому паузы при замирании клипа нет
   const motion = storyVideoSceneMotion(video, localFrame);
 
-  const holdOpacity =
-    localFrame < crossfadeStart
+  /** depthParallax: резкий переход (без ghosting). Ken Burns hold: crossfade. */
+  const holdOpacity = isDepthParallax
+    ? localFrame >= playFrames
+      ? 1
+      : 0
+    : localFrame < crossfadeStart
       ? 0
       : localFrame < playFrames
         ? interpolate(localFrame, [crossfadeStart, playFrames], [0, 1], {
@@ -82,9 +86,9 @@ export const StorySceneVideo: React.FC<Props> = ({
           })
         : 1;
 
-  // До crossfade — проигрываем Veo; к crossfadeStart уже на последнем кадре (без скачка)
-  const sourceFrame =
-    localFrame >= crossfadeStart
+  const sourceFrame = isDepthParallax
+    ? storyVideoSourceFrameAtPlayFrame(localFrame, Math.max(1, playFrames), lastSourceFrame)
+    : localFrame >= crossfadeStart
       ? lastSourceFrame
       : storyVideoSourceFrameAtPlayFrame(
           localFrame,
@@ -92,20 +96,20 @@ export const StorySceneVideo: React.FC<Props> = ({
           lastSourceFrame,
         );
 
-  const parallaxMotionStyle: React.CSSProperties = {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    opacity: holdOpacity,
-  };
+  const parallaxStartFrame = isDepthParallax ? playFrames : crossfadeStart;
+  const parallaxPhaseFrames = Math.max(1, sceneDurationFrames - parallaxStartFrame);
 
-  // Частицы тоньше во время живого видео, ярче на hold-кадре
-  const particleIntensity = interpolate(
-    localFrame,
-    [crossfadeStart, playFrames],
-    [0.5, 1],
-    {extrapolateLeft: "clamp", extrapolateRight: "clamp"},
-  );
+  const particleIntensity = isDepthParallax
+    ? localFrame >= playFrames
+      ? 1
+      : interpolate(localFrame, [Math.max(0, playFrames - 8), playFrames], [0.5, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+    : interpolate(localFrame, [crossfadeStart, playFrames], [0.5, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
 
   return (
     <Sequence
@@ -123,17 +127,13 @@ export const StorySceneVideo: React.FC<Props> = ({
             style={withMotionStyle(motion, 1)}
           />
         ) : null}
-        {/* Всегда в дереве для preload; виден только с crossfade */}
-        {fallbackAnimation === "depthParallax" ? (
-          <div style={parallaxMotionStyle}>
-            <DepthDisplacementImage
-              image={holdFrame}
-              parallaxVideo={storyParallaxVideoPathForVideo(video)}
-              sceneStartFrame={sceneStartFrame}
-              durationFrames={sceneDurationFrames}
-              parallaxLocalStartFrame={crossfadeStart}
-            />
-          </div>
+        {isDepthParallax ? (
+          <DepthDisplacementImage
+            image={holdFrame}
+            parallaxVideo={storyParallaxVideoPathForVideo(video)}
+            sceneStartFrame={sceneStartFrame + playFrames}
+            durationFrames={parallaxPhaseFrames}
+          />
         ) : (
           <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
         )}

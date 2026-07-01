@@ -43,6 +43,8 @@ const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
 /** Профиль движения: round-trip = туда и обратно за одну сцену */
 const PARALLAX_SWEEP = "round-trip";
+/** После Veo: одно непрерывное движение 0→1 на всю фазу parallax */
+export const VIDEO_PARALLAX_HOLD_SWEEP = "forward";
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -248,6 +250,7 @@ const bakeParallaxAsset = async ({
   frames = PARALLAX_DEFAULT_FRAMES,
   panX,
   panY,
+  sweep = PARALLAX_SWEEP,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
@@ -268,7 +271,7 @@ const bakeParallaxAsset = async ({
         panX: pan.panX,
         panY: pan.panY,
         motion: PARALLAX_MOTION,
-        sweep: PARALLAX_SWEEP,
+        sweep,
         zoomFrac: PARALLAX_ZOOM_FRAC,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
@@ -285,7 +288,7 @@ const bakeParallaxAsset = async ({
         version: DEPTH_LAYER_VERSION,
         mode: "video",
         motion: PARALLAX_MOTION,
-        sweep: PARALLAX_SWEEP,
+        sweep,
         frames,
         fps: FPS,
         width,
@@ -311,6 +314,7 @@ const bakeFallbackAsset = async ({
   frames = PARALLAX_DEFAULT_FRAMES,
   panX,
   panY,
+  sweep = PARALLAX_SWEEP,
 }) => {
   const meta = await sharp(imageAbs).metadata();
   const width = evenEncodeDim(meta.width ?? 1080);
@@ -347,7 +351,7 @@ const bakeFallbackAsset = async ({
       version: DEPTH_LAYER_VERSION,
       mode: "video",
       motion: PARALLAX_MOTION,
-      sweep: PARALLAX_SWEEP,
+      sweep: sweep ?? PARALLAX_SWEEP,
       frames,
       fps: FPS,
       width,
@@ -362,7 +366,7 @@ const bakeFallbackAsset = async ({
 
 export const isStoryDepthAvailable = async (
   imagePublicPath,
-  {requiredFrames, requiredPanX} = {},
+  {requiredFrames, requiredPanX, requiredSweep} = {},
 ) => {
   const paths = storyLayerPaths(imagePublicPath);
   try {
@@ -373,7 +377,7 @@ export const isStoryDepthAvailable = async (
     if (meta.motion !== PARALLAX_MOTION) {
       return false;
     }
-    if (meta.sweep !== PARALLAX_SWEEP) {
+    if (meta.sweep !== (requiredSweep ?? PARALLAX_SWEEP)) {
       return false;
     }
     if (requiredPanX !== undefined && Number(meta.panX) !== requiredPanX) {
@@ -392,7 +396,7 @@ export const isStoryDepthAvailable = async (
 
 export const generateStoryDepthAssets = async (
   imagePublicPath,
-  {force = false, frames = PARALLAX_DEFAULT_FRAMES} = {},
+  {force = false, frames = PARALLAX_DEFAULT_FRAMES, sweep = PARALLAX_SWEEP} = {},
 ) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
   if (!rel) {
@@ -400,7 +404,7 @@ export const generateStoryDepthAssets = async (
   }
 
   const paths = storyLayerPaths(rel);
-  if (!force && (await isStoryDepthAvailable(rel, {requiredFrames: frames}))) {
+  if (!force && (await isStoryDepthAvailable(rel, {requiredFrames: frames, requiredSweep: sweep}))) {
     return {skipped: true, paths, relative: rel};
   }
 
@@ -409,7 +413,7 @@ export const generateStoryDepthAssets = async (
 
   if (!(await isParallaxBakeAvailable())) {
     const {panX, panY} = parallaxMotionVectorsForScene(0);
-    await bakeFallbackAsset({rel, imageAbs, paths, frames, panX, panY});
+    await bakeFallbackAsset({rel, imageAbs, paths, frames, panX, panY, sweep});
     return {skipped: false, paths, relative: rel, provider: "kenburns-fallback", fallback: true};
   }
 
@@ -429,6 +433,7 @@ export const generateStoryDepthAssets = async (
     frames,
     panX,
     panY,
+    sweep,
   });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
@@ -440,7 +445,7 @@ export const generateStoryDepthAssets = async (
  */
 export const ensureVideoParallaxHoldDepth = async (
   imagePublicPath,
-  {force = false, frames = PARALLAX_DEFAULT_FRAMES, videoRef} = {},
+  {force = false, frames = PARALLAX_DEFAULT_FRAMES, videoRef, sweep = VIDEO_PARALLAX_HOLD_SWEEP} = {},
 ) => {
   const imageRel = String(imagePublicPath).replace(/^\/+/, "").trim();
   if (!imageRel) {
@@ -451,7 +456,7 @@ export const ensureVideoParallaxHoldDepth = async (
     .trim();
   await ensureStoryVideoHoldFrameFile(video);
   const holdRel = storyVideoHoldFramePathForVideo(video);
-  return generateStoryDepthAssets(holdRel, {force, frames});
+  return generateStoryDepthAssets(holdRel, {force, frames, sweep});
 };
 
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {

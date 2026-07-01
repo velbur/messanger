@@ -20,6 +20,7 @@ import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 import {ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
 import {buildTimeline} from "../src/chat/timeline.ts";
 import {FPS} from "../src/chat/fps.ts";
+import {VIDEO_PARALLAX_EXTRA_SEC} from "./render-video-parallax-preview.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -175,7 +176,12 @@ const bakeHoldParallaxAfterVideo = async (conversation, target, videoRef, logs, 
     return;
   }
   try {
-    const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force});
+    const lookup = buildStorySceneSeconds(conversation);
+    const sceneSec = sceneSecondsForTarget(lookup, target);
+    const videoMs = Number(target.holder?.storyVideoDurationMs) || 4000;
+    const parallaxSec = Math.max(1, (sceneSec ?? VIDEO_PARALLAX_EXTRA_SEC) - videoMs / 1000);
+    const frames = Math.max(45, Math.round(parallaxSec * FPS));
+    const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force, frames});
     if (result.skipped) {
       logs.push(`Parallax (hold): кэш OK → ${result.relative}`);
     } else if (result.fallback) {

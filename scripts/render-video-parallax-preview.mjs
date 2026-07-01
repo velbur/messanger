@@ -14,6 +14,16 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 export const VIDEO_PARALLAX_PREVIEW_SEC = 4;
 export const VIDEO_PARALLAX_EXTRA_SEC = 6;
 
+/** Кадров parallax-фазы после Veo (для bake clip = длина движения) */
+export const videoParallaxPhaseFrames = (
+  videoDurationMs,
+  sceneDurationFrames,
+  fps = FPS,
+) => {
+  const videoFrames = Math.max(2, Math.round((videoDurationMs / 1000) * fps));
+  return Math.max(45, sceneDurationFrames - videoFrames);
+};
+
 /** Длина превью: реальное Veo + фаза parallax после последнего кадра */
 export const hybridDurationFrames = (videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000) =>
   Math.max(2, Math.round((videoDurationMs / 1000) * FPS)) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
@@ -62,10 +72,12 @@ export const renderVideoParallaxPreview = async ({
   await ensureStoryVideoHoldFrameFile(videoRel);
 
   if (!skipDepth) {
-    onStatus("Depth parallax (hold-кадр Veo)…");
+    const parallaxFrames = videoParallaxPhaseFrames(videoDurationMs, frames);
+    onStatus(`Depth parallax (hold, ${parallaxFrames} кадров)…`);
     const depthResult = await ensureVideoParallaxHoldDepth(rel, {
       force: forceDepth,
       videoRef: videoRel,
+      frames: parallaxFrames,
     });
     if (depthResult.fallback) {
       onStatus("Parallax bake недоступен — Ken Burns fallback");

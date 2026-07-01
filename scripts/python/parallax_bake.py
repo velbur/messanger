@@ -122,6 +122,8 @@ def camera_phase(t: float) -> float:
 
 def scene_sweep_phase(t: float, sweep: str = "round-trip") -> float:
     """Профиль движения камеры по длине клипа."""
+    if sweep in ("forward", "one-way"):
+        return camera_phase(t)
     tri = t * 2.0 if t < 0.5 else 2.0 - t * 2.0
     return camera_phase(tri)
 
