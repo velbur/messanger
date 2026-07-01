@@ -120,6 +120,7 @@ import {
   resolveConversationVoiceover,
   syncVoiceToRemote,
 } from "./voice-assets.mjs";
+import {ensureVoicePreview, VOICE_PREVIEW_SAMPLE_TEXT} from "./voice-preview.mjs";
 import {previewImagePrompt, readStylePrompt, readStoryStylePrompt, writeStylePrompt, writeStoryStylePrompt} from "./image-prompt.mjs";
 import {
   initDialogueDb,
@@ -1450,6 +1451,28 @@ app.post("/api/voiceover/generate-missing", async (req, res) => {
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/voiceover/preview", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const voice = String(req.body?.voice ?? "").trim();
+    if (!voice) {
+      res.status(400).json({error: "Поле voice обязательно"});
+      return;
+    }
+    const result = await ensureVoicePreview(voice);
+    res.json({
+      voice,
+      previewUrl: result.previewUrl,
+      sampleText: VOICE_PREVIEW_SAMPLE_TEXT,
+      cached: result.cached,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: formatOpenRouterError(error),
     });
   }
 });

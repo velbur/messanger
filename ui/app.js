@@ -119,6 +119,12 @@ const meVoiceLabel = document.getElementById("meVoiceLabel");
 const themVoiceLabel = document.getElementById("themVoiceLabel");
 const voiceGenderControls = document.getElementById("voiceGenderControls");
 const btnRegenVoices = document.getElementById("btnRegenVoices");
+const btnPreviewMeVoice = document.getElementById("btnPreviewMeVoice");
+const btnPreviewThemVoice = document.getElementById("btnPreviewThemVoice");
+const btnOpenVoiceCatalog = document.getElementById("btnOpenVoiceCatalog");
+const voiceCatalogModal = document.getElementById("voiceCatalogModal");
+const voiceCatalogList = document.getElementById("voiceCatalogList");
+const voiceCatalogStatus = document.getElementById("voiceCatalogStatus");
 const episodesEnabled = document.getElementById("episodesEnabled");
 const episodesControls = document.getElementById("episodesControls");
 const episodeCountSelect = document.getElementById("episodeCountSelect");
@@ -2505,6 +2511,209 @@ const populateVoiceSelects = (catalog = geminiVoiceCatalog) => {
   syncVoiceoverFromJson();
 };
 
+/** @type {HTMLAudioElement | null} */
+let activeVoicePreviewAudio = null;
+/** @type {string | null} */
+let activeVoicePreviewId = null;
+const voicePreviewUrlCache = new Map();
+
+const stopVoicePreview = () => {
+  if (activeVoicePreviewAudio) {
+    activeVoicePreviewAudio.pause();
+    activeVoicePreviewAudio = null;
+  }
+  activeVoicePreviewId = null;
+  for (const btn of document.querySelectorAll(".voice-preview-btn--playing, .voice-catalog__play--playing")) {
+    btn.classList.remove("voice-preview-btn--playing", "voice-catalog__play--playing");
+  }
+  for (const row of document.querySelectorAll(".voice-catalog__row--playing")) {
+    row.classList.remove("voice-catalog__row--playing");
+  }
+};
+
+const fetchVoicePreviewUrl = async (voiceId) => {
+  const id = String(voiceId ?? "").trim();
+  if (!id) {
+    throw new Error("Голос не выбран");
+  }
+  if (voicePreviewUrlCache.has(id)) {
+    return voicePreviewUrlCache.get(id);
+  }
+  const res = await fetch("/api/voiceover/preview", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({voice: id}),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Не удалось сгенерировать превью");
+  }
+  const url = data.previewUrl?.startsWith("/") ? data.previewUrl : `/${data.previewUrl ?? ""}`;
+  voicePreviewUrlCache.set(id, url);
+  return url;
+};
+
+const playVoicePreview = async (voiceId, {triggerBtn = null, rowEl = null} = {}) => {
+  const id = String(voiceId ?? "").trim();
+  if (!id) {
+    return;
+  }
+  if (!openrouterConfigured) {
+    alert("Нужен OPENROUTER_API_KEY в docs/.env для прослушивания голосов");
+    return;
+  }
+
+  if (activeVoicePreviewId === id && activeVoicePreviewAudio && !activeVoicePreviewAudio.paused) {
+    stopVoicePreview();
+    return;
+  }
+
+  stopVoicePreview();
+  triggerBtn?.classList.add("voice-preview-btn--playing", "voice-catalog__play--playing");
+  rowEl?.classList.add("voice-catalog__row--playing");
+  if (triggerBtn) {
+    triggerBtn.classList.add("voice-preview-btn--loading");
+  }
+  if (voiceCatalogStatus) {
+    voiceCatalogStatus.textContent = `Готовлю образец «${id}»…`;
+    voiceCatalogStatus.className = "workflow-modal__status status-text";
+  }
+
+  try {
+    const url = await fetchVoicePreviewUrl(id);
+    const audio = new Audio(url);
+    activeVoicePreviewAudio = audio;
+    activeVoicePreviewId = id;
+    audio.addEventListener("ended", () => stopVoicePreview());
+    audio.addEventListener("error", () => stopVoicePreview());
+    await audio.play();
+    if (voiceCatalogStatus) {
+      voiceCatalogStatus.textContent = `Сейчас играет: ${id}`;
+      voiceCatalogStatus.className = "workflow-modal__status status-text status-text--done";
+    }
+  } catch (err) {
+    stopVoicePreview();
+    const message = err instanceof Error ? err.message : String(err);
+    if (voiceCatalogStatus) {
+      voiceCatalogStatus.textContent = message;
+      voiceCatalogStatus.className = "workflow-modal__status status-text status-text--error";
+    } else {
+      alert(message);
+    }
+  } finally {
+    triggerBtn?.classList.remove("voice-preview-btn--loading");
+  }
+};
+
+const assignVoiceToCharacter = (voiceId, character) => {
+  const id = String(voiceId ?? "").trim();
+  if (!id) {
+    return;
+  }
+  if (character === "me" && meVoiceSelect) {
+    meVoiceSelect.value = id;
+  } else if (character === "them" && themVoiceSelect) {
+    themVoiceSelect.value = id;
+  }
+  onVoiceGenderChange();
+  renderVoiceCatalog();
+};
+
+const renderVoiceCatalog = () => {
+  if (!voiceCatalogList) {
+    return;
+  }
+  voiceCatalogList.replaceChildren();
+  const meVoice = meVoiceSelect?.value ?? "";
+  const themVoice = themVoiceSelect?.value ?? "";
+
+  for (const [gender, title] of [
+    ["male", "Мужские"],
+    ["female", "Женские"],
+  ]) {
+    const voices = geminiVoiceCatalog.filter((v) => v.gender === gender);
+    if (voices.length === 0) {
+      continue;
+    }
+    const section = document.createElement("section");
+    section.className = "voice-catalog__group";
+    const heading = document.createElement("h3");
+    heading.className = "voice-catalog__group-title";
+    heading.textContent = title;
+    section.append(heading);
+
+    const list = document.createElement("div");
+    list.className = "voice-catalog__list";
+
+    for (const voice of voices) {
+      const row = document.createElement("div");
+      row.className = "voice-catalog__row";
+      if (voice.id === meVoice) {
+        row.classList.add("voice-catalog__row--active-me");
+      }
+      if (voice.id === themVoice) {
+        row.classList.add("voice-catalog__row--active-them");
+      }
+
+      const btnPlay = document.createElement("button");
+      btnPlay.type = "button";
+      btnPlay.className = "btn btn-secondary btn-small voice-catalog__play";
+      btnPlay.textContent = "▶";
+      btnPlay.title = `Прослушать ${voice.id}`;
+      btnPlay.addEventListener("click", () => {
+        playVoicePreview(voice.id, {triggerBtn: btnPlay, rowEl: row});
+      });
+
+      const meta = document.createElement("div");
+      meta.className = "voice-catalog__meta";
+      meta.innerHTML = `<div class="voice-catalog__name">${voice.id}</div><div class="voice-catalog__hint">${voice.hint}</div>`;
+
+      const pick = document.createElement("div");
+      pick.className = "voice-catalog__pick";
+      const btnMe = document.createElement("button");
+      btnMe.type = "button";
+      btnMe.className = "btn btn-secondary btn-small voice-catalog__pick-btn";
+      btnMe.textContent = "Я";
+      btnMe.disabled = voice.id === meVoice;
+      btnMe.addEventListener("click", () => assignVoiceToCharacter(voice.id, "me"));
+
+      const btnThem = document.createElement("button");
+      btnThem.type = "button";
+      btnThem.className = "btn btn-secondary btn-small voice-catalog__pick-btn";
+      btnThem.textContent = "Собес.";
+      btnThem.disabled = voice.id === themVoice;
+      btnThem.addEventListener("click", () => assignVoiceToCharacter(voice.id, "them"));
+
+      pick.append(btnMe, btnThem);
+      row.append(btnPlay, meta, pick);
+      list.append(row);
+    }
+
+    section.append(list);
+    voiceCatalogList.append(section);
+  }
+};
+
+const setVoiceCatalogModalOpen = (open) => {
+  if (!voiceCatalogModal) {
+    return;
+  }
+  voiceCatalogModal.hidden = !open;
+  voiceCatalogModal.setAttribute("aria-hidden", open ? "false" : "true");
+  syncWorkflowModalBodyClass();
+  if (open) {
+    renderVoiceCatalog();
+    if (voiceCatalogStatus) {
+      voiceCatalogStatus.textContent = openrouterConfigured
+        ? "Первое прослушивание может занять несколько секунд — образец кэшируется."
+        : "Нужен OPENROUTER_API_KEY в docs/.env";
+      voiceCatalogStatus.className = "workflow-modal__status status-text";
+    }
+  } else {
+    stopVoicePreview();
+  }
+};
+
 const applyVoiceoverToJson = () => {
   const parsed = parseConversationJson();
   if (!parsed) {
@@ -4825,7 +5034,9 @@ const setBusy = (busy) => {
 
 const syncWorkflowModalBodyClass = () => {
   const anyOpen =
-    (renderModal && !renderModal.hidden) || (textGenModal && !textGenModal.hidden);
+    (renderModal && !renderModal.hidden) ||
+    (textGenModal && !textGenModal.hidden) ||
+    (voiceCatalogModal && !voiceCatalogModal.hidden);
   document.body.classList.toggle("workflow-modal-open", Boolean(anyOpen));
 };
 
@@ -5844,6 +6055,18 @@ const onVoiceGenderChange = () => {
 };
 meVoiceSelect?.addEventListener("change", onVoiceGenderChange);
 themVoiceSelect?.addEventListener("change", onVoiceGenderChange);
+
+btnPreviewMeVoice?.addEventListener("click", () => {
+  playVoicePreview(meVoiceSelect?.value, {triggerBtn: btnPreviewMeVoice});
+});
+btnPreviewThemVoice?.addEventListener("click", () => {
+  playVoicePreview(themVoiceSelect?.value, {triggerBtn: btnPreviewThemVoice});
+});
+btnOpenVoiceCatalog?.addEventListener("click", () => setVoiceCatalogModalOpen(true));
+
+for (const el of document.querySelectorAll("[data-voice-catalog-dismiss]")) {
+  el.addEventListener("click", () => setVoiceCatalogModalOpen(false));
+}
 
 btnRegenVoices?.addEventListener("click", async () => {
   if (voiceoverEnabled && !voiceoverEnabled.checked) {

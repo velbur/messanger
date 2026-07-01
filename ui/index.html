@@ -468,11 +468,16 @@
                   <label class="voice-pick">
                     <span id="meVoiceLabel">Голос (я)</span>
                     <select id="meVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик «я»"></select>
+                    <button type="button" id="btnPreviewMeVoice" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный голос">▶</button>
                   </label>
                   <label class="voice-pick">
                     <span id="themVoiceLabel">Голос (собеседник)</span>
                     <select id="themVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик собеседника"></select>
+                    <button type="button" id="btnPreviewThemVoice" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный голос">▶</button>
                   </label>
+                  <button type="button" id="btnOpenVoiceCatalog" class="btn btn-secondary btn-small">
+                    Каталог голосов
+                  </button>
                   <button type="button" id="btnRegenVoices" class="btn btn-secondary btn-small">
                     Перегенерировать озвучку
                   </button>
@@ -686,6 +691,24 @@
       </div>
     </div>
 
+    <div id="voiceCatalogModal" class="workflow-modal voice-catalog-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="voiceCatalogModalTitle">
+      <div class="workflow-modal__backdrop" data-voice-catalog-dismiss></div>
+      <div class="workflow-modal__dialog voice-catalog-modal__dialog" role="document">
+        <header class="workflow-modal__head">
+          <h2 id="voiceCatalogModalTitle" class="workflow-modal__title">Каталог голосов</h2>
+          <button type="button" class="workflow-modal__close" data-voice-catalog-dismiss aria-label="Закрыть">×</button>
+        </header>
+        <p class="voice-catalog-modal__hint dialogue-hint">
+          Нажмите ▶, чтобы прослушать образец. «Я» и «Собеседник» — сразу выбрать голос для персонажа.
+        </p>
+        <p id="voiceCatalogStatus" class="workflow-modal__status status-text" aria-live="polite"></p>
+        <div id="voiceCatalogList" class="voice-catalog" aria-live="polite"></div>
+        <footer class="workflow-modal__actions">
+          <button type="button" class="btn btn-secondary" data-voice-catalog-dismiss>Закрыть</button>
+        </footer>
+      </div>
+    </div>
+
     <div id="imageLightbox" class="lightbox" hidden aria-hidden="true">
       <button type="button" class="lightbox__backdrop" aria-label="Закрыть"></button>
       <div class="lightbox__inner">
@@ -694,6 +717,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=voice-catalog" type="module"></script>
+    <script src="/app.js?v=voice-preview" type="module"></script>
   </body>
 </html>
