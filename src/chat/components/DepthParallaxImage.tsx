@@ -8,8 +8,6 @@ type Props = {
   sceneStartFrame: number;
   /** Длина сцены в кадрах (должна совпадать с bake clip) */
   durationFrames: number;
-  /** Прозрачность слоя (для crossfade с Veo) */
-  opacity?: number;
   /** Монтировать заранее для декодирования до появления */
   premountFor?: number;
 };

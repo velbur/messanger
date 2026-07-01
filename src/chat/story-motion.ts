@@ -9,8 +9,8 @@ export const STORY_MOTION_LOOP_SEC = 3;
 
 /** Кадров композиции: parallax стартует раньше, без «зависания» на хвосте Veo */
 export const STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES = 20;
-/** Crossfade Veo → parallax: parallax монтируется заранее и уже двигается под fade */
-export const STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES = 10;
+/** Premount parallax до handoff — декодер готов, без opacity-fade */
+export const STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES = 15;
 
 /** Длина одного цикла Ken Burns / parallax для бесшовного повтора, кадры */
 export const STORY_MOTION_LOOP_FRAMES = STORY_MOTION_LOOP_SEC * FPS;
@@ -71,19 +71,7 @@ export const storyVideoParallaxHandoffFrame = (
   return Math.max(2, playFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
 };
 
-/** Кадр начала crossfade: Veo на последнем кадре, parallax уже играет под ним */
-export const storyVideoParallaxFadeStartFrame = (
-  videoDurationMs: number | undefined,
-  compositionFps: number,
-  sceneDurationFrames: number,
-): number =>
-  Math.max(
-    1,
-    storyVideoParallaxHandoffFrame(videoDurationMs, compositionFps, sceneDurationFrames) -
-      STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES,
-  );
-
-/** Длина parallax-фазы (с учётом premount/crossfade до handoff) */
+/** Длина parallax-фазы после handoff */
 export const storyVideoParallaxPhaseFrames = (
   videoDurationMs: number | undefined,
   sceneDurationFrames: number,
@@ -92,7 +80,7 @@ export const storyVideoParallaxPhaseFrames = (
   Math.max(
     1,
     sceneDurationFrames -
-      storyVideoParallaxFadeStartFrame(videoDurationMs, compositionFps, sceneDurationFrames),
+      storyVideoParallaxHandoffFrame(videoDurationMs, compositionFps, sceneDurationFrames),
   );
 
 /** Бесшовное зацикливание: кадр источника по локальному кадру сцены */

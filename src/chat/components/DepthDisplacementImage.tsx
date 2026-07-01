@@ -11,8 +11,6 @@ type Props = {
   parallaxLocalStartFrame?: number;
   /** Явный путь к .parallax.mp4 (для video-parallax с hold-кадра) */
   parallaxVideo?: string;
-  /** Прозрачность parallax-слоя */
-  opacity?: number;
   /** Premount Sequence до появления (кадры) */
   premountFor?: number;
 };
@@ -24,7 +22,6 @@ export const DepthDisplacementImage: React.FC<Props> = ({
   durationFrames,
   parallaxLocalStartFrame = 0,
   parallaxVideo,
-  opacity = 1,
   premountFor = 0,
 }) => {
   const delay = Math.max(0, Math.min(durationFrames - 1, parallaxLocalStartFrame));
@@ -34,7 +31,6 @@ export const DepthDisplacementImage: React.FC<Props> = ({
       video={video}
       sceneStartFrame={sceneStartFrame + delay}
       durationFrames={Math.max(1, durationFrames - delay)}
-      opacity={opacity}
       premountFor={premountFor}
     />
   );
