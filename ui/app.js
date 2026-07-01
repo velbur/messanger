@@ -4100,26 +4100,9 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
       }
       const savedPrompt = data.imagePrompt || promptText;
       if (savedPrompt) {
-        promptInput.value = savedPrompt;
         flushStoryImagePromptToJson(messageIndex, savedPrompt);
       }
-      const preview = slot.querySelector(".image-slot__preview");
-      if (data.previewUrl) {
-        if (preview) {
-          preview.src = data.previewUrl;
-        } else {
-          const nextPreview = document.createElement("img");
-          nextPreview.className = "image-slot__preview";
-          nextPreview.alt = title;
-          nextPreview.loading = "lazy";
-          nextPreview.src = data.previewUrl;
-          nextPreview.addEventListener("click", () => openImageLightbox(nextPreview.src));
-          slot.insertBefore(nextPreview, actions);
-        }
-        btnGenerate.textContent = "Перегенерировать";
-      } else {
-        await refreshDialogue();
-      }
+      await refreshDialogue();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
