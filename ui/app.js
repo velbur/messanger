@@ -166,6 +166,22 @@ let openrouterTtsProfile = "young-emotional-v2";
 
 const canGenerateImages = () => openrouterImageAvailable;
 
+const readApiJson = async (res) => {
+  const raw = await res.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    if (raw.trimStart().startsWith("<")) {
+      throw new Error(
+        res.status === 404
+          ? "API не найден — перезапустите UI (npm run ui или ./run.sh ui)"
+          : `Сервер вернул HTML вместо JSON (${res.status}). Перезапустите UI.`,
+      );
+    }
+    throw new Error(raw.slice(0, 240) || `Ошибка сервера (${res.status})`);
+  }
+};
+
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
@@ -3777,7 +3793,7 @@ const suggestImagePrompt = async (item, {force = false} = {}) => {
       force,
     }),
   });
-  const data = await res.json();
+  const data = await readApiJson(res);
   if (!res.ok) {
     throw new Error(data.error ?? "Ошибка генерации промпта");
   }
@@ -3807,7 +3823,7 @@ const suggestStoryImagePrompt = async ({messageIndex = null, force = false} = {}
       force,
     }),
   });
-  const data = await res.json();
+  const data = await readApiJson(res);
   if (!res.ok) {
     throw new Error(data.error ?? "Ошибка генерации промпта");
   }
