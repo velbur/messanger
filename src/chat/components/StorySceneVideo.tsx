@@ -70,6 +70,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   const showVideo = localFrame < playFrames;
 
   const motion = storyVideoSceneMotion(video, localFrame);
+  const videoStyle = isDepthParallax ? baseCoverStyle : withMotionStyle(motion, 1);
 
   /** depthParallax: резкий переход (без ghosting). Ken Burns hold: crossfade. */
   const holdOpacity = isDepthParallax
@@ -124,7 +125,7 @@ export const StorySceneVideo: React.FC<Props> = ({
             src={staticFile(video)}
             muted
             startFrom={sourceFrame}
-            style={withMotionStyle(motion, 1)}
+            style={videoStyle}
           />
         ) : null}
         {isDepthParallax ? (

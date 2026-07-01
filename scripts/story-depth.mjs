@@ -32,7 +32,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 38;
+export const DEPTH_LAYER_VERSION = 39;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.128;
@@ -45,6 +45,8 @@ const PARALLAX_MOTION = "linear";
 const PARALLAX_SWEEP = "round-trip";
 /** После Veo: одно непрерывное движение 0→1 на всю фазу parallax */
 export const VIDEO_PARALLAX_HOLD_SWEEP = "forward";
+/** Без Ken Burns-зума в bake — кадр 0 совпадает с hold PNG */
+export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0;
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -251,6 +253,8 @@ const bakeParallaxAsset = async ({
   panX,
   panY,
   sweep = PARALLAX_SWEEP,
+  zoomFrac = PARALLAX_ZOOM_FRAC,
+  holdHandoff = false,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
@@ -272,7 +276,8 @@ const bakeParallaxAsset = async ({
         panY: pan.panY,
         motion: PARALLAX_MOTION,
         sweep,
-        zoomFrac: PARALLAX_ZOOM_FRAC,
+        zoomFrac,
+        holdHandoff,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
         dustCount: PARALLAX_FX.dustCount,
@@ -293,7 +298,8 @@ const bakeParallaxAsset = async ({
         fps: FPS,
         width,
         height,
-        zoomFrac: PARALLAX_ZOOM_FRAC,
+        zoomFrac,
+        holdHandoff,
         panX: pan.panX,
         panY: pan.panY,
         fx: PARALLAX_FX,
@@ -315,6 +321,8 @@ const bakeFallbackAsset = async ({
   panX,
   panY,
   sweep = PARALLAX_SWEEP,
+  zoomFrac = PARALLAX_ZOOM_FRAC,
+  holdHandoff = false,
 }) => {
   const meta = await sharp(imageAbs).metadata();
   const width = evenEncodeDim(meta.width ?? 1080);
@@ -366,7 +374,7 @@ const bakeFallbackAsset = async ({
 
 export const isStoryDepthAvailable = async (
   imagePublicPath,
-  {requiredFrames, requiredPanX, requiredSweep} = {},
+  {requiredFrames, requiredPanX, requiredSweep, requiredHoldHandoff} = {},
 ) => {
   const paths = storyLayerPaths(imagePublicPath);
   try {
@@ -378,6 +386,9 @@ export const isStoryDepthAvailable = async (
       return false;
     }
     if (meta.sweep !== (requiredSweep ?? PARALLAX_SWEEP)) {
+      return false;
+    }
+    if (requiredHoldHandoff === true && meta.holdHandoff !== true) {
       return false;
     }
     if (requiredPanX !== undefined && Number(meta.panX) !== requiredPanX) {
@@ -396,7 +407,13 @@ export const isStoryDepthAvailable = async (
 
 export const generateStoryDepthAssets = async (
   imagePublicPath,
-  {force = false, frames = PARALLAX_DEFAULT_FRAMES, sweep = PARALLAX_SWEEP} = {},
+  {
+    force = false,
+    frames = PARALLAX_DEFAULT_FRAMES,
+    sweep = PARALLAX_SWEEP,
+    holdHandoff = false,
+    zoomFrac = PARALLAX_ZOOM_FRAC,
+  } = {},
 ) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
   if (!rel) {
@@ -404,7 +421,14 @@ export const generateStoryDepthAssets = async (
   }
 
   const paths = storyLayerPaths(rel);
-  if (!force && (await isStoryDepthAvailable(rel, {requiredFrames: frames, requiredSweep: sweep}))) {
+  if (
+    !force &&
+    (await isStoryDepthAvailable(rel, {
+      requiredFrames: frames,
+      requiredSweep: sweep,
+      requiredHoldHandoff: holdHandoff ? true : undefined,
+    }))
+  ) {
     return {skipped: true, paths, relative: rel};
   }
 
@@ -434,6 +458,8 @@ export const generateStoryDepthAssets = async (
     panX,
     panY,
     sweep,
+    zoomFrac,
+    holdHandoff,
   });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
@@ -456,7 +482,13 @@ export const ensureVideoParallaxHoldDepth = async (
     .trim();
   await ensureStoryVideoHoldFrameFile(video);
   const holdRel = storyVideoHoldFramePathForVideo(video);
-  return generateStoryDepthAssets(holdRel, {force, frames, sweep});
+  return generateStoryDepthAssets(holdRel, {
+    force,
+    frames,
+    sweep,
+    holdHandoff: true,
+    zoomFrac: VIDEO_PARALLAX_HOLD_ZOOM_FRAC,
+  });
 };
 
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {
