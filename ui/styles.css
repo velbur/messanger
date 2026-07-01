@@ -1698,16 +1698,45 @@ body.workflow-modal-open {
 }
 
 .dialogue-scene__caption--center {
-  top: 0;
-  bottom: 0;
+  top: auto;
+  bottom: 22%;
+  left: 8px;
+  right: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 12px;
+  padding: 0;
   max-height: none;
-  font-size: 1.56rem;
-  line-height: 1.38;
-  font-weight: 500;
+  font-size: 0.72rem;
+  line-height: 1.32;
+  font-weight: 600;
+  font-family: "Montserrat", system-ui, sans-serif;
+}
+
+.dialogue-scene__caption--center::before {
+  content: none;
+}
+
+.dialogue-scene__caption--center .dialogue-scene__caption-plate,
+.dialogue-scene__caption-plate {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(8, 14, 20, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.72rem;
+  line-height: 1.32;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.dialogue-scene__caption--center .dialogue-scene__caption-plate:empty::before,
+.dialogue-scene__caption-plate:empty::before {
+  content: "Текст на кадре…";
+  color: rgba(233, 237, 239, 0.35);
+  font-style: italic;
+  font-weight: 400;
 }
 
 .dialogue-scene__caption--hidden {

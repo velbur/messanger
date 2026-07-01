@@ -3534,9 +3534,29 @@ const syncSceneCaption = (messageIndex, text) => {
   const caption = dialogueEditor.querySelector(
     `[data-scene-caption-index="${messageIndex}"]`,
   );
-  if (caption) {
-    caption.textContent = text.trim();
+  if (!caption) {
+    return;
   }
+  const plate = caption.querySelector(".dialogue-scene__caption-plate");
+  const value = text.trim();
+  if (plate) {
+    plate.textContent = value;
+  } else {
+    caption.textContent = value;
+  }
+};
+
+const appendCenterSceneCaption = (frame, text, {messageIndex} = {}) => {
+  const caption = document.createElement("div");
+  caption.className = "dialogue-scene__caption dialogue-scene__caption--center";
+  if (messageIndex != null) {
+    caption.dataset.sceneCaptionIndex = String(messageIndex);
+  }
+  const plate = document.createElement("span");
+  plate.className = "dialogue-scene__caption-plate";
+  plate.textContent = text || "";
+  caption.append(plate);
+  frame.append(caption);
 };
 
 const SIDEBAR_COLLAPSED_KEY = "editorSidebarCollapsed";
@@ -4362,10 +4382,7 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
     frame.append(gradient);
   }
 
-  const caption = document.createElement("div");
-  caption.className = "dialogue-scene__caption dialogue-scene__caption--center";
-  caption.textContent = openingText;
-  frame.append(caption);
+  appendCenterSceneCaption(frame, openingText);
   scene.append(frame);
 
   const controls = document.createElement("div");
@@ -4748,13 +4765,14 @@ const renderDialogueSceneBlock = ({
     frame.append(gradient);
   }
 
-  const caption = document.createElement("div");
-  caption.className = `dialogue-scene__caption${
-    captionCentered ? " dialogue-scene__caption--center" : " dialogue-scene__caption--hidden"
-  }`;
-  caption.dataset.sceneCaptionIndex = String(messageIndex);
-  caption.textContent = captionCentered ? messageText : "";
-  frame.append(caption);
+  if (captionCentered) {
+    appendCenterSceneCaption(frame, messageText, {messageIndex});
+  } else {
+    const caption = document.createElement("div");
+    caption.className = "dialogue-scene__caption dialogue-scene__caption--hidden";
+    caption.dataset.sceneCaptionIndex = String(messageIndex);
+    frame.append(caption);
+  }
 
   scene.append(frame);
 

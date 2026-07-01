@@ -1,43 +1,80 @@
-import React from "react";
-import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from "remotion";
+import React, {useMemo} from "react";
+import {Easing, interpolate, useCurrentFrame} from "remotion";
 import {useChatTypography} from "../TypographyContext";
-import {CHAT_FONT_FAMILY} from "../fonts";
+import {CENTER_SCREEN_FONT} from "../fonts";
 import {CENTER_SCREEN} from "../theme";
 import {EmojiText} from "./EmojiText";
 
 type Props = {
   text: string;
   revealFrame: number;
+  voiceDurationFrames?: number;
   emphasizeFinale?: boolean;
+};
+
+const splitWords = (text: string) => text.trim().split(/\s+/).filter(Boolean);
+
+const resolveVisibleStep = (
+  words: string[],
+  localFrame: number,
+  durationFrames: number,
+) => {
+  const wordsPerStep = CENTER_SCREEN.wordsPerStep;
+  const numPairs = Math.max(1, Math.ceil(words.length / wordsPerStep));
+  const duration =
+    durationFrames > 0 ? durationFrames : numPairs * CENTER_SCREEN.framesPerPairFallback;
+  const progress = Math.min(1, Math.max(0, localFrame / duration));
+  const pairIndex = Math.min(numPairs - 1, Math.floor(progress * numPairs));
+  const start = pairIndex * wordsPerStep;
+  const visibleText = words.slice(start, start + wordsPerStep).join(" ");
+  const pairStartFrame = (pairIndex / numPairs) * duration;
+  const fadeIn = localFrame - pairStartFrame;
+  const opacity =
+    pairIndex === 0 && fadeIn < 4
+      ? interpolate(fadeIn, [0, 3], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+          easing: Easing.out(Easing.cubic),
+        })
+      : fadeIn < 3
+        ? interpolate(fadeIn, [0, 2], [0.15, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : 1;
+
+  return {visibleText, opacity};
 };
 
 export const CenterScreenMessage: React.FC<Props> = ({
   text,
   revealFrame,
+  voiceDurationFrames = 0,
   emphasizeFinale = false,
 }) => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
   const typography = useChatTypography();
-  const caption = text.trim();
-  if (!caption) {
+  const words = useMemo(() => splitWords(text), [text]);
+  if (!words.length) {
     return null;
   }
 
   const localFrame = Math.max(0, frame - revealFrame);
-  const enter = spring({
-    frame: localFrame,
-    fps,
-    config: {damping: 22, stiffness: 120, mass: 0.9},
-  });
-  const opacity = interpolate(localFrame, [0, 6], [0, 1], {
+  const {visibleText, opacity: stepOpacity} = resolveVisibleStep(
+    words,
+    localFrame,
+    voiceDurationFrames,
+  );
+
+  const enterOpacity = interpolate(localFrame, [0, 4], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
-  const translateY = interpolate(enter, [0, 1], [24, 0]);
+  const opacity = enterOpacity * stepOpacity;
+
   const fontSize = emphasizeFinale
-    ? Math.round(typography.messageFontSize * CENTER_SCREEN.fontScale * 1.08)
+    ? Math.round(typography.messageFontSize * CENTER_SCREEN.fontScale * 1.06)
     : Math.round(typography.messageFontSize * CENTER_SCREEN.fontScale);
 
   return (
@@ -45,26 +82,31 @@ export const CenterScreenMessage: React.FC<Props> = ({
       style={{
         width: "100%",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
         padding: `0 ${CENTER_SCREEN.paddingX}px`,
         opacity,
-        transform: `translateY(${translateY}px)`,
       }}
     >
       <div
         style={{
           maxWidth: CENTER_SCREEN.maxWidth,
+          padding: `${CENTER_SCREEN.platePaddingY}px ${CENTER_SCREEN.platePaddingX}px`,
+          borderRadius: CENTER_SCREEN.plateRadius,
+          background: CENTER_SCREEN.plateBg,
+          border: `1px solid ${CENTER_SCREEN.plateBorder}`,
+          backdropFilter: `blur(${CENTER_SCREEN.plateBlur}px)`,
+          WebkitBackdropFilter: `blur(${CENTER_SCREEN.plateBlur}px)`,
+          boxShadow: "0 12px 40px rgba(0, 0, 0, 0.35)",
           textAlign: "center",
-          fontFamily: CHAT_FONT_FAMILY,
+          fontFamily: CENTER_SCREEN_FONT,
           fontSize,
           lineHeight: CENTER_SCREEN.lineHeight,
-          fontWeight: 500,
-          color: "#f3f6fa",
-          textShadow: "0 2px 20px rgba(0, 0, 0, 0.85), 0 0 40px rgba(0, 0, 0, 0.45)",
+          fontWeight: 600,
+          letterSpacing: "0.01em",
+          color: "#f8fafc",
         }}
       >
-        <EmojiText text={caption} />
+        <EmojiText text={visibleText} />
       </div>
     </div>
   );

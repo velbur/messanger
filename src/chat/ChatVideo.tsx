@@ -22,7 +22,7 @@ import {
   visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE, CENTER_SCREEN_BUNDLE_MARKER} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE, CENTER_SCREEN, CENTER_SCREEN_BUNDLE_MARKER} from "./theme";
 import {CenterScreenMessage} from "./components/CenterScreenMessage";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatTypographyProvider} from "./TypographyContext";
@@ -461,8 +461,9 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
             style={{
               zIndex: 4,
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "center",
+              paddingTop: Math.round(SPLIT_LAYOUT.frameHeight * CENTER_SCREEN.topRatio),
               pointerEvents: "none",
               opacity: chatRevealOpacity,
             }}
@@ -470,6 +471,7 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
             <CenterScreenMessage
               text={centerScreenEvent.text}
               revealFrame={centerScreenEvent.revealFrame}
+              voiceDurationFrames={centerScreenEvent.voiceDurationFrames}
               emphasizeFinale={centerScreenEvent.index === lastEventIndex}
             />
           </AbsoluteFill>

@@ -251,15 +251,26 @@ export const splitChatScale = (bottomPanelHeight: number): number =>
   Math.min(1, bottomPanelHeight / SPLIT_LAYOUT.frameHeight);
 
 export const CENTER_SCREEN = {
-  paddingX: S(72),
-  maxWidth: S(960),
-  lineHeight: 1.38,
+  paddingX: S(56),
+  maxWidth: S(920),
+  lineHeight: 1.32,
   /** Множитель к messageFontSize (2× к пузырю) */
   fontScale: 2,
+  /** Смещение блока вниз от верха кадра (доля высоты 9:16) */
+  topRatio: 0.56,
+  wordsPerStep: 2,
+  /** Кадров на пару слов, если нет voiceDuration */
+  framesPerPairFallback: 7,
+  platePaddingY: S(26),
+  platePaddingX: S(36),
+  plateRadius: S(22),
+  plateBg: "rgba(8, 14, 20, 0.62)",
+  plateBorder: "rgba(255, 255, 255, 0.1)",
+  plateBlur: 16,
 } as const;
 
 /** Маркер center-screen текста в bundle — обновить в scripts/bundle-cache.mjs */
-export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-msg-2x-v1";
+export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-karaoke-v1";
 
 /** Горизонтальный Video (16:9) — чат или повествование */
 export const VIDEO_LAYOUT = {
