@@ -71,11 +71,6 @@ body {
   display: none !important;
 }
 
-body:not(.app--shorts-only) #tabBtnShorts,
-body:not(.app--shorts-only) #tabPanelShorts {
-  display: none !important;
-}
-
 .tabs {
   display: flex;
   gap: 8px;

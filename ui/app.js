@@ -98,7 +98,6 @@ const btnNewShort = document.getElementById("btnNewShort");
 const btnNewVideo = document.getElementById("btnNewVideo");
 const btnBackToList = document.getElementById("btnBackToList");
 const headerSubtitle = document.getElementById("headerSubtitle");
-const headerLinkShorts = document.getElementById("headerLinkShorts");
 const headerLinkHome = document.getElementById("headerLinkHome");
 const apiStatusContent = document.getElementById("apiStatusContent");
 const btnRefreshApiStatus = document.getElementById("btnRefreshApiStatus");
@@ -486,7 +485,7 @@ const isShortsApp = () => appRoute.mode === "shorts";
 const applyAppShell = () => {
   document.body.classList.toggle("app--shorts-only", isShortsApp());
   if (headerLinkShorts) {
-    headerLinkShorts.hidden = isShortsApp();
+    headerLinkShorts.hidden = true;
   }
   if (headerLinkHome) {
     headerLinkHome.hidden = !isShortsApp();
@@ -999,10 +998,6 @@ tabBtnSeries?.addEventListener("click", () => {
   setActiveTab("series");
 });
 tabBtnShorts?.addEventListener("click", () => {
-  if (!isShortsApp()) {
-    window.location.href = "/shorts";
-    return;
-  }
   void setActiveTab("shorts");
 });
 tabBtnVideo?.addEventListener("click", () => {
