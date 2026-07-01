@@ -213,7 +213,7 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
   return [
     scene,
     style ? `Стиль: ${style}` : "",
-    `Формат ${CHAT_IMAGE_ASPECT_RATIO}, картинка-вложение в чат, одна сцена, без UI чата и без текста на картинке.`,
+    `Формат ${CHAT_IMAGE_ASPECT_RATIO}, рисованная иллюстрация-вложение в чат, одна сцена, без UI чата и без текста. Не фото, не фотореализм.`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -222,14 +222,13 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
 const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = "", hasCharacters = false} = {}) => {
   const style = normalizeSpace(stylePrompt);
   return [
-    "Ты помогаешь генерировать фотореалистичные сюжетные кадры для вертикального Shorts (9:16, полный экран, переписка поверх или снизу).",
-    `Картинка — вертикальный кинематографичный кадр на весь экран (${STORY_IMAGE_ASPECT_RATIO}), не UI чата, без текста на картинке.`,
+    "Ты помогаешь генерировать рисованные сюжетные кадры для вертикального Shorts (9:16, полный экран, переписка поверх или снизу).",
+    `Картинка — вертикальная иллюстрация на весь экран (${STORY_IMAGE_ASPECT_RATIO}), не UI чата, без текста на картинке.`,
     style
       ? `Общий стиль всех кадров (обязательно): ${style}`
-      : "Стиль: фотореализм, cinematic still, shot on 35mm, высокая детализация, естественный свет.",
-    "Опиши establishing shot / атмосферу момента: конкретные детали интерьера, света, поз, одежды, выражений.",
-    "Используй формулировки «фотореализм», «кинематографичный свет», «снято на 35мм», «высокая детализация».",
-    "Запрещены «иллюстрация», «рисунок», «digital painting», «мультик», «cartoon», «упрощённо».",
+      : "Стиль: рисованная иллюстрация, сториборд, не фотореализм.",
+    "Опиши establishing shot / атмосферу момента истории, как кадр художника-иллюстратора.",
+    "Запрещены формулировки «фото», «фотореализм», «снято на камеру», «shot on 35mm», «как в кино».",
     hasReferences
       ? "- Есть предыдущие кадры сюжета: сохраняй интерьер, персонажей и палитру."
       : "",
@@ -241,7 +240,7 @@ const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = "", hasCha
           "- charactersInFrame: массив id героев, которые реально видны в кадре; [] если людей нет.",
         ].join("\n")
       : "",
-    "- imagePrompt: 2–4 предложения на русском, конкретная сцена с визуальными деталями (свет, материалы, мимика, реквизит).",
+    "- imagePrompt: 2–4 предложения на русском, конкретная сцена для иллюстратора.",
     hasCharacters
       ? 'Ответ строго JSON: {"imagePrompt":"...","charactersInFrame":["me"]}'
       : 'Ответ строго JSON: {"imagePrompt":"..."}',
@@ -284,7 +283,7 @@ const llmStoryOpeningPrompt = async (conversation, style) => {
           "Цель: establishing shot до начала переписки",
           characterBible ? `Справочник героев:\n${characterBible}` : "",
           dialogue.text ? `Контекст будущей переписки:\n${dialogue.text}` : "",
-          "Опиши фотореалистичный кинематографичный establishing shot для верхней панели 9:16.",
+          "Опиши рисованный establishing shot для верхней панели 9:16.",
           hasCharacters
             ? "Обычно в opening нет крупных планов лиц — покажи место и настроение; charactersInFrame чаще всего []."
             : "",
@@ -328,7 +327,7 @@ const llmStoryMessagePrompt = async (conversation, messageIndex, style) => {
           `Целевое сообщение №${messageIndex + 1}`,
           characterBible ? `Справочник героев (внешность фиксирована):\n${characterBible}` : "",
           dialogue.text,
-          "Опиши кинематографичный кадр сцены для верхней панели в момент этого сообщения.",
+          "Опиши рисованный кадр сцены для верхней панели в момент этого сообщения.",
           hasCharacters
             ? "Включай описание внешности только для героев, которые реально видны в кадре."
             : "",
@@ -406,9 +405,9 @@ export const resolveStoryFramePrompts = async ({
       contactName,
     );
     const imagePrompt = [
-      "Фотореалистичная establishing-сцена до начала переписки, кинематографичный свет, shot on 35mm.",
+      "Рисованная establishing-сцена до начала переписки.",
       dialogue.text ? `Контекст будущей переписки:\n${dialogue.text}` : "",
-      "Покажи обстановку и настроение как кадр из фильма, без UI телефона и без текста на кадре.",
+      "Покажи обстановку и настроение иллюстрацией, без UI телефона и без текста на кадре.",
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -454,7 +453,7 @@ export const buildStoryImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
   return [
     scene,
     style ? `Стиль: ${style}` : "",
-    `Фотореалистичный кинематографичный кадр (photorealistic, cinematic lighting, shot on 35mm, highly detailed). Вертикальный формат ${STORY_IMAGE_ASPECT_RATIO} на весь экран, без UI чата и без текста. Не иллюстрация, не digital painting, не мультфильм, не cartoon.`,
+    `Рисованная иллюстрация сцены. Вертикальный формат ${STORY_IMAGE_ASPECT_RATIO} на весь экран, без UI чата и без текста. Запрещены фото, фотореализм и гиперреализм.`,
   ]
     .filter(Boolean)
     .join(" ");

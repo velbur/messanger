@@ -158,13 +158,13 @@ No absurdity or random magic. The strange should feel possible within the story'
 Modern chat rhythm with literary precision: less exposition, more detail, pauses, and subtext.
 Ending: mystical or speculative twist worth rewatching — clear and emotionally precise.`,
 
-  "shorts-style-story-ru": `Стиль: кинематографичная история в формате story-split — сверху фотореалистичные сюжетные кадры, снизу переписка WhatsApp.
+  "shorts-style-story-ru": `Стиль: рисованная история в формате story-split — сверху иллюстрированные сюжетные кадры, снизу переписка WhatsApp.
 Пиши для русскоязычной аудитории Shorts: атмосфера, напряжение, визуальные повороты сюжета.
-Переписка — живая, короткие реплики; верхняя панель — широкие фотореалистичные кадры сцены, как в кино.
-Сюжетные кадры — фотореализм, кинематографичное качество. Финал — сильный поворот или кульминация, которую хочется досмотреть.`,
+Переписка — живая, короткие реплики; верхняя панель — широкие рисованные кадры сцены, как сториборд сериала.
+Сюжетные кадры — иллюстрация, не фото. Финал — сильный поворот или кульминация, которую хочется досмотреть.`,
 
-  "shorts-style-story-en": `Style: cinematic story in story-split format — photorealistic story frames on top, WhatsApp chat below.
+  "shorts-style-story-en": `Style: illustrated story in story-split format — drawn story frames on top, WhatsApp chat below.
 Write for a native English Shorts audience: atmosphere, tension, visual plot turns.
-Chat stays lively with short lines; top panel gets wide photorealistic scene shots like a movie.
-Story frames are photorealistic and cinematic. Ending: strong twist or climax worth watching through.`,
+Chat stays lively with short lines; top panel gets wide illustrated scene shots like a storyboard.
+Story frames are illustrations, not photos. Ending: strong twist or climax worth watching through.`,
 };
