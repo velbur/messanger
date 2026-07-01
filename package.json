@@ -10,6 +10,7 @@
     "compare:motion": "node --import tsx scripts/compare-story-motion.mjs",
     "compare:images": "node --import tsx scripts/compare-image-models.mjs",
     "test:parallax": "node --import tsx scripts/test-parallax-image.mjs",
+    "test:video-parallax": "node --import tsx scripts/test-video-parallax.mjs",
     "verify:parallax": "node --import tsx scripts/verify-parallax.mjs",
     "depth:probe": "node --import tsx scripts/story-depth-probe.mjs",
     "bundle:clear": "node scripts/clear-bundle-cache.mjs",

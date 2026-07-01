@@ -4,6 +4,10 @@ import {ChatVideo} from "./chat/ChatVideo";
 import {PHOTO_THUMBNAIL_MARKER, PhotoThumbnail} from "./chat/PhotoThumbnail";
 import {PreviewCoverArt, PREVIEW_COVER_ART_MARKER} from "./chat/components/PreviewCoverArt";
 import {StoryParallaxPreview, STORY_PARALLAX_PREVIEW_MARKER} from "./chat/StoryParallaxPreview";
+import {
+  StoryVideoParallaxPreview,
+  STORY_VIDEO_PARALLAX_PREVIEW_MARKER,
+} from "./chat/StoryVideoParallaxPreview";
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
@@ -26,6 +30,7 @@ type PreviewCoverProps = {
 void PHOTO_THUMBNAIL_MARKER;
 void PREVIEW_COVER_ART_MARKER;
 void STORY_PARALLAX_PREVIEW_MARKER;
+void STORY_VIDEO_PARALLAX_PREVIEW_MARKER;
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -88,6 +93,19 @@ export const RemotionRoot: React.FC = () => {
           image: "images/parallax-test/story-opening.png",
           animation: "depthParallax",
           durationFrames: 90,
+        }}
+      />
+      <Composition
+        id="StoryVideoParallaxPreview"
+        component={StoryVideoParallaxPreview}
+        width={1080}
+        height={1920}
+        fps={FPS}
+        durationInFrames={300}
+        defaultProps={{
+          image: "images/video-parallax-test/story-opening.png",
+          videoDurationMs: 4000,
+          durationFrames: 300,
         }}
       />
     </>
