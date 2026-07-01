@@ -7,16 +7,8 @@ const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 /** Картинки в пузырях чата (4:3) */
 const DEFAULT_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
-/** Story-кадры 9:16 — иллюстрация, не фотореализм */
+/** Story-кадры 9:16 */
 const DEFAULT_STORY_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
-const PREFERRED_IMAGE_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
-const CHAT_IMAGE_FALLBACK_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
-const STORY_IMAGE_FALLBACK_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
-const BROKEN_IMAGE_MODEL_HINTS = [
-  "openai/gpt-5.4-image",
-  "openai/gpt-5-image",
-  "gpt-5.4-image-2",
-];
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";
@@ -214,21 +206,10 @@ const extractImagesFromMessage = (message) => {
   return images;
 };
 
-const uniqueModels = (models) => [...new Set(models.filter(Boolean))];
-
-const isLikelyBrokenImageModel = (model) => {
-  const normalized = String(model ?? "").toLowerCase();
-  return BROKEN_IMAGE_MODEL_HINTS.some((hint) => normalized.includes(hint));
-};
-
-const buildImageModelPlan = ({model, kind}) => {
+const resolveImageModel = ({model, kind}) => {
   const config = getOpenRouterConfig();
   const requested = model || (kind === "story" ? config?.storyImageModel : config?.imageModel);
-  const fallbacks = kind === "story" ? STORY_IMAGE_FALLBACK_MODELS : CHAT_IMAGE_FALLBACK_MODELS;
-  const ordered = isLikelyBrokenImageModel(requested)
-    ? [...PREFERRED_IMAGE_MODELS, requested, ...fallbacks]
-    : [...PREFERRED_IMAGE_MODELS, requested, ...fallbacks];
-  return uniqueModels(ordered);
+  return requested || (kind === "story" ? DEFAULT_STORY_IMAGE_MODEL : DEFAULT_IMAGE_MODEL);
 };
 
 const buildImageRequestContent = (prompt, referenceDataUrl) => {
@@ -395,52 +376,50 @@ export const generateImageBuffer = async ({
   const resolvedAspectRatio = aspectRatio || config.aspectRatio;
   const resolvedImageSize =
     imageSize || (kind === "story" ? config.storyImageSize : config.imageSize);
-  const models = buildImageModelPlan({model, kind});
+  const resolvedModel = resolveImageModel({model, kind});
   const modalityPlans = [["image"], ["image", "text"]];
   const strictPrompt = `${prompt}\n\nВерни только изображение. Без поясняющего текста.`;
 
   let lastError;
   const failures = [];
 
-  for (const resolvedModel of models) {
-    for (const modalities of modalityPlans) {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const activePrompt = attempt === 0 ? prompt : strictPrompt;
-        try {
-          const message = await requestImageMessage({
-            model: resolvedModel,
-            prompt: activePrompt,
-            referenceDataUrl,
-            aspectRatio: resolvedAspectRatio,
-            imageSize: resolvedImageSize,
-            modalities,
-          });
+  for (const modalities of modalityPlans) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const activePrompt = attempt === 0 ? prompt : strictPrompt;
+      try {
+        const message = await requestImageMessage({
+          model: resolvedModel,
+          prompt: activePrompt,
+          referenceDataUrl,
+          aspectRatio: resolvedAspectRatio,
+          imageSize: resolvedImageSize,
+          modalities,
+        });
 
-          const images = extractImagesFromMessage(message);
-          if (!images.length) {
-            const text = extractMessageText({choices: [{message}]});
-            const detail = text ? `: ${String(text).slice(0, 160)}` : "";
-            throw new Error(`Модель не вернула изображение${detail}`);
-          }
-
-          const imageUrl = getImageUrl(images[0]);
-          const {mime, buffer} = await resolveImageBufferFromUrl(imageUrl);
-          return {
-            buffer,
-            mime,
-            model: resolvedModel,
-            aspectRatio: resolvedAspectRatio,
-            imageSize: resolvedImageSize,
-            text: typeof message?.content === "string" ? message.content : null,
-          };
-        } catch (error) {
-          lastError = error;
-          failures.push(
-            `${resolvedModel} (${modalities.join("+")}): ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+        const images = extractImagesFromMessage(message);
+        if (!images.length) {
+          const text = extractMessageText({choices: [{message}]});
+          const detail = text ? `: ${String(text).slice(0, 160)}` : "";
+          throw new Error(`Модель не вернула изображение${detail}`);
         }
+
+        const imageUrl = getImageUrl(images[0]);
+        const {mime, buffer} = await resolveImageBufferFromUrl(imageUrl);
+        return {
+          buffer,
+          mime,
+          model: resolvedModel,
+          aspectRatio: resolvedAspectRatio,
+          imageSize: resolvedImageSize,
+          text: typeof message?.content === "string" ? message.content : null,
+        };
+      } catch (error) {
+        lastError = error;
+        failures.push(
+          `${resolvedModel} (${modalities.join("+")}): ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     }
   }
