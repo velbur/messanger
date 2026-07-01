@@ -135,9 +135,9 @@ import {slugifyProjectName} from "./project-slug.mjs";
 import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
 import {uploadAssetToRemote} from "./remote-upload.mjs";
 import {
-  defaultHybridDurationFrames,
-  defaultParallaxOnlyDurationFrames,
+  hybridDurationFrames,
   renderVideoParallaxPreview,
+  VIDEO_PARALLAX_EXTRA_SEC,
 } from "./render-video-parallax-preview.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -2316,7 +2316,6 @@ app.post("/api/render/video-parallax-preview", async (req, res) => {
       durationFrames,
       skipDepth,
       forceDepth,
-      mode: rawMode,
       name: rawName,
     } = req.body ?? {};
 
@@ -2331,14 +2330,12 @@ app.post("/api/render/video-parallax-preview", async (req, res) => {
       return;
     }
 
-    const mode = rawMode === "parallax-only" ? "parallax-only" : "hybrid";
-    const isHybrid = mode === "hybrid";
+    const videoMs =
+      typeof videoDurationMs === "number" && videoDurationMs > 0 ? videoDurationMs : 4000;
     const frames =
       typeof durationFrames === "number" && durationFrames > 0
         ? durationFrames
-        : isHybrid
-          ? defaultHybridDurationFrames()
-          : defaultParallaxOnlyDurationFrames();
+        : hybridDurationFrames(videoMs);
 
     const outputStem = slugifyProjectName(
       typeof rawName === "string" && rawName.trim() ? rawName.trim() : "video-parallax-preview",
@@ -2357,9 +2354,7 @@ app.post("/api/render/video-parallax-preview", async (req, res) => {
       status: "queued",
       previewOpts: {
         imageRel,
-        mode,
-        videoDurationMs:
-          typeof videoDurationMs === "number" && videoDurationMs >= 0 ? videoDurationMs : 4000,
+        videoDurationMs: videoMs,
         durationFrames: frames,
         outputPath,
         skipDepth: skipDepth === true,
@@ -2378,7 +2373,7 @@ app.post("/api/render/video-parallax-preview", async (req, res) => {
     pruneFinishedJobs();
     enqueueRender(jobId);
 
-    res.json({jobId, outputFile, outputRel, mode});
+    res.json({jobId, outputFile, outputRel});
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),

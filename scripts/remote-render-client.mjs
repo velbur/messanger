@@ -190,7 +190,6 @@ export const renderChatVideoOnRemote = async ({
 export const renderVideoParallaxPreviewOnRemote = async ({
   remoteUrl,
   imageRel,
-  mode = "hybrid",
   videoDurationMs,
   durationFrames,
   outputPath,
@@ -218,7 +217,6 @@ export const renderVideoParallaxPreviewOnRemote = async ({
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         image: imageRel,
-        mode,
         videoDurationMs,
         durationFrames,
         skipDepth,

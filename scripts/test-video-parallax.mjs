@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Превью гибрида Veo (4 с) + Depth parallax на одной картинке.
+ * Превью гибрида Veo + Depth parallax: сначала MP4, затем parallax с последнего кадра.
  *
  *   npm run test:video-parallax -- --image public/images/foo/story-msg-6.png
- *   npm run test:video-parallax -- --image public/images/foo/story-msg-6.png --skip-video
+ *   npm run test:video-parallax -- --image … --skip-video   # без OpenRouter, нужен .video.mp4
  *   npm run test:video-parallax -- --image … --skip-depth
  *   npm run test:video-parallax -- --image … --remote http://127.0.0.1:3333
- *   REMOTE_RENDER_URL=http://127.0.0.1:3333 npm run test:video-parallax -- --image …
  */
 import path from "node:path";
 import {mkdir, access} from "node:fs/promises";
@@ -14,8 +13,7 @@ import {FPS} from "../src/chat/fps.ts";
 import {storyVideoPathForImage} from "../src/chat/story-video-paths.ts";
 import {slugifyProjectName} from "./project-slug.mjs";
 import {
-  defaultHybridDurationFrames,
-  defaultParallaxOnlyDurationFrames,
+  hybridDurationFrames,
   renderVideoParallaxPreview,
   VIDEO_PARALLAX_EXTRA_SEC,
   VIDEO_PARALLAX_PREVIEW_SEC,
@@ -31,6 +29,7 @@ import {
 } from "./openrouter-video.mjs";
 import {buildStoryMotionPrompt} from "./story-video.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
+import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 import {resolveRemoteRenderUrl, renderVideoParallaxPreviewOnRemote} from "./remote-render-client.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -78,6 +77,16 @@ const resolveImageRel = (imageArg) => {
   return null;
 };
 
+const requireExistingVideo = async (videoRel) => {
+  try {
+    await access(safePublicAbs(videoRel));
+  } catch {
+    throw new Error(
+      `Нет public/${videoRel}. --skip-video берёт готовый Veo-клип; сгенерируй без флага или положи .video.mp4 рядом с PNG.`,
+    );
+  }
+};
+
 const run = async () => {
   const imageArg = parseArg("--image");
   if (!imageArg) {
@@ -110,7 +119,6 @@ const run = async () => {
 
   const videoRel = storyVideoPathForImage(imageRel);
   const videoAbs = safePublicAbs(videoRel);
-  let mode = "hybrid";
   let videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000;
 
   if (!useRemote) {
@@ -147,19 +155,18 @@ const run = async () => {
     videoDurationMs = await probeVideoDurationMs(videoAbs);
     console.log(`Видео → public/${videoRel} (${(videoDurationMs / 1000).toFixed(1)} с)`);
   } else {
-    try {
-      await access(videoAbs);
-      videoDurationMs = await probeVideoDurationMs(videoAbs);
-      console.log(`Видео: кэш OK → public/${videoRel} (${(videoDurationMs / 1000).toFixed(1)} с)`);
-    } catch {
-      mode = "parallax-only";
-      videoDurationMs = 0;
-      console.log(`Нет public/${videoRel} — только parallax (${VIDEO_PARALLAX_EXTRA_SEC} с)`);
-    }
+    await requireExistingVideo(videoRel);
+    videoDurationMs = await probeVideoDurationMs(videoAbs);
+    console.log(
+      `Видео (кэш): public/${videoRel} (${(videoDurationMs / 1000).toFixed(1)} с) → parallax с последнего кадра`,
+    );
   }
 
-  const durationFrames =
-    mode === "hybrid" ? defaultHybridDurationFrames() : defaultParallaxOnlyDurationFrames();
+  if (!useRemote) {
+    await ensureStoryVideoHoldFrameFile(videoRel);
+  }
+
+  const durationFrames = hybridDurationFrames(videoDurationMs);
   const stem = slugifyProjectName(path.basename(imageRel, path.extname(imageRel)));
   const outputPath = path.join(outDir, `${stem}-video-parallax.mp4`);
 
@@ -167,7 +174,6 @@ const run = async () => {
     await renderVideoParallaxPreviewOnRemote({
       remoteUrl,
       imageRel,
-      mode,
       videoDurationMs,
       durationFrames,
       outputPath,
@@ -179,7 +185,6 @@ const run = async () => {
   } else {
     await renderVideoParallaxPreview({
       imageRel,
-      mode,
       videoDurationMs,
       durationFrames,
       outputPath,
@@ -189,13 +194,10 @@ const run = async () => {
     });
   }
 
+  const videoSec = (videoDurationMs / 1000).toFixed(1);
   console.log(`\nГотово: ${path.relative(ROOT, outputPath)}`);
-  if (mode === "hybrid") {
-    console.log(`  ${VIDEO_PARALLAX_PREVIEW_SEC} с — Veo-анимация`);
-    console.log(`  далее ${VIDEO_PARALLAX_EXTRA_SEC} с — depth parallax`);
-  } else {
-    console.log(`  ${VIDEO_PARALLAX_EXTRA_SEC} с — depth parallax (без Veo)`);
-  }
+  console.log(`  ${videoSec} с — Veo (готовый клип)`);
+  console.log(`  + ${VIDEO_PARALLAX_EXTRA_SEC} с — depth parallax с последнего кадра`);
   console.log(`  (${durationFrames} кадров @ ${FPS} fps)`);
 };
 

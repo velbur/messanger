@@ -2,9 +2,11 @@ import path from "node:path";
 import {access} from "node:fs/promises";
 import {renderMedia, selectComposition} from "@remotion/renderer";
 import {FPS} from "../src/chat/fps.ts";
+import {storyVideoPathForImage} from "../src/chat/story-video-paths.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets} from "./story-depth.mjs";
 import {getRenderConcurrency} from "./render-core.mjs";
+import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -12,10 +14,9 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 export const VIDEO_PARALLAX_PREVIEW_SEC = 4;
 export const VIDEO_PARALLAX_EXTRA_SEC = 6;
 
-export const defaultHybridDurationFrames = () =>
-  (VIDEO_PARALLAX_PREVIEW_SEC + VIDEO_PARALLAX_EXTRA_SEC) * FPS;
-
-export const defaultParallaxOnlyDurationFrames = () => VIDEO_PARALLAX_EXTRA_SEC * FPS;
+/** Длина превью: реальное Veo + фаза parallax после последнего кадра */
+export const hybridDurationFrames = (videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000) =>
+  Math.max(2, Math.round((videoDurationMs / 1000) * FPS)) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
 
 const safePublicAbs = (relativePath) => {
   const normalized = String(relativePath).replace(/^\/+/, "");
@@ -29,7 +30,6 @@ const safePublicAbs = (relativePath) => {
 /**
  * @param {{
  *   imageRel: string,
- *   mode?: "hybrid" | "parallax-only",
  *   videoDurationMs?: number,
  *   durationFrames?: number,
  *   outputPath: string,
@@ -40,7 +40,6 @@ const safePublicAbs = (relativePath) => {
  */
 export const renderVideoParallaxPreview = async ({
   imageRel,
-  mode = "hybrid",
   videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000,
   durationFrames,
   outputPath,
@@ -53,12 +52,14 @@ export const renderVideoParallaxPreview = async ({
     throw new Error("Пустой путь к story-изображению");
   }
 
-  const isHybrid = mode !== "parallax-only";
-  const frames =
-    durationFrames ??
-    (isHybrid ? defaultHybridDurationFrames() : defaultParallaxOnlyDurationFrames());
+  const frames = durationFrames ?? hybridDurationFrames(videoDurationMs);
+  const videoRel = storyVideoPathForImage(rel);
 
   await access(safePublicAbs(rel));
+  await access(safePublicAbs(videoRel));
+
+  onStatus(`Hold-кадр из ${videoRel}…`);
+  await ensureStoryVideoHoldFrameFile(videoRel);
 
   if (!skipDepth) {
     onStatus("Depth parallax…");
@@ -72,10 +73,7 @@ export const renderVideoParallaxPreview = async ({
     }
   }
 
-  const compositionId = isHybrid ? "StoryVideoParallaxPreview" : "StoryParallaxPreview";
-  const inputProps = isHybrid
-    ? {image: rel, videoDurationMs, durationFrames: frames}
-    : {image: rel, animation: "depthParallax", durationFrames: frames};
+  const inputProps = {image: rel, videoDurationMs, durationFrames: frames};
 
   onStatus("Сборка Remotion bundle…");
   const bundleLocation = await getBundleLocation({
@@ -84,7 +82,7 @@ export const renderVideoParallaxPreview = async ({
 
   const composition = await selectComposition({
     serveUrl: bundleLocation,
-    id: compositionId,
+    id: "StoryVideoParallaxPreview",
     inputProps,
   });
 
@@ -103,5 +101,5 @@ export const renderVideoParallaxPreview = async ({
     x264Preset: "veryfast",
   });
 
-  return {outputPath, imageRel: rel, mode, videoDurationMs, durationFrames: frames};
+  return {outputPath, imageRel: rel, videoDurationMs, durationFrames: frames};
 };
