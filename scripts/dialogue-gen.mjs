@@ -33,7 +33,6 @@ const normalizeContentMode = (mode) => {
 const normalizeVideoLayout = (layout) =>
   isStoryVisualLayout(layout) ? layout : "chat";
 import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
-import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
 
@@ -1372,22 +1371,6 @@ export const generateDialogue = async ({
       }
     } catch {
       /* черновик лучше, чем ничего */
-    }
-  }
-
-  if (normalizedMode === "shorts" && isStoryVisualLayout(finalResult.conversation?.layout)) {
-    try {
-      const enriched = await enrichStoryVisualDialogue(finalResult.conversation);
-      finalResult = {
-        ...finalResult,
-        conversation: validateConversation(enriched.conversation),
-        storyEnriched: enriched.enriched,
-        storySceneCount: enriched.sceneCount ?? 0,
-        storyCharacterCount: enriched.characterCount ?? 0,
-      };
-    } catch (error) {
-      finalResult.storyEnrichError =
-        error instanceof Error ? error.message : String(error);
     }
   }
 

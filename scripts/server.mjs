@@ -1639,10 +1639,6 @@ app.post("/api/dialogues/generate", async (req, res) => {
       expandedFrom: result.expandedFrom ?? null,
       messageCount: result.conversation?.messages?.length ?? 0,
       contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
-      storyEnriched: result.storyEnriched ?? false,
-      storySceneCount: result.storySceneCount ?? null,
-      storyCharacterCount: result.storyCharacterCount ?? null,
-      storyEnrichError: result.storyEnrichError ?? null,
     });
   } catch (error) {
     res.status(400).json({error: formatDialogueApiError(error)});

@@ -680,13 +680,17 @@ const updateLogicControls = () => {
   if (btnEnrichStoryScenes) {
     const storyLayout = getVideoLayout();
     const isStory = storyLayout === "storySplit" || storyLayout === "storyOverlay";
+    const parsed = hasJson ? parseConversationJson() : null;
+    const missingPrompts = parsed ? countMissingStoryPrompts(parsed) : 0;
     btnEnrichStoryScenes.hidden = editorKind !== "shorts" || !isStory;
     btnEnrichStoryScenes.disabled = !hasJson || !llmReady || !isStory;
     btnEnrichStoryScenes.title = !llmReady
       ? "Задайте OPENROUTER_API_KEY в docs/.env"
-      : hasJson
-        ? "Сгенерировать героев и промпты всех кадров через Gemini"
-        : "Сначала нужен JSON переписки";
+      : !hasJson
+        ? "Сначала нужен JSON переписки"
+        : missingPrompts > 0
+          ? `Сгенерировать промпты для ${formatStoryFrameCount(missingPrompts)} (Gemini)`
+          : "Перегенерировать промпты всех кадров сюжета (Gemini)";
   }
 };
 
@@ -5975,6 +5979,30 @@ btnRender.addEventListener("click", async () => {
   }
 });
 
+const formatStoryFrameCount = (count) => {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${count} кадра`;
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+    return `${count} кадра`;
+  }
+  return `${count} кадров`;
+};
+
+const countMissingStoryPrompts = (conversation) => {
+  if (!isStoryVisualLayout(conversation)) {
+    return 0;
+  }
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  let missing = messages.filter((message) => !String(message.storyImagePrompt ?? "").trim()).length;
+  if (!String(conversation?.story?.opening?.imagePrompt ?? "").trim()) {
+    missing += 1;
+  }
+  return missing;
+};
+
 const countPendingImages = (conversation) => {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   if (isStoryVisualLayout(conversation)) {
@@ -6141,12 +6169,10 @@ const generateDialogueFromPrompt = async () => {
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
   updateRefineDialogueControls();
-  if (dialogueGenerateStatus) {
-    if (data.storyEnriched && data.storySceneCount != null) {
-      dialogueGenerateStatus.textContent = `Промпты кадров (Gemini): ${data.storySceneCount}, героев: ${data.storyCharacterCount ?? 0}. Лишние кадры можно удалить вручную.`;
-    } else if (data.storyEnrichError) {
-      dialogueGenerateStatus.textContent = `Диалог готов. Промпты кадров не сгенерированы: ${data.storyEnrichError}`;
-    }
+  updateLogicControls();
+  if (dialogueGenerateStatus && isStoryVisualLayout(data.conversation)) {
+    dialogueGenerateStatus.textContent =
+      "Диалог готов. Нажмите «Сгенерировать промпты изображений» для кадров сюжета.";
   }
   return data;
 };
@@ -6177,6 +6203,7 @@ const enrichStoryScenesFromJson = async () => {
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
+  updateLogicControls();
   if (dialogueGenerateStatus) {
     dialogueGenerateStatus.textContent = `Промпты кадров: ${data.sceneCount ?? 0}, героев: ${data.characterCount ?? 0}.`;
   }
@@ -6364,6 +6391,10 @@ const formatGenerateDialogueResult = (data) => {
   if ((editorKind === "shorts" || editorKind === "video") && data.displayTitle) {
     lines.push(`Название: «${data.displayTitle}»`);
   }
+  const conversation = data.conversation;
+  if (editorKind === "shorts" && conversation && isStoryVisualLayout(conversation)) {
+    lines.push("Дальше: «Сгенерировать промпты изображений» → «Сгенерировать изображения».");
+  }
   return {title: "Диалог готов", log: lines.join("\n")};
 };
 
@@ -6465,7 +6496,7 @@ btnEnrichStoryScenes?.addEventListener("click", async () => {
   }
   try {
     await runTextGenTask({
-      title: "Промпты кадров",
+      title: "Промпты изображений",
       runningLabel: "Gemini генерирует героев и промпты для каждого кадра…",
       task: enrichStoryScenesFromJson,
     });
