@@ -1668,6 +1668,10 @@ app.post("/api/dialogues/enrich-story-scenes", async (req, res) => {
       conversation: result.conversation,
       enriched: result.enriched,
       sceneCount: result.sceneCount ?? 0,
+      frameCount: result.frameCount ?? result.sceneCount ?? 0,
+      plannedMessageIndices: result.plannedMessageIndices ?? [],
+      includeOpening: result.includeOpening ?? true,
+      planRationale: result.planRationale ?? "",
       characterCount: result.characterCount ?? 0,
       skippedReason: result.skippedReason ?? null,
     });

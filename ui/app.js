@@ -681,6 +681,7 @@ const updateLogicControls = () => {
     const storyLayout = getVideoLayout();
     const isStory = storyLayout === "storySplit" || storyLayout === "storyOverlay";
     const parsed = hasJson ? parseConversationJson() : null;
+    const slotCount = parsed ? countStoryFrameSlots(parsed) : 0;
     const missingPrompts = parsed ? countMissingStoryPrompts(parsed) : 0;
     btnEnrichStoryScenes.hidden = editorKind !== "shorts" || !isStory;
     btnEnrichStoryScenes.disabled = !hasJson || !llmReady || !isStory;
@@ -688,9 +689,11 @@ const updateLogicControls = () => {
       ? "Задайте OPENROUTER_API_KEY в docs/.env"
       : !hasJson
         ? "Сначала нужен JSON переписки"
-        : missingPrompts > 0
-          ? `Сгенерировать промпты для ${formatStoryFrameCount(missingPrompts)} (Gemini)`
-          : "Перегенерировать промпты всех кадров сюжета (Gemini)";
+        : slotCount === 0
+          ? "Выбрать кадры по сюжету и сгенерировать промпты (Gemini)"
+          : missingPrompts > 0
+            ? `Дописать промпты для ${formatStoryFrameCount(missingPrompts)} (Gemini)`
+            : "Переразметить кадры по сюжету и перегенерировать промпты (Gemini)";
   }
 };
 
@@ -4848,41 +4851,21 @@ const renderDialogueSceneBlock = ({
   const controls = document.createElement("div");
   controls.className = "dialogue-scene__controls";
 
-  const hasStorySlot =
-    message.storyImage?.trim() ||
-    message.storyImagePrompt?.trim() ||
-    isStoryVisual;
-
   const hasStoryPromptField = Object.hasOwn(message, "storyImagePrompt");
+  const hasStoryFrame =
+    Boolean(message.storyImage?.trim()) ||
+    Boolean(message.storyImagePrompt?.trim()) ||
+    hasStoryPromptField;
 
-  if (hasStorySlot || isStoryVisual) {
-    if (
-      message.storyImage?.trim() ||
-      message.storyImagePrompt?.trim() ||
-      hasStoryPromptField
-    ) {
-      controls.append(
-        renderStoryImageSlot({
-          messageIndex,
-          message,
-          title: `Кадр · №${messageIndex + 1}`,
-          previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
-        }),
-      );
-    } else {
-      const addStoryRow = document.createElement("div");
-      addStoryRow.className = "dialogue-msg__add-image";
-      const btnAddStory = document.createElement("button");
-      btnAddStory.type = "button";
-      btnAddStory.className = "btn btn-secondary btn-small";
-      btnAddStory.textContent = "+ Кадр сцены";
-      btnAddStory.addEventListener("click", () => {
-        ensureStoryImageSlot(messageIndex);
-        refreshDialogue();
-      });
-      addStoryRow.append(btnAddStory);
-      controls.append(addStoryRow);
-    }
+  if (hasStoryFrame) {
+    controls.append(
+      renderStoryImageSlot({
+        messageIndex,
+        message,
+        title: `Кадр · №${messageIndex + 1}`,
+        previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
+      }),
+    );
   } else if (message.image?.trim() || message.imagePrompt?.trim()) {
     const resolved = resolveImageItem(message, messageIndex, item);
     if (resolved) {
@@ -4949,20 +4932,27 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   }`;
   row.dataset.messageIndex = String(messageIndex);
 
-  const sceneCol = document.createElement("div");
-  sceneCol.className = "dialogue-block__scene";
-  sceneCol.append(
-    renderDialogueSceneBlock({
-      message,
-      messageIndex,
-      item,
-      storyPreviewLookup,
-      messageText,
-      isStoryVisual,
-      display,
-    }),
-  );
-  row.append(sceneCol);
+  const hasStoryFrame =
+    Boolean(message.storyImage?.trim()) ||
+    Boolean(message.storyImagePrompt?.trim()) ||
+    Object.hasOwn(message, "storyImagePrompt");
+
+  if (!isStoryVisual || hasStoryFrame) {
+    const sceneCol = document.createElement("div");
+    sceneCol.className = "dialogue-block__scene";
+    sceneCol.append(
+      renderDialogueSceneBlock({
+        message,
+        messageIndex,
+        item,
+        storyPreviewLookup,
+        messageText,
+        isStoryVisual,
+        display,
+      }),
+    );
+    row.append(sceneCol);
+  }
 
   const messageCol = document.createElement("div");
   messageCol.className = "dialogue-block__message";
@@ -5991,13 +5981,49 @@ const formatStoryFrameCount = (count) => {
   return `${count} кадров`;
 };
 
+const countStoryFrameSlots = (conversation) => {
+  if (!isStoryVisualLayout(conversation)) {
+    return 0;
+  }
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  let count = messages.filter(
+    (message) =>
+      Boolean(message.storyImage?.trim()) ||
+      Boolean(message.storyImagePrompt?.trim()) ||
+      Object.hasOwn(message, "storyImagePrompt"),
+  ).length;
+  const opening = conversation?.story?.opening;
+  if (
+    opening &&
+    (Boolean(opening.image?.trim()) ||
+      Boolean(opening.imagePrompt?.trim()) ||
+      Object.hasOwn(opening, "imagePrompt"))
+  ) {
+    count += 1;
+  }
+  return count;
+};
+
 const countMissingStoryPrompts = (conversation) => {
   if (!isStoryVisualLayout(conversation)) {
     return 0;
   }
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
-  let missing = messages.filter((message) => !String(message.storyImagePrompt ?? "").trim()).length;
-  if (!String(conversation?.story?.opening?.imagePrompt ?? "").trim()) {
+  let missing = messages.filter(
+    (message) =>
+      (Boolean(message.storyImage?.trim()) ||
+        Boolean(message.storyImagePrompt?.trim()) ||
+        Object.hasOwn(message, "storyImagePrompt")) &&
+      !String(message.storyImagePrompt ?? "").trim(),
+  ).length;
+  const opening = conversation?.story?.opening;
+  if (
+    opening &&
+    (Boolean(opening.image?.trim()) ||
+      Boolean(opening.imagePrompt?.trim()) ||
+      Object.hasOwn(opening, "imagePrompt")) &&
+    !String(opening.imagePrompt ?? "").trim()
+  ) {
     missing += 1;
   }
   return missing;
@@ -6205,7 +6231,14 @@ const enrichStoryScenesFromJson = async () => {
   updateGenerateImagesControls(data.conversation);
   updateLogicControls();
   if (dialogueGenerateStatus) {
-    dialogueGenerateStatus.textContent = `Промпты кадров: ${data.sceneCount ?? 0}, героев: ${data.characterCount ?? 0}.`;
+    const frames = data.frameCount ?? data.sceneCount ?? 0;
+    const indices = Array.isArray(data.plannedMessageIndices)
+      ? data.plannedMessageIndices.map((index) => index + 1).join(", ")
+      : "";
+    const openingNote = data.includeOpening === false ? "без opening" : "с opening";
+    dialogueGenerateStatus.textContent = indices
+      ? `Кадры (${openingNote}): сообщ. №${indices}. Промптов: ${data.sceneCount ?? 0}.`
+      : `Промпты: ${frames}, героев: ${data.characterCount ?? 0}.`;
   }
   return data;
 };
@@ -6375,10 +6408,23 @@ const regenerateEndingFromPrompt = async () => {
   return data;
 };
 
-const formatEnrichStoryScenesResult = (data) => ({
-  title: "Промпты готовы",
-  log: `Кадров: ${data.sceneCount ?? 0}\nГероев: ${data.characterCount ?? 0}`,
-});
+const formatEnrichStoryScenesResult = (data) => {
+  const lines = [`Промптов: ${data.sceneCount ?? 0}`, `Героев: ${data.characterCount ?? 0}`];
+  if (Array.isArray(data.plannedMessageIndices) && data.plannedMessageIndices.length > 0) {
+    lines.push(
+      `Кадры на сообщ.: №${data.plannedMessageIndices.map((index) => index + 1).join(", №")}`,
+    );
+  }
+  if (data.includeOpening === false) {
+    lines.push("Opening: нет");
+  } else {
+    lines.push("Opening: да");
+  }
+  if (data.planRationale) {
+    lines.push(`План: ${data.planRationale}`);
+  }
+  return {title: "Промпты готовы", log: lines.join("\n")};
+};
 
 const formatGenerateDialogueResult = (data) => {
   const mode = formatDialogueGenSummary(getDialogueGenOptions());
@@ -6398,7 +6444,7 @@ const formatGenerateDialogueResult = (data) => {
   }
   const conversation = data.conversation;
   if (editorKind === "shorts" && conversation && isStoryVisualLayout(conversation)) {
-    lines.push("Дальше: «Сгенерировать промпты изображений» → «Сгенерировать изображения».");
+    lines.push("Дальше: «Сгенерировать промпты изображений» (кадры по сюжету) → «Сгенерировать изображения».");
   }
   return {title: "Диалог готов", log: lines.join("\n")};
 };
@@ -6502,7 +6548,7 @@ btnEnrichStoryScenes?.addEventListener("click", async () => {
   try {
     await runTextGenTask({
       title: "Промпты изображений",
-      runningLabel: "Gemini генерирует героев и промпты для каждого кадра…",
+      runningLabel: "Gemini выбирает кадры по сюжету и пишет промпты…",
       task: enrichStoryScenesFromJson,
       onSuccess: formatEnrichStoryScenesResult,
     });
