@@ -329,9 +329,9 @@ const bakeFallbackAsset = async ({
   // Плоская depth-заглушка, чтобы isStoryDepthAvailable/verify не падали
   const depthAbs = safePublicAbs(paths.depth).absolute;
   await sharp({
-    create: {width, height, channels: 1, background: {r: 128, g: 128, b: 128}},
+    create: {width, height, channels: 3, background: {r: 128, g: 128, b: 128}},
   })
-    .toColourspace("b-w")
+    .greyscale()
     .png()
     .toFile(depthAbs);
 

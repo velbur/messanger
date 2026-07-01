@@ -110,11 +110,18 @@ const run = async () => {
 
   if (!hasFlag("--skip-depth")) {
     const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: hasFlag("--force-depth")});
-    console.log(
-      depthResult.skipped
-        ? `Parallax: кэш OK → ${IMAGE_REL}`
-        : `Parallax: запечён loop (${depthResult.provider ?? "xenova"})`,
-    );
+    if (depthResult.fallback) {
+      console.warn(
+        "⚠ Parallax bake недоступен (нет Python/opencv) — вместо depth parallax будет Ken Burns",
+      );
+      console.warn("  Для настоящего parallax: worker с WORKER_GPU=1 ./run.sh worker --build");
+    } else {
+      console.log(
+        depthResult.skipped
+          ? `Parallax: кэш OK → ${IMAGE_REL}`
+          : `Parallax: запечён loop (${depthResult.provider ?? "xenova"})`,
+      );
+    }
   } else {
     console.log("Parallax: пропуск (--skip-depth)");
   }
