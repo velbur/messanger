@@ -9,7 +9,7 @@ import {
   scaleTimingMs,
   TIMING_BUNDLE_MARKER,
 } from "./timing";
-import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, messageHasStoryImage, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
+import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
@@ -284,7 +284,7 @@ const buildStoryTimeline = (
   const storyConfig = mergeStoryConfig(conversation);
   const sfxConfig = mergeStorySfxConfig(conversation);
   const firstMessage = conversation.messages[0];
-  const firstHasStory = Boolean(firstMessage && messageHasStoryImage(firstMessage));
+  const firstHasStory = Boolean(firstMessage?.storyImage?.trim());
   const firstRevealFrame = events[0]?.revealFrame ?? introFrames;
   const immediateFirstScene = firstHasStory;
 
@@ -321,7 +321,7 @@ const buildStoryTimeline = (
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
   const sceneIndices = conversation.messages
-    .map((message, index) => (messageHasStoryImage(message) ? index : -1))
+    .map((message, index) => (message.storyImage?.trim() ? index : -1))
     .filter((index) => index >= 0);
 
   sceneIndices.forEach((messageIndex, sceneOrder) => {

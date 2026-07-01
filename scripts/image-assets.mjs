@@ -360,28 +360,25 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
 
   if (missingStoryPromptOnly.length > 0) {
     const indices = missingStoryPromptOnly.map(({index}) => index + 1).join(", ");
-    const errorText = `Story-кадры без storyImage, только storyImagePrompt: №${indices}. Сгенерируйте картинки.`;
-    if (failOnMissingImages) {
-      throw new Error(errorText);
-    }
-    logs.push(errorText);
+    logs.push(
+      `Story-кадры без картинки (№${indices}) — в видео останется предыдущий кадр.`,
+    );
   }
 
   if (missingOpening) {
-    const errorText = "Story opening без image, только imagePrompt. Сгенерируйте картинки.";
-    if (failOnMissingImages) {
-      throw new Error(errorText);
-    }
-    logs.push(errorText);
+    logs.push("Story opening без картинки — в видео останется заставка или первый кадр.");
   }
+
+  const failOnMissingStoryFiles =
+    failOnMissingImages && !isStoryVisualLayout(conversation);
 
   if (isStoryVisualLayout(conversation)) {
     const openingRef = conversation.story?.opening?.image?.trim();
     if (openingRef && !isImageUrl(openingRef)) {
       const ok = assertLocalImageExists(
         openingRef,
-        `Story opening: файл не найден (${openingRef}). Сгенерируйте картинки или включите удалённый рендер с синхронизацией.`,
-        {failOnMissingImages, logs},
+        `Story opening: файл не найден (${openingRef}) — используем первый кадр сцены.`,
+        {failOnMissingImages: failOnMissingStoryFiles, logs},
       );
       if (!ok && conversation.story?.opening) {
         delete conversation.story.opening.image;
@@ -395,8 +392,8 @@ export const resolveConversationImages = async (conversation, {failOnMissingImag
       }
       const ok = assertLocalImageExists(
         storyRef,
-        `Story-кадр #${i + 1}: файл не найден (${storyRef}). Сгенерируйте картинки или включите удалённый рендер с синхронизацией.`,
-        {failOnMissingImages, logs},
+        `Story-кадр #${i + 1}: файл не найден (${storyRef}) — используем предыдущий кадр.`,
+        {failOnMissingImages: failOnMissingStoryFiles, logs},
       );
       if (!ok) {
         delete conversation.messages[i].storyImage;
