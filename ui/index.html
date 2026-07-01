@@ -412,9 +412,16 @@
 
             <div class="row row--music">
               <label class="label" for="musicSelect">Фоновая музыка</label>
-              <select id="musicSelect" class="select">
-                <option value="">Загрузка…</option>
-              </select>
+              <p class="dialogue-hint music-row__hint">
+                Треки Mixkit — бесплатная лицензия для YouTube и TikTok. Нажмите ▶ или откройте каталог, чтобы прослушать.
+              </p>
+              <div class="music-row__controls">
+                <select id="musicSelect" class="select music-row__select">
+                  <option value="">Загрузка…</option>
+                </select>
+                <button type="button" id="btnPreviewMusic" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный трек" disabled>▶</button>
+                <button type="button" id="btnOpenMusicCatalog" class="btn btn-secondary btn-small">Каталог</button>
+              </div>
             </div>
 
 
@@ -691,6 +698,21 @@
       </div>
     </div>
 
+    <div id="musicCatalogModal" class="workflow-modal music-catalog-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="musicCatalogModalTitle">
+      <div class="workflow-modal__backdrop" data-music-catalog-dismiss></div>
+      <div class="workflow-modal__dialog music-catalog-modal__dialog" role="document">
+        <header class="workflow-modal__head">
+          <h2 id="musicCatalogModalTitle" class="workflow-modal__title">Каталог музыки</h2>
+          <button type="button" class="workflow-modal__close" data-music-catalog-dismiss aria-label="Закрыть">×</button>
+        </header>
+        <p id="musicCatalogLicense" class="music-catalog-modal__license dialogue-hint"></p>
+        <div id="musicCatalogList" class="music-catalog" aria-live="polite"></div>
+        <footer class="workflow-modal__actions">
+          <button type="button" class="btn btn-secondary" data-music-catalog-dismiss>Закрыть</button>
+        </footer>
+      </div>
+    </div>
+
     <div id="voiceCatalogModal" class="workflow-modal voice-catalog-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="voiceCatalogModalTitle">
       <div class="workflow-modal__backdrop" data-voice-catalog-dismiss></div>
       <div class="workflow-modal__dialog voice-catalog-modal__dialog" role="document">
@@ -717,6 +739,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=voice-preview" type="module"></script>
+    <script src="/app.js?v=music-catalog" type="module"></script>
   </body>
 </html>

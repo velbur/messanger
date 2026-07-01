@@ -35,6 +35,7 @@ const isUserCancelledRender = (error) => {
 import {
   DEFAULT_MUSIC_ID,
   listMusicTracks,
+  getMusicLicenseInfo,
   PUBLIC_MUSIC_DIR,
   syncAudioToPublic,
 } from "./music-tracks.mjs";
@@ -642,8 +643,8 @@ app.use(express.json({limit: uploadJsonBodyLimitBytes()}));
 
 app.get("/api/audio", async (_req, res) => {
   try {
-    const tracks = await listMusicTracks();
-    res.json({tracks, defaultId: DEFAULT_MUSIC_ID});
+    const [tracks, license] = await Promise.all([listMusicTracks(), getMusicLicenseInfo()]);
+    res.json({tracks, defaultId: DEFAULT_MUSIC_ID, license});
   } catch (error) {
     res.status(500).json({
       error: error instanceof Error ? error.message : String(error),

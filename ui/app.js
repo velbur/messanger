@@ -35,6 +35,11 @@ const imagesGenerateRow = document.getElementById("imagesGenerateRow");
 const storyAnimationRow = document.getElementById("storyAnimationRow");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
 const musicSelect = document.getElementById("musicSelect");
+const btnPreviewMusic = document.getElementById("btnPreviewMusic");
+const btnOpenMusicCatalog = document.getElementById("btnOpenMusicCatalog");
+const musicCatalogModal = document.getElementById("musicCatalogModal");
+const musicCatalogList = document.getElementById("musicCatalogList");
+const musicCatalogLicense = document.getElementById("musicCatalogLicense");
 const renderTargetRow = document.getElementById("renderTargetRow");
 const renderTargetSelect = document.getElementById("renderTargetSelect");
 const introEnabled = document.getElementById("introEnabled");
@@ -429,7 +434,10 @@ const updateImageProviderControls = () => {
     }
   }
 };
-let defaultMusicId = "romantic.mp3";
+let defaultMusicId = "romantic-beautiful-dream.mp3";
+/** @type {Array<{id:string,label:string,previewUrl?:string,license?:string,licenseUrl?:string,category?:string}>} */
+let musicTrackCatalog = [];
+let musicLicenseInfo = null;
 let currentDialogueId = null;
 let editorImageDraftNamespace = `shorts-draft-${Date.now().toString(36)}`;
 let editorKind = "series";
@@ -2871,6 +2879,8 @@ const loadMusicTracks = async () => {
     }
 
     defaultMusicId = data.defaultId ?? defaultMusicId;
+    musicTrackCatalog = data.tracks ?? [];
+    musicLicenseInfo = data.license ?? null;
     musicSelect.replaceChildren();
 
     const none = document.createElement("option");
@@ -2883,7 +2893,7 @@ const loadMusicTracks = async () => {
     auto.textContent = "Подобрать по сюжету";
     musicSelect.append(auto);
 
-    for (const track of data.tracks ?? []) {
+    for (const track of musicTrackCatalog) {
       const opt = document.createElement("option");
       opt.value = track.id;
       opt.textContent = track.label;
@@ -2891,13 +2901,193 @@ const loadMusicTracks = async () => {
     }
 
     setMusicId(defaultMusicId);
+    updateMusicPreviewControls();
+    syncMusicFromJson();
   } catch (err) {
     musicSelect.replaceChildren();
     const opt = document.createElement("option");
     opt.value = "";
     opt.textContent = err instanceof Error ? err.message : "Ошибка загрузки";
     musicSelect.append(opt);
+    updateMusicPreviewControls();
   }
+};
+
+/** @type {HTMLAudioElement | null} */
+let activeMusicPreviewAudio = null;
+/** @type {string | null} */
+let activeMusicPreviewId = null;
+
+const stopMusicPreview = () => {
+  if (activeMusicPreviewAudio) {
+    activeMusicPreviewAudio.pause();
+    activeMusicPreviewAudio = null;
+  }
+  activeMusicPreviewId = null;
+  for (const btn of document.querySelectorAll(".music-preview-btn--playing, .music-catalog__play--playing")) {
+    btn.classList.remove("music-preview-btn--playing", "music-catalog__play--playing");
+  }
+  for (const row of document.querySelectorAll(".music-catalog__row--playing")) {
+    row.classList.remove("music-catalog__row--playing");
+  }
+};
+
+const resolveMusicPreviewUrl = (musicId) => {
+  const id = String(musicId ?? "").trim();
+  if (!id || id === "none" || id === "auto") {
+    return null;
+  }
+  const track = musicTrackCatalog.find((t) => t.id === id);
+  return track?.previewUrl ?? `/music/${id}`;
+};
+
+const playMusicPreview = async (musicId, {triggerBtn = null, rowEl = null} = {}) => {
+  const id = String(musicId ?? "").trim();
+  const url = resolveMusicPreviewUrl(id);
+  if (!url) {
+    return;
+  }
+
+  if (activeMusicPreviewId === id && activeMusicPreviewAudio && !activeMusicPreviewAudio.paused) {
+    stopMusicPreview();
+    return;
+  }
+
+  stopMusicPreview();
+  triggerBtn?.classList.add("music-preview-btn--playing", "music-catalog__play--playing");
+  rowEl?.classList.add("music-catalog__row--playing");
+
+  try {
+    const audio = new Audio(url);
+    activeMusicPreviewAudio = audio;
+    activeMusicPreviewId = id;
+    audio.addEventListener("ended", () => stopMusicPreview());
+    audio.addEventListener("error", () => stopMusicPreview());
+    await audio.play();
+  } catch (err) {
+    stopMusicPreview();
+    alert(err instanceof Error ? err.message : String(err));
+  }
+};
+
+const updateMusicPreviewControls = () => {
+  const id = getMusicId();
+  const canPreview = Boolean(id && id !== "none" && id !== "auto" && id !== "");
+  if (btnPreviewMusic) {
+    btnPreviewMusic.disabled = !canPreview;
+  }
+};
+
+const assignMusicTrack = (musicId) => {
+  setMusicId(musicId);
+  onMusicChange();
+  renderMusicCatalog();
+};
+
+const renderMusicCatalog = () => {
+  if (!musicCatalogList) {
+    return;
+  }
+  musicCatalogList.replaceChildren();
+  const currentId = getMusicId();
+
+  if (musicCatalogLicense) {
+    const licenseName = musicLicenseInfo?.name ?? "Mixkit Free License";
+    const licenseUrl = musicLicenseInfo?.url ?? "https://mixkit.co/license/";
+    const note =
+      musicLicenseInfo?.note ??
+      "Можно в YouTube, TikTok и соцсетях. Атрибуция не обязательна.";
+    musicCatalogLicense.innerHTML = `<strong>${licenseName}</strong> — ${note} <a class="youtube-link" href="${licenseUrl}" target="_blank" rel="noopener noreferrer">лицензия</a>`;
+  }
+
+  const groups = new Map();
+  for (const track of musicTrackCatalog) {
+    const key = track.category ?? "other";
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(track);
+  }
+
+  const categoryTitles = {
+    romantic: "Романтика",
+    upbeat: "Бодрая",
+    comedy: "Комедия",
+    cinematic: "Кино",
+    mystery: "Мистика",
+    calm: "Спокойная",
+    ambient: "Фон",
+    other: "Другие",
+  };
+
+  for (const [category, tracks] of groups) {
+    const section = document.createElement("section");
+    section.className = "music-catalog__group";
+    const heading = document.createElement("h3");
+    heading.className = "music-catalog__group-title";
+    heading.textContent = categoryTitles[category] ?? category;
+    section.append(heading);
+
+    const list = document.createElement("div");
+    list.className = "music-catalog__list";
+
+    for (const track of tracks) {
+      const row = document.createElement("div");
+      row.className = "music-catalog__row";
+      if (track.id === currentId) {
+        row.classList.add("music-catalog__row--active");
+      }
+
+      const btnPlay = document.createElement("button");
+      btnPlay.type = "button";
+      btnPlay.className = "btn btn-secondary btn-small music-catalog__play";
+      btnPlay.textContent = "▶";
+      btnPlay.title = "Прослушать";
+      btnPlay.addEventListener("click", () => {
+        playMusicPreview(track.id, {triggerBtn: btnPlay, rowEl: row});
+      });
+
+      const meta = document.createElement("div");
+      meta.className = "music-catalog__meta";
+      meta.innerHTML = `<div class="music-catalog__name">${track.label}</div>`;
+
+      const pick = document.createElement("div");
+      pick.className = "music-catalog__pick";
+      const btnPick = document.createElement("button");
+      btnPick.type = "button";
+      btnPick.className = "btn btn-secondary btn-small music-catalog__pick-btn";
+      btnPick.textContent = track.id === currentId ? "Выбран" : "Выбрать";
+      btnPick.disabled = track.id === currentId;
+      btnPick.addEventListener("click", () => assignMusicTrack(track.id));
+
+      pick.append(btnPick);
+      row.append(btnPlay, meta, pick);
+      list.append(row);
+    }
+
+    section.append(list);
+    musicCatalogList.append(section);
+  }
+};
+
+const setMusicCatalogModalOpen = (open) => {
+  if (!musicCatalogModal) {
+    return;
+  }
+  musicCatalogModal.hidden = !open;
+  musicCatalogModal.setAttribute("aria-hidden", open ? "false" : "true");
+  syncWorkflowModalBodyClass();
+  if (open) {
+    renderMusicCatalog();
+  } else {
+    stopMusicPreview();
+  }
+};
+
+const onMusicChange = () => {
+  applyMusicToJson();
+  updateMusicPreviewControls();
+  stopMusicPreview();
 };
 
 const getRenderTarget = () =>
@@ -5036,7 +5226,8 @@ const syncWorkflowModalBodyClass = () => {
   const anyOpen =
     (renderModal && !renderModal.hidden) ||
     (textGenModal && !textGenModal.hidden) ||
-    (voiceCatalogModal && !voiceCatalogModal.hidden);
+    (voiceCatalogModal && !voiceCatalogModal.hidden) ||
+    (musicCatalogModal && !musicCatalogModal.hidden);
   document.body.classList.toggle("workflow-modal-open", Boolean(anyOpen));
 };
 
@@ -6207,6 +6398,14 @@ const loadApiStatus = async () => {
 btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
 loadMusicTracks();
+musicSelect?.addEventListener("change", onMusicChange);
+btnPreviewMusic?.addEventListener("click", () => {
+  playMusicPreview(getMusicId(), {triggerBtn: btnPreviewMusic});
+});
+btnOpenMusicCatalog?.addEventListener("click", () => setMusicCatalogModalOpen(true));
+for (const el of document.querySelectorAll("[data-music-catalog-dismiss]")) {
+  el.addEventListener("click", () => setMusicCatalogModalOpen(false));
+}
 loadRenderTargets();
 loadStylePrompt();
 loadStoryStylePrompt();

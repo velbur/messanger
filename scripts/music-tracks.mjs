@@ -1,6 +1,7 @@
 import path from "node:path";
 import {copyFile, mkdir, readdir, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
+import {loadMusicLibrary, PUBLIC_MUSIC_DIR as LIB_PUBLIC_DIR} from "./music-library.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -10,16 +11,19 @@ export const PUBLIC_MUSIC_DIR = path.join(ROOT, "public", "music");
 /** Не показывать в UI (старые треки / только для legacy JSON) */
 export const HIDDEN_TRACKS = new Set(["velvet-receiver.mp3"]);
 
-/** Подписи в UI (ключ — имя файла) */
+/** Legacy подписи для старых имён файлов */
 export const TRACK_LABELS = {
-  "romantic.mp3": "Романтика",
-  "fun.mp3": "Весёлая",
-  "mystic.mp3": "Мистика",
-  "kremlin.mp3": "Кремль",
-  "Thermal Relay.mp3": "Нейтральная",
+  "romantic.mp3": "Романтика (legacy)",
+  "fun.mp3": "Весёлая (legacy)",
+  "mystic.mp3": "Мистика (legacy)",
+  "kremlin.mp3": "Кремль (legacy)",
+  "Thermal Relay.mp3": "Нейтральная (legacy)",
 };
 
-/** Настроения для автоподбора story-музыки */
+/** @type {Record<string, string[]>} */
+let libraryMoodMap = {};
+
+/** Настроения для автоподбора story-музыки (заполняется из library.json) */
 export const MUSIC_TRACK_MOODS = {
   "romantic.mp3": ["romance", "warm", "calm", "neutral"],
   "fun.mp3": ["comedy", "light", "happy", "casual", "neutral"],
@@ -28,7 +32,7 @@ export const MUSIC_TRACK_MOODS = {
   "Thermal Relay.mp3": ["neutral", "calm", "ambient", "story"],
 };
 
-export const DEFAULT_MUSIC_ID = "romantic.mp3";
+export const DEFAULT_MUSIC_ID = "romantic-beautiful-dream.mp3";
 
 const isMp3 = (name) => name.toLowerCase().endsWith(".mp3");
 
@@ -60,16 +64,52 @@ export const syncAudioToPublic = async () => {
   }
 };
 
+const mergeLibraryMoods = (tracks) => {
+  for (const track of tracks) {
+    if (track.id && Array.isArray(track.moods)) {
+      MUSIC_TRACK_MOODS[track.id] = track.moods;
+      libraryMoodMap[track.id] = track.moods;
+    }
+  }
+};
+
+const loadLibraryTracks = async () => {
+  try {
+    const library = await loadMusicLibrary();
+    mergeLibraryMoods(library.tracks ?? []);
+    return (library.tracks ?? [])
+      .filter((track) => existsSync(path.join(PUBLIC_MUSIC_DIR, track.id)))
+      .map((track) => ({
+        id: track.id,
+        label: track.label,
+        title: track.title ?? track.label,
+        category: track.category ?? null,
+        moods: track.moods ?? [],
+        license: track.license ?? library.license?.name ?? "Mixkit Free License",
+        licenseUrl: track.licenseUrl ?? library.license?.url ?? "https://mixkit.co/license/",
+        licenseNote: track.licenseNote ?? library.license?.note ?? null,
+        sourceUrl: track.sourceUrl ?? null,
+        src: `music/${track.id}`,
+        previewUrl: `/music/${track.id}`,
+      }));
+  } catch {
+    return [];
+  }
+};
+
 export const listMusicTracks = async () => {
   await syncAudioToPublic();
+
+  const libraryTracks = await loadLibraryTracks();
+  const libraryIds = new Set(libraryTracks.map((t) => t.id));
 
   const names = new Set([
     ...(await collectFromDir(PUBLIC_MUSIC_DIR)),
     ...(await collectFromDir(AUDIO_DIR)),
   ]);
 
-  return [...names]
-    .filter((file) => !HIDDEN_TRACKS.has(file))
+  const legacyTracks = [...names]
+    .filter((file) => !HIDDEN_TRACKS.has(file) && !libraryIds.has(file))
     .sort((a, b) => {
       const labelA = TRACK_LABELS[a] ?? a;
       const labelB = TRACK_LABELS[b] ?? b;
@@ -78,9 +118,20 @@ export const listMusicTracks = async () => {
     .map((file) => ({
       id: file,
       label: TRACK_LABELS[file] ?? file.replace(/\.mp3$/i, ""),
+      title: TRACK_LABELS[file] ?? file.replace(/\.mp3$/i, ""),
+      category: null,
+      moods: MUSIC_TRACK_MOODS[file] ?? ["neutral"],
+      license: null,
+      licenseUrl: null,
+      licenseNote: null,
+      sourceUrl: null,
       src: `music/${file}`,
       previewUrl: `/music/${file}`,
     }));
+
+  return [...libraryTracks, ...legacyTracks].sort((a, b) =>
+    a.label.localeCompare(b.label, "ru"),
+  );
 };
 
 export const resolveMusicSrc = async (musicId) => {
@@ -115,4 +166,13 @@ export const musicIdFromSrc = (src) => {
   }
   const file = path.basename(src);
   return isMp3(file) ? file : null;
+};
+
+export const getMusicLicenseInfo = async () => {
+  try {
+    const library = await loadMusicLibrary();
+    return library.license ?? null;
+  } catch {
+    return null;
+  }
 };
