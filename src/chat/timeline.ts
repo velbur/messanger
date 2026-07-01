@@ -50,6 +50,8 @@ export type MessageTimelineEvent = {
   text: string;
   image?: string;
   sentAt: string;
+  /** center — текст по центру экрана; bubble — пузырь мессенджера */
+  display: "center" | "bubble";
   startFrame: number;
   typingStartFrame: number;
   typingEndFrame: number;
@@ -196,6 +198,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
       text: message.text ?? "",
       image: message.image,
       sentAt: message.sentAt,
+      display: message.display === "bubble" ? "bubble" : "center",
       startFrame: cursor,
       typingStartFrame,
       typingEndFrame,

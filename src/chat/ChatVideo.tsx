@@ -22,7 +22,8 @@ import {
   visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
-import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE} from "./theme";
+import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE, CENTER_SCREEN_BUNDLE_MARKER} from "./theme";
+import {CenterScreenMessage} from "./components/CenterScreenMessage";
 import {ChatThemeProvider} from "./ThemeContext";
 import {ChatTypographyProvider} from "./TypographyContext";
 import {ChatHeader} from "./components/ChatHeader";
@@ -45,6 +46,7 @@ void VIDEO_FEATURE_BUNDLE_MARKER;
 void TIMELINE_TAIL_MARKER;
 void STORY_SPLIT_TIMELINE_REV;
 void CHAT_OVERLAY_BUNDLE_MARKER;
+void CENTER_SCREEN_BUNDLE_MARKER;
 
 type ChatBodyProps = {
   conversation: ConversationInput;
@@ -59,6 +61,8 @@ type ChatBodyProps = {
   overlayChrome?: boolean;
   /** storyOverlay: только пузыри, без chrome */
   minimalOverlay?: boolean;
+  /** Не показывать реплики с display=center (они идут отдельным оверлеем) */
+  bubbleEventsOnly?: boolean;
 };
 
 const ChatBody: React.FC<ChatBodyProps> = ({
@@ -73,10 +77,14 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   opacity,
   overlayChrome = false,
   minimalOverlay = false,
+  bubbleEventsOnly = false,
 }) => {
-  const eventsToShow = minimalOverlay
-    ? visibleEvents.slice(-CHAT_OVERLAY.maxVisibleMessages)
+  const bubbleEvents = bubbleEventsOnly
+    ? visibleEvents.filter((event) => event.display === "bubble")
     : visibleEvents;
+  const eventsToShow = minimalOverlay
+    ? bubbleEvents.slice(-CHAT_OVERLAY.maxVisibleMessages)
+    : bubbleEvents;
 
   if (minimalOverlay) {
     return (
@@ -285,6 +293,10 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
   const lastEventIndex = timeline.events.length - 1;
+  const centerScreenEvent = storyVisualActive
+    ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
+    : undefined;
+  const bubbleEventsOnly = storyVisualActive;
 
   const isThemTyping = activeEvent?.author === "them";
   const headerStatus = isThemTyping
@@ -306,6 +318,7 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
       opacity={storyOverlayMode ? chatDim : inTitleCard ? 0 : chatDim}
       overlayChrome={storyOverlayMode}
       minimalOverlay={storyOverlayMode}
+      bubbleEventsOnly={bubbleEventsOnly}
     />
   );
 
@@ -436,6 +449,25 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
         )}
 
         {showHook ? <HookOverlay text={conversation.hookText ?? ""} /> : null}
+
+        {centerScreenEvent ? (
+          <AbsoluteFill
+            style={{
+              zIndex: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              opacity: chatRevealOpacity,
+            }}
+          >
+            <CenterScreenMessage
+              text={centerScreenEvent.text}
+              revealFrame={centerScreenEvent.revealFrame}
+              emphasizeFinale={centerScreenEvent.index === lastEventIndex}
+            />
+          </AbsoluteFill>
+        ) : null}
 
         {music.enabled ? (
           <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />

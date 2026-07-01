@@ -250,6 +250,15 @@ export const splitPanelHeights = (
 export const splitChatScale = (bottomPanelHeight: number): number =>
   Math.min(1, bottomPanelHeight / SPLIT_LAYOUT.frameHeight);
 
+export const CENTER_SCREEN = {
+  paddingX: S(72),
+  maxWidth: S(960),
+  lineHeight: 1.42,
+} as const;
+
+/** Маркер center-screen текста в bundle — обновить в scripts/bundle-cache.mjs */
+export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-msg-v1";
+
 /** Горизонтальный Video (16:9) — чат или повествование */
 export const VIDEO_LAYOUT = {
   frameWidth: 1920,

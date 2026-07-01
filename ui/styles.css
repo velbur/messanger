@@ -1672,6 +1672,32 @@ body.workflow-modal-open {
   overflow: hidden;
 }
 
+.dialogue-scene__caption--center {
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  max-height: none;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.dialogue-scene__caption--hidden {
+  display: none;
+}
+
+.dialogue-scene__frame--caption-center .dialogue-scene__gradient {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.4) 0%,
+    rgba(0, 0, 0, 0.12) 35%,
+    rgba(0, 0, 0, 0.12) 65%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+}
+
 .dialogue-scene__caption:empty::before {
   content: "Текст на кадре…";
   color: rgba(233, 237, 239, 0.35);

@@ -4173,7 +4173,7 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
   const openingText = String(conversation.story?.opening?.imagePrompt ?? "").trim();
   const openingPath = String(conversation.story?.opening?.image ?? "").trim();
   const frame = document.createElement("div");
-  frame.className = `dialogue-scene__frame${openingPath ? "" : " dialogue-scene__frame--empty"}`;
+  frame.className = `dialogue-scene__frame${openingPath ? "" : " dialogue-scene__frame--empty"} dialogue-scene__frame--caption-center`;
 
   const num = document.createElement("span");
   num.className = "dialogue-scene__num";
@@ -4197,7 +4197,7 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
   }
 
   const caption = document.createElement("div");
-  caption.className = "dialogue-scene__caption";
+  caption.className = "dialogue-scene__caption dialogue-scene__caption--center";
   caption.textContent = openingText;
   frame.append(caption);
   scene.append(frame);
@@ -4552,13 +4552,17 @@ const renderDialogueSceneBlock = ({
   storyPreviewLookup,
   messageText,
   isStoryVisual,
+  display = "center",
 }) => {
   const scene = document.createElement("div");
   scene.className = "dialogue-scene";
 
   const frame = document.createElement("div");
   const preview = resolveScenePreview(message, messageIndex, item, storyPreviewLookup);
-  frame.className = `dialogue-scene__frame${preview ? "" : " dialogue-scene__frame--empty"}`;
+  const captionCentered = display !== "bubble";
+  frame.className = `dialogue-scene__frame${preview ? "" : " dialogue-scene__frame--empty"}${
+    captionCentered ? " dialogue-scene__frame--caption-center" : ""
+  }`;
 
   const num = document.createElement("span");
   num.className = "dialogue-scene__num";
@@ -4579,9 +4583,11 @@ const renderDialogueSceneBlock = ({
   }
 
   const caption = document.createElement("div");
-  caption.className = "dialogue-scene__caption";
+  caption.className = `dialogue-scene__caption${
+    captionCentered ? " dialogue-scene__caption--center" : " dialogue-scene__caption--hidden"
+  }`;
   caption.dataset.sceneCaptionIndex = String(messageIndex);
-  caption.textContent = messageText;
+  caption.textContent = captionCentered ? messageText : "";
   frame.append(caption);
 
   scene.append(frame);
@@ -4700,6 +4706,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
       storyPreviewLookup,
       messageText,
       isStoryVisual,
+      display,
     }),
   );
   row.append(sceneCol);
