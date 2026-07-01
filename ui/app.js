@@ -48,6 +48,11 @@ const MESSAGE_FONT_SIZE_MIN = 36;
 const MESSAGE_FONT_SIZE_MAX = 80;
 const dialoguePanel = document.getElementById("dialoguePanel");
 const dialogueEditor = document.getElementById("dialogueEditor");
+const editorSidebar = document.getElementById("editorSidebar");
+const editorCanvas = document.getElementById("editorCanvas");
+const btnToggleSidebar = document.getElementById("btnToggleSidebar");
+const btnRevealSidebar = document.getElementById("btnRevealSidebar");
+const dialogueCanvasTitle = document.getElementById("dialogueCanvasTitle");
 const conversationTimingPanel = document.getElementById("conversationTimingPanel");
 const conversationTimingTotal = document.getElementById("conversationTimingTotal");
 const timingSpeedInput = document.getElementById("timingSpeedInput");
@@ -2915,6 +2920,62 @@ const setMessageTextInJson = (messageIndex, newText) => {
   updateGenerateImagesControls(parsed);
 };
 
+const getMessageDisplay = (message) =>
+  message?.display === "bubble" ? "bubble" : "center";
+
+const setMessageDisplayInJson = (messageIndex, display) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.[messageIndex]) {
+    return;
+  }
+  const value = display === "bubble" ? "bubble" : "center";
+  if (value === "center") {
+    delete parsed.messages[messageIndex].display;
+  } else {
+    parsed.messages[messageIndex].display = value;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const syncSceneCaption = (messageIndex, text) => {
+  const caption = dialogueEditor.querySelector(
+    `[data-scene-caption-index="${messageIndex}"]`,
+  );
+  if (caption) {
+    caption.textContent = text.trim();
+  }
+};
+
+const SIDEBAR_COLLAPSED_KEY = "editorSidebarCollapsed";
+
+const setSidebarCollapsed = (collapsed) => {
+  if (!editorSidebar) {
+    return;
+  }
+  editorSidebar.classList.toggle("editor-sidebar--collapsed", collapsed);
+  btnRevealSidebar?.toggleAttribute("hidden", !collapsed);
+  btnToggleSidebar?.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // ignore
+  }
+};
+
+const initSidebarToggle = () => {
+  try {
+    if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1") {
+      setSidebarCollapsed(true);
+    }
+  } catch {
+    // ignore
+  }
+  btnToggleSidebar?.addEventListener("click", () => setSidebarCollapsed(true));
+  btnRevealSidebar?.addEventListener("click", () => setSidebarCollapsed(false));
+};
+
+initSidebarToggle();
+
 const autoResizeMessageTextarea = (textarea) => {
   textarea.style.height = "auto";
   textarea.style.height = `${Math.max(textarea.scrollHeight, 40)}px`;
@@ -3629,12 +3690,47 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
 
 const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
   const panel = document.createElement("section");
-  panel.className = "dialogue-editor__story-opening";
-  const title = document.createElement("h3");
-  title.className = "dialogue-editor__story-title";
-  title.textContent = "Opening scene (полный экран до чата)";
-  panel.append(title);
-  panel.append(
+  panel.className = "dialogue-block dialogue-block--opening";
+  const sceneCol = document.createElement("div");
+  sceneCol.className = "dialogue-block__scene";
+  const scene = document.createElement("div");
+  scene.className = "dialogue-scene";
+
+  const openingText = String(conversation.story?.opening?.imagePrompt ?? "").trim();
+  const openingPath = String(conversation.story?.opening?.image ?? "").trim();
+  const frame = document.createElement("div");
+  frame.className = `dialogue-scene__frame${openingPath ? "" : " dialogue-scene__frame--empty"}`;
+
+  const num = document.createElement("span");
+  num.className = "dialogue-scene__num";
+  num.textContent = "Opening";
+  frame.append(num);
+
+  if (openingPath) {
+    const previewUrl =
+      storyPreviewLookup?.get("opening") ??
+      (isImageUrl(openingPath) ? openingPath : `/${openingPath.replace(/^\/+/, "")}`);
+    const img = document.createElement("img");
+    img.className = "dialogue-scene__img";
+    img.alt = "Opening";
+    img.loading = "lazy";
+    img.src = previewUrl;
+    img.addEventListener("click", () => openImageLightbox(img.src));
+    frame.append(img);
+    const gradient = document.createElement("div");
+    gradient.className = "dialogue-scene__gradient";
+    frame.append(gradient);
+  }
+
+  const caption = document.createElement("div");
+  caption.className = "dialogue-scene__caption";
+  caption.textContent = openingText;
+  frame.append(caption);
+  scene.append(frame);
+
+  const controls = document.createElement("div");
+  controls.className = "dialogue-scene__controls";
+  controls.append(
     renderStoryImageSlot({
       messageIndex: null,
       message: conversation,
@@ -3642,6 +3738,22 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
       previewUrl: storyPreviewLookup?.get("opening") ?? null,
     }),
   );
+  scene.append(controls);
+  sceneCol.append(scene);
+  panel.append(sceneCol);
+
+  const messageCol = document.createElement("div");
+  messageCol.className = "dialogue-block__message";
+  const title = document.createElement("h3");
+  title.className = "dialogue-editor__story-title";
+  title.textContent = "Opening scene";
+  const hint = document.createElement("p");
+  hint.className = "dialogue-hint";
+  hint.textContent =
+    "Полноэкранный кадр до начала переписки. Текст на превью — промпт кадра.";
+  messageCol.append(title, hint);
+  panel.append(messageCol);
+
   return panel;
 };
 
@@ -3945,42 +4057,205 @@ const buildPendingImageItem = (message, messageIndex) => {
 const resolveImageItem = (message, messageIndex, scannedItem) =>
   enrichImageItem(message, messageIndex, scannedItem);
 
+const resolveScenePreview = (message, messageIndex, item, storyPreviewLookup) => {
+  const storyPath = String(message.storyImage ?? "").trim();
+  const chatImagePath = String(message.image ?? "").trim();
+  const path = storyPath || chatImagePath;
+  if (!path) {
+    return null;
+  }
+  const previewUrl =
+    storyPreviewLookup?.get(messageIndex) ??
+    item?.previewUrl ??
+    (isImageUrl(path) ? path : `/${path.replace(/^\/+/, "")}`);
+  return {path, previewUrl};
+};
+
+const renderDialogueSceneBlock = ({
+  message,
+  messageIndex,
+  item,
+  storyPreviewLookup,
+  messageText,
+  isStoryVisual,
+}) => {
+  const scene = document.createElement("div");
+  scene.className = "dialogue-scene";
+
+  const frame = document.createElement("div");
+  const preview = resolveScenePreview(message, messageIndex, item, storyPreviewLookup);
+  frame.className = `dialogue-scene__frame${preview ? "" : " dialogue-scene__frame--empty"}`;
+
+  const num = document.createElement("span");
+  num.className = "dialogue-scene__num";
+  num.textContent = `№${messageIndex + 1}`;
+  frame.append(num);
+
+  if (preview) {
+    const img = document.createElement("img");
+    img.className = "dialogue-scene__img";
+    img.alt = `Кадр ${messageIndex + 1}`;
+    img.loading = "lazy";
+    img.src = preview.previewUrl;
+    img.addEventListener("click", () => openImageLightbox(img.src));
+    frame.append(img);
+    const gradient = document.createElement("div");
+    gradient.className = "dialogue-scene__gradient";
+    frame.append(gradient);
+  }
+
+  const caption = document.createElement("div");
+  caption.className = "dialogue-scene__caption";
+  caption.dataset.sceneCaptionIndex = String(messageIndex);
+  caption.textContent = messageText;
+  frame.append(caption);
+
+  scene.append(frame);
+
+  const controls = document.createElement("div");
+  controls.className = "dialogue-scene__controls";
+
+  const hasStorySlot =
+    message.storyImage?.trim() ||
+    message.storyImagePrompt?.trim() ||
+    isStoryVisual;
+
+  if (hasStorySlot || isStoryVisual) {
+    if (message.storyImage?.trim() || message.storyImagePrompt?.trim()) {
+      controls.append(
+        renderStoryImageSlot({
+          messageIndex,
+          message,
+          title: `Кадр · №${messageIndex + 1}`,
+          previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
+        }),
+      );
+    } else {
+      const addStoryRow = document.createElement("div");
+      addStoryRow.className = "dialogue-msg__add-image";
+      const btnAddStory = document.createElement("button");
+      btnAddStory.type = "button";
+      btnAddStory.className = "btn btn-secondary btn-small";
+      btnAddStory.textContent = "+ Кадр сцены";
+      btnAddStory.addEventListener("click", () => {
+        setJsonStoryImagePrompt(
+          messageIndex,
+          "Рисованный кадр сцены в момент этой реплики.",
+        );
+        refreshDialogue();
+      });
+      addStoryRow.append(btnAddStory);
+      controls.append(addStoryRow);
+    }
+  } else if (message.image?.trim() || message.imagePrompt?.trim()) {
+    const resolved = resolveImageItem(message, messageIndex, item);
+    if (resolved) {
+      controls.append(renderImageControls(resolved));
+    }
+  } else {
+    const addRow = document.createElement("div");
+    addRow.className = "dialogue-msg__add-image";
+    const btnAdd = document.createElement("button");
+    btnAdd.type = "button";
+    btnAdd.className = "btn btn-secondary btn-small";
+    btnAdd.textContent = "+ Изображение";
+    btnAdd.addEventListener("click", () => {
+      setJsonStoryImagePrompt(
+        messageIndex,
+        "Рисованный кадр сцены в момент этой реплики.",
+      );
+      refreshDialogue();
+    });
+    addRow.append(btnAdd);
+    controls.append(addRow);
+  }
+
+  scene.append(controls);
+  return scene;
+};
+
+const renderMessageDisplayToggle = (messageIndex, currentDisplay) => {
+  const wrap = document.createElement("div");
+  wrap.className = "dialogue-block__display-toggle";
+  wrap.setAttribute("role", "group");
+  wrap.setAttribute("aria-label", "Тип отображения реплики");
+
+  for (const {value, label} of [
+    {value: "center", label: "По центру"},
+    {value: "bubble", label: "Пузырь"},
+  ]) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `dialogue-block__display-btn${
+      currentDisplay === value ? " dialogue-block__display-btn--active" : ""
+    }`;
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      setMessageDisplayInJson(messageIndex, value);
+      refreshDialogue();
+    });
+    wrap.append(btn);
+  }
+  return wrap;
+};
+
 const renderDialogueMessage = (message, messageIndex, item, contactName, storyPreviewLookup) => {
   const row = document.createElement("article");
   const isMe = message.author === "me";
+  const display = getMessageDisplay(message);
   const imageState =
     message.image?.trim() || message.imagePrompt?.trim()
       ? getMessageImageState(message, item)
       : null;
+  const conversation = parseConversationJson();
+  const isStoryVisual = isStoryVisualLayout(conversation);
+  const messageText = String(message.text ?? "").trim();
 
-  row.className = `dialogue-msg dialogue-msg--${isMe ? "me" : "them"}${
-    imageState?.needsImageFile ? " dialogue-msg--needs-image" : ""
+  row.className = `dialogue-block${
+    imageState?.needsImageFile ? " dialogue-block--needs-image" : ""
   }`;
   row.dataset.messageIndex = String(messageIndex);
 
-  const inner = document.createElement("div");
-  inner.className = "dialogue-msg__inner";
+  const sceneCol = document.createElement("div");
+  sceneCol.className = "dialogue-block__scene";
+  sceneCol.append(
+    renderDialogueSceneBlock({
+      message,
+      messageIndex,
+      item,
+      storyPreviewLookup,
+      messageText,
+      isStoryVisual,
+    }),
+  );
+  row.append(sceneCol);
 
-  const head = document.createElement("div");
-  head.className = "dialogue-msg__head";
+  const messageCol = document.createElement("div");
+  messageCol.className = "dialogue-block__message";
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "dialogue-block__toolbar";
+
   const who = document.createElement("span");
-  who.className = "dialogue-msg__who";
+  who.className = "dialogue-block__who";
   who.textContent = isMe ? "Я" : contactName?.trim() || "Собеседник";
-  head.append(who);
+  toolbar.append(who);
+
+  toolbar.append(renderMessageDisplayToggle(messageIndex, display));
+
   if (imageState?.needsImageFile) {
     const badge = document.createElement("span");
     badge.className = "dialogue-msg__needs-image-badge";
-    badge.textContent = `№${messageIndex + 1} · нужно фото`;
-    head.append(badge);
+    badge.textContent = "нужно фото";
+    toolbar.append(badge);
   }
+
   if (message.sentAt) {
     const time = document.createElement("span");
     time.className = "dialogue-msg__time";
     time.textContent = message.sentAt;
-    head.append(time);
+    toolbar.append(time);
   }
-
-  const messageText = String(message.text ?? "").trim();
 
   const btnRegen = document.createElement("button");
   btnRegen.type = "button";
@@ -4006,89 +4281,67 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
       btnRegen.title = prevTitle;
     }
   });
-  head.append(btnRegen);
+  toolbar.append(btnRegen);
+  messageCol.append(toolbar);
 
-  inner.append(head);
+  const body = document.createElement("div");
+  body.className = `dialogue-block__body dialogue-block__body--${display} dialogue-block__body--${
+    isMe ? "me" : "them"
+  }`;
 
-  const bubble = document.createElement("div");
-  bubble.className = "dialogue-msg__bubble dialogue-msg__bubble--edit";
-  const textarea = document.createElement("textarea");
-  textarea.className = "dialogue-msg__bubble-text";
-  textarea.rows = 2;
-  textarea.value = messageText;
-  textarea.placeholder = "Текст сообщения…";
-  textarea.dataset.messageTextIndex = String(messageIndex);
-  textarea.addEventListener("input", () => {
-    autoResizeMessageTextarea(textarea);
-    setMessageTextInJson(messageIndex, textarea.value);
-  });
-  textarea.addEventListener("blur", () => {
-    const cleaned = sanitizeMessageText(textarea.value);
-    if (cleaned !== textarea.value) {
-      textarea.value = cleaned;
-      setMessageTextInJson(messageIndex, cleaned);
-    }
-    autoResizeMessageTextarea(textarea);
-  });
-  bubble.append(textarea);
-  inner.append(bubble);
-  requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
-
-  const conversation = parseConversationJson();
-  const isStoryVisual = isStoryVisualLayout(conversation);
-
-  if (!isStoryVisual) {
-    if (message.image?.trim() || message.imagePrompt?.trim()) {
-      const resolved = resolveImageItem(message, messageIndex, item);
-      if (resolved) {
-        inner.append(renderImageControls(resolved));
+  if (display === "center") {
+    const textarea = document.createElement("textarea");
+    textarea.className = "dialogue-block__text";
+    textarea.rows = 3;
+    textarea.value = messageText;
+    textarea.placeholder = "Текст реплики…";
+    textarea.dataset.messageTextIndex = String(messageIndex);
+    textarea.addEventListener("input", () => {
+      autoResizeMessageTextarea(textarea);
+      setMessageTextInJson(messageIndex, textarea.value);
+      syncSceneCaption(messageIndex, textarea.value);
+    });
+    textarea.addEventListener("blur", () => {
+      const cleaned = sanitizeMessageText(textarea.value);
+      if (cleaned !== textarea.value) {
+        textarea.value = cleaned;
+        setMessageTextInJson(messageIndex, cleaned);
+        syncSceneCaption(messageIndex, cleaned);
       }
-    } else {
-      const addRow = document.createElement("div");
-      addRow.className = "dialogue-msg__add-image";
-      const btnAdd = document.createElement("button");
-      btnAdd.type = "button";
-      btnAdd.className = "btn btn-secondary btn-small";
-      btnAdd.textContent = "+ Добавить изображение";
-      btnAdd.addEventListener("click", () => {
-        addImageToMessage(messageIndex);
-        refreshDialogue();
-      });
-      addRow.append(btnAdd);
-      inner.append(addRow);
-    }
+      autoResizeMessageTextarea(textarea);
+    });
+    body.append(textarea);
+    requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
+  } else {
+    const bubble = document.createElement("div");
+    bubble.className = "dialogue-msg__bubble dialogue-msg__bubble--edit";
+    const textarea = document.createElement("textarea");
+    textarea.className = "dialogue-msg__bubble-text";
+    textarea.rows = 2;
+    textarea.value = messageText;
+    textarea.placeholder = "Текст сообщения…";
+    textarea.dataset.messageTextIndex = String(messageIndex);
+    textarea.addEventListener("input", () => {
+      autoResizeMessageTextarea(textarea);
+      setMessageTextInJson(messageIndex, textarea.value);
+      syncSceneCaption(messageIndex, textarea.value);
+    });
+    textarea.addEventListener("blur", () => {
+      const cleaned = sanitizeMessageText(textarea.value);
+      if (cleaned !== textarea.value) {
+        textarea.value = cleaned;
+        setMessageTextInJson(messageIndex, cleaned);
+        syncSceneCaption(messageIndex, cleaned);
+      }
+      autoResizeMessageTextarea(textarea);
+    });
+    bubble.append(textarea);
+    body.append(bubble);
+    requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
   }
 
-  if (isStoryVisual) {
-    if (message.storyImage?.trim() || message.storyImagePrompt?.trim()) {
-      inner.append(
-        renderStoryImageSlot({
-          messageIndex,
-          message,
-          title: `Сюжет сверху · №${messageIndex + 1}`,
-          previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
-        }),
-      );
-    } else {
-      const addStoryRow = document.createElement("div");
-      addStoryRow.className = "dialogue-msg__add-image";
-      const btnAddStory = document.createElement("button");
-      btnAddStory.type = "button";
-      btnAddStory.className = "btn btn-secondary btn-small";
-      btnAddStory.textContent = "+ Сюжетный кадр сверху";
-      btnAddStory.addEventListener("click", () => {
-        setJsonStoryImagePrompt(
-          messageIndex,
-          "Рисованный кадр сцены в момент этой реплики.",
-        );
-        refreshDialogue();
-      });
-      addStoryRow.append(btnAddStory);
-      inner.append(addStoryRow);
-    }
-  }
-
-  row.append(inner);
+  messageCol.append(body);
+  row.append(messageCol);
   return row;
 };
 
@@ -4112,6 +4365,11 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
   header.className = "dialogue-editor__header";
   header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений`;
   dialogueEditor.append(header);
+  if (dialogueCanvasTitle) {
+    dialogueCanvasTitle.textContent = conversation.contactName
+      ? `Диалог · ${conversation.contactName}`
+      : "Диалог";
+  }
 
   const thread = document.createElement("div");
   thread.className = "dialogue-editor__thread";

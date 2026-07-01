@@ -75,6 +75,8 @@ export const messageSchema = z
     voiceTtsProfile: z.string().min(1).optional(),
     /** Эмоция/подача реплики для TTS (ИИ по сюжету, можно править вручную) */
     voiceEmotion: z.string().min(1).max(160).optional(),
+    /** Редактор / видео: center — текст по центру, bubble — пузырь мессенджера */
+    display: z.enum(["center", "bubble"]).optional(),
     sentAt: z.string().optional().default("12:34"),
   })
   .superRefine((message, ctx) => {

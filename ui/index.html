@@ -143,15 +143,26 @@
         <div id="videoDialoguesList" class="dialogues-list"></div>
       </section>
 
-      <section class="panel tab-panel" id="tabPanelEditor" role="tabpanel" hidden>
-        <div class="editor-view__head">
-          <button type="button" id="btnBackToList" class="btn btn-secondary btn-small">
-            ← К списку
-          </button>
-        </div>
-
+      <section class="panel tab-panel tab-panel--editor" id="tabPanelEditor" role="tabpanel" hidden>
         <div class="editor-layout">
-          <div class="editor-sidebar">
+          <aside class="editor-sidebar" id="editorSidebar">
+            <div class="editor-sidebar__head">
+              <button type="button" id="btnBackToList" class="btn btn-secondary btn-small">
+                ← К списку
+              </button>
+              <button
+                type="button"
+                id="btnToggleSidebar"
+                class="editor-sidebar__collapse btn btn-secondary btn-small"
+                title="Скрыть панель"
+                aria-expanded="true"
+                aria-controls="editorSidebar"
+              >
+                ‹
+              </button>
+            </div>
+
+            <div class="editor-sidebar__scroll">
             <div class="row editor-save-row">
               <label class="label" for="dialogueTitleInput">Название</label>
               <p id="dialogueTitleHint" class="editor-paths-hint">
@@ -436,10 +447,8 @@
                 <option value="local">Локально (эта машина)</option>
               </select>
             </div>
-          </div>
 
-          <div class="editor-main">
-            <div class="editor-main-actions">
+            <div class="editor-sidebar__actions editor-main-actions">
               <div class="actions actions--inline workflow-actions">
                 <button type="button" id="btnGenerateDialogue" class="btn btn-generate">
                   Сгенерировать диалог
@@ -520,20 +529,6 @@
               </div>
             </div>
 
-            <div class="row dialogue-panel" id="dialoguePanel" hidden>
-              <div class="dialogue-panel__head">
-                <span class="label">Диалог</span>
-                <button type="button" id="btnRefreshDialogue" class="btn btn-secondary btn-small">
-                  Обновить
-                </button>
-              </div>
-              <p class="dialogue-hint">
-                Сообщения как в видео. Фото и story-кадры: генерация через OpenRouter или вставка из буфера
-                (Ctrl+V / «Из буфера») в блоке кадра или в тексте сообщения.
-              </p>
-              <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
-            </div>
-
             <details class="json-panel row">
               <summary class="json-panel__summary">JSON переписки</summary>
               <textarea
@@ -547,6 +542,35 @@
             <div class="actions actions--example">
               <button type="button" id="btnExample" class="btn btn-secondary">Пример</button>
             </div>
+            </div>
+          </aside>
+
+          <div class="editor-canvas" id="editorCanvas">
+            <button
+              type="button"
+              id="btnRevealSidebar"
+              class="editor-sidebar-reveal btn btn-secondary"
+              title="Показать панель"
+              hidden
+              aria-controls="editorSidebar"
+            >
+              ☰ Панель
+            </button>
+
+            <div class="editor-canvas__head" id="dialoguePanel" hidden>
+              <div class="editor-canvas__title">
+                <span class="label" id="dialogueCanvasTitle">Диалог</span>
+                <button type="button" id="btnRefreshDialogue" class="btn btn-secondary btn-small">
+                  Обновить
+                </button>
+              </div>
+              <p class="dialogue-hint editor-canvas__hint">
+                Слева — кадр с текстом на изображении, справа — реплика (по центру или пузырь мессенджера).
+                Ctrl+V в блоке кадра — вставка из буфера.
+              </p>
+            </div>
+
+            <div id="dialogueEditor" class="dialogue-editor" aria-live="polite"></div>
           </div>
         </div>
       </section>
@@ -676,6 +700,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=shorts-gen-counts" type="module"></script>
+    <script src="/app.js?v=editor-layout-v2" type="module"></script>
   </body>
 </html>
