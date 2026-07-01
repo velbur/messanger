@@ -5555,7 +5555,7 @@ const runTextGenTask = async ({title, runningLabel, task, onSuccess}) => {
   }
   try {
     const data = await task();
-    const result = onSuccess(data);
+    const result = onSuccess ? onSuccess(data) : {title: "Готово"};
     if (textGenModalStatus) {
       textGenModalStatus.className = "workflow-modal__status status-text status-text--done";
       textGenModalStatus.textContent = result.title ?? "Готово";
@@ -6375,6 +6375,11 @@ const regenerateEndingFromPrompt = async () => {
   return data;
 };
 
+const formatEnrichStoryScenesResult = (data) => ({
+  title: "Промпты готовы",
+  log: `Кадров: ${data.sceneCount ?? 0}\nГероев: ${data.characterCount ?? 0}`,
+});
+
 const formatGenerateDialogueResult = (data) => {
   const mode = formatDialogueGenSummary(getDialogueGenOptions());
   const via = data.provider === "openrouter" ? "ChatGPT · " : "";
@@ -6499,6 +6504,7 @@ btnEnrichStoryScenes?.addEventListener("click", async () => {
       title: "Промпты изображений",
       runningLabel: "Gemini генерирует героев и промпты для каждого кадра…",
       task: enrichStoryScenesFromJson,
+      onSuccess: formatEnrichStoryScenesResult,
     });
   } catch {
     // ошибка в модальном окне
