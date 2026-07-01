@@ -112,7 +112,10 @@ const ChatBody: React.FC<ChatBodyProps> = ({
               variant="overlay"
             />
           ))}
-          {activeEvent?.author === "them" ? <TypingIndicator variant="overlay" /> : null}
+          {activeEvent?.author === "them" &&
+          !(bubbleEventsOnly && activeEvent.display !== "bubble") ? (
+            <TypingIndicator variant="overlay" />
+          ) : null}
         </div>
       </div>
     );
@@ -168,7 +171,10 @@ const ChatBody: React.FC<ChatBodyProps> = ({
             emphasizeFinale={event.index === lastEventIndex}
           />
         ))}
-        {activeEvent?.author === "them" ? <TypingIndicator /> : null}
+        {activeEvent?.author === "them" &&
+        !(bubbleEventsOnly && activeEvent.display !== "bubble") ? (
+          <TypingIndicator />
+        ) : null}
       </div>
     </div>
 
@@ -293,9 +299,17 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
   const lastEventIndex = timeline.events.length - 1;
-  const centerScreenEvent = storyVisualActive
-    ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
-    : undefined;
+  const centerTypingActive =
+    storyVisualActive &&
+    activeEvent &&
+    activeEvent.display !== "bubble" &&
+    activeEvent.author === "them" &&
+    frame >= activeEvent.typingStartFrame &&
+    frame < activeEvent.revealFrame;
+  const centerScreenEvent =
+    storyVisualActive && !centerTypingActive
+      ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
+      : undefined;
   const bubbleEventsOnly = storyVisualActive;
 
   const isThemTyping = activeEvent?.author === "them";
@@ -450,7 +464,20 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
 
         {showHook ? <HookOverlay text={conversation.hookText ?? ""} /> : null}
 
-        {centerScreenEvent ? (
+        {centerTypingActive ? (
+          <AbsoluteFill
+            style={{
+              zIndex: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              opacity: chatRevealOpacity,
+            }}
+          >
+            <TypingIndicator variant="center" />
+          </AbsoluteFill>
+        ) : centerScreenEvent ? (
           <AbsoluteFill
             style={{
               zIndex: 4,
@@ -514,18 +541,20 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
 
         {timeline.events.map((event) => (
           <React.Fragment key={`sound-${event.index}`}>
-            <Sequence from={event.revealFrame}>
-              <Audio
-                src={staticFile(event.author === "me" ? sounds.outgoing : sounds.incoming)}
-                volume={sounds.messageVolume}
-              />
-            </Sequence>
+            {event.display === "bubble" ? (
+              <Sequence from={event.revealFrame}>
+                <Audio
+                  src={staticFile(event.author === "me" ? sounds.outgoing : sounds.incoming)}
+                  volume={sounds.messageVolume}
+                />
+              </Sequence>
+            ) : null}
             {event.voiceAudio && event.voiceDurationFrames > 0 ? (
               <Sequence from={event.revealFrame} durationInFrames={event.voiceDurationFrames}>
                 <Audio src={staticFile(event.voiceAudio)} volume={voiceover.volume} />
               </Sequence>
             ) : null}
-            {event.typingFrames >= 12 ? (
+            {event.display === "bubble" && event.typingFrames >= 12 ? (
               <Sequence from={event.typingStartFrame}>
                 <Audio
                   src={staticFile(sounds.typing)}

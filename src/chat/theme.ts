@@ -253,11 +253,13 @@ export const splitChatScale = (bottomPanelHeight: number): number =>
 export const CENTER_SCREEN = {
   paddingX: S(72),
   maxWidth: S(960),
-  lineHeight: 1.42,
+  lineHeight: 1.38,
+  /** Множитель к messageFontSize (2× к пузырю) */
+  fontScale: 2,
 } as const;
 
 /** Маркер center-screen текста в bundle — обновить в scripts/bundle-cache.mjs */
-export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-msg-v1";
+export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-msg-2x-v1";
 
 /** Горизонтальный Video (16:9) — чат или повествование */
 export const VIDEO_LAYOUT = {

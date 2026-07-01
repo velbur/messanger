@@ -37,8 +37,8 @@ export const CenterScreenMessage: React.FC<Props> = ({
   });
   const translateY = interpolate(enter, [0, 1], [24, 0]);
   const fontSize = emphasizeFinale
-    ? Math.round(typography.messageFontSize * 1.08)
-    : typography.messageFontSize;
+    ? Math.round(typography.messageFontSize * CENTER_SCREEN.fontScale * 1.08)
+    : Math.round(typography.messageFontSize * CENTER_SCREEN.fontScale);
 
   return (
     <div
