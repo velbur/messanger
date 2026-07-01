@@ -570,11 +570,17 @@ const updateRefineDialogueControls = () => {
   if (!btnRefineDialogue) {
     return;
   }
-  const hasJson = Boolean(jsonInput.value.trim());
-  btnRefineDialogue.disabled = !hasJson;
-  btnRefineDialogue.title = hasJson
-    ? "Отправить текущий диалог на доработку"
-    : "Сначала нужен JSON переписки";
+  const conversation = parseConversationJson();
+  const hasDialogue = Boolean(conversation?.messages?.length);
+  const llmReady = canGenerateDialogue();
+  btnRefineDialogue.disabled = !hasDialogue || !llmReady;
+  if (!llmReady) {
+    btnRefineDialogue.title = "Задайте OPENROUTER_API_KEY в docs/.env";
+  } else if (!hasDialogue) {
+    btnRefineDialogue.title = "Сначала откройте или сгенерируйте диалог с messages";
+  } else {
+    btnRefineDialogue.title = "Отправить текущий диалог на доработку";
+  }
   updateLogicControls();
 };
 
@@ -1040,6 +1046,7 @@ const applyDialogueToEditor = (dialogue) => {
     applyMessengerLocaleToJson();
   }
   showExistingOutputDownload();
+  updateRefineDialogueControls();
 };
 
 const showExistingOutputDownload = () => {
@@ -4940,6 +4947,7 @@ const refreshDialogue = async () => {
     dialogueEditor.replaceChildren();
     renderConversationTimingPanel(null, null);
     updateGenerateImagesControls(null);
+    updateRefineDialogueControls();
     return;
   }
 
@@ -5004,6 +5012,7 @@ const refreshDialogue = async () => {
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
   }
+  updateRefineDialogueControls();
 };
 
 const scheduleRefreshDialogue = () => {
@@ -5129,6 +5138,8 @@ document.addEventListener("paste", async (e) => {
     }
   }
 });
+
+dialogueRefinePromptInput?.addEventListener("input", updateRefineDialogueControls);
 
 jsonInput.addEventListener("input", () => {
   syncTitleCardFieldsFromJson();
