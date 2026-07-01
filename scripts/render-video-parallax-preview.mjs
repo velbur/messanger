@@ -12,7 +12,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 export const VIDEO_PARALLAX_PREVIEW_SEC = 4;
-export const VIDEO_PARALLAX_EXTRA_SEC = 6;
+export const VIDEO_PARALLAX_EXTRA_SEC = 15;
 
 /** Кадров parallax-фазы после Veo (для bake clip = длина движения) */
 export const videoParallaxPhaseFrames = (
