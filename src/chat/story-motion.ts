@@ -7,6 +7,9 @@ const cinematicEase = bezierEasing(0.22, 1, 0.36, 1);
 /** Длина одного цикла motion-анимации (Ken Burns / parallax), секунды */
 export const STORY_MOTION_LOOP_SEC = 3;
 
+/** Кадров композиции: parallax стартует раньше, без «зависания» на хвосте Veo */
+export const STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES = 12;
+
 /** Длина одного цикла Ken Burns / parallax для бесшовного повтора, кадры */
 export const STORY_MOTION_LOOP_FRAMES = STORY_MOTION_LOOP_SEC * FPS;
 
@@ -54,6 +57,29 @@ export const storyVideoForwardDurationFrames = (
   videoDurationMs: number | undefined,
   compositionFps: number,
 ): number => Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * compositionFps));
+
+/** Кадр handoff Veo → depth parallax (раньше конца клипа на TRIM кадров) */
+export const storyVideoParallaxHandoffFrame = (
+  videoDurationMs: number | undefined,
+  compositionFps: number,
+  sceneDurationFrames: number,
+): number => {
+  const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, compositionFps);
+  const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
+  return Math.max(2, playFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
+};
+
+/** Длина parallax-фазы после handoff */
+export const storyVideoParallaxPhaseFrames = (
+  videoDurationMs: number | undefined,
+  sceneDurationFrames: number,
+  compositionFps: number,
+): number =>
+  Math.max(1, sceneDurationFrames - storyVideoParallaxHandoffFrame(
+    videoDurationMs,
+    compositionFps,
+    sceneDurationFrames,
+  ));
 
 /** Бесшовное зацикливание: кадр источника по локальному кадру сцены */
 export const storyVideoLoopFrame = (localFrame: number, videoDurationMs?: number): number => {

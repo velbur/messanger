@@ -12,6 +12,8 @@ import {
 } from "remotion";
 import {
   storyVideoForwardDurationFrames,
+  storyVideoParallaxHandoffFrame,
+  storyVideoParallaxPhaseFrames,
   storyVideoSceneMotion,
   storyVideoSourceFrameAtPlayFrame,
   storyVideoSourceFrameCount,
@@ -65,9 +67,12 @@ export const StorySceneVideo: React.FC<Props> = ({
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
+  const handoffFrame = isDepthParallax
+    ? storyVideoParallaxHandoffFrame(videoDurationMs, fps, sceneDurationFrames)
+    : playFrames;
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
-  const showVideo = localFrame < playFrames;
+  const showVideo = localFrame < handoffFrame;
 
   const motion = storyVideoSceneMotion(video, localFrame);
   const videoStyle = isDepthParallax ? baseCoverStyle : withMotionStyle(motion, 1);
@@ -88,7 +93,7 @@ export const StorySceneVideo: React.FC<Props> = ({
         : 1;
 
   const sourceFrame = isDepthParallax
-    ? storyVideoSourceFrameAtPlayFrame(localFrame, Math.max(1, playFrames), lastSourceFrame)
+    ? storyVideoSourceFrameAtPlayFrame(localFrame, Math.max(1, handoffFrame), lastSourceFrame)
     : localFrame >= crossfadeStart
       ? lastSourceFrame
       : storyVideoSourceFrameAtPlayFrame(
@@ -97,13 +102,15 @@ export const StorySceneVideo: React.FC<Props> = ({
           lastSourceFrame,
         );
 
-  const parallaxStartFrame = isDepthParallax ? playFrames : crossfadeStart;
-  const parallaxPhaseFrames = Math.max(1, sceneDurationFrames - parallaxStartFrame);
+  const parallaxStartFrame = isDepthParallax ? handoffFrame : crossfadeStart;
+  const parallaxPhaseFrames = isDepthParallax
+    ? storyVideoParallaxPhaseFrames(videoDurationMs, sceneDurationFrames, fps)
+    : Math.max(1, sceneDurationFrames - parallaxStartFrame);
 
   const particleIntensity = isDepthParallax
-    ? localFrame >= playFrames
+    ? localFrame >= handoffFrame
       ? 1
-      : interpolate(localFrame, [Math.max(0, playFrames - 8), playFrames], [0.5, 1], {
+      : interpolate(localFrame, [Math.max(0, handoffFrame - 8), handoffFrame], [0.5, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
@@ -132,7 +139,7 @@ export const StorySceneVideo: React.FC<Props> = ({
           <DepthDisplacementImage
             image={holdFrame}
             parallaxVideo={storyParallaxVideoPathForVideo(video)}
-            sceneStartFrame={sceneStartFrame + playFrames}
+            sceneStartFrame={sceneStartFrame + handoffFrame}
             durationFrames={parallaxPhaseFrames}
           />
         ) : (
