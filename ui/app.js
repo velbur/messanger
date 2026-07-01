@@ -4169,7 +4169,7 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
     btnAdd.textContent = "+ Сюжетный кадр";
     btnAdd.hidden = Boolean(promptValue);
     btnAdd.addEventListener("click", () => {
-      setJsonStoryImagePrompt(messageIndex, "Рисованный кадр сцены в момент этой реплики.");
+      setJsonStoryImagePrompt(messageIndex, "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.");
       refreshDialogue();
     });
     actions.append(btnAdd);
@@ -4631,7 +4631,7 @@ const renderDialogueSceneBlock = ({
       btnAddStory.addEventListener("click", () => {
         setJsonStoryImagePrompt(
           messageIndex,
-          "Рисованный кадр сцены в момент этой реплики.",
+          "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.",
         );
         refreshDialogue();
       });
@@ -4653,7 +4653,7 @@ const renderDialogueSceneBlock = ({
     btnAdd.addEventListener("click", () => {
       setJsonStoryImagePrompt(
         messageIndex,
-        "Рисованный кадр сцены в момент этой реплики.",
+        "Фотореалистичный кинематографичный кадр сцены в момент этой реплики.",
       );
       refreshDialogue();
     });

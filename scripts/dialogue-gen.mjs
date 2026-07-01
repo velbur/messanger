@@ -97,7 +97,7 @@ const buildJsonFormatBlock = ({
       lines.push(`  "layout": "${storyLayout}",`);
       lines.push('  "story": {');
       lines.push('    "opening": {');
-      lines.push('      "imagePrompt": "illustrated establishing scene before the chat starts"');
+      lines.push('      "imagePrompt": "photorealistic cinematic establishing scene before the chat starts"');
       lines.push("    }");
       lines.push("  },");
     }
@@ -114,7 +114,7 @@ const buildJsonFormatBlock = ({
         "    {",
         '      "author": "them",',
         '      "text": "plot turn line",',
-        '      "storyImagePrompt": "illustrated scene for the top panel at this beat",',
+        '      "storyImagePrompt": "photorealistic cinematic scene for the top panel at this beat",',
         '      "sentAt": "HH:MM"',
         "    },",
       );
@@ -155,7 +155,7 @@ const buildJsonFormatBlock = ({
     lines.push(`  "layout": "${storyLayout}",`);
     lines.push('  "story": {');
     lines.push('    "opening": {');
-    lines.push('      "imagePrompt": "рисованный establishing shot до начала переписки"');
+    lines.push('      "imagePrompt": "фотореалистичный establishing shot до начала переписки"');
     lines.push("    }");
     lines.push("  },");
   }
@@ -172,7 +172,7 @@ const buildJsonFormatBlock = ({
       "    {",
       '      "author": "them",',
       '      "text": "реплика на повороте сюжета",',
-      '      "storyImagePrompt": "рисованный кадр для верхней панели в этот момент",',
+      '      "storyImagePrompt": "фотореалистичный кадр для верхней панели в этот момент",',
       '      "sentAt": "HH:MM"',
       "    },",
     );

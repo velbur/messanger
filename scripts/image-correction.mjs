@@ -45,7 +45,7 @@ export const buildImageCorrectionPrompt = ({imageEditPrompt, stylePrompt}) => {
 
   return [
     edit,
-    style ? `Стиль иллюстрации: ${style}` : "",
+    style ? `Стиль фото: ${style}` : "",
     `Формат ${CHAT_IMAGE_ASPECT_RATIO}, без текста на изображении, без UI чата.`,
   ]
     .filter(Boolean)
