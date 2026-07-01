@@ -6,12 +6,12 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 /** Картинки в пузырях чата (4:3) */
-const DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image";
+const DEFAULT_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
 /** Story-кадры 9:16 — иллюстрация, не фотореализм */
-const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
-const PREFERRED_IMAGE_MODELS = ["google/gemini-2.5-flash-image"];
-const CHAT_IMAGE_FALLBACK_MODELS = ["google/gemini-2.5-flash-image"];
-const STORY_IMAGE_FALLBACK_MODELS = ["google/gemini-2.5-flash-image"];
+const DEFAULT_STORY_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
+const PREFERRED_IMAGE_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
+const CHAT_IMAGE_FALLBACK_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
+const STORY_IMAGE_FALLBACK_MODELS = ["sourceful/riverflow-v2.5-fast:free", "google/gemini-2.5-flash-image"];
 const BROKEN_IMAGE_MODEL_HINTS = [
   "openai/gpt-5.4-image",
   "openai/gpt-5-image",
