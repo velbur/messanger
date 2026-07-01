@@ -108,9 +108,9 @@ export const StorySceneVideo: React.FC<Props> = ({
     : Math.max(1, sceneDurationFrames - crossfadeStart);
 
   const particleIntensity = isDepthParallax
-    ? localFrame >= handoffFrame
-      ? 1
-      : interpolate(localFrame, [Math.max(0, handoffFrame - 8), handoffFrame], [0.5, 1], {
+    ? localFrame < handoffFrame
+      ? 0
+      : interpolate(localFrame, [handoffFrame, handoffFrame + 10], [0.5, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })

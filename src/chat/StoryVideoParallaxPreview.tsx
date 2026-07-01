@@ -3,7 +3,7 @@ import {AbsoluteFill} from "remotion";
 import {StorySceneVideo} from "./components/StorySceneVideo";
 import {storyVideoPathForImage} from "./story-video-paths";
 
-export const STORY_VIDEO_PARALLAX_PREVIEW_MARKER = "story-video-parallax-preview-v8";
+export const STORY_VIDEO_PARALLAX_PREVIEW_MARKER = "story-video-parallax-preview-v9";
 
 void STORY_VIDEO_PARALLAX_PREVIEW_MARKER;
 
