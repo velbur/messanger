@@ -6,9 +6,9 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_TEXT_MODEL = "openai/gpt-5.4";
 /** Картинки в пузырях чата (4:3) */
-const DEFAULT_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
+const DEFAULT_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 /** Story-кадры 9:16 */
-const DEFAULT_STORY_IMAGE_MODEL = "sourceful/riverflow-v2.5-fast:free";
+const DEFAULT_STORY_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 const DEFAULT_ASPECT_RATIO = "4:3";
 const DEFAULT_IMAGE_SIZE = "1K";

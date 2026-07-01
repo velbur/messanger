@@ -204,8 +204,8 @@
 ```env
 OPENROUTER_API_KEY=ваш_ключ
 OPENROUTER_TEXT_MODEL=openai/gpt-5.4
-OPENROUTER_IMAGE_MODEL=sourceful/riverflow-v2.5-fast:free
-OPENROUTER_STORY_IMAGE_MODEL=sourceful/riverflow-v2.5-fast:free
+OPENROUTER_IMAGE_MODEL=google/gemini-2.5-flash-image
+OPENROUTER_STORY_IMAGE_MODEL=google/gemini-2.5-flash-image
 OPENROUTER_IMAGE_ASPECT_RATIO=4:3
 OPENROUTER_IMAGE_SIZE=1K
 ```
