@@ -2135,11 +2135,14 @@ const stripWallpaperForStoryOverlay = (parsed) => {
 const resolveWallpaperPayload = () =>
   isWallpaperRelevantForLayout() ? getWallpaper() : undefined;
 
-const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax"]);
+const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax", "video", "video-parallax"]);
 
 const normalizeStoryAnimationForUi = (animation) => {
-  if (animation === "kenburns") {
-    return "kenburns";
+  if (STORY_ANIMATION_UI_VALUES.has(animation)) {
+    return animation;
+  }
+  if (animation === "parallax") {
+    return "depthParallax";
   }
   return "depthParallax";
 };
@@ -2192,8 +2195,8 @@ const syncStoryAnimationFromJson = () => {
   const raw = parsed.story?.opening?.animation;
   const uiValue = normalizeStoryAnimationForUi(raw ?? "depthParallax");
   setStoryAnimation(uiValue);
-  // legacy LLM/схема: animation "video" → в UI только depthParallax / Ken Burns
-  if (raw === "video" || raw === "parallax") {
+  // legacy LLM/схема: animation "parallax" → в UI depthParallax
+  if (raw === "parallax") {
     if (!parsed.story) {
       parsed.story = {};
     }

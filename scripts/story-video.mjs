@@ -292,7 +292,10 @@ export const generateMissingStoryVideos = async (
     const imageUrl = publicImageUrl(publicBaseUrl, target.image);
 
     const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
-    const duration = snapStoryVideoDuration(sceneSec);
+    const animation = conversation.story?.opening?.animation;
+    const isVideoParallax = animation === "video-parallax";
+    // Если video-parallax, генерируем только 4 секунды (минимальная длина Veo), остальное покроет parallax
+    const duration = isVideoParallax ? 4 : snapStoryVideoDuration(sceneSec);
 
     const runGeneration = (prompt) =>
       generateImageToVideoFile({

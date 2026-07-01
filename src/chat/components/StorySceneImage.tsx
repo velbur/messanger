@@ -21,7 +21,7 @@ type Props = {
 };
 
 const usesDepthParallax = (animation: StorySceneAnimation): boolean =>
-  animation === "parallax" || animation === "depthParallax";
+  animation === "parallax" || animation === "depthParallax" || animation === "video-parallax";
 
 const MotionScene: React.FC<{
   image: string;
@@ -105,7 +105,7 @@ export const StorySceneImage: React.FC<Props> = ({
 }) => {
   const motionLoopFrameCount = storyMotionLoopFrames(motionLoopSec);
 
-  if (animation === "video" && video?.trim()) {
+  if ((animation === "video" || animation === "video-parallax") && video?.trim()) {
     return (
       <StorySceneVideo
         video={video.trim()}
@@ -113,6 +113,7 @@ export const StorySceneImage: React.FC<Props> = ({
         videoDurationMs={videoDurationMs}
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
+        fallbackAnimation={animation === "video-parallax" ? "depthParallax" : "kenburns"}
       />
     );
   }

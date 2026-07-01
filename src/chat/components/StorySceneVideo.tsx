@@ -19,12 +19,15 @@ import {
 import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
 import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
 
+import {DepthDisplacementImage} from "./DepthDisplacementImage";
+
 type Props = {
   video: string;
   image?: string;
   videoDurationMs?: number;
   sceneStartFrame: number;
   sceneDurationFrames: number;
+  fallbackAnimation?: "kenburns" | "depthParallax";
 };
 
 /** Hold-кадр плавно проявляется поверх замершего видео (видео не гасим — иначе чёрный кадр) */
@@ -48,9 +51,11 @@ const withMotionStyle = (
 
 export const StorySceneVideo: React.FC<Props> = ({
   video,
+  image,
   videoDurationMs,
   sceneStartFrame,
   sceneDurationFrames,
+  fallbackAnimation = "kenburns",
 }) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -106,7 +111,17 @@ export const StorySceneVideo: React.FC<Props> = ({
           />
         ) : null}
         {/* Всегда в дереве для preload; виден только с crossfade */}
-        <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
+        {fallbackAnimation === "depthParallax" ? (
+          <div style={{opacity: holdOpacity, width: "100%", height: "100%", position: "absolute"}}>
+            <DepthDisplacementImage
+              image={image || holdFrame}
+              sceneStartFrame={sceneStartFrame}
+              durationFrames={sceneDurationFrames}
+            />
+          </div>
+        ) : (
+          <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
+        )}
         <StoryAtmosphereParticles seed={video} intensity={particleIntensity} />
       </AbsoluteFill>
     </Sequence>
