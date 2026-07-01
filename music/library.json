@@ -186,6 +186,222 @@
       "downloadUrl": "https://assets.mixkit.co/music/615/615.mp3"
     },
     {
+      "id": "mystery-pianinni.mp3",
+      "label": "Мистика — Pianinni",
+      "title": "Pianinni",
+      "category": "mystery",
+      "mixkitId": 165,
+      "moods": [
+        "mystery",
+        "tension",
+        "night",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/165/",
+      "downloadUrl": "https://assets.mixkit.co/music/165/165.mp3"
+    },
+    {
+      "id": "mystery-greed.mp3",
+      "label": "Мистика — Greed",
+      "title": "Greed",
+      "category": "mystery",
+      "mixkitId": 404,
+      "moods": [
+        "mystery",
+        "tension",
+        "dramatic",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/404/",
+      "downloadUrl": "https://assets.mixkit.co/music/404/404.mp3"
+    },
+    {
+      "id": "mystery-nield-grohm-hanging-1.mp3",
+      "label": "Мистика — Nield Grohm Hanging 1",
+      "title": "Nield Grohm Hanging 1",
+      "category": "mystery",
+      "mixkitId": 538,
+      "moods": [
+        "mystery",
+        "horror",
+        "tension",
+        "night"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/538/",
+      "downloadUrl": "https://assets.mixkit.co/music/538/538.mp3"
+    },
+    {
+      "id": "mystery-fallen-asper.mp3",
+      "label": "Мистика — Fallen (Asper)",
+      "title": "Fallen (Asper)",
+      "category": "mystery",
+      "mixkitId": 565,
+      "moods": [
+        "mystery",
+        "tension",
+        "story",
+        "night"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/565/",
+      "downloadUrl": "https://assets.mixkit.co/music/565/565.mp3"
+    },
+    {
+      "id": "mystery-feedback-dreams.mp3",
+      "label": "Мистика — Feedback Dreams",
+      "title": "Feedback Dreams",
+      "category": "mystery",
+      "mixkitId": 588,
+      "moods": [
+        "mystery",
+        "horror",
+        "night",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/588/",
+      "downloadUrl": "https://assets.mixkit.co/music/588/588.mp3"
+    },
+    {
+      "id": "mystery-delirium.mp3",
+      "label": "Мистика — Delirium",
+      "title": "Delirium",
+      "category": "mystery",
+      "mixkitId": 605,
+      "moods": [
+        "mystery",
+        "horror",
+        "tension",
+        "night"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/605/",
+      "downloadUrl": "https://assets.mixkit.co/music/605/605.mp3"
+    },
+    {
+      "id": "mystery-a-voice-from-the-past.mp3",
+      "label": "Мистика — A Voice from The Past",
+      "title": "A Voice from The Past",
+      "category": "mystery",
+      "mixkitId": 548,
+      "moods": [
+        "mystery",
+        "story",
+        "tension",
+        "night"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/548/",
+      "downloadUrl": "https://assets.mixkit.co/music/548/548.mp3"
+    },
+    {
+      "id": "mystery-piano-horror.mp3",
+      "label": "Мистика — Piano Horror",
+      "title": "Piano Horror",
+      "category": "mystery",
+      "mixkitId": 671,
+      "moods": [
+        "mystery",
+        "horror",
+        "tension",
+        "night",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/671/",
+      "downloadUrl": "https://assets.mixkit.co/music/671/671.mp3"
+    },
+    {
+      "id": "mystery-slow-rain.mp3",
+      "label": "Мистика — Slow Rain",
+      "title": "Slow Rain",
+      "category": "mystery",
+      "mixkitId": 122,
+      "moods": [
+        "mystery",
+        "night",
+        "tension",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/122/",
+      "downloadUrl": "https://assets.mixkit.co/music/122/122.mp3"
+    },
+    {
+      "id": "mystery-sci-fi-score.mp3",
+      "label": "Мистика — Sci-Fi Score",
+      "title": "Sci-Fi Score",
+      "category": "mystery",
+      "mixkitId": 464,
+      "moods": [
+        "mystery",
+        "tension",
+        "story",
+        "night"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/464/",
+      "downloadUrl": "https://assets.mixkit.co/music/464/464.mp3"
+    },
+    {
+      "id": "mystery-cyberpunk-city-2.mp3",
+      "label": "Мистика — Cyberpunk City 2",
+      "title": "Cyberpunk City 2",
+      "category": "mystery",
+      "mixkitId": 141,
+      "moods": [
+        "mystery",
+        "night",
+        "tension",
+        "story"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/141/",
+      "downloadUrl": "https://assets.mixkit.co/music/141/141.mp3"
+    },
+    {
+      "id": "mystery-selpan.mp3",
+      "label": "Мистика — Selpan",
+      "title": "Selpan",
+      "category": "mystery",
+      "mixkitId": 612,
+      "moods": [
+        "mystery",
+        "horror",
+        "tension"
+      ],
+      "license": "Mixkit Free License",
+      "licenseUrl": "https://mixkit.co/license/",
+      "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
+      "sourceUrl": "https://mixkit.co/free-stock-music/item/612/",
+      "downloadUrl": "https://assets.mixkit.co/music/612/612.mp3"
+    },
+    {
       "id": "calm-serene-view.mp3",
       "label": "Спокойная — Serene View",
       "title": "Serene View",
