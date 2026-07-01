@@ -6,7 +6,7 @@ import {
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
-import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
+import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
   generateImageToVideoFile,
   getOpenRouterStoryVideoModel,
@@ -17,6 +17,7 @@ import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
+import {ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
 import {buildTimeline} from "../src/chat/timeline.ts";
 import {FPS} from "../src/chat/fps.ts";
 
@@ -166,6 +167,28 @@ const sceneSecondsForTarget = (lookup, target) => {
   return Number.isFinite(seconds) ? seconds : undefined;
 };
 
+const isVideoParallaxConversation = (conversation) =>
+  mergeStoryConfig(conversation).opening.animation === "video-parallax";
+
+const bakeHoldParallaxAfterVideo = async (conversation, target, videoRef, logs, {force = false} = {}) => {
+  if (!isVideoParallaxConversation(conversation)) {
+    return;
+  }
+  try {
+    const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force});
+    if (result.skipped) {
+      logs.push(`Parallax (hold): кэш OK → ${result.relative}`);
+    } else if (result.fallback) {
+      logs.push(`Parallax (hold): Ken Burns fallback → ${result.relative}`);
+    } else {
+      logs.push(`Parallax (hold): запечён с последнего кадра Veo → ${result.relative}`);
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    logs.push(`Parallax (hold): ошибка для ${target.image}: ${reason}`);
+  }
+};
+
 export const countPendingStoryVideos = (conversation) => {
   if (!isStoryVisualLayout(conversation) || !shouldGenerateStoryVideos(conversation)) {
     return 0;
@@ -223,6 +246,7 @@ export const resolveStoryVideos = async (
         throw new Error("файл не найден");
       }
       await ensureStoryVideoHoldFrameFile(videoRef, logs);
+      await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const errorText = `Story-видео (${target.label}): ${reason} (${videoRef})`;
@@ -354,6 +378,7 @@ export const generateMissingStoryVideos = async (
     target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
     target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
     await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
+    await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});
     generated += 1;
     const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
     logs.push(

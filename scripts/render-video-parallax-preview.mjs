@@ -4,7 +4,7 @@ import {renderMedia, selectComposition} from "@remotion/renderer";
 import {FPS} from "../src/chat/fps.ts";
 import {storyVideoPathForImage} from "../src/chat/story-video-paths.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
-import {generateStoryDepthAssets} from "./story-depth.mjs";
+import {generateStoryDepthAssets, ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
 import {getRenderConcurrency} from "./render-core.mjs";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 
@@ -62,14 +62,17 @@ export const renderVideoParallaxPreview = async ({
   await ensureStoryVideoHoldFrameFile(videoRel);
 
   if (!skipDepth) {
-    onStatus("Depth parallax…");
-    const depthResult = await generateStoryDepthAssets(rel, {force: forceDepth});
+    onStatus("Depth parallax (hold-кадр Veo)…");
+    const depthResult = await ensureVideoParallaxHoldDepth(rel, {
+      force: forceDepth,
+      videoRef: videoRel,
+    });
     if (depthResult.fallback) {
       onStatus("Parallax bake недоступен — Ken Burns fallback");
     } else if (depthResult.skipped) {
-      onStatus(`Parallax: кэш OK (${rel})`);
+      onStatus(`Parallax: кэш OK (hold → ${depthResult.relative})`);
     } else {
-      onStatus(`Parallax: запечён (${depthResult.provider ?? "xenova"})`);
+      onStatus(`Parallax: запечён с hold-кадра (${depthResult.provider ?? "xenova"})`);
     }
   }
 

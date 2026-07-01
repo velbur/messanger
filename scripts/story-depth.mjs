@@ -5,6 +5,10 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
+import {
+  storyVideoHoldFramePathForVideo,
+  storyVideoPathForImage,
+} from "../src/chat/story-video-paths.ts";
 import {hashSeed, parallaxMotionVectorsForScene} from "../src/chat/story-motion.ts";
 import {FPS} from "../src/chat/fps.ts";
 import {storyParallaxBakePlanByImage} from "../src/chat/timeline.ts";
@@ -14,6 +18,7 @@ import {
   evenEncodeDim,
   isParallaxBakeAvailable,
 } from "./parallax-bake.mjs";
+import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 import {
   describeDepthV2Status,
   inferDepthV2Batch,
@@ -427,6 +432,26 @@ export const generateStoryDepthAssets = async (
   });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
+};
+
+/**
+ * Parallax для video-parallax: depth+bake с последнего кадра Veo (.video-hold.png),
+ * а не с исходного story-PNG (иначе скачок позы при crossfade).
+ */
+export const ensureVideoParallaxHoldDepth = async (
+  imagePublicPath,
+  {force = false, frames = PARALLAX_DEFAULT_FRAMES, videoRef} = {},
+) => {
+  const imageRel = String(imagePublicPath).replace(/^\/+/, "").trim();
+  if (!imageRel) {
+    throw new Error("Пустой путь к story-изображению");
+  }
+  const video = String(videoRef ?? storyVideoPathForImage(imageRel))
+    .replace(/^\/+/, "")
+    .trim();
+  await ensureStoryVideoHoldFrameFile(video);
+  const holdRel = storyVideoHoldFramePathForVideo(video);
+  return generateStoryDepthAssets(holdRel, {force, frames});
 };
 
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {

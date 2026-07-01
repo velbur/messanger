@@ -235,6 +235,9 @@ export const collectStoryImageAssetRefs = (imagePublicPath) => {
     `${base}.depth-meta.json`,
     `${base}.video.mp4`,
     `${base}.video-hold.png`,
+    `${base}.video-hold.depth.png`,
+    `${base}.video-hold.parallax.mp4`,
+    `${base}.video-hold.depth-meta.json`,
     `${base}.video.seamless.mp4`,
     `${base}.video.loop.mp4`,
   ];

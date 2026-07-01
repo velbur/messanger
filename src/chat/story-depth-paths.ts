@@ -1,4 +1,6 @@
 /** Суффиксы файлов depth-параллакса рядом с story-кадром */
+import {storyVideoHoldFramePathForVideo} from "./story-video-paths";
+
 export const STORY_DEPTH_SUFFIX = ".depth.png";
 /** Запечённый seamless parallax-loop (3D-photo), который проигрывается в Remotion */
 export const STORY_PARALLAX_VIDEO_SUFFIX = ".parallax.mp4";
@@ -26,3 +28,7 @@ export const storyLayerPaths = (imagePublicPath: string): StoryDepthPaths => {
 /** Путь к запечённому parallax-loop рядом со story-кадром */
 export const storyParallaxVideoPath = (imagePublicPath: string): string =>
   storyLayerPaths(imagePublicPath).parallaxVideo;
+
+/** Parallax после Veo: запекается с hold-кадра (.video-hold.png), не с исходного PNG */
+export const storyParallaxVideoPathForVideo = (videoPublicPath: string): string =>
+  storyParallaxVideoPath(storyVideoHoldFramePathForVideo(videoPublicPath));

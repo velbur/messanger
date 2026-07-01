@@ -17,6 +17,7 @@ import {
   storyVideoSourceFrameCount,
 } from "../story-motion";
 import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
+import {storyParallaxVideoPathForVideo} from "../story-depth-paths";
 import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
 
 import {DepthDisplacementImage} from "./DepthDisplacementImage";
@@ -96,8 +97,6 @@ export const StorySceneVideo: React.FC<Props> = ({
     width: "100%",
     height: "100%",
     opacity: holdOpacity,
-    transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
-    transformOrigin: "center center",
   };
 
   // Частицы тоньше во время живого видео, ярче на hold-кадре
@@ -128,7 +127,8 @@ export const StorySceneVideo: React.FC<Props> = ({
         {fallbackAnimation === "depthParallax" ? (
           <div style={parallaxMotionStyle}>
             <DepthDisplacementImage
-              image={image || holdFrame}
+              image={holdFrame}
+              parallaxVideo={storyParallaxVideoPathForVideo(video)}
               sceneStartFrame={sceneStartFrame}
               durationFrames={sceneDurationFrames}
               parallaxLocalStartFrame={crossfadeStart}
