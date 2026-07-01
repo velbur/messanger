@@ -3,9 +3,9 @@
  * Превью гибрида Veo + Depth parallax: сначала MP4, затем parallax с последнего кадра.
  *
  *   npm run test:video-parallax -- --image public/images/foo/story-msg-6.png
- *   npm run test:video-parallax -- --image … --skip-video   # без OpenRouter, нужен .video.mp4
+ *   npm run test:video-parallax -- --image … --skip-video   # готовый .video.mp4 (локально или на воркере)
  *   npm run test:video-parallax -- --image … --skip-depth
- *   npm run test:video-parallax -- --image … --remote http://127.0.0.1:3333
+ *   npm run test:video-parallax -- --image … --remote http://192.168.0.136:3333
  */
 import path from "node:path";
 import {mkdir, access} from "node:fs/promises";
@@ -30,7 +30,11 @@ import {
 import {buildStoryMotionPrompt} from "./story-video.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
-import {resolveRemoteRenderUrl, renderVideoParallaxPreviewOnRemote} from "./remote-render-client.mjs";
+import {
+  resolveRemoteRenderUrl,
+  resolveStoryVideoDurationMs,
+  renderVideoParallaxPreviewOnRemote,
+} from "./remote-render-client.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -77,16 +81,6 @@ const resolveImageRel = (imageArg) => {
   return null;
 };
 
-const requireExistingVideo = async (videoRel) => {
-  try {
-    await access(safePublicAbs(videoRel));
-  } catch {
-    throw new Error(
-      `Нет public/${videoRel}. --skip-video берёт готовый Veo-клип; сгенерируй без флага или положи .video.mp4 рядом с PNG.`,
-    );
-  }
-};
-
 const run = async () => {
   const imageArg = parseArg("--image");
   if (!imageArg) {
@@ -121,16 +115,9 @@ const run = async () => {
   const videoAbs = safePublicAbs(videoRel);
   let videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000;
 
-  if (!useRemote) {
-    await loadOpenRouterEnv();
-  }
+  await loadOpenRouterEnv();
 
   if (!hasFlag("--skip-video")) {
-    if (useRemote) {
-      throw new Error(
-        "Генерация Veo на воркере через этот скрипт не поддержана — сначала --skip-video (нужен .video.mp4) или рендерь локально без --remote",
-      );
-    }
     if (!isOpenRouterConfigured()) {
       throw new Error("OpenRouter не настроен — задайте OPENROUTER_API_KEY в docs/.env");
     }
@@ -138,7 +125,8 @@ const run = async () => {
     const scenePrompt = parseArg("--prompt") ?? "";
     const model = getOpenRouterStoryVideoModel();
     const resolution = getOpenRouterStoryVideoResolution();
-    console.log(`Veo: ${model}, ${VIDEO_PARALLAX_PREVIEW_SEC} с, ${resolution}…`);
+    const veoWhere = useRemote ? "локально → заливка на воркер" : "локально";
+    console.log(`Veo (${veoWhere}): ${model}, ${VIDEO_PARALLAX_PREVIEW_SEC} с, ${resolution}…`);
 
     await generateImageToVideoFile({
       imageAbsolutePath: safePublicAbs(imageRel),
@@ -155,10 +143,12 @@ const run = async () => {
     videoDurationMs = await probeVideoDurationMs(videoAbs);
     console.log(`Видео → public/${videoRel} (${(videoDurationMs / 1000).toFixed(1)} с)`);
   } else {
-    await requireExistingVideo(videoRel);
-    videoDurationMs = await probeVideoDurationMs(videoAbs);
+    const resolved = await resolveStoryVideoDurationMs({videoRel, remoteUrl: remoteUrl ?? undefined});
+    videoDurationMs = resolved.durationMs;
+    const where =
+      resolved.source === "remote" ? `на воркере (${remoteUrl})` : `локально (public/${videoRel})`;
     console.log(
-      `Видео (кэш): public/${videoRel} (${(videoDurationMs / 1000).toFixed(1)} с) → parallax с последнего кадра`,
+      `Видео (${where}): ${(videoDurationMs / 1000).toFixed(1)} с → parallax с последнего кадра`,
     );
   }
 

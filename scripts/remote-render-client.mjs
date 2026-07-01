@@ -1,11 +1,13 @@
 import {createWriteStream} from "node:fs";
-import {mkdir, readFile} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {access, mkdir, readFile, unlink} from "node:fs/promises";
 import path from "node:path";
 import {pipeline} from "node:stream/promises";
 import {Readable} from "node:stream";
 import {uploadAssetToRemote} from "./remote-upload.mjs";
 import {collectConversationImageRefs, collectStoryImageAssetRefs, PUBLIC_DIR} from "./image-assets.mjs";
 import {collectPreviewCoverSyncRefs} from "./preview-cover-assets.mjs";
+import {probeVideoDurationMs} from "./media-duration.mjs";
 
 const fetchWithRetry = async (url, options = {}, {timeoutMs = 15000, retries = 2} = {}) => {
   let lastError;
@@ -70,6 +72,65 @@ export const syncStoryImageAssetsToRemote = async (imageRel, remoteUrl, logs) =>
       /* опциональные ассеты */
     }
   }
+};
+
+/** URL story-ассета на воркере (/images/… без дубля images/) */
+export const remoteImageAssetUrl = (remoteUrl, imageRef) => {
+  const ref = String(imageRef).replace(/^\/+/, "");
+  const pathUnderImages = ref.startsWith("images/") ? ref.slice("images/".length) : ref;
+  return `${remoteUrl.replace(/\/+$/, "")}/images/${pathUnderImages}`;
+};
+
+export const remoteAssetExists = async (remoteUrl, imageRef) => {
+  const resp = await fetchWithRetry(
+    remoteImageAssetUrl(remoteUrl, imageRef),
+    {method: "HEAD"},
+    {timeoutMs: 15000, retries: 1},
+  );
+  return resp.ok;
+};
+
+const probeRemoteVideoDurationMs = async (remoteUrl, videoRef) => {
+  const url = remoteImageAssetUrl(remoteUrl, videoRef);
+  const tempPath = path.join(tmpdir(), `messanger-probe-${process.pid}-${Date.now()}.mp4`);
+  const resp = await fetchWithRetry(url, {}, {timeoutMs: 120000, retries: 2});
+  if (!resp.ok || !resp.body) {
+    throw new Error(`На воркере нет ${videoRef}`);
+  }
+  await pipeline(Readable.fromWeb(resp.body), createWriteStream(tempPath));
+  try {
+    return await probeVideoDurationMs(tempPath);
+  } finally {
+    await unlink(tempPath).catch(() => {});
+  }
+};
+
+/**
+ * Длительность готового Veo: локальный .video.mp4 или тот же файл на воркере.
+ * @returns {{ source: "local" | "remote", durationMs: number }}
+ */
+export const resolveStoryVideoDurationMs = async ({videoRel, remoteUrl} = {}) => {
+  const rel = String(videoRel).replace(/^\/+/, "");
+  const localAbs = path.join(PUBLIC_DIR, rel);
+
+  try {
+    await access(localAbs);
+    return {source: "local", durationMs: await probeVideoDurationMs(localAbs)};
+  } catch {
+    /* try remote */
+  }
+
+  if (remoteUrl) {
+    if (await remoteAssetExists(remoteUrl, rel)) {
+      const durationMs = await probeRemoteVideoDurationMs(remoteUrl, rel);
+      return {source: "remote", durationMs};
+    }
+  }
+
+  const remoteHint = remoteUrl ? `, на воркере: ${remoteImageAssetUrl(remoteUrl, rel)}` : "";
+  throw new Error(
+    `Нет ${rel} (локально: public/${rel}${remoteHint}). Убери --skip-video — Veo сгенерируется через OpenRouter.`,
+  );
 };
 
 const POLL_INTERVAL_MS = 2000;
