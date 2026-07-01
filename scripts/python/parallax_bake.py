@@ -273,6 +273,7 @@ def bake_one(job: dict) -> dict:
     zoom_frac = float(job.get("zoom_frac", 0.028))
     hold_handoff = bool(job.get("hold_handoff", False))
     pan_y_gain = float(job.get("pan_y_gain", 0.18))
+    oscillations = float(job.get("oscillations", 4.0))
     motion = str(job.get("motion", "linear"))
     sweep = str(job.get("sweep", "round-trip"))
 
@@ -328,18 +329,23 @@ def bake_one(job: dict) -> dict:
         for i in range(frames):
             if linear:
                 t = i / max(frames - 1, 1)
-                if hold_handoff and sweep in ("forward", "one-way"):
+                if hold_handoff and sweep == "oscillate":
+                    # t=0 → 0 (стык с Veo), далее sin: влево-вправо-влево…
+                    sweep_val = float(np.sin(two_pi * oscillations * t))
+                    zoom = 1.0
+                    ox = amp * pan_x * sweep_val
+                    oy = amp * pan_y * pan_y_gain * abs(sweep_val)
+                elif hold_handoff and sweep in ("forward", "one-way"):
                     sweep_val = t
-                else:
-                    sweep_val = scene_sweep_phase(t, sweep)
-                if hold_handoff and sweep in ("forward", "one-way"):
-                    # Кадр 0 = пиксель-в-пиксель с hold PNG (стык с последним кадром Veo)
                     zoom_end = zoom_overscan + zoom_frac
                     zoom = 1.0 + (zoom_end - 1.0) * sweep_val
+                    ox = amp * pan_x * sweep_val
+                    oy = amp * pan_y * pan_y_gain * sweep_val
                 else:
+                    sweep_val = scene_sweep_phase(t, sweep)
                     zoom = zoom_overscan + zoom_frac * sweep_val
-                ox = amp * pan_x * sweep_val
-                oy = amp * pan_y * pan_y_gain * sweep_val
+                    ox = amp * pan_x * sweep_val
+                    oy = amp * pan_y * pan_y_gain * sweep_val
             else:
                 t = i / frames
                 pt = camera_phase(t)

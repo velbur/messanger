@@ -32,7 +32,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 40;
+export const DEPTH_LAYER_VERSION = 41;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.128;
@@ -43,8 +43,10 @@ const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
 /** Профиль движения: round-trip = туда и обратно за одну сцену */
 const PARALLAX_SWEEP = "round-trip";
-/** После Veo: одно непрерывное движение 0→1 на всю фазу parallax */
-export const VIDEO_PARALLAX_HOLD_SWEEP = "forward";
+/** После Veo: покачивание влево-вправо до конца фазы */
+export const VIDEO_PARALLAX_HOLD_SWEEP = "oscillate";
+/** Полных циклов влево→вправо→влево за фазу parallax (~4 за 15 с) */
+export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 4;
 /** Без Ken Burns-зума в bake — кадр 0 совпадает с hold PNG */
 export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0;
 /** Сильнее смещение слоёв на 15 с фазе после Veo */
@@ -258,6 +260,7 @@ const bakeParallaxAsset = async ({
   zoomFrac = PARALLAX_ZOOM_FRAC,
   holdHandoff = false,
   amplitudeFrac = PARALLAX_AMPLITUDE_FRAC,
+  oscillations,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
   try {
@@ -281,7 +284,11 @@ const bakeParallaxAsset = async ({
         sweep,
         zoomFrac,
         holdHandoff,
-        panYGain: holdHandoff ? 0.42 : undefined,
+        panYGain: holdHandoff && sweep === "oscillate" ? 0.15 : holdHandoff ? 0.42 : undefined,
+        oscillations:
+          holdHandoff && sweep === "oscillate"
+            ? (oscillations ?? VIDEO_PARALLAX_HOLD_OSCILLATIONS)
+            : undefined,
         dofStrength: PARALLAX_FX.dofStrength,
         hazeStrength: PARALLAX_FX.hazeStrength,
         dustCount: PARALLAX_FX.dustCount,
@@ -305,6 +312,7 @@ const bakeParallaxAsset = async ({
         zoomFrac,
         holdHandoff,
         amplitudeFrac,
+        oscillations: oscillations ?? null,
         panX: pan.panX,
         panY: pan.panY,
         fx: PARALLAX_FX,
@@ -420,6 +428,7 @@ export const generateStoryDepthAssets = async (
     holdHandoff = false,
     zoomFrac = PARALLAX_ZOOM_FRAC,
     amplitudeFrac = PARALLAX_AMPLITUDE_FRAC,
+    oscillations,
   } = {},
 ) => {
   const rel = String(imagePublicPath).replace(/^\/+/, "").trim();
@@ -468,6 +477,8 @@ export const generateStoryDepthAssets = async (
     zoomFrac,
     holdHandoff,
     amplitudeFrac,
+    oscillations:
+      holdHandoff && sweep === "oscillate" ? VIDEO_PARALLAX_HOLD_OSCILLATIONS : undefined,
   });
 
   return {skipped: false, paths, relative: rel, width, height, provider, metaExtra};
@@ -497,6 +508,7 @@ export const ensureVideoParallaxHoldDepth = async (
     holdHandoff: true,
     zoomFrac: VIDEO_PARALLAX_HOLD_ZOOM_FRAC,
     amplitudeFrac: VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC,
+    oscillations: VIDEO_PARALLAX_HOLD_OSCILLATIONS,
   });
 };
 
