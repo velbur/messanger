@@ -293,12 +293,12 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
   if (language === "en") {
     return [
       `- layout must be "${layoutValue}".`,
-      "- story.opening.imagePrompt: illustrated establishing scene before messages appear (night, location, mood).",
+      "- story.opening.imagePrompt: photorealistic cinematic establishing scene before messages appear (night, location, mood).",
       "- story.opening.animation: depthParallax (default).",
-      "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide illustrated scene for the top panel.",
+      "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide photorealistic scene for the top panel.",
       "- storyImagePrompt changes on plot beats, not on every line. Hold previous frame between beats.",
-      "- storyImagePrompt describes the scene/environment as a drawn illustration, not a photo. No chat UI or text overlays.",
-      "- Never use words like photo, photorealistic, cinematic, shot on camera in storyImagePrompt.",
+      "- storyImagePrompt describes the scene/environment as a highly detailed, photorealistic, cinematic shot. No chat UI or text overlays.",
+      "- Use words like photorealistic, cinematic lighting, shot on 35mm, highly detailed in storyImagePrompt.",
       noBubbleRule,
       "- Never put frame descriptions in square brackets in text.",
     ];
@@ -306,12 +306,12 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
 
   return [
     `- layout обязательно "${layoutValue}".`,
-    "- story.opening.imagePrompt: рисованный establishing shot до появления сообщений (ночь, место, настроение).",
+    "- story.opening.imagePrompt: фотореалистичный кинематографичный establishing shot до появления сообщений (ночь, место, настроение).",
     "- story.opening.animation: depthParallax (по умолчанию).",
-    "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий рисованный кадр для верхней панели.",
+    "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий фотореалистичный кадр для верхней панели.",
     "- storyImagePrompt меняется на поворотах сюжета, не на каждой реплике.",
-    "- storyImagePrompt описывает сцену/обстановку как иллюстрацию, не как фото. Без UI чата и без текста на кадре.",
-    "- Не пиши в storyImagePrompt слова «фото», «фотореализм», «кинематографичный», «снято на камеру».",
+    "- storyImagePrompt описывает сцену/обстановку как высокодетализированное, фотореалистичное, кинематографичное фото. Без UI чата и без текста на кадре.",
+    "- Используй в storyImagePrompt слова «фотореализм», «кинематографичный свет», «снято на 35мм», «высокая детализация».",
     noBubbleRule,
     "- В text не пиши описание кадра в квадратных скобках.",
   ];
