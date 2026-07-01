@@ -466,18 +466,12 @@
                 </label>
                 <span class="workflow-actions__voices" id="voiceGenderControls" hidden>
                   <label class="voice-pick">
-                    <span>Голос (я)</span>
-                    <select id="meVoiceSelect">
-                      <option value="male">мужской</option>
-                      <option value="female">женский</option>
-                    </select>
+                    <span id="meVoiceLabel">Голос (я)</span>
+                    <select id="meVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик «я»"></select>
                   </label>
                   <label class="voice-pick">
-                    <span>Голос (собеседник)</span>
-                    <select id="themVoiceSelect">
-                      <option value="male">мужской</option>
-                      <option value="female">женский</option>
-                    </select>
+                    <span id="themVoiceLabel">Голос (собеседник)</span>
+                    <select id="themVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик собеседника"></select>
                   </label>
                   <button type="button" id="btnRegenVoices" class="btn btn-secondary btn-small">
                     Перегенерировать озвучку
@@ -700,6 +694,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=editor-layout-v2" type="module"></script>
+    <script src="/app.js?v=voice-catalog" type="module"></script>
   </body>
 </html>

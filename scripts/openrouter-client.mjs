@@ -1,6 +1,6 @@
 import {mkdir, readFile, writeFile} from "node:fs/promises";
 import path from "node:path";
-import {OPENROUTER_TTS_PROFILE} from "../src/chat/voiceover.ts";
+import {OPENROUTER_TTS_PROFILE, GEMINI_TTS_VOICES} from "../src/chat/voiceover.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_BASE_URL = "https://openrouter.ai/api/v1";
@@ -93,6 +93,7 @@ export const getOpenRouterVoiceoverStatus = () => ({
   model: getOpenRouterTtsModel(),
   ttsProfile: OPENROUTER_TTS_PROFILE,
   voices: getOpenRouterTtsVoices(),
+  catalog: GEMINI_TTS_VOICES,
 });
 
 export const getOpenRouterTextModel = () =>

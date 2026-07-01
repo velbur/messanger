@@ -115,6 +115,8 @@ const previewCoverPreview = document.getElementById("previewCoverPreview");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
 const meVoiceSelect = document.getElementById("meVoiceSelect");
 const themVoiceSelect = document.getElementById("themVoiceSelect");
+const meVoiceLabel = document.getElementById("meVoiceLabel");
+const themVoiceLabel = document.getElementById("themVoiceLabel");
 const voiceGenderControls = document.getElementById("voiceGenderControls");
 const btnRegenVoices = document.getElementById("btnRegenVoices");
 const episodesEnabled = document.getElementById("episodesEnabled");
@@ -2411,15 +2413,96 @@ const syncVoiceoverFromJson = () => {
   if (voiceoverEnabled) {
     voiceoverEnabled.checked = Boolean(voiceover.enabled);
   }
+  const contactName = parsed?.contactName?.trim();
+  if (meVoiceLabel) {
+    meVoiceLabel.textContent = "Голос (я)";
+  }
+  if (themVoiceLabel) {
+    themVoiceLabel.textContent = contactName ? `Голос (${contactName})` : "Голос (собеседник)";
+  }
   if (meVoiceSelect) {
-    meVoiceSelect.value = voiceover.meVoice === "female" ? "female" : "male";
+    meVoiceSelect.value = resolveVoiceSelectValue(voiceover.meVoice, "male");
   }
   if (themVoiceSelect) {
-    themVoiceSelect.value = voiceover.themVoice === "male" ? "male" : "female";
+    themVoiceSelect.value = resolveVoiceSelectValue(voiceover.themVoice, "female");
   }
   if (voiceGenderControls) {
     voiceGenderControls.hidden = !voiceover.enabled;
   }
+};
+
+/** Каталог Gemini TTS — подгружается из /api/status, есть запасной список */
+let geminiVoiceCatalog = [
+  {id: "Puck", hint: "бодрый", gender: "male"},
+  {id: "Charon", hint: "информативный", gender: "male"},
+  {id: "Fenrir", hint: "эмоциональный", gender: "male"},
+  {id: "Achird", hint: "дружелюбный", gender: "male"},
+  {id: "Leda", hint: "молодой", gender: "female"},
+  {id: "Kore", hint: "твёрдый", gender: "female"},
+  {id: "Aoede", hint: "лёгкий", gender: "female"},
+  {id: "Achernar", hint: "мягкий", gender: "female"},
+];
+
+const resolveVoiceSelectValue = (stored, fallbackGender) => {
+  const raw = String(stored ?? "").trim();
+  if (raw === "male" || raw === "female") {
+    const defaults =
+      openrouterTtsDefaults[raw] ??
+      (raw === "male" ? openrouterTtsDefaults.male : openrouterTtsDefaults.female);
+    return defaults ?? (raw === "male" ? "Puck" : "Leda");
+  }
+  if (raw && geminiVoiceCatalog.some((v) => v.id === raw)) {
+    return raw;
+  }
+  return fallbackGender === "male"
+    ? openrouterTtsDefaults.male ?? "Puck"
+    : openrouterTtsDefaults.female ?? "Leda";
+};
+
+let openrouterTtsDefaults = {male: "Puck", female: "Leda"};
+
+const formatVoiceOptionLabel = (voice) => {
+  const gender =
+    voice.gender === "male" ? "м" : voice.gender === "female" ? "ж" : "";
+  return gender ? `${voice.id} — ${voice.hint} (${gender})` : `${voice.id} — ${voice.hint}`;
+};
+
+const populateVoiceSelects = (catalog = geminiVoiceCatalog) => {
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    return;
+  }
+  geminiVoiceCatalog = catalog;
+  for (const select of [meVoiceSelect, themVoiceSelect]) {
+    if (!select) {
+      continue;
+    }
+    const prev = select.value;
+    select.replaceChildren();
+    const maleGroup = document.createElement("optgroup");
+    maleGroup.label = "Мужские";
+    const femaleGroup = document.createElement("optgroup");
+    femaleGroup.label = "Женские";
+    for (const voice of catalog) {
+      const opt = document.createElement("option");
+      opt.value = voice.id;
+      opt.textContent = formatVoiceOptionLabel(voice);
+      if (voice.gender === "male") {
+        maleGroup.append(opt);
+      } else {
+        femaleGroup.append(opt);
+      }
+    }
+    if (maleGroup.childElementCount > 0) {
+      select.append(maleGroup);
+    }
+    if (femaleGroup.childElementCount > 0) {
+      select.append(femaleGroup);
+    }
+    if (prev && [...select.options].some((o) => o.value === prev)) {
+      select.value = prev;
+    }
+  }
+  syncVoiceoverFromJson();
 };
 
 const applyVoiceoverToJson = () => {
@@ -2433,18 +2516,20 @@ const applyVoiceoverToJson = () => {
       parsed.voiceover = {...parsed.voiceover, enabled: false};
     }
   } else {
+    const meVoice = meVoiceSelect?.value?.trim();
+    const themVoice = themVoiceSelect?.value?.trim();
     parsed.voiceover = {
       ...(parsed.voiceover ?? {}),
       enabled: true,
       provider: "openrouter",
       themVoice:
-        themVoiceSelect?.value === "male" || themVoiceSelect?.value === "female"
-          ? themVoiceSelect.value
-          : parsed.voiceover?.themVoice ?? "female",
+        themVoice && geminiVoiceCatalog.some((v) => v.id === themVoice)
+          ? themVoice
+          : resolveVoiceSelectValue(parsed.voiceover?.themVoice, "female"),
       meVoice:
-        meVoiceSelect?.value === "male" || meVoiceSelect?.value === "female"
-          ? meVoiceSelect.value
-          : parsed.voiceover?.meVoice ?? "male",
+        meVoice && geminiVoiceCatalog.some((v) => v.id === meVoice)
+          ? meVoice
+          : resolveVoiceSelectValue(parsed.voiceover?.meVoice, "male"),
     };
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
@@ -5805,6 +5890,15 @@ const applyApiStatusToEditor = (data) => {
   if (typeof data?.voiceover?.ttsProfile === "string" && data.voiceover.ttsProfile) {
     openrouterTtsProfile = data.voiceover.ttsProfile;
   }
+  if (data?.voiceover?.voices) {
+    openrouterTtsDefaults = {
+      male: data.voiceover.voices.male ?? "Puck",
+      female: data.voiceover.voices.female ?? "Leda",
+    };
+  }
+  if (Array.isArray(data?.voiceover?.catalog) && data.voiceover.catalog.length > 0) {
+    populateVoiceSelects(data.voiceover.catalog);
+  }
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateVoiceoverControls();
@@ -5893,6 +5987,7 @@ loadMusicTracks();
 loadRenderTargets();
 loadStylePrompt();
 loadStoryStylePrompt();
+populateVoiceSelects();
 const loadOpenRouterStatus = async () => {
   try {
     const res = await fetch("/api/status");

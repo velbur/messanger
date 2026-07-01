@@ -172,10 +172,10 @@ export const conversationSchema = z.object({
         .optional()
         .transform(() => "openrouter" as const)
         .default("openrouter"),
-      /** Голос собеседника */
-      themVoice: z.enum(["male", "female"]).optional(),
+      /** Голос собеседника — id Gemini (Puck, Leda, …) или legacy male/female */
+      themVoice: z.string().min(1).optional(),
       /** Голос «я» */
-      meVoice: z.enum(["male", "female"]).optional(),
+      meVoice: z.string().min(1).optional(),
       volume: z.number().min(0).max(1).optional(),
       musicDuck: z.number().min(0).max(1).optional(),
     })
