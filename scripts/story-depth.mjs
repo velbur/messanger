@@ -32,7 +32,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 41;
+export const DEPTH_LAYER_VERSION = 42;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.128;
@@ -46,7 +46,7 @@ const PARALLAX_SWEEP = "round-trip";
 /** После Veo: покачивание влево-вправо до конца фазы */
 export const VIDEO_PARALLAX_HOLD_SWEEP = "oscillate";
 /** Полных циклов влево→вправо→влево за фазу parallax (~4 за 15 с) */
-export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 4;
+export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 2;
 /** Без Ken Burns-зума в bake — кадр 0 совпадает с hold PNG */
 export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0;
 /** Сильнее смещение слоёв на 15 с фазе после Veo */
