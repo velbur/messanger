@@ -4,7 +4,7 @@ import path from "node:path";
 import {pipeline} from "node:stream/promises";
 import {Readable} from "node:stream";
 import {uploadAssetToRemote} from "./remote-upload.mjs";
-import {collectConversationImageRefs, PUBLIC_DIR} from "./image-assets.mjs";
+import {collectConversationImageRefs, collectStoryImageAssetRefs, PUBLIC_DIR} from "./image-assets.mjs";
 import {collectPreviewCoverSyncRefs} from "./preview-cover-assets.mjs";
 
 const fetchWithRetry = async (url, options = {}, {timeoutMs = 15000, retries = 2} = {}) => {
@@ -55,6 +55,20 @@ export const syncConversationAssetsToRemote = async (
     }
     await uploadAssetToRemote(remoteUrl, ref, buffer);
     logs.push(`Отправлено на воркер: ${ref}`);
+  }
+};
+
+/** Залить story-кадр и соседние depth / video / parallax файлы (если есть локально) */
+export const syncStoryImageAssetsToRemote = async (imageRel, remoteUrl, logs) => {
+  for (const ref of collectStoryImageAssetRefs(imageRel)) {
+    const abs = path.join(PUBLIC_DIR, ref);
+    try {
+      const buffer = await readFile(abs);
+      await uploadAssetToRemote(remoteUrl, ref, buffer);
+      logs.push(`Отправлено на воркер: ${ref}`);
+    } catch {
+      /* опциональные ассеты */
+    }
   }
 };
 
@@ -159,6 +173,83 @@ export const renderChatVideoOnRemote = async ({
       }
       for (const line of data.logs?.slice(-3) ?? []) {
         if (line && !logs.includes(line)) {
+          onLog(line);
+        }
+      }
+    },
+  });
+
+  onLog(`Скачивание out/${outputFile}…`);
+  await downloadRemoteOutput(remoteUrl, outputFile, outputPath);
+  onLog(`Готово: ${outputPath}`);
+};
+
+/**
+ * Превью Veo + parallax на воркере: sync ассетов → POST /api/render/video-parallax-preview → poll → скачать.
+ */
+export const renderVideoParallaxPreviewOnRemote = async ({
+  remoteUrl,
+  imageRel,
+  mode = "hybrid",
+  videoDurationMs,
+  durationFrames,
+  outputPath,
+  skipDepth = false,
+  forceDepth = false,
+  name = "video-parallax-preview",
+  onLog = (message) => console.log(message),
+}) => {
+  if (!remoteUrl) {
+    throw new Error("REMOTE_RENDER_URL не задан (env или --remote URL)");
+  }
+
+  const logs = [];
+  onLog(`Воркер: ${remoteUrl}`);
+  await syncStoryImageAssetsToRemote(imageRel, remoteUrl, logs);
+  for (const line of logs) {
+    onLog(line);
+  }
+
+  onLog("Запуск превью на воркере…");
+  const forwardResp = await fetchWithRetry(
+    `${remoteUrl}/api/render/video-parallax-preview`,
+    {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        image: imageRel,
+        mode,
+        videoDurationMs,
+        durationFrames,
+        skipDepth,
+        forceDepth,
+        name,
+      }),
+    },
+    {timeoutMs: 120000, retries: 2},
+  );
+  const forwardData = await forwardResp.json().catch(() => ({}));
+  if (!forwardResp.ok) {
+    throw new Error(forwardData.error ?? `Воркер вернул ошибку (${forwardResp.status})`);
+  }
+
+  const jobId = forwardData.jobId;
+  const outputFile = forwardData.outputFile ?? `${name}.mp4`;
+  onLog(`Задача на воркере: ${jobId} → out/${outputFile}`);
+
+  let lastPhase = "";
+  await pollRemoteJobUntilDone(remoteUrl, jobId, {
+    onProgress: (data) => {
+      const phase = data.phase?.trim();
+      if (phase && phase !== lastPhase) {
+        lastPhase = phase;
+        onLog(phase);
+      }
+      if (typeof data.progress === "number" && data.progress > 0) {
+        onLog(`Прогресс: ${Math.round(data.progress * 100)}%`);
+      }
+      for (const line of data.logs?.slice(-5) ?? []) {
+        if (line) {
           onLog(line);
         }
       }

@@ -134,6 +134,11 @@ import {
 import {slugifyProjectName} from "./project-slug.mjs";
 import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
 import {uploadAssetToRemote} from "./remote-upload.mjs";
+import {
+  defaultHybridDurationFrames,
+  defaultParallaxOnlyDurationFrames,
+  renderVideoParallaxPreview,
+} from "./render-video-parallax-preview.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const JSON_DIR = path.join(ROOT, "json");
@@ -432,6 +437,36 @@ const processQueue = async () => {
   if (!job) {
     renderBusy = false;
     processQueue();
+    return;
+  }
+
+  if (job.kind === "video-parallax-preview") {
+    job.status = "running";
+    job.logs.push("Превью video-parallax…");
+    try {
+      const opts = job.previewOpts ?? {};
+      await renderVideoParallaxPreview({
+        ...opts,
+        onStatus: (message) => {
+          job.phase = message;
+          job.logs.push(message);
+        },
+      });
+      job.status = "done";
+      job.progress = 1;
+      job.finishedAt = Date.now();
+      job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
+      job.logs.push(`Готово: ${job.outputRel}`);
+    } catch (error) {
+      job.status = "error";
+      job.error = error instanceof Error ? error.message : String(error);
+      job.logs.push(job.error);
+    } finally {
+      job.previewOpts = null;
+      pruneFinishedJobs();
+      renderBusy = false;
+      processQueue();
+    }
     return;
   }
 
@@ -2272,6 +2307,84 @@ const runRenderPreparation = async (
     fail(error instanceof Error ? error.message : String(error));
   }
 };
+
+app.post("/api/render/video-parallax-preview", async (req, res) => {
+  try {
+    const {
+      image,
+      videoDurationMs,
+      durationFrames,
+      skipDepth,
+      forceDepth,
+      mode: rawMode,
+      name: rawName,
+    } = req.body ?? {};
+
+    const imageRel = String(image ?? "")
+      .trim()
+      .replace(/^\/+/, "");
+    if (!imageRel || imageRel.includes("..")) {
+      res.status(400).json({
+        error:
+          "Поле image обязательно (путь под public/, напр. images/…/story-msg-6.png)",
+      });
+      return;
+    }
+
+    const mode = rawMode === "parallax-only" ? "parallax-only" : "hybrid";
+    const isHybrid = mode === "hybrid";
+    const frames =
+      typeof durationFrames === "number" && durationFrames > 0
+        ? durationFrames
+        : isHybrid
+          ? defaultHybridDurationFrames()
+          : defaultParallaxOnlyDurationFrames();
+
+    const outputStem = slugifyProjectName(
+      typeof rawName === "string" && rawName.trim() ? rawName.trim() : "video-parallax-preview",
+    );
+    const outputFile = `${outputStem}.mp4`;
+    const outputRel = `out/${outputFile}`;
+    const outputPath = path.join(ROOT, outputRel);
+
+    await mkdir(OUT_DIR, {recursive: true});
+    await access(path.join(PUBLIC_DIR, imageRel));
+
+    const jobId = String(++jobCounter);
+    const job = {
+      id: jobId,
+      kind: "video-parallax-preview",
+      status: "queued",
+      previewOpts: {
+        imageRel,
+        mode,
+        videoDurationMs:
+          typeof videoDurationMs === "number" && videoDurationMs >= 0 ? videoDurationMs : 4000,
+        durationFrames: frames,
+        outputPath,
+        skipDepth: skipDepth === true,
+        forceDepth: forceDepth === true,
+      },
+      outputPath,
+      outputRel,
+      outputFile,
+      logs: [],
+      progress: 0.01,
+      phase: "В очереди…",
+      createdAt: Date.now(),
+    };
+
+    jobs.set(jobId, job);
+    pruneFinishedJobs();
+    enqueueRender(jobId);
+
+    res.json({jobId, outputFile, outputRel, mode});
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 app.post("/api/render", async (req, res) => {
   try {
