@@ -2,7 +2,7 @@ import path from "node:path";
 import {access} from "node:fs/promises";
 import {renderMedia, selectComposition} from "@remotion/renderer";
 import {FPS} from "../src/chat/fps.ts";
-import {STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES} from "../src/chat/story-motion.ts";
+import {STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES, STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES} from "../src/chat/story-motion.ts";
 import {storyVideoPathForImage} from "../src/chat/story-video-paths.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets, ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
@@ -23,7 +23,8 @@ export const videoParallaxPhaseFrames = (
 ) => {
   const videoFrames = Math.max(2, Math.round((videoDurationMs / 1000) * fps));
   const handoff = Math.max(2, videoFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
-  return Math.max(45, sceneDurationFrames - handoff);
+  const fadeStart = Math.max(1, handoff - STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES);
+  return Math.max(45, sceneDurationFrames - fadeStart);
 };
 
 /** Длина превью: реальное Veo + фаза parallax после последнего кадра */

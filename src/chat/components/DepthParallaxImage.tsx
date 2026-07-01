@@ -8,6 +8,10 @@ type Props = {
   sceneStartFrame: number;
   /** Длина сцены в кадрах (должна совпадать с bake clip) */
   durationFrames: number;
+  /** Прозрачность слоя (для crossfade с Veo) */
+  opacity?: number;
+  /** Монтировать заранее для декодирования до появления */
+  premountFor?: number;
 };
 
 /**
@@ -18,13 +22,16 @@ export const DepthParallaxImage: React.FC<Props> = ({
   video,
   sceneStartFrame,
   durationFrames,
+  opacity = 1,
+  premountFor = 0,
 }) => (
   <Sequence
     from={sceneStartFrame}
     durationInFrames={Math.max(1, durationFrames)}
+    premountFor={Math.max(0, premountFor)}
     layout="none"
   >
-    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#050505"}}>
+    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#050505", opacity}}>
       <OffthreadVideo
         src={staticFile(video)}
         muted
