@@ -33,6 +33,7 @@ const normalizeContentMode = (mode) => {
 const normalizeVideoLayout = (layout) =>
   isStoryVisualLayout(layout) ? layout : "chat";
 import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
+import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
 
@@ -96,8 +97,24 @@ const buildJsonFormatBlock = ({
     } else if (withStoryVisual) {
       lines.push(`  "layout": "${storyLayout}",`);
       lines.push('  "story": {');
+      lines.push('    "characters": [');
+      lines.push('      {');
+      lines.push('        "id": "me",');
+      lines.push('        "name": "hero name",');
+      lines.push('        "role": "me",');
+      lines.push(
+        '        "appearance": "2–3 sentences: age, build, hair, face, clothes, distinctive details"',
+      );
+      lines.push("      },");
+      lines.push('      {');
+      lines.push('        "id": "them",');
+      lines.push('        "name": "contact name",');
+      lines.push('        "role": "them",');
+      lines.push('        "appearance": "same stable appearance for every frame with this character"');
+      lines.push("      }");
+      lines.push("    ],");
       lines.push('    "opening": {');
-      lines.push('      "imagePrompt": "photorealistic cinematic establishing scene before the chat starts"');
+      lines.push('      "animation": "depthParallax"');
       lines.push("    }");
       lines.push("  },");
     }
@@ -113,8 +130,7 @@ const buildJsonFormatBlock = ({
       lines.push(
         "    {",
         '      "author": "them",',
-        '      "text": "plot turn line",',
-        '      "storyImagePrompt": "photorealistic cinematic scene for the top panel at this beat",',
+        '      "text": "plot line",',
         '      "sentAt": "HH:MM"',
         "    },",
       );
@@ -154,8 +170,24 @@ const buildJsonFormatBlock = ({
   } else if (withStoryVisual) {
     lines.push(`  "layout": "${storyLayout}",`);
     lines.push('  "story": {');
+    lines.push('    "characters": [');
+    lines.push('      {');
+    lines.push('        "id": "me",');
+    lines.push('        "name": "имя героя",');
+    lines.push('        "role": "me",');
+    lines.push(
+      '        "appearance": "2–3 предложения: возраст, телосложение, волосы, лицо, одежда, отличительные детали"',
+    );
+    lines.push("      },");
+    lines.push('      {');
+    lines.push('        "id": "them",');
+    lines.push('        "name": "имя собеседника",');
+    lines.push('        "role": "them",');
+    lines.push('        "appearance": "то же описание внешности во всех кадрах с этим героем"');
+    lines.push("      }");
+    lines.push("    ],");
     lines.push('    "opening": {');
-    lines.push('      "imagePrompt": "фотореалистичный establishing shot до начала переписки"');
+    lines.push('      "animation": "depthParallax"');
     lines.push("    }");
     lines.push("  },");
   }
@@ -171,8 +203,7 @@ const buildJsonFormatBlock = ({
     lines.push(
       "    {",
       '      "author": "them",',
-      '      "text": "реплика на повороте сюжета",',
-      '      "storyImagePrompt": "фотореалистичный кадр для верхней панели в этот момент",',
+      '      "text": "реплика",',
       '      "sentAt": "HH:MM"',
       "    },",
     );
@@ -293,12 +324,10 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
   if (language === "en") {
     return [
       `- layout must be "${layoutValue}".`,
-      "- story.opening.imagePrompt: photorealistic cinematic establishing scene before messages appear (night, location, mood).",
+      "- story.characters: 1–4 heroes with stable appearance (2–3 sentences each). id me/them for chat leads; extra people by name.",
+      "- appearance must stay identical across the whole story — age, hair, face, clothes, distinctive marks.",
+      "- Do not add storyImagePrompt to messages — scene prompts are generated separately via Gemini.",
       "- story.opening.animation: depthParallax (default).",
-      "- On 3–6 key messages (hook, turn, climax, finale) add storyImagePrompt — wide photorealistic scene for the top panel.",
-      "- storyImagePrompt changes on plot beats, not on every line. Hold previous frame between beats.",
-      "- storyImagePrompt describes the scene/environment as a highly detailed, photorealistic, cinematic shot. No chat UI or text overlays.",
-      "- Use words like photorealistic, cinematic lighting, shot on 35mm, highly detailed in storyImagePrompt.",
       noBubbleRule,
       "- Never put frame descriptions in square brackets in text.",
     ];
@@ -306,12 +335,10 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
 
   return [
     `- layout обязательно "${layoutValue}".`,
-    "- story.opening.imagePrompt: фотореалистичный кинематографичный establishing shot до появления сообщений (ночь, место, настроение).",
+    "- story.characters: 1–4 героя со стабильным appearance (по 2–3 предложения). id me/them для главных; доп. персонажи — id по имени.",
+    "- appearance одинаковое во всей истории: возраст, волосы, лицо, одежда, отличительные детали.",
+    "- Не добавляй storyImagePrompt в messages — промпты кадров сгенерирует отдельный шаг (Gemini).",
     "- story.opening.animation: depthParallax (по умолчанию).",
-    "- На 3–6 ключевых сообщениях (хук, поворот, кульминация, финал) добавь storyImagePrompt — широкий фотореалистичный кадр для верхней панели.",
-    "- storyImagePrompt меняется на поворотах сюжета, не на каждой реплике.",
-    "- storyImagePrompt описывает сцену/обстановку как высокодетализированное, фотореалистичное, кинематографичное фото. Без UI чата и без текста на кадре.",
-    "- Используй в storyImagePrompt слова «фотореализм», «кинематографичный свет», «снято на 35мм», «высокая детализация».",
     noBubbleRule,
     "- В text не пиши описание кадра в квадратных скобках.",
   ];
@@ -1345,6 +1372,22 @@ export const generateDialogue = async ({
       }
     } catch {
       /* черновик лучше, чем ничего */
+    }
+  }
+
+  if (normalizedMode === "shorts" && isStoryVisualLayout(finalResult.conversation?.layout)) {
+    try {
+      const enriched = await enrichStoryVisualDialogue(finalResult.conversation);
+      finalResult = {
+        ...finalResult,
+        conversation: validateConversation(enriched.conversation),
+        storyEnriched: enriched.enriched,
+        storySceneCount: enriched.sceneCount ?? 0,
+        storyCharacterCount: enriched.characterCount ?? 0,
+      };
+    } catch (error) {
+      finalResult.storyEnrichError =
+        error instanceof Error ? error.message : String(error);
     }
   }
 

@@ -108,6 +108,7 @@ import {
   checkDialogueLogic,
   regenerateEnding,
 } from "./dialogue-gen.mjs";
+import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
@@ -1638,6 +1639,41 @@ app.post("/api/dialogues/generate", async (req, res) => {
       expandedFrom: result.expandedFrom ?? null,
       messageCount: result.conversation?.messages?.length ?? 0,
       contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
+      storyEnriched: result.storyEnriched ?? false,
+      storySceneCount: result.storySceneCount ?? null,
+      storyCharacterCount: result.storyCharacterCount ?? null,
+      storyEnrichError: result.storyEnrichError ?? null,
+    });
+  } catch (error) {
+    res.status(400).json({error: formatDialogueApiError(error)});
+  }
+});
+
+app.post("/api/dialogues/enrich-story-scenes", async (req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const {json: jsonText, stylePrompt, force} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isOpenRouterConfigured()) {
+      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
+      return;
+    }
+
+    const conversation = JSON.parse(jsonText);
+    const result = await enrichStoryVisualDialogue(conversation, {
+      stylePrompt: typeof stylePrompt === "string" ? stylePrompt : undefined,
+      forcePrompts: force !== false,
+    });
+
+    res.json({
+      conversation: result.conversation,
+      enriched: result.enriched,
+      sceneCount: result.sceneCount ?? 0,
+      characterCount: result.characterCount ?? 0,
+      skippedReason: result.skippedReason ?? null,
     });
   } catch (error) {
     res.status(400).json({error: formatDialogueApiError(error)});

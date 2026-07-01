@@ -16,6 +16,11 @@ import {
   getOpenRouterTextModel,
   isOpenRouterConfigured,
 } from "./openrouter-client.mjs";
+import {
+  appendSceneCharacterAppearances,
+  formatCharacterBible,
+  hasStoryCharacters,
+} from "./story-characters.mjs";
 
 const normalizeSpace = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
@@ -214,7 +219,7 @@ export const buildImageGenerationPrompt = ({imagePrompt, stylePrompt}) => {
     .join(" ");
 };
 
-const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = ""} = {}) => {
+const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = "", hasCharacters = false} = {}) => {
   const style = normalizeSpace(stylePrompt);
   return [
     "Ты помогаешь генерировать фотореалистичные сюжетные кадры для вертикального Shorts (9:16, полный экран, переписка поверх или снизу).",
@@ -228,11 +233,32 @@ const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = ""} = {}) 
     hasReferences
       ? "- Есть предыдущие кадры сюжета: сохраняй интерьер, персонажей и палитру."
       : "",
+    hasCharacters
+      ? [
+          "- Есть справочник героев с фиксированной внешностью.",
+          "- Если герой виден в кадре — вставь его внешность из справочника дословно (возраст, волосы, лицо, одежда).",
+          "- Если кадр только предмет, улица, интерьер без людей — не описывай внешность героев.",
+          "- charactersInFrame: массив id героев, которые реально видны в кадре; [] если людей нет.",
+        ].join("\n")
+      : "",
     "- imagePrompt: 2–4 предложения на русском, конкретная сцена с визуальными деталями (свет, материалы, мимика, реквизит).",
-    'Ответ строго JSON: {"imagePrompt":"..."}',
+    hasCharacters
+      ? 'Ответ строго JSON: {"imagePrompt":"...","charactersInFrame":["me"]}'
+      : 'Ответ строго JSON: {"imagePrompt":"..."}',
   ]
     .filter(Boolean)
     .join("\n");
+};
+
+const parseStoryLlmResponse = (data, conversation) => {
+  const imagePrompt = normalizeSpace(data?.imagePrompt);
+  if (!imagePrompt) {
+    throw new Error("LLM не вернул story imagePrompt");
+  }
+  const rawIds = Array.isArray(data?.charactersInFrame) ? data.charactersInFrame : [];
+  const charactersInFrame = rawIds.map((id) => normalizeSpace(id)).filter(Boolean);
+  const enrichedPrompt = appendSceneCharacterAppearances(imagePrompt, conversation, charactersInFrame);
+  return {imagePrompt: enrichedPrompt, charactersInFrame};
 };
 
 const llmStoryOpeningPrompt = async (conversation, style) => {
@@ -243,16 +269,25 @@ const llmStoryOpeningPrompt = async (conversation, style) => {
     Math.min(2, Math.max(0, messages.length - 1)),
     contactName,
   );
+  const characterBible = formatCharacterBible(conversation);
+  const hasCharacters = hasStoryCharacters(conversation);
   const {data, model} = await openRouterChatJson({
     messages: [
-      {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
+      {
+        role: "system",
+        content: buildStorySystemPrompt({stylePrompt: style, hasCharacters}),
+      },
       {
         role: "user",
         content: [
           `Контакт: ${contactName}`,
           "Цель: establishing shot до начала переписки",
+          characterBible ? `Справочник героев:\n${characterBible}` : "",
           dialogue.text ? `Контекст будущей переписки:\n${dialogue.text}` : "",
           "Опиши фотореалистичный кинематографичный establishing shot для верхней панели 9:16.",
+          hasCharacters
+            ? "Обычно в opening нет крупных планов лиц — покажи место и настроение; charactersInFrame чаще всего []."
+            : "",
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -261,11 +296,14 @@ const llmStoryOpeningPrompt = async (conversation, style) => {
     temperature: 0.25,
     maxTokens: 1200,
   });
-  const imagePrompt = normalizeSpace(data?.imagePrompt);
-  if (!imagePrompt) {
-    throw new Error("LLM не вернул story imagePrompt");
-  }
-  return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+  const parsed = parseStoryLlmResponse(data, conversation);
+  return {
+    imagePrompt: parsed.imagePrompt,
+    charactersInFrame: parsed.charactersInFrame,
+    promptSource: "openrouter",
+    llmModel: model,
+    imageReferences: null,
+  };
 };
 
 const llmStoryMessagePrompt = async (conversation, messageIndex, style) => {
@@ -275,27 +313,39 @@ const llmStoryMessagePrompt = async (conversation, messageIndex, style) => {
   }
   const contactName = conversation?.contactName?.trim() || "Собеседник";
   const dialogue = buildFullDialogueTranscriptForLlm(messages, messageIndex, contactName);
+  const characterBible = formatCharacterBible(conversation);
+  const hasCharacters = hasStoryCharacters(conversation);
   const {data, model} = await openRouterChatJson({
     messages: [
-      {role: "system", content: buildStorySystemPrompt({stylePrompt: style})},
+      {
+        role: "system",
+        content: buildStorySystemPrompt({stylePrompt: style, hasCharacters}),
+      },
       {
         role: "user",
         content: [
           `Контакт: ${contactName}`,
           `Целевое сообщение №${messageIndex + 1}`,
+          characterBible ? `Справочник героев (внешность фиксирована):\n${characterBible}` : "",
           dialogue.text,
           "Опиши кинематографичный кадр сцены для верхней панели в момент этого сообщения.",
+          hasCharacters
+            ? "Включай описание внешности только для героев, которые реально видны в кадре."
+            : "",
         ].join("\n\n"),
       },
     ],
     temperature: 0.25,
     maxTokens: 1200,
   });
-  const imagePrompt = normalizeSpace(data?.imagePrompt);
-  if (!imagePrompt) {
-    throw new Error("LLM не вернул story imagePrompt");
-  }
-  return {imagePrompt, promptSource: "openrouter", llmModel: model, imageReferences: null};
+  const parsed = parseStoryLlmResponse(data, conversation);
+  return {
+    imagePrompt: parsed.imagePrompt,
+    charactersInFrame: parsed.charactersInFrame,
+    promptSource: "openrouter",
+    llmModel: model,
+    imageReferences: null,
+  };
 };
 
 export const suggestStoryImagePrompt = async ({

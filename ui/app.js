@@ -113,6 +113,7 @@ const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus")
 const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
 const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
 const btnCheckLogic = document.getElementById("btnCheckLogic");
+const btnEnrichStoryScenes = document.getElementById("btnEnrichStoryScenes");
 const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
@@ -674,6 +675,17 @@ const updateLogicControls = () => {
       ? "Задайте OPENROUTER_API_KEY в docs/.env"
       : hasJson
         ? "Переписать только последние 3 реплики"
+        : "Сначала нужен JSON переписки";
+  }
+  if (btnEnrichStoryScenes) {
+    const storyLayout = getVideoLayout();
+    const isStory = storyLayout === "storySplit" || storyLayout === "storyOverlay";
+    btnEnrichStoryScenes.hidden = editorKind !== "shorts" || !isStory;
+    btnEnrichStoryScenes.disabled = !hasJson || !llmReady || !isStory;
+    btnEnrichStoryScenes.title = !llmReady
+      ? "Задайте OPENROUTER_API_KEY в docs/.env"
+      : hasJson
+        ? "Сгенерировать героев и промпты всех кадров через Gemini"
         : "Сначала нужен JSON переписки";
   }
 };
@@ -3331,6 +3343,26 @@ const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt, {removeIfEmpty 
   }
 };
 
+const setJsonStorySceneCharacters = (messageIndex, characterIds) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!Array.isArray(parsed.messages) || messageIndex < 0 || messageIndex >= parsed.messages.length) {
+      return;
+    }
+    const ids = Array.isArray(characterIds)
+      ? characterIds.map((id) => String(id).trim()).filter(Boolean)
+      : [];
+    if (ids.length > 0) {
+      parsed.messages[messageIndex].storySceneCharacters = ids;
+    } else {
+      delete parsed.messages[messageIndex].storySceneCharacters;
+    }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
 const ensureStoryImageSlot = (messageIndex) => {
   setJsonStoryImagePrompt(messageIndex, "", {removeIfEmpty: false});
 };
@@ -3847,6 +3879,9 @@ const suggestStoryImagePrompt = async ({messageIndex = null, force = false} = {}
       setJsonStoryOpeningPrompt(data.imagePrompt);
     } else {
       setJsonStoryImagePrompt(messageIndex, data.imagePrompt);
+      if (Array.isArray(data.charactersInFrame)) {
+        setJsonStorySceneCharacters(messageIndex, data.charactersInFrame);
+      }
     }
   }
   return data;
@@ -4409,6 +4444,36 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
   hint.textContent =
     "Полноэкранный кадр до начала переписки. Текст на превью — промпт кадра.";
   messageCol.append(title, hint);
+
+  const characters = Array.isArray(conversation.story?.characters)
+    ? conversation.story.characters.filter(
+        (character) => String(character?.name ?? "").trim() && String(character?.appearance ?? "").trim(),
+      )
+    : [];
+  if (characters.length > 0) {
+    const charsTitle = document.createElement("h4");
+    charsTitle.className = "dialogue-editor__story-subtitle";
+    charsTitle.textContent = "Герои (внешность фиксирована)";
+    messageCol.append(charsTitle);
+    const charsList = document.createElement("div");
+    charsList.className = "story-characters";
+    for (const character of characters) {
+      const card = document.createElement("article");
+      card.className = "story-characters__card";
+      const name = document.createElement("div");
+      name.className = "story-characters__name";
+      const role =
+        character.role === "me" ? " · я" : character.role === "them" ? " · собеседник" : "";
+      name.textContent = `${character.name}${role}`;
+      const appearance = document.createElement("p");
+      appearance.className = "story-characters__appearance";
+      appearance.textContent = String(character.appearance ?? "").trim();
+      card.append(name, appearance);
+      charsList.append(card);
+    }
+    messageCol.append(charsList);
+  }
+
   panel.append(messageCol);
 
   return panel;
@@ -4787,7 +4852,11 @@ const renderDialogueSceneBlock = ({
   const hasStoryPromptField = Object.hasOwn(message, "storyImagePrompt");
 
   if (hasStorySlot || isStoryVisual) {
-    if (message.storyImage?.trim() || hasStoryPromptField) {
+    if (
+      message.storyImage?.trim() ||
+      message.storyImagePrompt?.trim() ||
+      hasStoryPromptField
+    ) {
       controls.append(
         renderStoryImageSlot({
           messageIndex,
@@ -6072,6 +6141,45 @@ const generateDialogueFromPrompt = async () => {
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
   updateRefineDialogueControls();
+  if (dialogueGenerateStatus) {
+    if (data.storyEnriched && data.storySceneCount != null) {
+      dialogueGenerateStatus.textContent = `Промпты кадров (Gemini): ${data.storySceneCount}, героев: ${data.storyCharacterCount ?? 0}. Лишние кадры можно удалить вручную.`;
+    } else if (data.storyEnrichError) {
+      dialogueGenerateStatus.textContent = `Диалог готов. Промпты кадров не сгенерированы: ${data.storyEnrichError}`;
+    }
+  }
+  return data;
+};
+
+const enrichStoryScenesFromJson = async () => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала нужен JSON переписки");
+  }
+  if (!openrouterConfigured) {
+    throw new Error("Задайте OPENROUTER_API_KEY в docs/.env");
+  }
+
+  const res = await fetch("/api/dialogues/enrich-story-scenes", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      stylePrompt: getStoryStylePrompt(),
+      force: true,
+    }),
+  });
+  const data = await readApiJson(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации промптов кадров");
+  }
+
+  jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  await refreshDialogue();
+  updateGenerateImagesControls(data.conversation);
+  if (dialogueGenerateStatus) {
+    dialogueGenerateStatus.textContent = `Промпты кадров: ${data.sceneCount ?? 0}, героев: ${data.characterCount ?? 0}.`;
+  }
   return data;
 };
 
@@ -6342,6 +6450,24 @@ btnCheckLogic?.addEventListener("click", async () => {
       runningLabel: "ChatGPT проверяет связность и факты…",
       task: checkDialogueLogicFromPrompt,
       onSuccess: formatLogicCheckResult,
+    });
+  } catch {
+    // ошибка в модальном окне
+  } finally {
+    updateLogicControls();
+  }
+});
+
+btnEnrichStoryScenes?.addEventListener("click", async () => {
+  btnEnrichStoryScenes.disabled = true;
+  if (dialogueGenerateStatus) {
+    dialogueGenerateStatus.textContent = "";
+  }
+  try {
+    await runTextGenTask({
+      title: "Промпты кадров",
+      runningLabel: "Gemini генерирует героев и промпты для каждого кадра…",
+      task: enrichStoryScenesFromJson,
     });
   } catch {
     // ошибка в модальном окне

@@ -5,6 +5,14 @@ import {sanitizeMessageText} from "./message-text";
 import {isStoryVisualLayout, stripChatBubbleImages} from "./story";
 import {stripVideoLayoutAssets} from "./video";
 
+export const storyCharacterSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  role: z.enum(["me", "them", "other"]).optional(),
+  /** Стабильное описание внешности для всех кадров с этим героем */
+  appearance: z.string().min(1),
+});
+
 export const storySfxCueSchema = z.object({
   id: z.string().min(1),
   volume: z.number().min(0).max(1).optional(),
@@ -40,6 +48,8 @@ export const messageSchema = z
       .optional(),
     /** Промпт для генерации кадра сюжета сверху */
     storyImagePrompt: z.string().min(1).optional(),
+    /** id героев из story.characters, видимых в этом кадре */
+    storySceneCharacters: z.array(z.string().min(1)).max(6).optional(),
     /** Анимация story-кадра (OpenRouter Veo), public/images/… */
     storyVideo: z
       .string()
@@ -245,6 +255,8 @@ export const conversationSchema = z.object({
   /** Настройки storySplit / storyOverlay */
   story: z
     .object({
+      /** Справочник героев с фиксированной внешностью для story-кадров */
+      characters: z.array(storyCharacterSchema).max(8).optional(),
       opening: z
         .object({
           image: z

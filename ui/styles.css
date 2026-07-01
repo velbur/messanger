@@ -2481,6 +2481,40 @@ body.workflow-modal-open {
   color: #e9edef;
 }
 
+.dialogue-editor__story-subtitle {
+  margin: 14px 0 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #aebac1;
+}
+
+.story-characters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.story-characters__card {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(17, 27, 33, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.story-characters__name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e9edef;
+  margin-bottom: 4px;
+}
+
+.story-characters__appearance {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #aebac1;
+}
+
 @media (max-width: 768px) {
   .editor-layout {
     flex-direction: column;
