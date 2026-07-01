@@ -81,10 +81,24 @@ export const StorySceneVideo: React.FC<Props> = ({
           })
         : 1;
 
+  // До crossfade — проигрываем Veo; к crossfadeStart уже на последнем кадре (без скачка)
   const sourceFrame =
     localFrame >= crossfadeStart
       ? lastSourceFrame
-      : storyVideoSourceFrameAtPlayFrame(localFrame, playFrames, lastSourceFrame);
+      : storyVideoSourceFrameAtPlayFrame(
+          localFrame,
+          Math.max(1, crossfadeStart),
+          lastSourceFrame,
+        );
+
+  const parallaxMotionStyle: React.CSSProperties = {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    opacity: holdOpacity,
+    transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
+    transformOrigin: "center center",
+  };
 
   // Частицы тоньше во время живого видео, ярче на hold-кадре
   const particleIntensity = interpolate(
@@ -112,11 +126,12 @@ export const StorySceneVideo: React.FC<Props> = ({
         ) : null}
         {/* Всегда в дереве для preload; виден только с crossfade */}
         {fallbackAnimation === "depthParallax" ? (
-          <div style={{opacity: holdOpacity, width: "100%", height: "100%", position: "absolute"}}>
+          <div style={parallaxMotionStyle}>
             <DepthDisplacementImage
               image={image || holdFrame}
               sceneStartFrame={sceneStartFrame}
               durationFrames={sceneDurationFrames}
+              parallaxLocalStartFrame={crossfadeStart}
             />
           </div>
         ) : (
