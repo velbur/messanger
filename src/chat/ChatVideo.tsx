@@ -299,17 +299,9 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
   );
   const visibleEvents = timeline.events.slice(0, visibleCount);
   const lastEventIndex = timeline.events.length - 1;
-  const centerTypingActive =
-    storyVisualActive &&
-    activeEvent &&
-    activeEvent.display !== "bubble" &&
-    activeEvent.author === "them" &&
-    frame >= activeEvent.typingStartFrame &&
-    frame < activeEvent.revealFrame;
-  const centerScreenEvent =
-    storyVisualActive && !centerTypingActive
-      ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
-      : undefined;
+  const centerScreenEvent = storyVisualActive
+    ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
+    : undefined;
   const bubbleEventsOnly = storyVisualActive;
 
   const isThemTyping = activeEvent?.author === "them";
@@ -464,20 +456,7 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
 
         {showHook ? <HookOverlay text={conversation.hookText ?? ""} /> : null}
 
-        {centerTypingActive ? (
-          <AbsoluteFill
-            style={{
-              zIndex: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none",
-              opacity: chatRevealOpacity,
-            }}
-          >
-            <TypingIndicator variant="center" />
-          </AbsoluteFill>
-        ) : centerScreenEvent ? (
+        {centerScreenEvent ? (
           <AbsoluteFill
             style={{
               zIndex: 4,
