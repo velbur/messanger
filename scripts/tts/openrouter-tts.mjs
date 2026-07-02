@@ -6,18 +6,7 @@ import {
 } from "../openrouter-client.mjs";
 import {textForSpeech} from "./text-for-speech.mjs";
 
-const RUSSIAN_STYLE_PROMPT =
-  "Озвучь по-русски, естественно, с правильными ударениями, как реплика в живой переписке. ВАЖНО: сохраняй один и тот же тембр, пол и возраст голоса выбранного диктора — не превращай голос в другого человека. Меняй только интонацию, темп и лёгкий эмоциональный окрас в рамках того же тембра.";
-
 const CHAT_SPEECH_SPEED = 1.04;
-
-const MAX_CONTEXT_CHARS = 700;
-
-const normalizeContext = (context) =>
-  String(context ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_CONTEXT_CHARS);
 
 const normalizeExtraPrompt = (value) =>
   String(value ?? "")
@@ -25,24 +14,9 @@ const normalizeExtraPrompt = (value) =>
     .trim()
     .slice(0, 500);
 
-/** Базовый стиль + доп. промпт + сюжетный контекст + настроение реплики */
-const buildSpeechPrompt = (emotion, context, extraPrompt) => {
-  const tone = String(emotion ?? "").replace(/\s+/g, " ").trim();
-  const scene = normalizeContext(context);
+const buildSpeechPrompt = (extraPrompt) => {
   const extra = normalizeExtraPrompt(extraPrompt);
-  if (!tone && !scene && !extra) {
-    return RUSSIAN_STYLE_PROMPT;
-  }
-  return [
-    RUSSIAN_STYLE_PROMPT,
-    extra
-      ? `Дополнительные инструкции (только подача и атмосфера, не тембр): ${extra}.`
-      : "",
-    scene ? `Контекст сцены (не читать как текст, только для актёрской подачи): ${scene}.` : "",
-    tone ? `Настроение реплики (только интонация и темп, не тембр): ${tone}.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return extra || undefined;
 };
 
 const writePcmWav = async (outputPath, pcm, sampleRate) => {
@@ -70,20 +44,10 @@ const writePcmWav = async (outputPath, pcm, sampleRate) => {
  *   voice: string,
  *   outputPath: string,
  *   model?: string,
- *   emotion?: string,
- *   context?: string,
  *   ttsPrompt?: string,
  * }} opts
  */
-export const synthesizeOpenRouterSpeech = async ({
-  text,
-  voice,
-  outputPath,
-  model,
-  emotion,
-  context,
-  ttsPrompt,
-}) => {
+export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model, ttsPrompt}) => {
   const spoken = textForSpeech(text);
   if (!spoken) {
     throw new Error("Пустой текст для озвучки");
@@ -98,7 +62,7 @@ export const synthesizeOpenRouterSpeech = async ({
     voice,
     model: resolvedModel,
     responseFormat,
-    prompt: isGemini ? buildSpeechPrompt(emotion, context, ttsPrompt) : undefined,
+    prompt: isGemini ? buildSpeechPrompt(ttsPrompt) : undefined,
     speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
   });
 

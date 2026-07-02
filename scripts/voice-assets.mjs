@@ -7,7 +7,6 @@ import {slugifyProjectName} from "./project-slug.mjs";
 import {isSpeechableText} from "./tts/text-for-speech.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {synthesizeOpenRouterSpeech} from "./tts/openrouter-tts.mjs";
-import {ensureConversationEmotions} from "./tts/voice-emotion.mjs";
 import {isOpenRouterConfigured, getOpenRouterTtsVoices} from "./openrouter-client.mjs";
 import {mergeConversationVoiceover, pickOpenRouterVoice, buildConversationVoiceTtsProfile} from "../src/chat/voiceover.ts";
 
@@ -133,63 +132,6 @@ export const messageNeedsOpenRouterVoice = (message, voiceover, voices) => {
 const needsVoiceGeneration = (message, voiceover, voices) =>
   messageNeedsOpenRouterVoice(message, voiceover, voices);
 
-const normalizeContextText = (value, maxLen = 200) =>
-  String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, maxLen);
-
-/**
- * Контекст реплики для TTS (по аналогии с image prompt):
- * ближайшие реплики до/после + роль текущего сообщения в сцене.
- */
-const buildVoiceContextForMessage = (conversation, messageIndex) => {
-  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
-  const current = messages[messageIndex];
-  if (!current) {
-    return "";
-  }
-
-  const myName = normalizeContextText(conversation?.myName) || "Я";
-  const contactName = normalizeContextText(conversation?.contactName) || "Собеседник";
-  const speakerName = current.author === "me" ? myName : contactName;
-
-  const lineFor = (index) => {
-    const message = messages[index];
-    if (!message || !isSpeechableText(message.text)) {
-      return null;
-    }
-    const who = message.author === "me" ? myName : contactName;
-    const text = normalizeContextText(message.text, 140);
-    return text ? `#${index + 1} ${who}: ${text}` : null;
-  };
-
-  const prev = [];
-  for (let i = messageIndex - 1; i >= 0 && prev.length < 2; i -= 1) {
-    const line = lineFor(i);
-    if (line) {
-      prev.unshift(line);
-    }
-  }
-
-  const next = [];
-  for (let i = messageIndex + 1; i < messages.length && next.length < 1; i += 1) {
-    const line = lineFor(i);
-    if (line) {
-      next.push(line);
-    }
-  }
-
-  const currentText = normalizeContextText(current.text, 180);
-  return [
-    `Текущая реплика #${messageIndex + 1} (${speakerName}): ${currentText}`,
-    prev.length > 0 ? `До этого: ${prev.join(" | ")}` : "",
-    next.length > 0 ? `После этого: ${next.join(" | ")}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-};
-
 export const resolveConversationVoiceover = async (
   conversation,
   {failOnMissingVoice = false, logs = []} = {},
@@ -259,20 +201,6 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
 
   const namespace = normalizeAudioNamespace(audioNamespace);
 
-  try {
-    const {filled, attempted} = await ensureConversationEmotions(conversation);
-    if (attempted) {
-      logs.push(
-        filled > 0
-          ? `Эмоции озвучки определены по сюжету: ${filled} реплик`
-          : "Эмоции озвучки: не удалось определить — озвучу с базовой интонацией",
-      );
-    }
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    logs.push(`Эмоции озвучки: пропущено (${reason}) — базовая интонация`);
-  }
-
   let generated = 0;
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
@@ -294,13 +222,10 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
 
     try {
       const voice = pickOpenRouterVoice(activeVoiceover, message.author, openRouterVoices);
-      const context = buildVoiceContextForMessage(conversation, index);
       const result = await synthesizeOpenRouterSpeech({
         text,
         voice,
         outputPath: absolute,
-        emotion: String(message.voiceEmotion ?? "").trim() || undefined,
-        context,
         ttsPrompt: String(activeVoiceover.ttsPrompt ?? "").trim() || undefined,
       });
       const savedPath = result.outputPath;
@@ -313,9 +238,8 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
       message.voiceTtsVoice = voice;
       message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
-      const emotionHint = String(message.voiceEmotion ?? "").trim();
       logs.push(
-        `Озвучка #${index + 1} (${message.author}, OpenRouter/${result.model}, ${result.speaker}${emotionHint ? `, «${emotionHint}»` : ""}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
+        `Озвучка #${index + 1} (${message.author}, OpenRouter/${result.model}, ${result.speaker}) → ${message.voiceAudio} · ${(message.voiceDurationMs / 1000).toFixed(1)} с`,
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);

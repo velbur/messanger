@@ -2879,7 +2879,7 @@ const applyVoiceoverToJson = () => {
   updateVoiceoverControls(parsed);
 };
 
-/** Сбрасывает аудио реплик (но сохраняет voiceEmotion), чтобы озвучка перегенерилась с новыми голосами */
+/** Сбрасывает аудио реплик, чтобы озвучка перегенерилась с новыми настройками */
 const clearVoiceAudioForRevoice = () => {
   const parsed = parseConversationJson();
   if (!parsed) {
