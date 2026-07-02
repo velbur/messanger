@@ -71,6 +71,12 @@ const MotionScene: React.FC<{
   if (usesDepthParallax(animation)) {
     return (
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
+        <KenBurnsImage
+          image={trimmed}
+          localFrame={localFrame}
+          durationFrames={durationFrames}
+          animation="none"
+        />
         <DepthDisplacementImage
           image={trimmed}
           sceneStartFrame={sceneStartFrame}

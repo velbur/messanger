@@ -434,6 +434,10 @@ export const collectStoryVideoRefs = (conversation) => {
 
   for (const ref of [...refs]) {
     add(storyVideoHoldFramePathForVideo(ref));
+    const base = ref.replace(/\.video\.mp4$/i, "");
+    add(`${base}.video-hold.parallax.mp4`);
+    add(`${base}.video-hold.depth.png`);
+    add(`${base}.video-hold.depth-meta.json`);
   }
 
   return [...refs];

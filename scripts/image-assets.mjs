@@ -288,7 +288,7 @@ const hasImagePromptOnly = (message) =>
 const hasStoryImagePromptOnly = (message) =>
   Boolean(message.storyImagePrompt?.trim()) && !hasRenderableStoryImage(message);
 
-/** Все локальные пути картинок переписки (чат, story opening, story-кадры) */
+/** Все локальные пути картинок переписки (чат, story opening, story-кадры + parallax/depth/video) */
 export const collectConversationImageRefs = (conversation) => {
   const refs = new Set();
   const add = (ref) => {
@@ -297,16 +297,25 @@ export const collectConversationImageRefs = (conversation) => {
       refs.add(normalized);
     }
   };
+  const addStoryBundle = (imageRef) => {
+    const normalized = String(imageRef ?? "").trim().replace(/^\/+/, "");
+    if (!normalized || isImageUrl(normalized)) {
+      return;
+    }
+    for (const assetRef of collectStoryImageAssetRefs(normalized)) {
+      refs.add(assetRef);
+    }
+  };
 
   for (const message of conversation?.messages ?? []) {
     add(message?.image);
     if (isStoryVisualLayout(conversation)) {
-      add(message?.storyImage);
+      addStoryBundle(message?.storyImage);
     }
   }
 
   if (isStoryVisualLayout(conversation)) {
-    add(conversation?.story?.opening?.image);
+    addStoryBundle(conversation?.story?.opening?.image);
   }
 
   add(conversation?.previewCover?.image);
