@@ -301,6 +301,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
         outputPath: absolute,
         emotion: String(message.voiceEmotion ?? "").trim() || undefined,
         context,
+        ttsPrompt: String(activeVoiceover.ttsPrompt ?? "").trim() || undefined,
       });
       const savedPath = result.outputPath;
       message.voiceAudio = path

@@ -55,6 +55,8 @@ export type ConversationVoiceover = {
   provider: "openrouter";
   themVoice: VoiceoverCharacterVoice;
   meVoice: VoiceoverCharacterVoice;
+  /** Доп. инструкции для TTS (темп, атмосфера — не тембр) */
+  ttsPrompt?: string;
   /** Громкость реплик 0–1 */
   volume: number;
   /** Множитель громкости музыки, пока идёт озвучка (0.2 = тише в 5 раз) */
@@ -107,14 +109,34 @@ export const pickOpenRouterVoice = (
   return resolveCharacterVoice(raw, fallbackGender, voices);
 };
 
-/** Профиль озвучки: меняется при смене голосов персонажей — старые WAV перегенерируются */
+/** Компактный отпечаток доп. промпта для voiceTtsProfile */
+export const fingerprintVoiceTtsPrompt = (prompt: string | undefined): string => {
+  const normalized = String(prompt ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+  if (normalized.length <= 64) {
+    return normalized;
+  }
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
+  }
+  return `${normalized.slice(0, 32)}#${hash.toString(36)}`;
+};
+
+/** Профиль озвучки: меняется при смене голосов/промпта — старые WAV перегенерируются */
 export const buildConversationVoiceTtsProfile = (
   voiceover: ConversationVoiceover,
   voices?: {female: string; male: string},
 ): string => {
   const me = pickOpenRouterVoice(voiceover, "me", voices);
   const them = pickOpenRouterVoice(voiceover, "them", voices);
-  return `${OPENROUTER_TTS_PROFILE}|${me}|${them}`;
+  const promptFp = fingerprintVoiceTtsPrompt(voiceover.ttsPrompt);
+  const base = `${OPENROUTER_TTS_PROFILE}|${me}|${them}`;
+  return promptFp ? `${base}|${promptFp}` : base;
 };
 
 export const messageHasVoiceover = (

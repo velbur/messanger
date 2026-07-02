@@ -188,6 +188,8 @@ export const conversationSchema = z.object({
       themVoice: z.string().min(1).optional(),
       /** Голос «я» */
       meVoice: z.string().min(1).optional(),
+      /** Доп. инструкции для TTS (темп, атмосфера) */
+      ttsPrompt: z.string().optional(),
       volume: z.number().min(0).max(1).optional(),
       musicDuck: z.number().min(0).max(1).optional(),
     })

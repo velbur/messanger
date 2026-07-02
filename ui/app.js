@@ -128,6 +128,8 @@ const btnRegenVoices = document.getElementById("btnRegenVoices");
 const btnPreviewMeVoice = document.getElementById("btnPreviewMeVoice");
 const btnPreviewThemVoice = document.getElementById("btnPreviewThemVoice");
 const btnOpenVoiceCatalog = document.getElementById("btnOpenVoiceCatalog");
+const voiceoverTtsPromptInput = document.getElementById("voiceoverTtsPromptInput");
+const voiceoverPromptBlock = document.getElementById("voiceoverPromptBlock");
 const voiceCatalogModal = document.getElementById("voiceCatalogModal");
 const voiceCatalogList = document.getElementById("voiceCatalogList");
 const voiceCatalogStatus = document.getElementById("voiceCatalogStatus");
@@ -2554,6 +2556,12 @@ const syncVoiceoverFromJson = () => {
   if (voiceGenderControls) {
     voiceGenderControls.hidden = !voiceover.enabled;
   }
+  if (voiceoverPromptBlock) {
+    voiceoverPromptBlock.hidden = !voiceover.enabled;
+  }
+  if (voiceoverTtsPromptInput) {
+    voiceoverTtsPromptInput.value = String(voiceover.ttsPrompt ?? "");
+  }
 };
 
 /** Каталог Gemini TTS — подгружается из /api/status, есть запасной список */
@@ -2858,11 +2866,15 @@ const applyVoiceoverToJson = () => {
         meVoice && geminiVoiceCatalog.some((v) => v.id === meVoice)
           ? meVoice
           : resolveVoiceSelectValue(parsed.voiceover?.meVoice, "male"),
+      ttsPrompt: voiceoverTtsPromptInput?.value.trim() ?? "",
     };
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
   if (voiceGenderControls) {
     voiceGenderControls.hidden = !enabled;
+  }
+  if (voiceoverPromptBlock) {
+    voiceoverPromptBlock.hidden = !enabled;
   }
   updateVoiceoverControls(parsed);
 };
@@ -2898,11 +2910,30 @@ const resolveVoiceForAuthor = (voiceover, author) => {
   return match?.id ?? (gender === "male" ? "Puck" : "Leda");
 };
 
+const fingerprintVoiceTtsPrompt = (prompt) => {
+  const normalized = String(prompt ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+  if (normalized.length <= 64) {
+    return normalized;
+  }
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
+  }
+  return `${normalized.slice(0, 32)}#${hash.toString(36)}`;
+};
+
 const buildConversationVoiceTtsProfileLocal = (conversation) => {
   const voiceover = conversation?.voiceover ?? {};
   const me = resolveVoiceForAuthor(voiceover, "me");
   const them = resolveVoiceForAuthor(voiceover, "them");
-  return `${openrouterTtsProfile}|${me}|${them}`;
+  const promptFp = fingerprintVoiceTtsPrompt(voiceover.ttsPrompt);
+  const base = `${openrouterTtsProfile}|${me}|${them}`;
+  return promptFp ? `${base}|${promptFp}` : base;
 };
 
 const countPendingVoiceover = (conversation) => {
@@ -6695,6 +6726,9 @@ voiceoverEnabled?.addEventListener("change", () => {
   if (voiceGenderControls) {
     voiceGenderControls.hidden = !voiceoverEnabled.checked;
   }
+  if (voiceoverPromptBlock) {
+    voiceoverPromptBlock.hidden = !voiceoverEnabled.checked;
+  }
 });
 
 const onVoiceGenderChange = () => {
@@ -6705,6 +6739,30 @@ const onVoiceGenderChange = () => {
 };
 meVoiceSelect?.addEventListener("change", onVoiceGenderChange);
 themVoiceSelect?.addEventListener("change", onVoiceGenderChange);
+
+let voiceoverTtsPromptDebounce = null;
+voiceoverTtsPromptInput?.addEventListener("input", () => {
+  if (voiceoverTtsPromptDebounce) {
+    clearTimeout(voiceoverTtsPromptDebounce);
+  }
+  voiceoverTtsPromptDebounce = setTimeout(() => {
+    voiceoverTtsPromptDebounce = null;
+    applyVoiceoverToJson();
+    clearVoiceAudioForRevoice();
+    updateVoiceoverControls();
+    scheduleRefreshDialogue();
+  }, 400);
+});
+voiceoverTtsPromptInput?.addEventListener("blur", () => {
+  if (voiceoverTtsPromptDebounce) {
+    clearTimeout(voiceoverTtsPromptDebounce);
+    voiceoverTtsPromptDebounce = null;
+  }
+  applyVoiceoverToJson();
+  clearVoiceAudioForRevoice();
+  updateVoiceoverControls();
+  scheduleRefreshDialogue();
+});
 
 btnPreviewMeVoice?.addEventListener("click", () => {
   playVoicePreview(meVoiceSelect?.value, {triggerBtn: btnPreviewMeVoice});

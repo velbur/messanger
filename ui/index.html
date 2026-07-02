@@ -495,6 +495,19 @@
                 <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
+              <div class="voiceover-prompt-block" id="voiceoverPromptBlock" hidden>
+                <label class="label" for="voiceoverTtsPromptInput">Доп. промпт для озвучки</label>
+                <p class="dialogue-hint voiceover-prompt-block__hint">
+                  Инструкции для всех реплик: темп, атмосфера, стиль подачи. Не меняет тембр голоса.
+                </p>
+                <textarea
+                  id="voiceoverTtsPromptInput"
+                  class="textarea textarea--prompt voiceover-prompt-block__input"
+                  rows="2"
+                  placeholder="Например: говорить тихо, как шёпотом; напряжённый триллер…"
+                ></textarea>
+              </div>
+
               <div class="actions actions--inline" id="imagesGenerateRow">
                 <button type="button" id="btnEnrichStoryScenes" class="btn btn-secondary" disabled hidden>
                   Сгенерировать промпты изображений

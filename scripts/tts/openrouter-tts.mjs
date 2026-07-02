@@ -19,15 +19,25 @@ const normalizeContext = (context) =>
     .trim()
     .slice(0, MAX_CONTEXT_CHARS);
 
-/** Базовый стиль + сюжетный контекст + настроение реплики */
-const buildSpeechPrompt = (emotion, context) => {
+const normalizeExtraPrompt = (value) =>
+  String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+
+/** Базовый стиль + доп. промпт + сюжетный контекст + настроение реплики */
+const buildSpeechPrompt = (emotion, context, extraPrompt) => {
   const tone = String(emotion ?? "").replace(/\s+/g, " ").trim();
   const scene = normalizeContext(context);
-  if (!tone && !scene) {
+  const extra = normalizeExtraPrompt(extraPrompt);
+  if (!tone && !scene && !extra) {
     return RUSSIAN_STYLE_PROMPT;
   }
   return [
     RUSSIAN_STYLE_PROMPT,
+    extra
+      ? `Дополнительные инструкции (только подача и атмосфера, не тембр): ${extra}.`
+      : "",
     scene ? `Контекст сцены (не читать как текст, только для актёрской подачи): ${scene}.` : "",
     tone ? `Настроение реплики (только интонация и темп, не тембр): ${tone}.` : "",
   ]
@@ -62,9 +72,18 @@ const writePcmWav = async (outputPath, pcm, sampleRate) => {
  *   model?: string,
  *   emotion?: string,
  *   context?: string,
+ *   ttsPrompt?: string,
  * }} opts
  */
-export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model, emotion, context}) => {
+export const synthesizeOpenRouterSpeech = async ({
+  text,
+  voice,
+  outputPath,
+  model,
+  emotion,
+  context,
+  ttsPrompt,
+}) => {
   const spoken = textForSpeech(text);
   if (!spoken) {
     throw new Error("Пустой текст для озвучки");
@@ -79,7 +98,7 @@ export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model
     voice,
     model: resolvedModel,
     responseFormat,
-    prompt: isGemini ? buildSpeechPrompt(emotion, context) : undefined,
+    prompt: isGemini ? buildSpeechPrompt(emotion, context, ttsPrompt) : undefined,
     speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
   });
 

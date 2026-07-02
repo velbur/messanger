@@ -529,6 +529,26 @@ body {
   display: none;
 }
 
+.voiceover-prompt-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.voiceover-prompt-block[hidden] {
+  display: none;
+}
+
+.voiceover-prompt-block__hint {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.voiceover-prompt-block__input {
+  min-height: 3rem;
+}
+
 .voice-pick {
   display: inline-flex;
   align-items: center;
