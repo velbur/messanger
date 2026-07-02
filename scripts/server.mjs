@@ -2541,9 +2541,6 @@ app.post("/api/render", async (req, res) => {
 
     const isStoryVisual =
       conversation.layout === "storySplit" || conversation.layout === "storyOverlay";
-    if (isStoryVisual) {
-      await resolveStoryVideos(conversation, {failOnMissingVideos: false});
-    }
     const autoGenerateImages = req.body?.autoGenerateImages === true;
     const voiceoverEnabled = Boolean(conversation.voiceover?.enabled);
     const pendingVoice = voiceoverEnabled ? countPendingVoiceover(conversation) : 0;

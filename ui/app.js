@@ -1268,7 +1268,7 @@ const openDialogue = async (id, {syncUrl = true, replaceUrl = false} = {}) => {
   }
 };
 
-const saveCurrentDialogue = async () => {
+const saveCurrentDialogue = async ({skipRefresh = false} = {}) => {
   const json = jsonInput.value.trim();
   if (!json) {
     setDialogueSaveStatus("Нет JSON для сохранения", true);
@@ -1312,8 +1312,12 @@ const saveCurrentDialogue = async () => {
   dialogueTitleInput.value = data.titleDisplay || data.title || dialogueTitleInput.value;
   if (data.conversation) {
     jsonInput.value = JSON.stringify(data.conversation, null, 2);
-    await refreshDialogue();
-    updateGenerateImagesControls(data.conversation);
+    if (skipRefresh) {
+      updateGenerateImagesControls(data.conversation);
+    } else {
+      await refreshDialogue();
+      updateGenerateImagesControls(data.conversation);
+    }
   }
   if (data.partNumber) {
     currentPartNumber = data.partNumber;
@@ -6022,7 +6026,8 @@ btnRender.addEventListener("click", async () => {
   try {
     if (currentDialogueId) {
       try {
-        await saveCurrentDialogue();
+        statusText.textContent = "Сохранение диалога…";
+        await saveCurrentDialogue({skipRefresh: true});
       } catch (err) {
         alert(err instanceof Error ? err.message : String(err));
         setBusy(false);
@@ -6031,6 +6036,7 @@ btnRender.addEventListener("click", async () => {
     }
 
     json = jsonInput.value.trim();
+    statusText.textContent = "Запуск рендера…";
 
     const renderPayload = {
         json,
@@ -6045,11 +6051,24 @@ btnRender.addEventListener("click", async () => {
       renderPayload.wallpaper = wallpaperForRender;
     }
 
-    const res = await fetch("/api/render", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(renderPayload),
-    });
+    const renderController = new AbortController();
+    const renderRequestTimer = setTimeout(() => renderController.abort(), 60_000);
+    let res;
+    try {
+      res = await fetch("/api/render", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(renderPayload),
+        signal: renderController.signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error("Сервер не ответил за 60 с — проверьте, что UI запущен, и повторите");
+      }
+      throw err;
+    } finally {
+      clearTimeout(renderRequestTimer);
+    }
 
     const data = await res.json();
 
