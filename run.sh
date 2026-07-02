@@ -595,6 +595,9 @@ run_server_container() {
   if [[ -n "${RENDER_CONCURRENCY}" ]]; then
     env_args+=(-e "RENDER_CONCURRENCY=${RENDER_CONCURRENCY}")
   fi
+  if [[ "$container_name" == "chat-video-worker" ]]; then
+    env_args+=(-e "RENDER_WORKER=1")
+  fi
   if [[ "$container_name" == "chat-video-worker" && "${WORKER_GPU:-0}" == 1 && host_has_nvidia_gpu ]]; then
     env_args+=(-e "STORY_DEPTH_PROVIDER=${STORY_DEPTH_PROVIDER:-depth-v2}")
   fi
@@ -723,6 +726,7 @@ cmd_worker_native() {
   export PORT="${WORKER_PORT}"
   export NATIVE_PROJECT_ROOT="${ROOT}"
   export STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-auto}"
+  export RENDER_WORKER=1
 
   echo "Render-воркер (нативно, без Docker): http://0.0.0.0:${WORKER_PORT}"
   echo "Node:   $(command -v node) ($(node -v))"

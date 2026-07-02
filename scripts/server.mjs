@@ -210,6 +210,62 @@ let jobCounter = 0;
 let renderBusy = false;
 const renderQueue = [];
 
+const IS_RENDER_WORKER = ["1", "true", "yes"].includes(
+  (process.env.RENDER_WORKER ?? "").trim().toLowerCase(),
+);
+
+const workerJobLabel = (job) => job.fileName || `job-${job.id}`;
+
+/** Печать этапа/прогресса в stdout воркера (docker logs / worker-native). */
+const traceJobConsole = (job, message) => {
+  if (!IS_RENDER_WORKER || !message) {
+    return;
+  }
+  const stamp = new Date().toISOString().slice(11, 19);
+  console.log(`[${stamp}] [${workerJobLabel(job)}] ${message}`);
+};
+
+const jobSetPhase = (job, phase) => {
+  const next = typeof phase === "string" && phase.trim() ? phase.trim() : null;
+  if (job.phase === next) {
+    return;
+  }
+  job.phase = next;
+  if (next) {
+    traceJobConsole(job, next);
+  }
+};
+
+const jobPushLog = (job, message) => {
+  const line = String(message ?? "").trim();
+  if (!line || job.logs[job.logs.length - 1] === line) {
+    return;
+  }
+  job.logs.push(line);
+  traceJobConsole(job, line);
+};
+
+const jobPushLogs = (job, lines) => {
+  for (const line of lines ?? []) {
+    jobPushLog(job, line);
+  }
+};
+
+const jobSetProgress = (job, progress) => {
+  const value = typeof progress === "number" && Number.isFinite(progress) ? progress : 0;
+  job.progress = Math.max(0, Math.min(1, value));
+  if (!IS_RENDER_WORKER) {
+    return;
+  }
+  const pct = Math.round(job.progress * 100);
+  const bucket = Math.floor(pct / 5) * 5;
+  if (bucket > 0 && bucket !== job._workerProgressBucket) {
+    job._workerProgressBucket = bucket;
+    const phaseSuffix = job.phase ? ` — ${job.phase}` : "";
+    traceJobConsole(job, `${pct}%${phaseSuffix}`);
+  }
+};
+
 /** fetch с таймаутом и повторами — воркер на муксинге может отвечать медленно */
 const fetchWithRetry = async (url, options = {}, {timeoutMs = 15000, retries = 2} = {}) => {
   let lastError;
@@ -447,25 +503,25 @@ const processQueue = async () => {
 
   if (job.kind === "video-parallax-preview") {
     job.status = "running";
-    job.logs.push("Превью video-parallax…");
+    jobPushLog(job, "Превью video-parallax…");
     try {
       const opts = job.previewOpts ?? {};
       await renderVideoParallaxPreview({
         ...opts,
         onStatus: (message) => {
-          job.phase = message;
-          job.logs.push(message);
+          jobSetPhase(job, message);
+          jobPushLog(job, message);
         },
       });
       job.status = "done";
       job.progress = 1;
       job.finishedAt = Date.now();
       job.downloadUrl = mp4DownloadUrl(job.outputFile, job.finishedAt);
-      job.logs.push(`Готово: ${job.outputRel}`);
+      jobPushLog(job, `Готово: ${job.outputRel}`);
     } catch (error) {
       job.status = "error";
       job.error = error instanceof Error ? error.message : String(error);
-      job.logs.push(job.error);
+      jobPushLog(job, job.error);
     } finally {
       job.previewOpts = null;
       pruneFinishedJobs();
@@ -476,7 +532,8 @@ const processQueue = async () => {
   }
 
   job.status = "running";
-  job.logs.push("Рендер запущен…");
+  jobSetPhase(job, "Рендер…");
+  jobPushLog(job, "Рендер запущен…");
   const episodes = job.episodeConversations?.length
     ? job.episodeConversations
     : [job.conversation];
@@ -499,23 +556,28 @@ const processQueue = async () => {
       conversation,
       outputPath,
       onBundleStatus: (message) => {
-        job.logs.push(message);
+        jobPushLog(job, message);
       },
       onCompositionReady: (durationInFrames) => {
         job.totalFrames = durationInFrames;
+        jobPushLog(job, `Композиция: ${durationInFrames} кадров`);
       },
       onProgress: ({progress, renderedFrames, encodedFrames, stitchStage}) => {
         const episodeScale = episodes.length > 1 ? 1 / episodes.length : 1;
         const episodeIndex = job.episodeIndex ?? 0;
         const baseProgress = episodes.length > 1 ? episodeIndex / episodes.length : 0;
-        job.progress = baseProgress + progress * episodeScale;
+        jobSetProgress(job, baseProgress + progress * episodeScale);
         job.renderedFrames = renderedFrames;
         job.encodedFrames = encodedFrames;
         if (renderedFrames >= job.totalFrames && job.totalFrames > 0) {
-          const phase = stitchStage === "muxing" ? "Склейка видео и аудио…" : "Кодирование видео…";
-          if (job.phase !== phase) {
-            job.phase = phase;
-            job.logs.push(phase);
+          const phase =
+            stitchStage === "muxing" ? "Склейка видео и аудио…" : "Кодирование видео…";
+          jobSetPhase(job, phase);
+        } else if (renderedFrames > 0 && job.totalFrames > 0) {
+          const frameBucket = Math.floor((renderedFrames / job.totalFrames) * 10);
+          if (frameBucket !== job._workerFrameBucket) {
+            job._workerFrameBucket = frameBucket;
+            jobSetPhase(job, `Рендер кадров: ${renderedFrames}/${job.totalFrames}`);
           }
         }
       },
@@ -533,7 +595,7 @@ const processQueue = async () => {
       const outputRel = `out/${outputFile}`;
       const outputPath = path.join(ROOT, outputRel);
       if (episodes.length > 1) {
-        job.phase = `Рендер эпизода ${i + 1}/${episodes.length}…`;
+        jobSetPhase(job, `Рендер эпизода ${i + 1}/${episodes.length}…`);
         const inputRel = `json/${job.fileName}-ep${epNum}.json`;
         await writeFile(
           path.join(ROOT, inputRel),
@@ -569,6 +631,7 @@ const processQueue = async () => {
     job.outputFile = primary.outputFile;
     job.outputFiles = job.episodeOutputs.map((item) => item.outputFile);
     job.downloadUrl = primary.downloadUrl;
+    traceJobConsole(job, `Готово: out/${job.outputFile}`);
     if (job.dialogueId) {
       touchDialogueOutput(job.dialogueId, job.outputFile);
       job.logs.push(`Диалог сохранён в базе: ${job.dialogueId}`);
@@ -601,7 +664,8 @@ const enqueueRender = (jobId) => {
     return;
   }
   job.status = "queued";
-  job.logs.push("В очереди…");
+  jobSetPhase(job, "В очереди…");
+  jobPushLog(job, "В очереди…");
   renderQueue.push(jobId);
   processQueue();
 };
@@ -2149,6 +2213,10 @@ const createRenderJobShell = ({
 
   jobs.set(jobId, job);
   pruneFinishedJobs();
+  traceJobConsole(job, `Новая задача → out/${outputFile}`);
+  if (job.phase) {
+    traceJobConsole(job, job.phase);
+  }
   return job;
 };
 
@@ -2171,8 +2239,10 @@ const runRenderPreparation = async (
   const fail = (message, logs = []) => {
     job.status = "error";
     job.error = message;
-    job.logs.push(...logs, message);
+    jobPushLogs(job, logs);
+    jobPushLog(job, message);
     job.phase = null;
+    traceJobConsole(job, `Ошибка: ${message}`);
   };
 
   try {
@@ -2183,22 +2253,22 @@ const runRenderPreparation = async (
     await loadOpenRouterEnv();
 
     if (autoGenerateImages) {
-      job.phase = "Генерация изображений…";
-      job.progress = 0.05;
+      jobSetPhase(job, "Генерация изображений…");
+      jobSetProgress(job, 0.05);
       const imageGenLogs = await generateMissingConversationImages(conversation, {
         provider: "openrouter",
         imageNamespace: job.fileName,
       });
-      job.logs.push(...imageGenLogs);
+      jobPushLogs(job, imageGenLogs);
     }
 
     if (shouldGenerateVoice) {
-      job.phase = "Озвучка (OpenRouter)…";
-      job.progress = 0.1;
+      jobSetPhase(job, "Озвучка (OpenRouter)…");
+      jobSetProgress(job, 0.1);
       const voiceGenLogs = await generateMissingVoiceover(conversation, {
         audioNamespace: job.fileName,
       });
-      job.logs.push(...voiceGenLogs);
+      jobPushLogs(job, voiceGenLogs);
     }
 
     let skippedStoryVideoGeneration = false;
@@ -2209,13 +2279,14 @@ const runRenderPreparation = async (
       if (pendingStoryVideosNow > 0) {
         if (!isOpenRouterConfigured()) {
           skippedStoryVideoGeneration = true;
-          job.logs.push(
+          jobPushLog(
+            job,
             "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
           );
         } else {
           const total = pendingStoryVideosNow;
-          job.phase = `Анимация story-кадров (0/${total})…`;
-          job.progress = 0.11;
+          jobSetPhase(job, `Анимация story-кадров (0/${total})…`);
+          jobSetProgress(job, 0.11);
 
           const storyVideoLogs = await generateMissingStoryVideos(conversation, {
             publicBaseUrl,
@@ -2223,20 +2294,23 @@ const runRenderPreparation = async (
             onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
               const safeTotal = Math.max(clipTotal, 1);
               if (stage === "polling") {
-                job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
-                job.progress = 0.11 + (done / safeTotal) * 0.39;
+                jobSetPhase(
+                  job,
+                  `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`,
+                );
+                jobSetProgress(job, 0.11 + (done / safeTotal) * 0.39);
                 return;
               }
               if (stage === "generating") {
-                job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
-                job.progress = 0.11 + (done / safeTotal) * 0.39;
+                jobSetPhase(job, `Анимация story-кадров (${done}/${safeTotal}): ${label}…`);
+                jobSetProgress(job, 0.11 + (done / safeTotal) * 0.39);
                 return;
               }
-              job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
-              job.progress = 0.11 + (done / safeTotal) * 0.39;
+              jobSetPhase(job, `Анимация story-кадров (${done}/${safeTotal})…`);
+              jobSetProgress(job, 0.11 + (done / safeTotal) * 0.39);
             },
           });
-          job.logs.push(...storyVideoLogs);
+          jobPushLogs(job, storyVideoLogs);
         }
       }
 
@@ -2244,22 +2318,23 @@ const runRenderPreparation = async (
         failOnMissingVideos: false,
       });
       if (linkedStoryVideoLogs.length > 0) {
-        job.logs.push(...linkedStoryVideoLogs);
+        jobPushLogs(job, linkedStoryVideoLogs);
       }
 
       if (needsStoryDepthLayers(conversation)) {
-        job.phase = "Depth-слои для parallax…";
-        job.progress = 0.5;
+        jobSetPhase(job, "Depth-слои для parallax…");
+        jobSetProgress(job, 0.5);
         const depthLogs = await ensureStoryDepthForConversation(conversation);
         if (depthLogs.length > 0) {
-          job.logs.push(...depthLogs);
+          jobPushLogs(job, depthLogs);
         }
       }
 
       if (mergeStoryConfig(conversation).opening.animation === "video-parallax") {
+        jobSetPhase(job, "Hold-parallax после Veo…");
         const holdLogs = await ensureVideoParallaxHoldsForConversation(conversation);
         if (holdLogs.length > 0) {
-          job.logs.push(...holdLogs);
+          jobPushLogs(job, holdLogs);
         }
       }
     }
@@ -2289,28 +2364,28 @@ const runRenderPreparation = async (
       musicLogs.push(`Музыка: из JSON → ${conversation.music.src}`);
     }
     if (musicLogs.length > 0) {
-      job.logs.push(...musicLogs);
+      jobPushLogs(job, musicLogs);
     }
 
-    job.phase = "Обложка превью…";
-    job.progress = 0.48;
+    jobSetPhase(job, "Обложка превью…");
+    jobSetProgress(job, 0.48);
     if (conversation.previewCover?.enabled === false) {
-      job.logs.push("Обложка превью: выключена");
+      jobPushLog(job, "Обложка превью: выключена");
     } else {
       const coverResult = await ensureConversationPreviewCovers(conversation, {
         displayTitle: job.displayTitle,
         imageNamespace: job.fileName,
-        onLog: (message) => job.logs.push(message),
+        onLog: (message) => jobPushLog(job, message),
       });
       Object.assign(conversation, coverResult.conversation);
       job.episodeConversations = coverResult.episodeConversations;
       if (coverResult.episodeConversations.length > 1) {
-        job.logs.push(`Обложки для ${coverResult.episodeConversations.length} эпизодов готовы`);
+        jobPushLog(job, `Обложки для ${coverResult.episodeConversations.length} эпизодов готовы`);
       }
     }
 
-    job.phase = "Проверка ассетов…";
-    job.progress = 0.52;
+    jobSetPhase(job, "Проверка ассетов…");
+    jobSetProgress(job, 0.52);
 
     const imageLogs = await resolveConversationImages(conversation, {
       failOnMissingImages: !autoGenerateImages,
@@ -2324,7 +2399,7 @@ const runRenderPreparation = async (
         })
       : [];
 
-    job.logs.push(...imageLogs, ...storyVideoResolveLogs, ...voiceLogs);
+    jobPushLogs(job, [...imageLogs, ...storyVideoResolveLogs, ...voiceLogs]);
 
     if (conversation.layout === "storyOverlay") {
       delete conversation.wallpaper;
@@ -2335,7 +2410,7 @@ const runRenderPreparation = async (
     await mkdir(JSON_DIR, {recursive: true});
     await mkdir(OUT_DIR, {recursive: true});
     await writeFile(job.inputPath, JSON.stringify(conversation, null, 2), "utf8");
-    job.logs.push(`JSON сохранён: ${job.inputRel}`);
+    jobPushLog(job, `JSON сохранён: ${job.inputRel}`);
 
     if (dialogueId && typeof dialogueId === "string") {
       updateDialogue(dialogueId, {
@@ -2351,29 +2426,32 @@ const runRenderPreparation = async (
     }
 
     if (target === "remote") {
-      job.phase = "Отправка ассетов на воркер…";
-      job.progress = 0.58;
-      job.logs.push(`Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
-      job.logs.push("На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)");
+      jobSetPhase(job, "Отправка ассетов на воркер…");
+      jobSetProgress(job, 0.58);
+      jobPushLog(job, `Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
+      jobPushLog(
+        job,
+        "На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)",
+      );
       const episodeConversations =
         job.episodeConversations?.length > 0
           ? job.episodeConversations
           : buildEpisodeConversations(conversation);
       job.outputFiles = episodeOutputFiles(job.fileName, episodeConversations.length);
       if (episodeConversations.length > 1) {
-        job.logs.push(`Эпизодов на воркере: ${episodeConversations.length}`);
+        jobPushLog(job, `Эпизодов на воркере: ${episodeConversations.length}`);
       }
       await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs, {
         fileName: job.fileName,
         episodeConversations,
       });
       if (conversation.voiceover?.enabled) {
-        job.logs.push("Озвучка: WAV с Mac отправляются на воркер");
+        jobPushLog(job, "Озвучка: WAV с Mac отправляются на воркер");
         await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
       }
 
-      job.phase = "Запуск рендера на воркере…";
-      job.progress = 0.62;
+      jobSetPhase(job, "Запуск рендера на воркере…");
+      jobSetProgress(job, 0.62);
       const forwardResp = await fetchWithRetry(
         `${REMOTE_RENDER_URL}/api/render`,
         {
@@ -2405,7 +2483,8 @@ const runRenderPreparation = async (
       }
       job.status = forwardData.status ?? "queued";
       job.phase = null;
-      job.progress = forwardData.progress ?? 0.65;
+      jobSetProgress(job, forwardData.progress ?? 0.65);
+      traceJobConsole(job, `Передано на воркер: job ${forwardData.jobId}`);
       return;
     }
 
@@ -2414,10 +2493,11 @@ const runRenderPreparation = async (
       job.episodeConversations = buildEpisodeConversations(conversation);
     }
     if (job.episodeConversations.length > 1) {
-      job.logs.push(`Будет собрано эпизодов: ${job.episodeConversations.length}`);
+      jobPushLog(job, `Будет собрано эпизодов: ${job.episodeConversations.length}`);
     }
-    job.progress = 0.55;
+    jobSetProgress(job, 0.55);
     job.phase = null;
+    traceJobConsole(job, "Подготовка завершена, постановка в очередь рендера");
     enqueueRender(job.id);
   } catch (error) {
     if (job.prepCancelled) {
@@ -2926,7 +3006,11 @@ if (isYoutubeConfigured()) {
 }
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`UI: http://localhost:${PORT}`);
+  if (IS_RENDER_WORKER) {
+    console.log(`Render-воркер: http://0.0.0.0:${PORT} (этапы задач в stdout)`);
+  } else {
+    console.log(`UI: http://localhost:${PORT}`);
+  }
   console.log(`JSON → ${JSON_DIR}`);
   console.log(`MP4  → ${OUT_DIR}`);
   console.log(`БД   → data/dialogues.db`);
