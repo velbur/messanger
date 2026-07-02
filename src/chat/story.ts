@@ -1,6 +1,6 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v26";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v27";
 
 export type StorySceneAnimation = "video" | "video-parallax" | "none" | "kenburns" | "parallax" | "depthParallax";
 
