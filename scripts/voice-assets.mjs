@@ -278,14 +278,15 @@ export const syncVoiceToRemote = async (conversation, remoteBaseUrl, logs) => {
     throw new Error("Озвучка включена, но нет файлов для отправки на воркер");
   }
 
-  for (const ref of refs) {
+  for (let index = 0; index < refs.length; index += 1) {
+    const ref = refs[index];
     const {absolute} = safePublicPath(ref);
     if (!existsSync(absolute)) {
       throw new Error(`Озвучка не найдена локально: ${ref}`);
     }
     const buffer = await import("node:fs/promises").then((fs) => fs.readFile(absolute));
     await uploadAssetToRemote(remoteBaseUrl, ref, buffer);
-    logs.push(`Озвучка отправлена на воркер: ${ref}`);
+    logs.push(`Озвучка отправлена на воркер (${index + 1}/${refs.length}): ${ref}`);
   }
 };
 

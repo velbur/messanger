@@ -2365,18 +2365,22 @@ const runRenderPreparation = async (
 
       job.phase = "Запуск рендера на воркере…";
       job.progress = 0.62;
-      const forwardResp = await fetchWithRetry(`${REMOTE_RENDER_URL}/api/render`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          json: JSON.stringify(conversation),
-          name: job.fileName,
-          displayTitle: job.displayTitle || job.fileName,
-          music: rawMusic ?? "auto",
-          target: "local",
-          autoGenerateVoiceover: false,
-        }),
-      });
+      const forwardResp = await fetchWithRetry(
+        `${REMOTE_RENDER_URL}/api/render`,
+        {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            json: JSON.stringify(conversation),
+            name: job.fileName,
+            displayTitle: job.displayTitle || job.fileName,
+            music: rawMusic ?? "auto",
+            target: "local",
+            autoGenerateVoiceover: false,
+          }),
+        },
+        {timeoutMs: 120_000, retries: 3},
+      );
       const forwardData = await forwardResp.json().catch(() => ({}));
       if (!forwardResp.ok) {
         throw new Error(forwardData.error ?? `Воркер вернул ошибку (${forwardResp.status})`);
