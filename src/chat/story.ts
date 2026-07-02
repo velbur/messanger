@@ -1,8 +1,8 @@
 import type {ConversationInput} from "./schema";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v29";
-/** Ревизия StorySceneVideo: localFrame = useCurrentFrame() внутри Sequence */
-export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v1";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v30";
+/** Ревизия StorySceneVideo: localFrame от StoryPanel, не глобальный useCurrentFrame */
+export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v2";
 
 export type StorySceneAnimation = "video" | "video-parallax" | "none" | "kenburns" | "parallax" | "depthParallax";
 

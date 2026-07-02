@@ -113,6 +113,7 @@ export const StorySceneImage: React.FC<Props> = ({
         videoDurationMs={videoDurationMs}
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
+        localFrame={localFrame}
         fallbackAnimation={animation === "video-parallax" ? "depthParallax" : "kenburns"}
       />
     );

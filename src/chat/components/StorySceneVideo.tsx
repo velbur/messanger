@@ -34,6 +34,8 @@ type Props = {
   videoDurationMs?: number;
   sceneStartFrame: number;
   sceneDurationFrames: number;
+  /** Локальный кадр сцены (0 = начало). StoryPanel передаёт явно; превью — из useCurrentFrame − sceneStartFrame */
+  localFrame?: number;
   fallbackAnimation?: "kenburns" | "depthParallax";
 };
 
@@ -61,9 +63,12 @@ export const StorySceneVideo: React.FC<Props> = ({
   videoDurationMs,
   sceneStartFrame,
   sceneDurationFrames,
+  localFrame: localFrameProp,
   fallbackAnimation = "kenburns",
 }) => {
-  const localFrame = useCurrentFrame();
+  const compositionFrame = useCurrentFrame();
+  const localFrame =
+    localFrameProp ?? Math.max(0, compositionFrame - sceneStartFrame);
   const {fps} = useVideoConfig();
   const isDepthParallax = fallbackAnimation === "depthParallax";
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
