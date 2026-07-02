@@ -1,0 +1,4 @@
+# Минимум для scripts/python/parallax_bake.py (без torch / Depth V2)
+opencv-python-headless
+pillow
+numpy

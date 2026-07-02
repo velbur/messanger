@@ -372,10 +372,26 @@ ensure_native_python_venv() {
     echo "Создаю Python venv: ${NATIVE_VENV}" >&2
     python3 -m venv "${NATIVE_VENV}"
   fi
+  local need_depth=0
+  local need_parallax=0
   if ! "${NATIVE_VENV}/bin/python3" -c "import torch, transformers" >/dev/null 2>&1; then
+    need_depth=1
+  fi
+  if ! "${NATIVE_VENV}/bin/python3" -c "import cv2, PIL" >/dev/null 2>&1; then
+    need_parallax=1
+  fi
+  if [[ "$need_depth" -eq 1 ]]; then
     echo "Python .venv: pip install depth (может занять несколько минут)…" >&2
     "${NATIVE_VENV}/bin/pip" install -q --upgrade pip
-    "${NATIVE_VENV}/bin/pip" install -r "${ROOT}/scripts/python/requirements-depth.txt"
+    if ! "${NATIVE_VENV}/bin/pip" install -r "${ROOT}/scripts/python/requirements-depth.txt"; then
+      echo "Depth V2 (torch) не установился — parallax-only режим" >&2
+      need_parallax=1
+    fi
+  fi
+  if [[ "$need_parallax" -eq 1 ]]; then
+    echo "Python .venv: pip install parallax bake…" >&2
+    "${NATIVE_VENV}/bin/pip" install -q --upgrade pip
+    "${NATIVE_VENV}/bin/pip" install -r "${ROOT}/scripts/python/requirements-parallax.txt"
   fi
 }
 
