@@ -3588,6 +3588,35 @@ const setMessageDisplayInJson = (messageIndex, display) => {
   jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
+const setAllMessagesDisplayInJson = (display) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.length) {
+    return;
+  }
+  const value = display === "bubble" ? "bubble" : "center";
+  for (const message of parsed.messages) {
+    if (value === "center") {
+      delete message.display;
+    } else {
+      message.display = value;
+    }
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const getConversationDisplayMode = (conversation) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  if (messages.length === 0) {
+    return "center";
+  }
+  const hasCenter = messages.some((message) => getMessageDisplay(message) === "center");
+  const hasBubble = messages.some((message) => getMessageDisplay(message) === "bubble");
+  if (hasCenter && hasBubble) {
+    return "mixed";
+  }
+  return hasBubble ? "bubble" : "center";
+};
+
 const syncSceneCaption = (messageIndex, text) => {
   const caption = dialogueEditor.querySelector(
     `[data-scene-caption-index="${messageIndex}"]`,
@@ -5106,7 +5135,37 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
 
   const header = document.createElement("div");
   header.className = "dialogue-editor__header";
-  header.innerHTML = `<strong>${conversation.contactName ?? "Контакт"}</strong> · ${conversation.messages.length} сообщений`;
+  const title = document.createElement("strong");
+  title.textContent = `${conversation.contactName ?? "Контакт"} · ${conversation.messages.length} сообщений`;
+  header.append(title);
+
+  const globalDisplayMode = getConversationDisplayMode(conversation);
+  const globalDisplayWrap = document.createElement("div");
+  globalDisplayWrap.className = "dialogue-block__display-toggle";
+  globalDisplayWrap.setAttribute("role", "group");
+  globalDisplayWrap.setAttribute("aria-label", "Тип отображения для всех реплик");
+  globalDisplayWrap.title =
+    globalDisplayMode === "mixed"
+      ? "Сейчас смешанный режим. Выберите вариант для всех сообщений."
+      : "Применить тип отображения ко всем сообщениям";
+
+  for (const {value, label} of [
+    {value: "center", label: "Все: По центру"},
+    {value: "bubble", label: "Все: Пузырь"},
+  ]) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `dialogue-block__display-btn${
+      globalDisplayMode === value ? " dialogue-block__display-btn--active" : ""
+    }`;
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      setAllMessagesDisplayInJson(value);
+      refreshDialogue();
+    });
+    globalDisplayWrap.append(btn);
+  }
+  header.append(globalDisplayWrap);
   dialogueEditor.append(header);
   if (dialogueCanvasTitle) {
     dialogueCanvasTitle.textContent = conversation.contactName
