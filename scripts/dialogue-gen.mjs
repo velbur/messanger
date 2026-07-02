@@ -763,6 +763,7 @@ const buildUserPrompt = async ({
   messageCount = null,
   language = "ru",
   mode = "shorts",
+  singleSpeaker = false,
 }) => {
   const parts = [
     mode === "series"
@@ -781,6 +782,21 @@ const buildUserPrompt = async ({
     language === "en"
       ? "Keep the dialogue logically consistent from first message to finale."
       : "Держи логическую состоятельность переписки от первого сообщения до финала.",
+    singleSpeaker
+      ? language === "en"
+        ? [
+            "Single-speaker mode is mandatory.",
+            "- All messages are authored by one person only (author: 'me').",
+            "- Write as first-person narration/updates, not as a back-and-forth chat.",
+            "- No direct replies from another person, no Q/A exchange, no imitation of someone else's lines.",
+          ].join("\n")
+        : [
+            "Режим одного рассказчика обязателен.",
+            "- Все сообщения только от одного автора (author: 'me').",
+            "- Пиши как повествование/заметки от первого лица, а не обмен репликами.",
+            "- Нельзя имитировать ответы собеседника, формат вопрос-ответ и диалог «я — он/она».",
+          ].join("\n")
+      : "",
   ].filter(Boolean);
 
   if (mode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0) {
@@ -827,6 +843,7 @@ const buildShortsExpandUserPrompt = ({
   imageCount = null,
   messageCount = null,
   language = "ru",
+  singleSpeaker = false,
 }) => {
   const draft = displayTitle ? {displayTitle, ...conversation} : conversation;
   if (language === "en") {
@@ -841,6 +858,14 @@ const buildShortsExpandUserPrompt = ({
       messageCountUserHint(messageCount, language),
       "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian.",
       "Keep the dialogue logically consistent from first message to finale.",
+      singleSpeaker
+        ? [
+            "Single-speaker mode is mandatory.",
+            "- Keep only one speaker (author: 'me') across all messages.",
+            "- Rewrite any back-and-forth into first-person narration updates.",
+            "- Remove implied second-person responses/Q&A structure.",
+          ].join("\n")
+        : "",
       imageCountUserHint(imageCount, language),
       "",
       "Draft:",
@@ -862,6 +887,14 @@ const buildShortsExpandUserPrompt = ({
     messageCountUserHint(messageCount, language),
     "Пиши переписку на русском.",
     "Держи логическую состоятельность переписки от первого сообщения до финала.",
+    singleSpeaker
+      ? [
+          "Режим одного рассказчика обязателен.",
+          "- Во всех сообщениях оставь только одного автора (author: 'me').",
+          "- Любой обмен репликами перепиши в повествование от первого лица.",
+          "- Убери структуру «мне ответили тут же», вопросы-ответы и диалоговый пинг-понг.",
+        ].join("\n")
+      : "",
     imageCountUserHint(imageCount, language),
     "",
     "Черновик:",
@@ -1257,6 +1290,7 @@ const expandShortsDialogue = async ({
   system,
   completeJson,
   maxAttempts,
+  singleSpeaker = false,
 }) => {
   const user = buildShortsExpandUserPrompt({
     prompt,
@@ -1265,6 +1299,7 @@ const expandShortsDialogue = async ({
     imageCount,
     messageCount,
     language,
+    singleSpeaker,
   });
   return runChatJsonGeneration({
     maxAttempts,
@@ -1362,6 +1397,7 @@ export const generateDialogue = async ({
     messageCount: gen.messageCount,
     language: gen.language,
     mode: normalizedMode,
+    singleSpeaker: enforceSingleSpeaker,
   });
 
   const result = await runChatJsonGeneration({
@@ -1403,6 +1439,7 @@ export const generateDialogue = async ({
         system,
         completeJson: llm.completeJson,
         maxAttempts,
+        singleSpeaker: enforceSingleSpeaker,
       });
       const expandedCount = expanded.conversation?.messages?.length ?? 0;
       if (expandedCount > draftCount) {
