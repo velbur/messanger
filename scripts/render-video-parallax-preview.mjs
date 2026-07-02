@@ -81,12 +81,10 @@ export const renderVideoParallaxPreview = async ({
       videoRef: videoRel,
       frames: parallaxFrames,
     });
-    if (depthResult.fallback) {
-      onStatus("Parallax bake недоступен — Ken Burns fallback");
-    } else if (depthResult.skipped) {
+    if (depthResult.skipped) {
       onStatus(`Parallax: кэш OK (hold → ${depthResult.relative})`);
     } else {
-      onStatus(`Parallax: запечён с hold-кадра (${depthResult.provider ?? "xenova"})`);
+      onStatus(`Parallax: запечён с hold-кадра (${depthResult.provider ?? "depth"})`);
     }
   }
 

@@ -79,6 +79,21 @@ export const isParallaxBakeAvailable = async () => {
   }
 };
 
+const parallaxBakeUnavailableMessage = () =>
+  [
+    "Parallax bake недоступен: нужны Python 3, opencv и scripts/python/parallax_bake.py.",
+    "Mac: ./run.sh setup-native && ./run.sh worker-native",
+    "Linux + NVIDIA: WORKER_GPU=1 ./run.sh worker --build",
+    "Проверка: npm run depth:probe",
+  ].join(" ");
+
+/** Без fallback — либо depth-parallax, либо явная ошибка. */
+export const assertParallaxBakeAvailable = async () => {
+  if (!(await isParallaxBakeAvailable())) {
+    throw new Error(parallaxBakeUnavailableMessage());
+  }
+};
+
 /**
  * @param {Array<{
  *   image: string,

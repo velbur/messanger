@@ -176,25 +176,20 @@ const bakeHoldParallaxAfterVideo = async (conversation, target, videoRef, logs, 
   if (!isVideoParallaxConversation(conversation)) {
     return;
   }
-  try {
-    const lookup = buildStorySceneSeconds(conversation);
-    const sceneSec = sceneSecondsForTarget(lookup, target);
-    const videoMs = Number(target.holder?.storyVideoDurationMs) || 4000;
-    const sceneDurationFrames = sceneSec
-      ? Math.max(45, Math.round(sceneSec * FPS))
-      : storyVideoForwardDurationFrames(videoMs, FPS) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
-    const frames = videoParallaxPhaseFrames(videoMs, sceneDurationFrames, FPS);
-    const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force, frames});
-    if (result.skipped) {
-      logs.push(`Parallax (hold): кэш OK → ${result.relative}`);
-    } else if (result.fallback) {
-      logs.push(`Parallax (hold): Ken Burns fallback → ${result.relative}`);
-    } else {
-      logs.push(`Parallax (hold): запечён с последнего кадра Veo → ${result.relative}`);
-    }
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    logs.push(`Parallax (hold): ошибка для ${target.image}: ${reason}`);
+  const lookup = buildStorySceneSeconds(conversation);
+  const sceneSec = sceneSecondsForTarget(lookup, target);
+  const videoMs = Number(target.holder?.storyVideoDurationMs) || 4000;
+  const sceneDurationFrames = sceneSec
+    ? Math.max(45, Math.round(sceneSec * FPS))
+    : storyVideoForwardDurationFrames(videoMs, FPS) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
+  const frames = videoParallaxPhaseFrames(videoMs, sceneDurationFrames, FPS);
+  const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force, frames});
+  if (result.skipped) {
+    logs.push(`Parallax (hold): кэш OK → ${result.relative}`);
+  } else {
+    logs.push(
+      `Parallax (hold): запечён с последнего кадра Veo (${result.provider ?? "depth"}) → ${result.relative}`,
+    );
   }
 };
 
@@ -476,17 +471,12 @@ export const ensureVideoParallaxHoldsForConversation = async (conversation, {for
       continue;
     }
 
-    try {
-      const {absolute} = safePublicPath(videoRef);
-      if (!existsSync(absolute)) {
-        continue;
-      }
-      await ensureStoryVideoHoldFrameFile(videoRef, logs);
-      await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs, {force});
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      logs.push(`Parallax (hold): ошибка для ${target.image}: ${reason}`);
+    const {absolute} = safePublicPath(videoRef);
+    if (!existsSync(absolute)) {
+      continue;
     }
+    await ensureStoryVideoHoldFrameFile(videoRef, logs);
+    await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs, {force});
   }
 
   return logs;
