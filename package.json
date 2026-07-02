@@ -19,6 +19,7 @@
     "story-frames:clear": "node --import tsx scripts/clear-story-frames.mjs",
     "story-frames:regenerate": "node --import tsx scripts/regenerate-story-frames.mjs",
     "render:clean": "npm run bundle:clear && npm run depth:clear",
+    "logs:tail": "tail -n 100 logs/ui.log logs/worker.log 2>/dev/null; echo '--- jobs ---'; ls -lt logs/jobs 2>/dev/null | head -5",
     "lint": "tsc --noEmit",
     "verify-render": "node scripts/verify-render.mjs",
     "music:sync": "node scripts/download-music-library.mjs",

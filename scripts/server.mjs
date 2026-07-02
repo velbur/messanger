@@ -113,6 +113,13 @@ import {
 import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
+import {
+  initSessionLog,
+  jobLog,
+  jobLogHeader,
+  mirrorRemoteJobLogs,
+  sessionLog,
+} from "./session-log.mjs";
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
@@ -234,6 +241,7 @@ const jobSetPhase = (job, phase) => {
   job.phase = next;
   if (next) {
     traceJobConsole(job, next);
+    void jobLog(job, `[phase] ${next}`);
   }
 };
 
@@ -244,6 +252,7 @@ const jobPushLog = (job, message) => {
   }
   job.logs.push(line);
   traceJobConsole(job, line);
+  void jobLog(job, line);
 };
 
 const jobPushLogs = (job, lines) => {
@@ -263,7 +272,9 @@ const jobSetProgress = (job, progress) => {
   if (bucket > 0 && bucket !== job._workerProgressBucket) {
     job._workerProgressBucket = bucket;
     const phaseSuffix = job.phase ? ` — ${job.phase}` : "";
-    traceJobConsole(job, `${pct}%${phaseSuffix}`);
+    const progressLine = `${pct}%${phaseSuffix}`;
+    traceJobConsole(job, progressLine);
+    void jobLog(job, `[progress] ${progressLine}`);
   }
 };
 
@@ -2218,6 +2229,7 @@ const createRenderJobShell = ({
 
   jobs.set(jobId, job);
   pruneFinishedJobs();
+  void jobLogHeader(job);
   traceJobConsole(job, `Новая задача → out/${outputFile}`);
   if (job.phase) {
     traceJobConsole(job, job.phase);
@@ -2248,6 +2260,7 @@ const runRenderPreparation = async (
     jobPushLog(job, message);
     job.phase = null;
     traceJobConsole(job, `Ошибка: ${message}`);
+    void sessionLog(`[job ${job.id} ERROR] ${message}`);
   };
 
   try {
@@ -2744,6 +2757,12 @@ app.get("/api/jobs/:id", async (req, res) => {
         res.status(resp.status).json(data);
         return;
       }
+      await mirrorRemoteJobLogs(job, data);
+      const workerLogs = Array.isArray(data.logs) ? data.logs : [];
+      const mergedLogs =
+        workerLogs.length > 0
+          ? [...job.logs, ...workerLogs.map((line) => `[воркер] ${line}`)]
+          : job.logs;
       if (data.status === "done") {
         job.status = "done";
         job.finishedAt = job.finishedAt ?? Date.now();
@@ -2789,7 +2808,7 @@ app.get("/api/jobs/:id", async (req, res) => {
         finishedAt: job.finishedAt ?? null,
         localCopyStatus: job.localCopyStatus ?? null,
         renderCommand: job.renderCommand,
-        logs: job.logs,
+        logs: mergedLogs,
       });
     } catch (error) {
       res.status(502).json({
@@ -2997,6 +3016,7 @@ const formatZodError = (error) =>
 await mkdir(JSON_DIR, {recursive: true});
 await mkdir(OUT_DIR, {recursive: true});
 await mkdir(IMAGES_DIR, {recursive: true});
+const {sessionPath, logDir, jobsDir} = initSessionLog({worker: IS_RENDER_WORKER});
 await initDialogueDb();
 await loadOpenRouterEnv();
 await syncAudioToPublic();
@@ -3030,10 +3050,13 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`JSON → ${JSON_DIR}`);
   console.log(`MP4  → ${OUT_DIR}`);
   console.log(`БД   → data/dialogues.db`);
+  console.log(`LOG  → ${sessionPath}`);
+  console.log(`LOG jobs → ${jobsDir}`);
 });
 
 const shutdown = (signal) => {
   console.log(`\n${signal}: завершение…`);
+  void sessionLog(`--- ${IS_RENDER_WORKER ? "worker" : "ui"} shutdown ${signal}`);
   server.close(() => {
     process.exit(0);
   });

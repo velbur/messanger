@@ -5,6 +5,7 @@ data/
 !src/chat/data/
 !src/chat/data/**
 out/
+logs/
 .DS_Store
 .env
 docs/.env
