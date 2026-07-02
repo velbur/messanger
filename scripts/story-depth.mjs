@@ -34,7 +34,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 43;
+export const DEPTH_LAYER_VERSION = 44;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.128;
@@ -357,6 +357,7 @@ const bakeFallbackAsset = async ({
     panX: pan.panX,
     panY: pan.panY,
     motion: PARALLAX_MOTION,
+    holdHandoff,
   });
 
   // Плоская depth-заглушка, чтобы isStoryDepthAvailable/verify не падали

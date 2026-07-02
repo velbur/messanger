@@ -478,7 +478,9 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
         ) : null}
 
         {music.enabled ? (
-          <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
+          <Sequence from={0} layout="none">
+            <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
+          </Sequence>
         ) : null}
 
         {intro.enabled ? (

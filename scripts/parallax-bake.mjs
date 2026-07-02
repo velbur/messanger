@@ -159,7 +159,10 @@ export const bakeKenBurnsLoopFallback = async (job) => {
   const panX = job.panX ?? 1;
   const panY = job.panY ?? -1;
   const motion = job.motion ?? "linear";
+  const holdHandoff = job.holdHandoff === true;
   const progressAt = motion === "loop" ? pingPong : sceneSweep;
+  const zoomBase = holdHandoff ? 1 : 1.05;
+  const zoomRange = holdHandoff ? 0.1 : 0.08;
 
   await mkdir(path.dirname(outVideo), {recursive: true});
   const ffmpeg = process.env.FFMPEG_BIN ?? "ffmpeg";
@@ -179,7 +182,7 @@ export const bakeKenBurnsLoopFallback = async (job) => {
   const base = sharp(image).removeAlpha().extract({left: 0, top: 0, width: W, height: H});
   for (let i = 0; i < frames; i += 1) {
     const p = progressAt(i, frames);
-    const zoom = 1.05 + 0.08 * p;
+    const zoom = zoomBase + zoomRange * p;
     const sw = Math.max(W + 2, Math.round(W * zoom));
     const sh = Math.max(H + 2, Math.round(H * zoom));
     const maxLeft = sw - W;

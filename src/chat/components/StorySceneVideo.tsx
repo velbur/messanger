@@ -14,7 +14,6 @@ import {
   storyVideoForwardDurationFrames,
   storyVideoParallaxHandoffFrame,
   storyVideoParallaxPhaseFrames,
-  STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES,
   storyVideoSceneMotion,
   storyVideoSourceFrameAtPlayFrame,
   storyVideoSourceFrameCount,
@@ -36,6 +35,8 @@ type Props = {
 
 /** Ken Burns hold: плавный crossfade с замершего Veo */
 const HOLD_CROSSFADE_FRAMES = 12;
+/** depthParallax: короткий crossfade Veo → hold-parallax */
+const HOLD_PARALLAX_CROSSFADE_FRAMES = 6;
 
 const baseCoverStyle: React.CSSProperties = {
   width: "100%",
@@ -55,7 +56,6 @@ const withMotionStyle = (
 
 export const StorySceneVideo: React.FC<Props> = ({
   video,
-  image,
   videoDurationMs,
   sceneStartFrame,
   sceneDurationFrames,
@@ -73,12 +73,12 @@ export const StorySceneVideo: React.FC<Props> = ({
     : playFrames;
   const holdFrame = storyVideoHoldFramePathForVideo(video);
   const crossfadeStart = Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
-  const showVideo = localFrame < handoffFrame;
+  const parallaxFadeEnd = handoffFrame + HOLD_PARALLAX_CROSSFADE_FRAMES;
+  const showVideo = isDepthParallax ? localFrame < parallaxFadeEnd : localFrame < handoffFrame;
 
   const motion = storyVideoSceneMotion(video, localFrame);
   const videoStyle = isDepthParallax ? baseCoverStyle : withMotionStyle(motion, 1);
 
-  /** depthParallax: резкий переход (без ghosting). Ken Burns hold: crossfade. */
   const holdOpacity = isDepthParallax
     ? localFrame >= playFrames
       ? 1
@@ -94,7 +94,9 @@ export const StorySceneVideo: React.FC<Props> = ({
         : 1;
 
   const sourceFrame = isDepthParallax
-    ? storyVideoSourceFrameAtPlayFrame(localFrame, Math.max(1, handoffFrame), lastSourceFrame)
+    ? localFrame >= handoffFrame
+      ? lastSourceFrame
+      : storyVideoSourceFrameAtPlayFrame(localFrame, Math.max(1, handoffFrame), lastSourceFrame)
     : localFrame >= crossfadeStart
       ? lastSourceFrame
       : storyVideoSourceFrameAtPlayFrame(
@@ -106,6 +108,16 @@ export const StorySceneVideo: React.FC<Props> = ({
   const parallaxPhaseFrames = isDepthParallax
     ? storyVideoParallaxPhaseFrames(videoDurationMs, sceneDurationFrames, fps)
     : Math.max(1, sceneDurationFrames - crossfadeStart);
+
+  const parallaxLayerOpacity = isDepthParallax
+    ? localFrame < handoffFrame
+      ? 0
+      : interpolate(localFrame, [handoffFrame, parallaxFadeEnd], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+          easing: Easing.out(Easing.quad),
+        })
+    : 1;
 
   const particleIntensity = isDepthParallax
     ? localFrame < handoffFrame
@@ -137,19 +149,19 @@ export const StorySceneVideo: React.FC<Props> = ({
         ) : null}
         {isDepthParallax ? (
           <>
-            {localFrame >= handoffFrame && (image?.trim() || holdFrame) ? (
+            {localFrame >= handoffFrame ? (
               <Img
-                src={staticFile(image?.trim() || holdFrame)}
+                src={staticFile(holdFrame)}
                 style={{...baseCoverStyle, position: "absolute", inset: 0, zIndex: 0}}
               />
             ) : null}
-            <AbsoluteFill style={{zIndex: 1}}>
+            <AbsoluteFill style={{zIndex: 1, opacity: parallaxLayerOpacity}}>
               <DepthDisplacementImage
                 image={holdFrame}
                 parallaxVideo={storyParallaxVideoPathForVideo(video)}
                 sceneStartFrame={sceneStartFrame + handoffFrame}
                 durationFrames={parallaxPhaseFrames}
-                premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
+                premountFor={0}
               />
             </AbsoluteFill>
           </>

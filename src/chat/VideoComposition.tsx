@@ -166,7 +166,9 @@ export const VideoComposition: React.FC<Props> = ({conversation}) => {
           </div>
 
           {music.enabled ? (
-            <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
+            <Sequence from={0} layout="none">
+              <Audio src={staticFile(music.src)} volume={musicVolumeAtFrame} loop />
+            </Sequence>
           ) : null}
 
           {intro.enabled ? (
