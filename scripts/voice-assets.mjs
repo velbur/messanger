@@ -186,6 +186,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   }
   conversation.voiceover = {...mergeConversationVoiceover(conversation), provider: "openrouter"};
   const activeVoiceover = mergeConversationVoiceover(conversation);
+  const openRouterVoices = getOpenRouterTtsVoices();
 
   const pendingCount = (conversation.messages ?? []).filter((message) =>
     needsVoiceGeneration(message, activeVoiceover, openRouterVoices),
@@ -200,7 +201,6 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   }
 
   const namespace = normalizeAudioNamespace(audioNamespace);
-  const openRouterVoices = getOpenRouterTtsVoices();
 
   try {
     const {filled, attempted} = await ensureConversationEmotions(conversation);
