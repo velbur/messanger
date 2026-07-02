@@ -137,19 +137,21 @@ export const StorySceneVideo: React.FC<Props> = ({
         ) : null}
         {isDepthParallax ? (
           <>
-            {(image?.trim() || holdFrame) ? (
+            {localFrame >= handoffFrame && (image?.trim() || holdFrame) ? (
               <Img
                 src={staticFile(image?.trim() || holdFrame)}
                 style={{...baseCoverStyle, position: "absolute", inset: 0, zIndex: 0}}
               />
             ) : null}
-            <DepthDisplacementImage
-              image={holdFrame}
-              parallaxVideo={storyParallaxVideoPathForVideo(video)}
-              sceneStartFrame={sceneStartFrame + handoffFrame}
-              durationFrames={parallaxPhaseFrames}
-              premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
-            />
+            <AbsoluteFill style={{zIndex: 1}}>
+              <DepthDisplacementImage
+                image={holdFrame}
+                parallaxVideo={storyParallaxVideoPathForVideo(video)}
+                sceneStartFrame={sceneStartFrame + handoffFrame}
+                durationFrames={parallaxPhaseFrames}
+                premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
+              />
+            </AbsoluteFill>
           </>
         ) : (
           <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
