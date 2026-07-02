@@ -4,7 +4,7 @@ import {parseConversation} from "../src/chat/schema.ts";
 import {mergeStoryConfig, needsStoryDepthLayers, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
-import {generateMissingStoryVideos, resolveStoryVideos} from "./story-video.mjs";
+import {generateMissingStoryVideos, resolveStoryVideos, ensureVideoParallaxHoldsForConversation} from "./story-video.mjs";
 import {ensureStoryDepthForConversation} from "./story-depth.mjs";
 import {stripStorySfxFromConversation} from "./story-sfx.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
@@ -34,12 +34,6 @@ const run = async () => {
   if (isStoryVisualLayout(conversation)) {
     stripStorySfxFromConversation(conversation);
     normalizeStoryVideoLoopFlags(conversation);
-    if (needsStoryDepthLayers(conversation)) {
-      const depthLogs = await ensureStoryDepthForConversation(conversation);
-      for (const line of depthLogs) {
-        console.log(line);
-      }
-    }
     if (isOpenRouterConfigured() && shouldGenerateStoryVideos(conversation)) {
       await generateMissingStoryVideos(conversation, {
         publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),
@@ -48,6 +42,18 @@ const run = async () => {
     await resolveStoryVideos(conversation, {
       failOnMissingVideos: shouldGenerateStoryVideos(conversation),
     });
+    if (needsStoryDepthLayers(conversation)) {
+      const depthLogs = await ensureStoryDepthForConversation(conversation);
+      for (const line of depthLogs) {
+        console.log(line);
+      }
+    }
+    if (mergeStoryConfig(conversation).opening.animation === "video-parallax") {
+      const holdLogs = await ensureVideoParallaxHoldsForConversation(conversation);
+      for (const line of holdLogs) {
+        console.log(line);
+      }
+    }
     await assignStoryMusicIfNeeded(conversation, {musicId: "auto"});
   }
   assertVoiceoverReadyForRender(conversation);

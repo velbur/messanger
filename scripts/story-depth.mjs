@@ -4,6 +4,8 @@ import sharp from "sharp";
 import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
+import {mergeStoryConfig} from "../src/chat/story.ts";
+import {existsSync} from "node:fs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 import {
   storyVideoHoldFramePathForVideo,
@@ -512,6 +514,48 @@ export const ensureVideoParallaxHoldDepth = async (
   });
 };
 
+const storyImagesWithVideoHybrid = (conversation) => {
+  const set = new Set();
+  if (mergeStoryConfig(conversation).opening.animation !== "video-parallax") {
+    return set;
+  }
+
+  const addIfVideo = (image, holder) => {
+    const imagePath = String(image ?? "").trim().replace(/^\/+/, "");
+    if (!imagePath) {
+      return;
+    }
+    const videoRef = String(holder?.storyVideo ?? "").trim();
+    if (videoRef) {
+      try {
+        const {absolute} = safePublicAbs(videoRef);
+        if (existsSync(absolute)) {
+          set.add(imagePath);
+          return;
+        }
+      } catch {
+        /* try default path */
+      }
+    }
+    try {
+      const candidate = storyVideoPathForImage(imagePath);
+      const {absolute} = safePublicAbs(candidate);
+      if (existsSync(absolute)) {
+        set.add(imagePath);
+      }
+    } catch {
+      /* skip */
+    }
+  };
+
+  addIfVideo(conversation?.story?.opening?.image, conversation?.story?.opening);
+  for (const message of conversation?.messages ?? []) {
+    addIfVideo(message?.storyImage, message);
+  }
+
+  return set;
+};
+
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {
   if (!isStoryVisualLayout(conversation)) {
     return [];
@@ -523,7 +567,8 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
 
   const logs = [];
   const bakePlanByImage = storyParallaxBakePlanByImage(conversation);
-  const targets = [...bakePlanByImage.keys()];
+  const skipPngParallax = storyImagesWithVideoHybrid(conversation);
+  const targets = [...bakePlanByImage.keys()].filter((imagePath) => !skipPngParallax.has(imagePath));
 
   const pending = [];
   for (const imagePath of targets) {

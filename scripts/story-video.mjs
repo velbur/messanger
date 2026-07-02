@@ -20,8 +20,8 @@ import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 import {ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
 import {buildTimeline} from "../src/chat/timeline.ts";
 import {FPS} from "../src/chat/fps.ts";
-import {VIDEO_PARALLAX_EXTRA_SEC} from "./render-video-parallax-preview.mjs";
-import {STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES} from "../src/chat/story-motion.ts";
+import {videoParallaxPhaseFrames, VIDEO_PARALLAX_EXTRA_SEC} from "./render-video-parallax-preview.mjs";
+import {storyVideoForwardDurationFrames} from "../src/chat/story-motion.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -180,8 +180,10 @@ const bakeHoldParallaxAfterVideo = async (conversation, target, videoRef, logs, 
     const lookup = buildStorySceneSeconds(conversation);
     const sceneSec = sceneSecondsForTarget(lookup, target);
     const videoMs = Number(target.holder?.storyVideoDurationMs) || 4000;
-    const parallaxSec = Math.max(1, (sceneSec ?? VIDEO_PARALLAX_EXTRA_SEC) - videoMs / 1000);
-    const frames = Math.max(45, Math.round(parallaxSec * FPS) + STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
+    const sceneDurationFrames = sceneSec
+      ? Math.max(45, Math.round(sceneSec * FPS))
+      : storyVideoForwardDurationFrames(videoMs, FPS) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
+    const frames = videoParallaxPhaseFrames(videoMs, sceneDurationFrames, FPS);
     const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force, frames});
     if (result.skipped) {
       logs.push(`Parallax (hold): кэш OK → ${result.relative}`);
@@ -409,6 +411,82 @@ export const generateMissingStoryVideos = async (
 
   if (generated === 0 && logs.length === 0) {
     logs.push("Все story-кадры уже анимированы");
+  }
+
+  return logs;
+};
+
+/** Story-PNG, для которых в режиме video-parallax уже есть Veo — parallax печётся с hold-кадра, не с PNG. */
+export const storyImagesWithVideoHybrid = (conversation) => {
+  const set = new Set();
+  if (!isVideoParallaxConversation(conversation)) {
+    return set;
+  }
+
+  for (const target of collectStoryVideoTargets(conversation)) {
+    const imagePath = target.image.replace(/^\/+/, "");
+    const existingVideo = String(target.holder?.storyVideo ?? "").trim();
+    if (existingVideo) {
+      try {
+        const {absolute} = safePublicPath(existingVideo);
+        if (existsSync(absolute)) {
+          set.add(imagePath);
+          continue;
+        }
+      } catch {
+        /* try default path */
+      }
+    }
+
+    const candidate = storyVideoPathForImage(target.image);
+    try {
+      const {absolute} = safePublicPath(candidate);
+      if (existsSync(absolute)) {
+        set.add(imagePath);
+      }
+    } catch {
+      /* skip */
+    }
+  }
+
+  return set;
+};
+
+/** Гарантирует hold-frame + `.video-hold.parallax.mp4` для всех Veo-сцен (как в test:video-parallax). */
+export const ensureVideoParallaxHoldsForConversation = async (conversation, {force = false} = {}) => {
+  const logs = [];
+  if (!isVideoParallaxConversation(conversation)) {
+    return logs;
+  }
+
+  for (const target of collectStoryVideoTargets(conversation)) {
+    let videoRef = String(target.holder?.storyVideo ?? "").trim();
+    if (!videoRef) {
+      const candidate = storyVideoPathForImage(target.image);
+      try {
+        const {absolute} = safePublicPath(candidate);
+        if (existsSync(absolute)) {
+          videoRef = candidate;
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (!videoRef) {
+      continue;
+    }
+
+    try {
+      const {absolute} = safePublicPath(videoRef);
+      if (!existsSync(absolute)) {
+        continue;
+      }
+      await ensureStoryVideoHoldFrameFile(videoRef, logs);
+      await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs, {force});
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      logs.push(`Parallax (hold): ошибка для ${target.image}: ${reason}`);
+    }
   }
 
   return logs;

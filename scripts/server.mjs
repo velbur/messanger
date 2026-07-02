@@ -92,6 +92,7 @@ import {
   countPendingStoryVideos,
   generateMissingStoryVideos,
   resolveStoryVideos,
+  ensureVideoParallaxHoldsForConversation,
 } from "./story-video.mjs";
 import {
   stripStorySfxFromConversation,
@@ -2200,13 +2201,42 @@ const runRenderPreparation = async (
       job.logs.push(...voiceGenLogs);
     }
 
+    let skippedStoryVideoGeneration = false;
+
     if (isStoryVisual) {
-      if (needsStoryDepthLayers(conversation)) {
-        job.phase = "Depth-слои для parallax…";
-        job.progress = 0.11;
-        const depthLogs = await ensureStoryDepthForConversation(conversation);
-        if (depthLogs.length > 0) {
-          job.logs.push(...depthLogs);
+      const pendingStoryVideosNow = countPendingStoryVideos(conversation);
+
+      if (pendingStoryVideosNow > 0) {
+        if (!isOpenRouterConfigured()) {
+          skippedStoryVideoGeneration = true;
+          job.logs.push(
+            "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
+          );
+        } else {
+          const total = pendingStoryVideosNow;
+          job.phase = `Анимация story-кадров (0/${total})…`;
+          job.progress = 0.11;
+
+          const storyVideoLogs = await generateMissingStoryVideos(conversation, {
+            publicBaseUrl,
+            isCancelled: () => job.prepCancelled,
+            onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
+              const safeTotal = Math.max(clipTotal, 1);
+              if (stage === "polling") {
+                job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
+                job.progress = 0.11 + (done / safeTotal) * 0.39;
+                return;
+              }
+              if (stage === "generating") {
+                job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
+                job.progress = 0.11 + (done / safeTotal) * 0.39;
+                return;
+              }
+              job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
+              job.progress = 0.11 + (done / safeTotal) * 0.39;
+            },
+          });
+          job.logs.push(...storyVideoLogs);
         }
       }
 
@@ -2216,42 +2246,21 @@ const runRenderPreparation = async (
       if (linkedStoryVideoLogs.length > 0) {
         job.logs.push(...linkedStoryVideoLogs);
       }
-    }
 
-    const pendingStoryVideosNow = isStoryVisual ? countPendingStoryVideos(conversation) : 0;
+      if (needsStoryDepthLayers(conversation)) {
+        job.phase = "Depth-слои для parallax…";
+        job.progress = 0.5;
+        const depthLogs = await ensureStoryDepthForConversation(conversation);
+        if (depthLogs.length > 0) {
+          job.logs.push(...depthLogs);
+        }
+      }
 
-    let skippedStoryVideoGeneration = false;
-    if (isStoryVisual && pendingStoryVideosNow > 0) {
-      if (!isOpenRouterConfigured()) {
-        skippedStoryVideoGeneration = true;
-        job.logs.push(
-          "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
-        );
-      } else {
-        const total = pendingStoryVideosNow;
-        job.phase = `Анимация story-кадров (0/${total})…`;
-        job.progress = 0.12;
-
-        const storyVideoLogs = await generateMissingStoryVideos(conversation, {
-          publicBaseUrl,
-          isCancelled: () => job.prepCancelled,
-          onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
-            const safeTotal = Math.max(clipTotal, 1);
-            if (stage === "polling") {
-              job.phase = `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`;
-              job.progress = 0.12 + (done / safeTotal) * 0.38;
-              return;
-            }
-            if (stage === "generating") {
-              job.phase = `Анимация story-кадров (${done}/${safeTotal}): ${label}…`;
-              job.progress = 0.12 + (done / safeTotal) * 0.38;
-              return;
-            }
-            job.phase = `Анимация story-кадров (${done}/${safeTotal})…`;
-            job.progress = 0.12 + (done / safeTotal) * 0.38;
-          },
-        });
-        job.logs.push(...storyVideoLogs);
+      if (mergeStoryConfig(conversation).opening.animation === "video-parallax") {
+        const holdLogs = await ensureVideoParallaxHoldsForConversation(conversation);
+        if (holdLogs.length > 0) {
+          job.logs.push(...holdLogs);
+        }
       }
     }
 
