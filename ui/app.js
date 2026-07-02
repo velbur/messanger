@@ -2559,7 +2559,7 @@ const syncVoiceoverFromJson = () => {
   if (voiceoverPromptBlock) {
     voiceoverPromptBlock.hidden = !voiceover.enabled;
   }
-  if (voiceoverTtsPromptInput) {
+  if (voiceoverTtsPromptInput && document.activeElement !== voiceoverTtsPromptInput) {
     voiceoverTtsPromptInput.value = String(voiceover.ttsPrompt ?? "");
   }
 };
@@ -6750,7 +6750,6 @@ voiceoverTtsPromptInput?.addEventListener("input", () => {
     applyVoiceoverToJson();
     clearVoiceAudioForRevoice();
     updateVoiceoverControls();
-    scheduleRefreshDialogue();
   }, 400);
 });
 voiceoverTtsPromptInput?.addEventListener("blur", () => {
@@ -6761,7 +6760,6 @@ voiceoverTtsPromptInput?.addEventListener("blur", () => {
   applyVoiceoverToJson();
   clearVoiceAudioForRevoice();
   updateVoiceoverControls();
-  scheduleRefreshDialogue();
 });
 
 btnPreviewMeVoice?.addEventListener("click", () => {
