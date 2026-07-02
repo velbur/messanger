@@ -16,6 +16,8 @@
     "bundle:clear": "node scripts/clear-bundle-cache.mjs",
     "depth:clear": "node scripts/clear-story-depth-cache.mjs",
     "story-video:clear": "node --import tsx scripts/clear-story-videos.mjs",
+    "story-frames:clear": "node --import tsx scripts/clear-story-frames.mjs",
+    "story-frames:regenerate": "node --import tsx scripts/regenerate-story-frames.mjs",
     "render:clean": "npm run bundle:clear && npm run depth:clear",
     "lint": "tsc --noEmit",
     "verify-render": "node scripts/verify-render.mjs",
