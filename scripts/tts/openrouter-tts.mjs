@@ -11,13 +11,28 @@ const RUSSIAN_STYLE_PROMPT =
 
 const CHAT_SPEECH_SPEED = 1.04;
 
-/** Базовый стиль + настроение реплики (интонация, не смена диктора) */
-const buildSpeechPrompt = (emotion) => {
+const MAX_CONTEXT_CHARS = 700;
+
+const normalizeContext = (context) =>
+  String(context ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_CONTEXT_CHARS);
+
+/** Базовый стиль + сюжетный контекст + настроение реплики */
+const buildSpeechPrompt = (emotion, context) => {
   const tone = String(emotion ?? "").replace(/\s+/g, " ").trim();
-  if (!tone) {
+  const scene = normalizeContext(context);
+  if (!tone && !scene) {
     return RUSSIAN_STYLE_PROMPT;
   }
-  return `${RUSSIAN_STYLE_PROMPT} Настроение реплики (только интонация и темп, не тембр): ${tone}.`;
+  return [
+    RUSSIAN_STYLE_PROMPT,
+    scene ? `Контекст сцены (не читать как текст, только для актёрской подачи): ${scene}.` : "",
+    tone ? `Настроение реплики (только интонация и темп, не тембр): ${tone}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 };
 
 const writePcmWav = async (outputPath, pcm, sampleRate) => {
@@ -46,9 +61,10 @@ const writePcmWav = async (outputPath, pcm, sampleRate) => {
  *   outputPath: string,
  *   model?: string,
  *   emotion?: string,
+ *   context?: string,
  * }} opts
  */
-export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model, emotion}) => {
+export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model, emotion, context}) => {
   const spoken = textForSpeech(text);
   if (!spoken) {
     throw new Error("Пустой текст для озвучки");
@@ -63,7 +79,7 @@ export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model
     voice,
     model: resolvedModel,
     responseFormat,
-    prompt: isGemini ? buildSpeechPrompt(emotion) : undefined,
+    prompt: isGemini ? buildSpeechPrompt(emotion, context) : undefined,
     speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
   });
 
