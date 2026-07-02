@@ -124,6 +124,7 @@ const buildJsonFormatBlock = ({
       '      "text": "message text",',
       '      "sentAt": "HH:MM"',
       "    },",
+      "    /* author may stay the same in all lines for single-speaker narration */",
     );
     if (withStoryVisual) {
       lines.push(
@@ -197,6 +198,7 @@ const buildJsonFormatBlock = ({
     '      "text": "текст сообщения",',
     '      "sentAt": "HH:MM"',
     "    },",
+    "    /* author может быть одинаковым во всех репликах, если это повествование от одного лица */",
   );
   if (withStoryVisual) {
     lines.push(
@@ -500,6 +502,7 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
       "- All dialogue text and contactName must be in English.",
       "- Write for a native English-speaking audience. Do not translate Russian jokes, idioms, slang, or humor patterns into English.",
       "- Tone, references, rhythm, and punchlines must feel natural in English chat culture — not like localized Russian comedy.",
+      "- Single-speaker narration is allowed: all messages may use the same author ('me' or 'them') when the brief asks for one-person storytelling.",
       mode === "shorts"
         ? "- displayTitle: catchy title in English, 2–7 words."
         : "",
@@ -509,6 +512,7 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
     "- Вся переписка (text, contactName" +
       (mode === "shorts" ? ", displayTitle" : "") +
       ") — на русском.",
+    "- Допустимо повествование от одного лица: во всех messages может быть один и тот же author ('me' или 'them'), если так требует задание.",
     mode === "shorts" ? "- displayTitle: цепляющее название на русском, 2–7 слов." : "",
   ].filter(Boolean);
 };
