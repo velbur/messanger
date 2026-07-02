@@ -1052,6 +1052,39 @@ const parseGeneratedPayload = (data, mode, {videoLayout = "chat", videoTextMode 
   return {conversation, displayTitle};
 };
 
+const wantsSingleSpeakerNarration = (prompt) => {
+  const text = String(prompt ?? "").toLowerCase();
+  if (!text.trim()) {
+    return false;
+  }
+  return [
+    /повествован/i,
+    /монолог/i,
+    /от\s+первого\s+лица/i,
+    /без\s+собеседник/i,
+    /один\s+голос/i,
+    /single\s*[- ]\s*speaker/i,
+    /one\s*[- ]\s*speaker/i,
+    /first\s+person\s+narration/i,
+    /no\s+dialog/i,
+    /no\s+conversation/i,
+  ].some((pattern) => pattern.test(text));
+};
+
+const forceSingleSpeakerConversation = (conversation, author = "me") => {
+  const normalizedAuthor = author === "them" ? "them" : "me";
+  if (!Array.isArray(conversation?.messages)) {
+    return conversation;
+  }
+  return {
+    ...conversation,
+    messages: conversation.messages.map((message) => ({
+      ...message,
+      author: normalizedAuthor,
+    })),
+  };
+};
+
 const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, completeJson, language = "ru"}) => {
   let lastError;
 
@@ -1291,6 +1324,7 @@ export const generateDialogue = async ({
   }
 
   const normalizedMode = normalizeContentMode(mode);
+  const enforceSingleSpeaker = wantsSingleSpeakerNarration(prompt);
   const gen = normalizeGenerationOptions({
     prompt,
     messageCount,
@@ -1348,6 +1382,12 @@ export const generateDialogue = async ({
   });
 
   let finalResult = {...result, provider: llm.provider};
+  if (enforceSingleSpeaker) {
+    finalResult = {
+      ...finalResult,
+      conversation: forceSingleSpeakerConversation(finalResult.conversation, "me"),
+    };
+  }
 
   if (normalizedMode === "shorts") {
     const draftCount = result.conversation?.messages?.length ?? 0;
@@ -1372,6 +1412,12 @@ export const generateDialogue = async ({
           attempts: result.attempts + expanded.attempts,
           expandedFrom: draftCount,
         };
+        if (enforceSingleSpeaker) {
+          finalResult = {
+            ...finalResult,
+            conversation: forceSingleSpeakerConversation(finalResult.conversation, "me"),
+          };
+        }
       }
     } catch {
       /* черновик лучше, чем ничего */
