@@ -15,6 +15,7 @@
     "depth:probe": "node --import tsx scripts/story-depth-probe.mjs",
     "bundle:clear": "node scripts/clear-bundle-cache.mjs",
     "depth:clear": "node scripts/clear-story-depth-cache.mjs",
+    "render:clean": "npm run bundle:clear && npm run depth:clear",
     "lint": "tsc --noEmit",
     "verify-render": "node scripts/verify-render.mjs",
     "music:sync": "node scripts/download-music-library.mjs",

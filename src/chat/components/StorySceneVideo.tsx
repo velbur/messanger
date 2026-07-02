@@ -19,11 +19,14 @@ import {
   storyVideoSourceFrameAtPlayFrame,
   storyVideoSourceFrameCount,
 } from "../story-motion";
+import {STORY_SCENE_VIDEO_LOCAL_FRAME_REV} from "../story";
 import {storyVideoHoldFramePathForVideo} from "../story-video-paths";
 import {storyParallaxVideoPathForVideo} from "../story-depth-paths";
 import {StoryAtmosphereParticles} from "./StoryAtmosphereParticles";
 
 import {DepthDisplacementImage} from "./DepthDisplacementImage";
+
+void STORY_SCENE_VIDEO_LOCAL_FRAME_REV;
 
 type Props = {
   video: string;
@@ -60,9 +63,8 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneDurationFrames,
   fallbackAnimation = "kenburns",
 }) => {
-  const frame = useCurrentFrame();
+  const localFrame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const localFrame = Math.max(0, frame - sceneStartFrame);
   const isDepthParallax = fallbackAnimation === "depthParallax";
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);

@@ -13,6 +13,9 @@ for (const pattern of [
   "**/*.depth.png",
   "**/*.depth-meta.json",
   "**/*.parallax.mp4",
+  "**/*.video-hold.depth.png",
+  "**/*.video-hold.depth-meta.json",
+  "**/*.video-hold.parallax.mp4",
   "**/*.layer-far.png",
   "**/*.layer-mid.png",
   "**/*.layer-near.png",
@@ -23,4 +26,6 @@ for (const pattern of [
   }
 }
 
-console.log(`Depth-кэш очищен: удалено ${removed} файлов в public/images/, .cache/parallax-raw`);
+console.log(
+  `Depth-кэш очищен: удалено ${removed} файлов (включая .video-hold.parallax), .cache/parallax-raw`,
+);
