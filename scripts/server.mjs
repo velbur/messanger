@@ -2295,6 +2295,7 @@ const runRenderPreparation = async (
 
           const storyVideoLogs = await generateMissingStoryVideos(conversation, {
             publicBaseUrl,
+            skipHoldParallaxBake: target === "remote",
             isCancelled: () => job.prepCancelled,
             onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
               const safeTotal = Math.max(clipTotal, 1);

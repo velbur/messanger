@@ -271,7 +271,7 @@ export const resolveStoryVideos = async (
 
 export const generateMissingStoryVideos = async (
   conversation,
-  {publicBaseUrl, force = false, onProgress, isCancelled} = {},
+  {publicBaseUrl, force = false, skipHoldParallaxBake = false, onProgress, isCancelled} = {},
 ) => {
   const logs = [];
   if (!isStoryVisualLayout(conversation)) {
@@ -384,7 +384,11 @@ export const generateMissingStoryVideos = async (
     target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
     target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
     await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
-    await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});
+    if (!skipHoldParallaxBake) {
+      await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});
+    } else {
+      logs.push(`Parallax (hold): запекётся на воркере → ${target.label}`);
+    }
     generated += 1;
     const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
     logs.push(
