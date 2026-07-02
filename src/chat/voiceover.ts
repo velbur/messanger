@@ -2,7 +2,7 @@ import type {ConversationInput} from "./schema";
 
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
-export const OPENROUTER_TTS_PROFILE = "young-emotional-v2";
+export const OPENROUTER_TTS_PROFILE = "young-emotional-v3";
 
 export type VoiceoverGender = "male" | "female";
 
@@ -105,6 +105,16 @@ export const pickOpenRouterVoice = (
   const raw = author === "me" ? voiceover.meVoice : voiceover.themVoice;
   const fallbackGender: VoiceoverGender = author === "me" ? "male" : "female";
   return resolveCharacterVoice(raw, fallbackGender, voices);
+};
+
+/** Профиль озвучки: меняется при смене голосов персонажей — старые WAV перегенерируются */
+export const buildConversationVoiceTtsProfile = (
+  voiceover: ConversationVoiceover,
+  voices?: {female: string; male: string},
+): string => {
+  const me = pickOpenRouterVoice(voiceover, "me", voices);
+  const them = pickOpenRouterVoice(voiceover, "them", voices);
+  return `${OPENROUTER_TTS_PROFILE}|${me}|${them}`;
 };
 
 export const messageHasVoiceover = (

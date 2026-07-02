@@ -9,9 +9,10 @@ export const countPendingVoiceover = (conversation) => {
   if (!voiceover.enabled) {
     return 0;
   }
+  const voices = getOpenRouterTtsVoices();
   let pending = 0;
   for (const message of conversation.messages ?? []) {
-    if (messageNeedsOpenRouterVoice(message)) {
+    if (messageNeedsOpenRouterVoice(message, voiceover, voices)) {
       pending += 1;
     }
   }

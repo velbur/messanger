@@ -9,7 +9,7 @@ import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {synthesizeOpenRouterSpeech} from "./tts/openrouter-tts.mjs";
 import {ensureConversationEmotions} from "./tts/voice-emotion.mjs";
 import {isOpenRouterConfigured, getOpenRouterTtsVoices} from "./openrouter-client.mjs";
-import {mergeConversationVoiceover, OPENROUTER_TTS_PROFILE, pickOpenRouterVoice} from "../src/chat/voiceover.ts";
+import {mergeConversationVoiceover, pickOpenRouterVoice, buildConversationVoiceTtsProfile} from "../src/chat/voiceover.ts";
 
 const AUDIO_DIR = path.join(PUBLIC_DIR, "audio");
 
@@ -99,11 +99,16 @@ export const saveVoiceBuffer = async (buffer, relativePath) => {
 
 const isOpenRouterVoiceMessage = (message) => message?.voiceTtsProvider === "openrouter";
 
-export const messageNeedsOpenRouterVoice = (message) => {
+export const messageNeedsOpenRouterVoice = (message, voiceover, voices) => {
   const text = String(message?.text ?? "").trim();
   if (!isSpeechableText(text)) {
     return false;
   }
+  const activeVoiceover = voiceover ?? mergeConversationVoiceover({});
+  const openRouterVoices = voices ?? getOpenRouterTtsVoices();
+  const expectedProfile = buildConversationVoiceTtsProfile(activeVoiceover, openRouterVoices);
+  const expectedVoice = pickOpenRouterVoice(activeVoiceover, message.author, openRouterVoices);
+
   const existing = String(message?.voiceAudio ?? "").trim();
   if (!existing) {
     return true;
@@ -111,7 +116,10 @@ export const messageNeedsOpenRouterVoice = (message) => {
   if (!isOpenRouterVoiceMessage(message)) {
     return true;
   }
-  if (message.voiceTtsProfile !== OPENROUTER_TTS_PROFILE) {
+  if (message.voiceTtsProfile !== expectedProfile) {
+    return true;
+  }
+  if (message.voiceTtsVoice && message.voiceTtsVoice !== expectedVoice) {
     return true;
   }
   try {
@@ -122,10 +130,8 @@ export const messageNeedsOpenRouterVoice = (message) => {
   }
 };
 
-const needsVoiceGeneration = (message, voiceover) => {
-  void voiceover;
-  return messageNeedsOpenRouterVoice(message);
-};
+const needsVoiceGeneration = (message, voiceover, voices) =>
+  messageNeedsOpenRouterVoice(message, voiceover, voices);
 
 export const resolveConversationVoiceover = async (
   conversation,
@@ -162,6 +168,7 @@ export const resolveConversationVoiceover = async (
       delete message.voiceDurationMs;
       delete message.voiceTtsProvider;
       delete message.voiceTtsProfile;
+      delete message.voiceTtsVoice;
     }
   }
 
@@ -181,7 +188,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   const activeVoiceover = mergeConversationVoiceover(conversation);
 
   const pendingCount = (conversation.messages ?? []).filter((message) =>
-    needsVoiceGeneration(message, activeVoiceover),
+    needsVoiceGeneration(message, activeVoiceover, openRouterVoices),
   ).length;
 
   if (!isOpenRouterConfigured()) {
@@ -212,7 +219,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   let generated = 0;
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
-    if (!needsVoiceGeneration(message, activeVoiceover)) {
+    if (!needsVoiceGeneration(message, activeVoiceover, openRouterVoices)) {
       if (message.voiceAudio && !message.voiceDurationMs) {
         try {
           const {absolute} = safePublicPath(message.voiceAudio);
@@ -242,7 +249,8 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
         .split(path.sep)
         .join("/");
       message.voiceTtsProvider = "openrouter";
-      message.voiceTtsProfile = OPENROUTER_TTS_PROFILE;
+      message.voiceTtsProfile = buildConversationVoiceTtsProfile(activeVoiceover, openRouterVoices);
+      message.voiceTtsVoice = voice;
       message.voiceDurationMs = await probeAudioDurationMs(savedPath);
       generated += 1;
       const emotionHint = String(message.voiceEmotion ?? "").trim();
@@ -260,7 +268,7 @@ export const generateMissingVoiceover = async (conversation, {audioNamespace} = 
   }
 
   const stillMissing = (conversation.messages ?? []).filter((message) =>
-    needsVoiceGeneration(message, activeVoiceover),
+    needsVoiceGeneration(message, activeVoiceover, openRouterVoices),
   ).length;
   if (stillMissing > 0) {
     const failures = logs.filter((line) => /ошибка/i.test(line));

@@ -160,7 +160,7 @@ let openrouterImageAvailable = false;
 let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "google/gemini-2.5-flash-image";
 let openrouterStoryImageModel = "google/gemini-2.5-flash-image";
-let openrouterTtsProfile = "young-emotional-v2";
+let openrouterTtsProfile = "young-emotional-v3";
 
 const canGenerateImages = () => openrouterImageAvailable;
 
@@ -2878,8 +2878,31 @@ const clearVoiceAudioForRevoice = () => {
     delete message.voiceDurationMs;
     delete message.voiceTtsProvider;
     delete message.voiceTtsProfile;
+    delete message.voiceTtsVoice;
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const resolveVoiceForAuthor = (voiceover, author) => {
+  const raw = String(author === "me" ? voiceover?.meVoice : voiceover?.themVoice ?? "").trim();
+  if (raw && raw !== "male" && raw !== "female" && geminiVoiceCatalog.some((v) => v.id === raw)) {
+    return raw;
+  }
+  const gender =
+    raw === "female" || raw === "male" ? raw : author === "me" ? "male" : "female";
+  const preferred = author === "me" ? meVoiceSelect?.value : themVoiceSelect?.value;
+  if (preferred && geminiVoiceCatalog.some((v) => v.id === preferred)) {
+    return preferred;
+  }
+  const match = geminiVoiceCatalog.find((v) => v.gender === gender);
+  return match?.id ?? (gender === "male" ? "Puck" : "Leda");
+};
+
+const buildConversationVoiceTtsProfileLocal = (conversation) => {
+  const voiceover = conversation?.voiceover ?? {};
+  const me = resolveVoiceForAuthor(voiceover, "me");
+  const them = resolveVoiceForAuthor(voiceover, "them");
+  return `${openrouterTtsProfile}|${me}|${them}`;
 };
 
 const countPendingVoiceover = (conversation) => {
@@ -2890,6 +2913,7 @@ const countPendingVoiceover = (conversation) => {
   if (!enabled) {
     return 0;
   }
+  const expectedProfile = buildConversationVoiceTtsProfileLocal(conversation);
   let pending = 0;
   for (const message of conversation.messages) {
     const text = String(message.text ?? "").trim();
@@ -2897,7 +2921,13 @@ const countPendingVoiceover = (conversation) => {
       continue;
     }
     const hasAudio = Boolean(String(message.voiceAudio ?? "").trim());
-    if (!hasAudio || message.voiceTtsProvider !== "openrouter" || message.voiceTtsProfile !== openrouterTtsProfile) {
+    const expectedVoice = resolveVoiceForAuthor(conversation.voiceover, message.author);
+    if (
+      !hasAudio ||
+      message.voiceTtsProvider !== "openrouter" ||
+      message.voiceTtsProfile !== expectedProfile ||
+      (message.voiceTtsVoice && message.voiceTtsVoice !== expectedVoice)
+    ) {
       pending += 1;
     }
   }

@@ -83,6 +83,8 @@ export const messageSchema = z
     voiceTtsProvider: z.literal("openrouter").optional(),
     /** Профиль голоса/промпта; при смене WAV перегенерируется */
     voiceTtsProfile: z.string().min(1).optional(),
+    /** Gemini voice id, с которым синтезировали реплику */
+    voiceTtsVoice: z.string().min(1).optional(),
     /** Эмоция/подача реплики для TTS (ИИ по сюжету, можно править вручную) */
     voiceEmotion: z.string().min(1).max(160).optional(),
     /** Редактор / видео: center — текст по центру, bubble — пузырь мессенджера */
