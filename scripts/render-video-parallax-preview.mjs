@@ -2,7 +2,7 @@ import path from "node:path";
 import {access} from "node:fs/promises";
 import {renderMedia, selectComposition} from "@remotion/renderer";
 import {FPS} from "../src/chat/fps.ts";
-import {STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES} from "../src/chat/story-motion.ts";
+import {storyVideoParallaxPhaseFrames} from "../src/chat/story-motion.ts";
 import {storyVideoPathForImage} from "../src/chat/story-video-paths.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets, ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
@@ -16,15 +16,8 @@ export const VIDEO_PARALLAX_PREVIEW_SEC = 4;
 export const VIDEO_PARALLAX_EXTRA_SEC = 15;
 
 /** Кадров parallax-фазы после Veo (для bake clip = длина движения) */
-export const videoParallaxPhaseFrames = (
-  videoDurationMs,
-  sceneDurationFrames,
-  fps = FPS,
-) => {
-  const videoFrames = Math.max(2, Math.round((videoDurationMs / 1000) * fps));
-  const handoff = Math.max(2, videoFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
-  return Math.max(45, sceneDurationFrames - handoff);
-};
+export const videoParallaxPhaseFrames = (videoDurationMs, sceneDurationFrames, fps = FPS) =>
+  storyVideoParallaxPhaseFrames(videoDurationMs, sceneDurationFrames, fps);
 
 /** Длина превью: реальное Veo + фаза parallax после последнего кадра */
 export const hybridDurationFrames = (videoDurationMs = VIDEO_PARALLAX_PREVIEW_SEC * 1000) =>

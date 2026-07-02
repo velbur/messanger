@@ -44,6 +44,7 @@ import {
   IMAGES_DIR,
   resolveConversationImages,
   collectConversationImageRefs,
+  isHoldParallaxBakeAsset,
   saveImageBuffer,
   buildImagePreviewUrl,
   scanImagesFromJson,
@@ -2152,6 +2153,10 @@ const syncImagesToRemote = async (
   }
 
   for (const ref of refs) {
+    if (isHoldParallaxBakeAsset(ref)) {
+      logs.push(`Hold-parallax не отправляется (запечётся на воркере): ${ref}`);
+      continue;
+    }
     const abs = path.join(PUBLIC_DIR, ref);
     let buffer;
     try {

@@ -20,7 +20,6 @@ export const DepthParallaxImage: React.FC<Props> = ({
   video,
   sceneStartFrame,
   durationFrames,
-  opacity = 1,
   premountFor = 0,
 }) => (
   <Sequence
@@ -29,7 +28,7 @@ export const DepthParallaxImage: React.FC<Props> = ({
     premountFor={Math.max(0, premountFor)}
     layout="none"
   >
-    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#050505", opacity}}>
+    <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#050505"}}>
       <OffthreadVideo
         src={staticFile(video)}
         muted

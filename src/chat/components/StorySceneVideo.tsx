@@ -146,7 +146,7 @@ export const StorySceneVideo: React.FC<Props> = ({
               <DepthDisplacementImage
                 image={holdFrame}
                 parallaxVideo={storyParallaxVideoPathForVideo(video)}
-                sceneStartFrame={sceneStartFrame + handoffFrame}
+                sceneStartFrame={handoffFrame}
                 durationFrames={parallaxPhaseFrames}
                 premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
               />

@@ -216,6 +216,10 @@ export const deletePublicImage = async (targetRef) => {
   }
 };
 
+/** Hold-parallax после Veo — воркер запекает сам; с Mac не заливаем устаревший bake */
+export const isHoldParallaxBakeAsset = (ref) =>
+  /\.video-hold\.(parallax\.mp4|depth\.png|depth-meta\.json)$/i.test(String(ref ?? ""));
+
 /** PNG story-кадра и соседние depth / video-файлы */
 export const collectStoryImageAssetRefs = (imagePublicPath) => {
   const ref = String(imagePublicPath ?? "")
