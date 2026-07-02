@@ -2316,12 +2316,13 @@ const runRenderPreparation = async (
 
       const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
         failOnMissingVideos: false,
+        skipHoldParallaxBake: target === "remote",
       });
       if (linkedStoryVideoLogs.length > 0) {
         jobPushLogs(job, linkedStoryVideoLogs);
       }
 
-      if (needsStoryDepthLayers(conversation)) {
+      if (target !== "remote" && needsStoryDepthLayers(conversation)) {
         jobSetPhase(job, "Depth-слои для parallax…");
         jobSetProgress(job, 0.5);
         const depthLogs = await ensureStoryDepthForConversation(conversation);
@@ -2330,12 +2331,20 @@ const runRenderPreparation = async (
         }
       }
 
-      if (mergeStoryConfig(conversation).opening.animation === "video-parallax") {
+      if (
+        target !== "remote" &&
+        mergeStoryConfig(conversation).opening.animation === "video-parallax"
+      ) {
         jobSetPhase(job, "Hold-parallax после Veo…");
         const holdLogs = await ensureVideoParallaxHoldsForConversation(conversation);
         if (holdLogs.length > 0) {
           jobPushLogs(job, holdLogs);
         }
+      } else if (
+        target === "remote" &&
+        mergeStoryConfig(conversation).opening.animation === "video-parallax"
+      ) {
+        jobPushLog(job, "Hold-parallax: запекётся на воркере (как test:video-parallax)");
       }
     }
 
@@ -2396,6 +2405,7 @@ const runRenderPreparation = async (
     const storyVideoResolveLogs = isStoryVisual
       ? await resolveStoryVideos(conversation, {
           failOnMissingVideos: !skippedStoryVideoGeneration,
+          skipHoldParallaxBake: target === "remote",
         })
       : [];
 

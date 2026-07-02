@@ -204,7 +204,7 @@ export const countPendingStoryVideos = (conversation) => {
 
 export const resolveStoryVideos = async (
   conversation,
-  {failOnMissingVideos = false, logs = []} = {},
+  {failOnMissingVideos = false, skipHoldParallaxBake = false, logs = []} = {},
 ) => {
   if (!isStoryVisualLayout(conversation)) {
     return logs;
@@ -250,7 +250,9 @@ export const resolveStoryVideos = async (
         throw new Error("файл не найден");
       }
       await ensureStoryVideoHoldFrameFile(videoRef, logs);
-      await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs);
+      if (!skipHoldParallaxBake) {
+        await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs);
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const errorText = `Story-видео (${target.label}): ${reason} (${videoRef})`;
