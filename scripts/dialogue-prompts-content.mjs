@@ -19,6 +19,7 @@ export const HARDCODED_PROMPTS = {
 - contactName — имя собеседника по сюжету; не используй Алису, Даню, СССР и серию «Пока в СССР», если пользователь явно не просит.
 {{SHORTS_NAME_RULES}}
 - Каждая реплика короткая, как в мессенджере; длинные мысли разбивай на несколько сообщений.
+- Не ставь точку в конце реплики в text — как в живом WhatsApp; «?» и «!» оставляй, если это по смыслу.
 {{MESSAGE_COUNT_RULES}}
 {{LOGIC_RULES}}
 {{HOOK_RULES}}
@@ -44,6 +45,7 @@ Rules:
 - contactName is the other person's name per the plot; don't use Alice, Danya, USSR, or the «Back in the USSR» series unless the user explicitly asks.
 {{SHORTS_NAME_RULES}}
 - Keep each line short, like real messaging; split long thoughts into multiple messages.
+- Don't end message text with a period — live-chat style; keep ? and ! when the tone needs them.
 {{MESSAGE_COUNT_RULES}}
 {{LOGIC_RULES}}
 {{HOOK_RULES}}
@@ -66,6 +68,7 @@ Rules:
 Правила:
 - author: me = Алиса (2026), them = Даня (1984) или другое имя контакта.
 - Короткие реплики, как в мессенджере. Длинные мысли разбивай на несколько сообщений.
+- Не ставь точку в конце реплики в text; «?» и «!» — по смыслу.
 - sentAt — время в формате HH:MM, логично растёт по ходу сцены.
 {{LANGUAGE_RULES}}
 {{MESSAGE_COUNT_RULES}}

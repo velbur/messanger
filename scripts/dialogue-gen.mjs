@@ -514,6 +514,7 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
       "- Write for a native English-speaking audience. Do not translate Russian jokes, idioms, slang, or humor patterns into English.",
       "- Tone, references, rhythm, and punchlines must feel natural in English chat culture — not like localized Russian comedy.",
       "- Single-speaker narration is allowed: all messages may use the same author ('me' or 'them') when the brief asks for one-person storytelling.",
+      "- Don't end message text with a period — live-chat style; keep ? and ! when the tone needs them.",
       mode === "shorts"
         ? "- displayTitle: catchy title in English, 2–7 words."
         : "",
@@ -524,6 +525,7 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
       (mode === "shorts" ? ", displayTitle" : "") +
       ") — на русском.",
     "- Допустимо повествование от одного лица: во всех messages может быть один и тот же author ('me' или 'them'), если так требует задание.",
+    "- Не ставь точку в конце реплики в text — как в живом WhatsApp; «?» и «!» оставляй, если это по смыслу.",
     mode === "shorts" ? "- displayTitle: цепляющее название на русском, 2–7 слов." : "",
   ].filter(Boolean);
 };

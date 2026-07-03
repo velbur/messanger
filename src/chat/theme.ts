@@ -257,20 +257,20 @@ export const CENTER_SCREEN = {
   /** Множитель к messageFontSize (2× к пузырю) */
   fontScale: 2,
   /** Смещение блока вниз от верха кадра (доля высоты 9:16) */
-  topRatio: 0.56,
+  topRatio: 0.5,
   wordsPerStep: 2,
   /** Кадров на пару слов, если нет voiceDuration */
   framesPerPairFallback: 7,
   platePaddingY: S(26),
   platePaddingX: S(36),
   plateRadius: S(22),
-  plateBg: "rgba(8, 14, 20, 0.62)",
-  plateBorder: "rgba(255, 255, 255, 0.1)",
+  plateBg: "rgba(8, 14, 20, 0.48)",
+  plateBorder: "rgba(255, 255, 255, 0.08)",
   plateBlur: 16,
 } as const;
 
 /** Маркер center-screen текста в bundle — обновить в scripts/bundle-cache.mjs */
-export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-karaoke-v1";
+export const CENTER_SCREEN_BUNDLE_MARKER = "center-screen-karaoke-v2";
 
 /** Горизонтальный Video (16:9) — чат или повествование */
 export const VIDEO_LAYOUT = {
