@@ -147,7 +147,7 @@ import {
 } from "./dialogue-db.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
 import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
-import {uploadAssetToRemote} from "./remote-upload.mjs";
+import {pingRemoteWorker, uploadAssetToRemote} from "./remote-upload.mjs";
 import {
   hybridDurationFrames,
   renderVideoParallaxPreview,
@@ -2175,6 +2175,9 @@ const syncImagesToRemote = async (
   for (const ref of collectPreviewCoverSyncRefs(conversation, {imageNamespace: fileName, episodeConversations})) {
     refs.add(ref);
   }
+
+  await pingRemoteWorker(remoteUrl);
+  logs.push(`Воркер доступен: ${remoteUrl}`);
 
   for (const ref of refs) {
     if (isHoldParallaxBakeAsset(ref)) {

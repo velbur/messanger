@@ -1,5 +1,28 @@
 import {resolveUploadMaxBytes} from "./image-assets.mjs";
 
+const explainFetchError = (error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause = error instanceof Error ? error.cause : null;
+  const code =
+    cause && typeof cause === "object" && cause !== null && "code" in cause
+      ? String(cause.code)
+      : "";
+
+  if (code === "ECONNREFUSED") {
+    return "воркер не отвечает (connection refused) — проверьте REMOTE_RENDER_URL и что worker-native запущен";
+  }
+  if (code === "ENOTFOUND") {
+    return "хост воркера не найден — проверьте IP/имя в REMOTE_RENDER_URL";
+  }
+  if (code === "EHOSTUNREACH" || code === "ENETUNREACH") {
+    return "воркер недоступен по сети — та же Wi‑Fi/LAN, без блокировки firewall";
+  }
+  if (/aborted/i.test(message)) {
+    return "таймаут";
+  }
+  return message;
+};
+
 const formatRemoteUploadError = (targetRef, status, detail) => {
   if (status === 413) {
     return `Не удалось отправить ${targetRef} на воркер: файл слишком большой (413). На воркере: git pull && ./run.sh worker`;
@@ -8,11 +31,11 @@ const formatRemoteUploadError = (targetRef, status, detail) => {
 };
 
 const formatUploadFetchError = (targetRef, error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/aborted/i.test(message)) {
+  const detail = explainFetchError(error);
+  if (/таймаут/i.test(detail)) {
     return `Таймаут при отправке ${targetRef} на воркер — проверьте сеть и что воркер запущен, затем повторите сборку`;
   }
-  return formatRemoteUploadError(targetRef, 0, message);
+  return formatRemoteUploadError(targetRef, 0, detail);
 };
 
 const fetchUploadWithRetry = async (url, options, {timeoutMs = 120_000, retries = 3} = {}) => {
@@ -32,6 +55,24 @@ const fetchUploadWithRetry = async (url, options, {timeoutMs = 120_000, retries 
     }
   }
   throw lastError;
+};
+
+/** Проверить, что воркер отвечает, до заливки ассетов */
+export const pingRemoteWorker = async (remoteBaseUrl, {timeoutMs = 10_000} = {}) => {
+  try {
+    const resp = await fetchUploadWithRetry(
+      `${remoteBaseUrl}/api/render-targets`,
+      {},
+      {timeoutMs, retries: 1},
+    );
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    return true;
+  } catch (error) {
+    const detail = explainFetchError(error);
+    throw new Error(`Воркер недоступен (${remoteBaseUrl}): ${detail}`);
+  }
 };
 
 /** Залить бинарный ассет на удалённый воркер без base64-раздувания */
