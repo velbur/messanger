@@ -33,12 +33,12 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 45;
+export const DEPTH_LAYER_VERSION = 46;
 
 /** Доля ширины кадра — амплитуда движения камеры */
-const PARALLAX_AMPLITUDE_FRAC = 0.128;
-/** Ken Burns-зум поверх parallax (0 = выкл) */
-const PARALLAX_ZOOM_FRAC = 0.052;
+const PARALLAX_AMPLITUDE_FRAC = 0.072;
+/** Ken Burns-зум поверх parallax */
+const PARALLAX_ZOOM_FRAC = 0.04;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
@@ -48,10 +48,10 @@ const PARALLAX_SWEEP = "round-trip";
 export const VIDEO_PARALLAX_HOLD_SWEEP = "oscillate";
 /** Полных циклов влево→вправо→влево за фазу parallax (~4 за 15 с) */
 export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 1;
-/** Без Ken Burns-зума в bake — кадр 0 совпадает с hold PNG */
-export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0;
-/** Сильнее смещение слоёв на 15 с фазе после Veo */
-export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.2;
+/** Лёгкий зум за фазу parallax; t=0 → 1.0 (стык с hold PNG) */
+export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0.024;
+/** Меньше смещение слоёв — меньше артефактов на швах глубины */
+export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.08;
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {

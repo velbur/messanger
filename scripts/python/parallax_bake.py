@@ -332,7 +332,7 @@ def bake_one(job: dict) -> dict:
                 if hold_handoff and sweep == "oscillate":
                     # t=0 → 0 (стык с Veo), далее sin: влево-вправо-влево…
                     sweep_val = float(np.sin(two_pi * oscillations * t))
-                    zoom = 1.0
+                    zoom = 1.0 + zoom_frac * t
                     ox = amp * pan_x * sweep_val
                     oy = amp * pan_y * pan_y_gain * abs(sweep_val)
                 elif hold_handoff and sweep in ("forward", "one-way"):
