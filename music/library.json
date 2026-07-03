@@ -452,6 +452,23 @@
       "licenseNote": "Можно в YouTube, TikTok и соцсетях без атрибуции. Не для ТВ/радио и CD.",
       "sourceUrl": "https://mixkit.co/free-stock-music/item/657/",
       "downloadUrl": "https://assets.mixkit.co/music/657/657.mp3"
+    },
+    {
+      "id": "gasoline-heist.mp3",
+      "label": "Кино — Gasoline Heist",
+      "title": "Gasoline Heist",
+      "category": "cinematic",
+      "moods": [
+        "comedy",
+        "tension",
+        "story",
+        "dramatic",
+        "neutral"
+      ],
+      "license": "Custom",
+      "licenseUrl": null,
+      "licenseNote": "mishellbox — убедитесь в правах перед публикацией",
+      "sourceUrl": null
     }
   ]
 }
