@@ -107,6 +107,8 @@ const dialogueTitleHint = document.getElementById("dialogueTitleHint");
 const dialogueMessageCount = document.getElementById("dialogueMessageCount");
 const dialogueModel = document.getElementById("dialogueModel");
 const dialogueModelOption = document.getElementById("dialogueModelOption");
+const dialogueTemperature = document.getElementById("dialogueTemperature");
+const dialogueTemperatureValue = document.getElementById("dialogueTemperatureValue");
 const dialogueGenerateStatus = document.getElementById("dialogueGenerateStatus");
 const dialogueRefineStatus = document.getElementById("dialogueRefineStatus");
 const btnGenerateDialogue = document.getElementById("btnGenerateDialogue");
@@ -183,6 +185,8 @@ const readApiJson = async (res) => {
 };
 
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
+const DIALOGUE_TEMPERATURE_STORAGE_KEY = "messanger.dialogueTemperature";
+const DEFAULT_DIALOGUE_TEMPERATURE = 0.45;
 const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
 const DEFAULT_SHORTS_DIALOGUE_MODEL = "google/gemini-2.5-pro-preview";
@@ -335,6 +339,35 @@ const getDefaultMessageCount = () =>
 const getDialogueMessageCount = () =>
   Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount();
 
+const readStoredDialogueTemperature = () => {
+  const stored = localStorage.getItem(DIALOGUE_TEMPERATURE_STORAGE_KEY);
+  if (stored == null) {
+    return DEFAULT_DIALOGUE_TEMPERATURE;
+  }
+  const value = Number(stored);
+  return Number.isFinite(value) ? value : DEFAULT_DIALOGUE_TEMPERATURE;
+};
+
+const getDialogueTemperature = () => {
+  const value = Number(dialogueTemperature?.value ?? readStoredDialogueTemperature());
+  return Number.isFinite(value) ? value : DEFAULT_DIALOGUE_TEMPERATURE;
+};
+
+const syncDialogueTemperatureLabel = () => {
+  if (dialogueTemperatureValue) {
+    dialogueTemperatureValue.textContent = getDialogueTemperature().toFixed(2);
+  }
+};
+
+const initDialogueTemperatureControl = () => {
+  if (!dialogueTemperature) {
+    return;
+  }
+  const stored = readStoredDialogueTemperature();
+  dialogueTemperature.value = String(stored);
+  syncDialogueTemperatureLabel();
+};
+
 const getDefaultDialogueModel = () =>
   editorKind === "shorts"
     ? DEFAULT_SHORTS_DIALOGUE_MODEL
@@ -404,6 +437,11 @@ dialogueModel?.addEventListener("change", () => {
   if (dialogueModel?.value) {
     localStorage.setItem(DIALOGUE_MODEL_STORAGE_KEY, dialogueModel.value);
   }
+});
+
+dialogueTemperature?.addEventListener("input", () => {
+  syncDialogueTemperatureLabel();
+  localStorage.setItem(DIALOGUE_TEMPERATURE_STORAGE_KEY, String(getDialogueTemperature()));
 });
 
 dialoguePromptInput?.addEventListener("input", () => {
@@ -745,6 +783,7 @@ const captureEditorSnapshot = () => ({
   json: jsonInput.value,
   outputFile: currentDialogueOutputFile,
   dialogueModel: getDialogueModel(),
+  dialogueTemperature: getDialogueTemperature(),
   messageCount: getDialogueMessageCount(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
@@ -766,6 +805,10 @@ const restoreEditorSnapshot = async (snapshot) => {
   populateDialogueModelOptions(snapshot?.dialogueModel);
   if (dialogueMessageCount && snapshot?.messageCount) {
     dialogueMessageCount.value = String(snapshot.messageCount);
+  }
+  if (dialogueTemperature && snapshot?.dialogueTemperature != null) {
+    dialogueTemperature.value = String(snapshot.dialogueTemperature);
+    syncDialogueTemperatureLabel();
   }
   if (seriesIdInput) {
     seriesIdInput.value = snapshot?.seriesId || "usssr";
@@ -3025,6 +3068,7 @@ const setMusicId = (id) => {
 
 const applyShortsGenDefaults = () => {
   populateDialogueModelOptions(DEFAULT_SHORTS_DIALOGUE_MODEL);
+  initDialogueTemperatureControl();
 };
 
 const syncMusicFromJson = () => {
@@ -6239,6 +6283,7 @@ const getDialogueGenOptions = () => {
   const options = {
     language: getDialogueLanguage(),
     model: getDialogueModel(),
+    temperature: getDialogueTemperature(),
     videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
     textMode: editorKind === "video" ? getVideoTextMode() : undefined,
   };
@@ -6248,10 +6293,13 @@ const getDialogueGenOptions = () => {
   return options;
 };
 
-const formatDialogueGenSummary = ({messageCount, model, videoLayout, textMode}) => {
+const formatDialogueGenSummary = ({messageCount, model, temperature, videoLayout, textMode}) => {
   const parts = [];
   if (editorKind === "shorts" || editorKind === "series") {
     parts.push(`≤${messageCount} сообщ.`);
+  }
+  if (typeof temperature === "number" && Number.isFinite(temperature)) {
+    parts.push(`T ${temperature.toFixed(2)}`);
   }
   if (editorKind === "shorts" && videoLayout) {
     parts.push(VIDEO_LAYOUT_LABELS[videoLayout] ?? videoLayout);
@@ -6427,6 +6475,7 @@ const regenerateMessageFromIndex = async (messageIndex) => {
     messageIndex,
     mode: editorKind,
     model: getDialogueModel(),
+    temperature: getDialogueTemperature(),
   };
   if (editorKind === "series") {
     body.seriesId = seriesIdInput?.value.trim() ?? "";
@@ -6517,6 +6566,7 @@ const regenerateEndingFromPrompt = async () => {
       language: getDialogueLanguage(),
       videoLayout: getVideoLayout(),
       model: getDialogueModel(),
+      temperature: getDialogueTemperature(),
     }),
   });
   const data = await res.json();
@@ -6963,6 +7013,7 @@ const loadOpenRouterStatus = async () => {
 
 loadOpenRouterStatus().then(() => {
   loadDialogueModels();
+  initDialogueTemperatureControl();
   updateVoiceoverControls();
 });
 initEditorPreferenceControls();

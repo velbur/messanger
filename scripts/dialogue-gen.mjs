@@ -36,6 +36,17 @@ import {resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 
 const DIALOGUE_MAX_TOKENS = 16_000;
 
+export const DEFAULT_DIALOGUE_TEMPERATURE = 0.45;
+
+/** 0 = детерминированнее, 1.2 = разнообразнее (OpenRouter) */
+export const normalizeDialogueTemperature = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return DEFAULT_DIALOGUE_TEMPERATURE;
+  }
+  return Math.min(1.2, Math.max(0, Math.round(n * 100) / 100));
+};
+
 export const isDialogueLlmConfigured = () => isOpenRouterConfigured();
 
 const resolveDialogueLlm = (model) => {
@@ -1118,7 +1129,14 @@ const forceSingleSpeakerConversation = (conversation, author = "me") => {
   };
 };
 
-const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, completeJson, language = "ru"}) => {
+const runChatJsonGeneration = async ({
+  messages,
+  maxAttempts = 3,
+  parseResult,
+  completeJson,
+  language = "ru",
+  temperature = DEFAULT_DIALOGUE_TEMPERATURE,
+}) => {
   let lastError;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -1136,7 +1154,7 @@ const runChatJsonGeneration = async ({messages, maxAttempts = 3, parseResult, co
 
       const {data, model} = await completeJson({
         messages: chatMessages,
-        temperature: 0.45,
+        temperature: normalizeDialogueTemperature(temperature),
         maxTokens: DIALOGUE_MAX_TOKENS,
       });
 
@@ -1224,6 +1242,7 @@ export const checkDialogueLogic = async ({
   messageCount,
   language = "ru",
   model,
+  temperature,
   maxAttempts = 3,
 }) => {
   const llm = resolveDialogueLlm(model);
@@ -1263,6 +1282,7 @@ export const checkDialogueLogic = async ({
     maxAttempts,
     completeJson: llm.completeJson,
     language: gen.language,
+    temperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1276,6 +1296,7 @@ export const checkDialogueLogic = async ({
     ...result,
     provider: llm.provider,
     logicRevised: JSON.stringify(result.conversation) !== before,
+    temperature: normalizeDialogueTemperature(temperature),
   };
 };
 
@@ -1291,6 +1312,7 @@ const expandShortsDialogue = async ({
   completeJson,
   maxAttempts,
   singleSpeaker = false,
+  temperature,
 }) => {
   const user = buildShortsExpandUserPrompt({
     prompt,
@@ -1305,6 +1327,7 @@ const expandShortsDialogue = async ({
     maxAttempts,
     completeJson,
     language,
+    temperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1348,6 +1371,7 @@ export const generateDialogue = async ({
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
   model,
+  temperature,
   maxAttempts = 3,
 }) => {
   const llm = resolveDialogueLlm(model);
@@ -1358,6 +1382,7 @@ export const generateDialogue = async ({
     throw new Error("Промпт диалога обязателен");
   }
 
+  const resolvedTemperature = normalizeDialogueTemperature(temperature);
   const normalizedMode = normalizeContentMode(mode);
   const enforceSingleSpeaker = wantsSingleSpeakerNarration(prompt);
   const gen = normalizeGenerationOptions({
@@ -1404,6 +1429,7 @@ export const generateDialogue = async ({
     maxAttempts,
     completeJson: llm.completeJson,
     language: gen.language,
+    temperature: resolvedTemperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1417,7 +1443,7 @@ export const generateDialogue = async ({
     },
   });
 
-  let finalResult = {...result, provider: llm.provider};
+  let finalResult = {...result, provider: llm.provider, temperature: resolvedTemperature};
   if (enforceSingleSpeaker) {
     finalResult = {
       ...finalResult,
@@ -1440,6 +1466,7 @@ export const generateDialogue = async ({
         completeJson: llm.completeJson,
         maxAttempts,
         singleSpeaker: enforceSingleSpeaker,
+        temperature: resolvedTemperature,
       });
       const expandedCount = expanded.conversation?.messages?.length ?? 0;
       if (expandedCount > draftCount) {
@@ -1461,7 +1488,7 @@ export const generateDialogue = async ({
     }
   }
 
-  return {...finalResult, provider: llm.provider};
+  return {...finalResult, provider: llm.provider, temperature: resolvedTemperature};
 };
 
 export const refineDialogue = async ({
@@ -1475,6 +1502,7 @@ export const refineDialogue = async ({
   seriesId = DEFAULT_SERIES_ID,
   videoLayout,
   model,
+  temperature,
   maxAttempts = 3,
 }) => {
   const llm = resolveDialogueLlm(model);
@@ -1484,6 +1512,8 @@ export const refineDialogue = async ({
   if (!refinePrompt?.trim()) {
     throw new Error("Промпт доработки обязателен");
   }
+
+  const resolvedTemperature = normalizeDialogueTemperature(temperature);
   if (!conversation || typeof conversation !== "object") {
     throw new Error("Текущая переписка обязательна");
   }
@@ -1523,6 +1553,7 @@ export const refineDialogue = async ({
     maxAttempts,
     completeJson: llm.completeJson,
     language: gen.language,
+    temperature: resolvedTemperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1537,7 +1568,7 @@ export const refineDialogue = async ({
     },
   });
 
-  return {...result, provider: llm.provider};
+  return {...result, provider: llm.provider, temperature: resolvedTemperature};
 };
 
 export const regenerateMessage = async ({
@@ -1547,6 +1578,7 @@ export const regenerateMessage = async ({
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
   model,
+  temperature,
   maxAttempts = 3,
 }) => {
   const llm = resolveDialogueLlm(model);
@@ -1583,6 +1615,7 @@ export const regenerateMessage = async ({
   const result = await runChatJsonGeneration({
     maxAttempts,
     completeJson: llm.completeJson,
+    temperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1614,7 +1647,12 @@ export const regenerateMessage = async ({
     },
   });
 
-  return {...result, provider: llm.provider, mode: normalizedMode};
+  return {
+    ...result,
+    provider: llm.provider,
+    mode: normalizedMode,
+    temperature: normalizeDialogueTemperature(temperature),
+  };
 };
 
 export const regenerateEnding = async ({
@@ -1627,6 +1665,7 @@ export const regenerateEnding = async ({
   videoLayout,
   mode = "shorts",
   model,
+  temperature,
   maxAttempts = 3,
 }) => {
   const llm = resolveDialogueLlm(model);
@@ -1699,10 +1738,12 @@ export const regenerateEnding = async ({
         ].join("\n");
 
   const parseMode = normalizedMode === "shorts" ? "shorts" : "series";
+  const resolvedTemperature = normalizeDialogueTemperature(temperature);
   const result = await runChatJsonGeneration({
     maxAttempts,
     completeJson: llm.completeJson,
     language: gen.language,
+    temperature: resolvedTemperature,
     messages: [
       {role: "system", content: system},
       {role: "user", content: user},
@@ -1715,5 +1756,5 @@ export const regenerateEnding = async ({
     },
   });
 
-  return {...result, provider: llm.provider, regeneratedFrom: keepCount};
+  return {...result, provider: llm.provider, regeneratedFrom: keepCount, temperature: resolvedTemperature};
 };

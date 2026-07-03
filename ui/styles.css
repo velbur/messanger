@@ -469,6 +469,19 @@ body {
   color: #8696a0;
 }
 
+.dialogue-gen-option__value {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  color: #d1d7db;
+}
+
+.dialogue-gen-range {
+  width: 140px;
+  max-width: 100%;
+  margin: 0;
+  accent-color: #00a884;
+}
+
 .title-cards__input {
   width: 100%;
 }

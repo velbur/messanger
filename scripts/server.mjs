@@ -109,6 +109,7 @@ import {
   regenerateMessage,
   checkDialogueLogic,
   regenerateEnding,
+  normalizeDialogueTemperature,
 } from "./dialogue-gen.mjs";
 import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
@@ -181,6 +182,8 @@ const resolveRequestVideoLayout = ({videoLayout, dialogueStyle, conversation, mo
   }
   return "chat";
 };
+
+const parseRequestDialogueTemperature = (body) => normalizeDialogueTemperature(body?.temperature);
 
 const formatDialogueApiError = (error) => {
   const validation = formatConversationValidationError(error);
@@ -1660,6 +1663,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       useSeriesContext,
       model,
       textMode,
+      temperature,
     } = req.body ?? {};
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       res.status(400).json({error: "Поле prompt обязательно"});
@@ -1704,6 +1708,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode,
       seriesId: normalizedSeriesId || "usssr",
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+      temperature: parseRequestDialogueTemperature(req.body),
     });
 
     res.json({
@@ -1714,6 +1719,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       mode: result.mode,
       provider: result.provider ?? "openrouter",
       expandedFrom: result.expandedFrom ?? null,
+      temperature: result.temperature ?? parseRequestDialogueTemperature(req.body),
       messageCount: result.conversation?.messages?.length ?? 0,
       contextMessageCount: Array.isArray(contextMessages) ? contextMessages.length : 0,
     });
@@ -1798,6 +1804,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
       mode,
       seriesId: normalizedSeriesId || "usssr",
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+      temperature: parseRequestDialogueTemperature(req.body),
     });
 
     res.json({
@@ -1817,7 +1824,7 @@ app.post("/api/dialogues/regenerate-message", async (req, res) => {
 app.post("/api/dialogues/refine", async (req, res) => {
   try {
     await loadOpenRouterEnv();
-    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, dialogueStyle, videoLayout, model} =
+    const {refinePrompt, json: jsonText, includeImages, imageCount, messageCount, language, mode: modeRaw, seriesId, dialogueStyle, videoLayout, model, temperature} =
       req.body ?? {};
     if (!refinePrompt || typeof refinePrompt !== "string" || !refinePrompt.trim()) {
       res.status(400).json({error: "Поле refinePrompt обязательно"});
@@ -1859,6 +1866,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       seriesId: normalizedSeriesId || "usssr",
       videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, conversation, mode}),
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+      temperature: parseRequestDialogueTemperature(req.body),
     });
 
     res.json({
@@ -1868,6 +1876,7 @@ app.post("/api/dialogues/refine", async (req, res) => {
       attempts: result.attempts,
       mode: result.mode,
       provider: result.provider ?? "openrouter",
+      temperature: result.temperature ?? parseRequestDialogueTemperature(req.body),
     });
   } catch (error) {
     res.status(400).json({error: formatDialogueApiError(error)});
@@ -1887,6 +1896,7 @@ app.post("/api/dialogues/logic", async (req, res) => {
       mode: modeRaw,
       seriesId,
       model,
+      temperature,
     } = req.body ?? {};
 
     if (!jsonText || typeof jsonText !== "string") {
@@ -1927,6 +1937,7 @@ app.post("/api/dialogues/logic", async (req, res) => {
       mode,
       seriesId: normalizedSeriesId || "usssr",
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+      temperature: parseRequestDialogueTemperature(req.body),
     });
 
     res.json({
@@ -1937,6 +1948,7 @@ app.post("/api/dialogues/logic", async (req, res) => {
       mode: result.mode,
       provider: result.provider ?? "openrouter",
       logicRevised: result.logicRevised ?? false,
+      temperature: result.temperature ?? parseRequestDialogueTemperature(req.body),
     });
   } catch (error) {
     res.status(400).json({error: formatDialogueApiError(error)});
@@ -1985,6 +1997,7 @@ app.post("/api/dialogues/regenerate-ending", async (req, res) => {
       videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, conversation, mode}),
       mode,
       model: typeof model === "string" ? resolveDialogueModel(model) : undefined,
+      temperature: parseRequestDialogueTemperature(req.body),
     });
 
     res.json({

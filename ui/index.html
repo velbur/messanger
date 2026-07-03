@@ -261,6 +261,22 @@
                     <option value="">Загрузка…</option>
                   </select>
                 </label>
+                <label class="dialogue-gen-option" id="dialogueTemperatureOption">
+                  <span class="dialogue-gen-option__label">
+                    Температура
+                    <output id="dialogueTemperatureValue" class="dialogue-gen-option__value" for="dialogueTemperature">0.45</output>
+                  </span>
+                  <input
+                    type="range"
+                    id="dialogueTemperature"
+                    class="dialogue-gen-range"
+                    min="0"
+                    max="1.2"
+                    step="0.05"
+                    value="0.45"
+                    title="Креативность модели: ниже — стабильнее, выше — разнообразнее"
+                  />
+                </label>
               </div>
             </div>
 
