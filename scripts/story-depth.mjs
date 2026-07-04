@@ -33,7 +33,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 47;
+export const DEPTH_LAYER_VERSION = 49;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.1;
@@ -52,6 +52,9 @@ export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 1;
 export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0.036;
 /** Амплитуда hold-фазы после Veo — между «слабо» и «артефакты» */
 export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.15;
+
+/** Supersample-фактор для варпа: рендер в N× + downscale (чище края, дороже bake) */
+const PARALLAX_SUPERSAMPLE = 1.5;
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -295,6 +298,7 @@ const bakeParallaxAsset = async ({
         dustCount: PARALLAX_FX.dustCount,
         dustStrength: PARALLAX_FX.dustStrength,
         effectSeed: hashSeed(rel),
+        supersample: PARALLAX_SUPERSAMPLE,
       },
     ]);
 
@@ -317,6 +321,7 @@ const bakeParallaxAsset = async ({
         panX: pan.panX,
         panY: pan.panY,
         fx: PARALLAX_FX,
+        supersample: PARALLAX_SUPERSAMPLE,
         ...metaExtra,
       })}\n`,
       "utf8",

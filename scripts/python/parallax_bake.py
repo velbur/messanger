@@ -95,24 +95,60 @@ def smoothstep(edge0: float, edge1: float, x: np.ndarray) -> np.ndarray:
     return t * t * (3.0 - 2.0 * t)
 
 
-def prepare_depth(depth_u8: np.ndarray, w: int, h: int) -> np.ndarray:
+def guided_filter(guide: np.ndarray, src: np.ndarray, radius: int, eps: float) -> np.ndarray:
+    """Edge-aware сглаживание (He et al.): src выравнивается по краям guide.
+
+    Привязывает разрывы depth к реальным контурам картинки → силуэты не «плывут»
+    при parallax-сдвиге. Реализация через box-фильтры — без opencv-contrib.
+    """
+    r = max(1, int(radius))
+    ksize = (2 * r + 1, 2 * r + 1)
+    mean_i = cv2.boxFilter(guide, cv2.CV_32F, ksize)
+    mean_p = cv2.boxFilter(src, cv2.CV_32F, ksize)
+    mean_ip = cv2.boxFilter(guide * src, cv2.CV_32F, ksize)
+    cov_ip = mean_ip - mean_i * mean_p
+    mean_ii = cv2.boxFilter(guide * guide, cv2.CV_32F, ksize)
+    var_i = mean_ii - mean_i * mean_i
+    a = cov_ip / (var_i + eps)
+    b = mean_p - a * mean_i
+    mean_a = cv2.boxFilter(a, cv2.CV_32F, ksize)
+    mean_b = cv2.boxFilter(b, cv2.CV_32F, ksize)
+    return mean_a * guide + mean_b
+
+
+def prepare_depth(depth_u8: np.ndarray, w: int, h: int, guide_rgb: np.ndarray = None) -> np.ndarray:
     """uint8 depth → float[0..1], растянуть по перцентилям, сгладить (near=1)."""
     d = depth_u8.astype(np.float32)
     lo = float(np.percentile(d, 2))
     hi = float(np.percentile(d, 98))
     d = np.clip((d - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-    
-    # Используем bilateral filter, чтобы выровнять глубину внутри объектов (лиц)
-    # и сохранить резкие границы. Обычный GaussianBlur делает из объектов "холмы",
-    # из-за чего они растягиваются ("плывут") при parallax-сдвиге.
+
+    # Bilateral выравнивает глубину внутри объектов (лиц) и сохраняет границы.
+    # Обычный GaussianBlur делает из объектов "холмы" → они «плывут» при сдвиге.
     d_8u = (d * 255).astype(np.uint8)
     d_8u = cv2.bilateralFilter(d_8u, d=7, sigmaColor=45, sigmaSpace=45)
-    return d_8u.astype(np.float32) / 255.0
+    d = d_8u.astype(np.float32) / 255.0
+
+    # Guided filter привязывает разрывы глубины к контурам самой картинки —
+    # силуэт переднего плана перестаёт «резинить» при parallax-warp.
+    if guide_rgb is not None:
+        try:
+            guide = cv2.cvtColor(guide_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+            radius = max(2, int(min(w, h) * 0.012))
+            d = guided_filter(guide, d, radius, eps=1.2e-3)
+            d = np.clip(d, 0.0, 1.0)
+        except Exception as error:  # noqa: BLE001
+            log(f"guided_filter пропущен: {error}")
+    return d
 
 
 def compress_displacement(disp: np.ndarray) -> np.ndarray:
-    """Сжать крайние значения глубины — меньше растяжки на ближнем плане."""
-    return np.tanh(disp * 1.9) * 0.45
+    """Сжать крайние значения глубины — меньше растяжки на ближнем плане.
+
+    Мягче колено (1.8 вместо 1.9) + чуть больше хода (0.48): средние планы
+    получают больше объёма, экстремумы всё ещё зажаты → без смаза по краям.
+    """
+    return np.tanh(disp * 1.8) * 0.48
 
 
 def camera_phase(t: float) -> float:
@@ -128,37 +164,69 @@ def scene_sweep_phase(t: float, sweep: str = "round-trip") -> float:
     return camera_phase(tri)
 
 
-def build_foreground_alpha(depth: np.ndarray, w: int, h: int) -> np.ndarray:
-    """Маска переднего плана из самых близких глубин, адаптивно по перцентилям."""
-    p60 = float(np.percentile(depth, 60))
-    p85 = float(np.percentile(depth, 88))
-    lo = max(p60, 0.45)
-    hi = max(p85, lo + 0.12)
-    alpha = smoothstep(lo, hi, depth)
-    feather = max(1.0, min(w, h) * 0.004)
-    alpha = cv2.GaussianBlur(alpha, (0, 0), sigmaX=feather, sigmaY=feather)
-    return np.clip(alpha, 0.0, 1.0)
-
-
-def inpaint_background(img_rgb: np.ndarray, fg_alpha: np.ndarray, depth: np.ndarray):
-    """Убрать передний план и заполнить фон (цвет + глубину) через Telea-inpaint."""
-    h, w = depth.shape
-    mask = (fg_alpha > 0.45).astype(np.uint8) * 255
+def region_mask(weight: np.ndarray, w: int, h: int, thr: float = 0.4) -> np.ndarray:
+    """Бинарная (расширенная) маска зоны, занятой слоем — для inpaint позади."""
+    mask = (weight > thr).astype(np.uint8) * 255
     dilate = max(3, int(min(w, h) * 0.012))
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dilate, dilate))
-    mask = cv2.dilate(mask, kernel)
+    return cv2.dilate(mask, kernel)
+
+
+def inpaint_rgb(img_rgb: np.ndarray, mask_u8: np.ndarray, w: int, h: int) -> np.ndarray:
+    """Заполнить закрытую (mask) область цветом соседнего фона (Telea)."""
     radius = max(4, int(min(w, h) * 0.02))
+    bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+    filled = cv2.inpaint(bgr, mask_u8, radius, cv2.INPAINT_TELEA)
+    return cv2.cvtColor(filled, cv2.COLOR_BGR2RGB)
 
-    img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
-    bg_bgr = cv2.inpaint(img_bgr, mask, radius, cv2.INPAINT_TELEA)
-    bg_rgb = cv2.cvtColor(bg_bgr, cv2.COLOR_BGR2RGB)
 
-    depth_u8 = (np.clip(depth, 0, 1) * 255).astype(np.uint8)
-    depth_bg_u8 = cv2.inpaint(depth_u8, mask, radius, cv2.INPAINT_TELEA)
-    depth_bg = depth_bg_u8.astype(np.float32) / 255.0
+def inpaint_depth(depth: np.ndarray, mask_u8: np.ndarray, w: int, h: int) -> np.ndarray:
+    """Заполнить глубину под закрытой областью и мягко сгладить."""
+    d8 = (np.clip(depth, 0, 1) * 255).astype(np.uint8)
+    radius = max(4, int(min(w, h) * 0.02))
+    filled = cv2.inpaint(d8, mask_u8, radius, cv2.INPAINT_TELEA).astype(np.float32) / 255.0
     sigma = max(1.0, min(w, h) * 0.01)
-    depth_bg = cv2.GaussianBlur(depth_bg, (0, 0), sigmaX=sigma, sigmaY=sigma)
-    return bg_rgb, depth_bg
+    return cv2.GaussianBlur(filled, (0, 0), sigmaX=sigma, sigmaY=sigma)
+
+
+def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
+    """LDI-декомпозиция на 3 плоскости near/mid/far (back→front).
+
+    Модель «непрозрачных листов» с over-композитингом:
+      - far  — сплошной фон (alpha=1), RGB = картинка с закрашенными near+mid;
+      - mid  — перекрывает far в зоне «mid или ближе», RGB = картинка без near;
+      - near — только ближний план, RGB = оригинал.
+    За каждым слоем свои inpaint'нутые RGB и depth, поэтому при parallax-сдвиге
+    открывается корректно заполненный слой позади, а не одна общая «замазка».
+    """
+    b_far = float(np.percentile(depth, 42))
+    b_near = float(np.percentile(depth, 74))
+    if b_near - b_far < 0.08:  # низкий контраст глубины — раздвинуть границы
+        mid = 0.5 * (b_far + b_near)
+        b_far, b_near = mid - 0.06, mid + 0.06
+    feather = max(0.03, (b_near - b_far) * 0.4)
+
+    a_far = np.ones((h, w), np.float32)
+    a_mid = smoothstep(b_far - feather, b_far + feather, depth).astype(np.float32)
+    a_near = smoothstep(b_near - feather, b_near + feather, depth).astype(np.float32)
+    fea = max(1.0, min(w, h) * 0.004)
+    a_mid = np.clip(cv2.GaussianBlur(a_mid, (0, 0), sigmaX=fea, sigmaY=fea), 0.0, 1.0)
+    a_near = np.clip(cv2.GaussianBlur(a_near, (0, 0), sigmaX=fea, sigmaY=fea), 0.0, 1.0)
+
+    near_region = region_mask(a_near, w, h, 0.4)
+    mid_region = region_mask(a_mid, w, h, 0.4)
+    far_hidden = cv2.max(near_region, mid_region)
+
+    mid_rgb = inpaint_rgb(img, near_region, w, h)
+    far_rgb = inpaint_rgb(img, far_hidden, w, h)
+    mid_depth = inpaint_depth(depth, near_region, w, h)
+    far_depth = inpaint_depth(depth, far_hidden, w, h)
+
+    return [
+        {"rgb": far_rgb, "alpha": a_far, "depth": far_depth, "gain": 0.6, "opaque": True},
+        {"rgb": mid_rgb, "alpha": a_mid, "depth": mid_depth, "gain": 0.82, "opaque": False},
+        {"rgb": img, "alpha": a_near, "depth": depth, "gain": 1.0, "opaque": False},
+    ]
 
 
 def warp_rigid(src: np.ndarray, base_x, base_y, shift_x: float, shift_y: float):
@@ -183,7 +251,9 @@ def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, 
         disp = compress_displacement(d_at - focus)
         map_x = (base_x - disp * ox).astype(np.float32)
         map_y = (base_y - disp * oy).astype(np.float32)
-    warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    # INTER_CUBIC для цвета — чётче при zoom/overscan; карты глубины/alpha ниже
+    # сэмплятся линейно (кубик там даёт ringing на краях маски).
+    warped = cv2.remap(src, map_x, map_y, cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
     return warped, map_x, map_y
 
 
@@ -276,6 +346,9 @@ def bake_one(job: dict) -> dict:
     oscillations = float(job.get("oscillations", 4.0))
     motion = str(job.get("motion", "linear"))
     sweep = str(job.get("sweep", "round-trip"))
+    # Supersample: варп/композитинг в N× разрешении, downscale INTER_AREA → чистые края
+    supersample = float(job.get("supersample", 1.0))
+    supersample = min(2.0, max(1.0, supersample))
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -290,37 +363,44 @@ def bake_one(job: dict) -> dict:
         if (dw, dh) != (w, h):
             depth_u8 = cv2.resize(depth_u8, (w, h), interpolation=cv2.INTER_LINEAR)
 
-    depth = prepare_depth(depth_u8, w, h)
-    fg_alpha = build_foreground_alpha(depth, w, h)
-    bg_rgb, depth_bg = inpaint_background(img, fg_alpha, depth)
+    # Глубина считается в выходном разрешении (для out_depth и границ слоёв)
+    depth = prepare_depth(depth_u8, w, h, guide_rgb=img)
 
     out_depth = job.get("out_depth")
     if out_depth:
         Path(out_depth).parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(out_depth, (np.clip(depth, 0, 1) * 255).astype(np.uint8))
 
-    focus = float(np.percentile(depth, 50))
-    # Разница между fg и bg создаёт эффект 3D (parallax)
-    near_gain = 1.0
-    far_gain = 0.6
+    # Supersample: варп/композитинг в render-разрешении rw×rh, downscale перед энкодом
+    rw = even_encode_dim(int(round(w * supersample)))
+    rh = even_encode_dim(int(round(h * supersample)))
+    if (rw, rh) != (w, h):
+        img_r = cv2.resize(img, (rw, rh), interpolation=cv2.INTER_CUBIC)
+        depth_r = cv2.resize(depth, (rw, rh), interpolation=cv2.INTER_LINEAR)
+    else:
+        img_r, depth_r = img, depth
+    scale = rw / float(w)
+    amp_r = amp * scale  # смещения — в render-пикселях
+
+    layers = build_layers(img_r, depth_r, rw, rh)
+    focus = float(np.percentile(depth_r, 50))
 
     # overscan: запас под parallax-смещение + опциональный зум
     overscan_gain = 1.65 if motion == "linear" else 1.5
-    zoom_overscan = 1.0 + (amp / max(w, h)) * overscan_gain
-    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
-    grid_y, grid_x = np.mgrid[0:h, 0:w].astype(np.float32)
-
-    fg_alpha_f = fg_alpha.astype(np.float32)
+    zoom_overscan = 1.0 + (amp_r / max(rw, rh)) * overscan_gain
+    cx, cy = (rw - 1) / 2.0, (rh - 1) / 2.0
+    grid_y, grid_x = np.mgrid[0:rh, 0:rw].astype(np.float32)
 
     # Depth-of-field / aerial haze считаем по «дальности» от фокальной плоскости
     focus_span = max(focus, 1e-3)
-    dof_sigma = max(1.0, min(w, h) * 0.013)
+    dof_sigma = max(1.0, min(rw, rh) * 0.013)
     # тёплый ambient для дымки — берём из ярких (ламповых) пикселей
-    ambient = np.clip(np.percentile(img.reshape(-1, 3), 85, axis=0), 0, 255).astype(np.float32)
+    ambient = np.clip(np.percentile(img_r.reshape(-1, 3), 85, axis=0), 0, 255).astype(np.float32)
     dust_tint = np.array([1.0, 0.96, 0.86], dtype=np.float32)
     dust_gain = 38.0
 
-    motes = make_motes(effect_seed, dust_count, w, h) if dust_count > 0 else None
+    motes = make_motes(effect_seed, dust_count, rw, rh) if dust_count > 0 else None
+    downscale = (rw, rh) != (w, h)
 
     proc = open_ffmpeg(out_video, w, h, fps)
     two_pi = 2.0 * np.pi
@@ -333,47 +413,51 @@ def bake_one(job: dict) -> dict:
                     # t=0 → 0 (стык с Veo), далее sin: влево-вправо-влево…
                     sweep_val = float(np.sin(two_pi * oscillations * t))
                     zoom = 1.0 + zoom_frac * t
-                    ox = amp * pan_x * sweep_val
-                    oy = amp * pan_y * pan_y_gain * abs(sweep_val)
+                    ox = amp_r * pan_x * sweep_val
+                    oy = amp_r * pan_y * pan_y_gain * abs(sweep_val)
                 elif hold_handoff and sweep in ("forward", "one-way"):
                     sweep_val = t
                     zoom_end = zoom_overscan + zoom_frac
                     zoom = 1.0 + (zoom_end - 1.0) * sweep_val
-                    ox = amp * pan_x * sweep_val
-                    oy = amp * pan_y * pan_y_gain * sweep_val
+                    ox = amp_r * pan_x * sweep_val
+                    oy = amp_r * pan_y * pan_y_gain * sweep_val
                 else:
                     sweep_val = scene_sweep_phase(t, sweep)
                     zoom = zoom_overscan + zoom_frac * sweep_val
-                    ox = amp * pan_x * sweep_val
-                    oy = amp * pan_y * pan_y_gain * sweep_val
+                    ox = amp_r * pan_x * sweep_val
+                    oy = amp_r * pan_y * pan_y_gain * sweep_val
             else:
                 t = i / frames
                 pt = camera_phase(t)
                 zoom = zoom_overscan + zoom_frac * np.sin(np.pi * pt)
-                ox = amp * pan_x * np.sin(two_pi * pt)
-                oy = amp * pan_y * 0.4 * np.cos(two_pi * pt)
+                ox = amp_r * pan_x * np.sin(two_pi * pt)
+                oy = amp_r * pan_y * 0.4 * np.cos(two_pi * pt)
 
             base_x = (grid_x - cx) / zoom + cx
             base_y = (grid_y - cy) / zoom + cy
 
-            bg_warp, bg_mx, bg_my = warp_layer(
-                bg_rgb, depth_bg, base_x, base_y, focus, ox * far_gain, oy * far_gain
-            )
-            fg_warp, map_x, map_y = warp_layer(
-                img, depth, base_x, base_y, focus, ox * near_gain, oy * near_gain
-            )
-            a_warp = cv2.remap(
-                fg_alpha_f, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
-            )[..., None]
+            # Композитинг слоёв back→front (far → mid → near) с over-оператором.
+            out = None
+            scene_depth = None
+            for layer in layers:
+                gain = layer["gain"]
+                rgb_w, mx, my = warp_layer(
+                    layer["rgb"], layer["depth"], base_x, base_y, focus, ox * gain, oy * gain
+                )
+                d_w = cv2.remap(
+                    layer["depth"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
+                )
+                if out is None:  # far — непрозрачный фон
+                    out = rgb_w.astype(np.float32)
+                    scene_depth = d_w
+                    continue
+                a_w = cv2.remap(
+                    layer["alpha"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
+                )
+                a3 = a_w[..., None]
+                out = out * (1.0 - a3) + rgb_w.astype(np.float32) * a3
+                scene_depth = scene_depth * (1.0 - a_w) + d_w * a_w
 
-            out = bg_warp.astype(np.float32) * (1.0 - a_warp) + fg_warp.astype(np.float32) * a_warp
-
-            # Глубина на каждый выходной пиксель — для DOF, дымки и перекрытия пылинок
-            depth_n = cv2.remap(depth, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-            depth_f = cv2.remap(
-                depth_bg, bg_mx, bg_my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
-            )
-            scene_depth = a_warp[..., 0] * depth_n + (1.0 - a_warp[..., 0]) * depth_f
             farness = np.clip((focus - scene_depth) / focus_span, 0.0, 1.0)
 
             if dof_strength > 0.0:
@@ -386,11 +470,11 @@ def bake_one(job: dict) -> dict:
                 out = out * (1.0 - w_haze) + ambient[None, None, :] * w_haze
 
             if motes is not None:
-                acc = np.zeros((h, w), dtype=np.float32)
+                acc = np.zeros((rh, rw), dtype=np.float32)
                 drift = motes["drift"]
                 if linear:
-                    px = motes["bx"] + drift * sweep * np.cos(motes["phase"])
-                    py = motes["by"] + drift * sweep * np.sin(motes["phase"])
+                    px = motes["bx"] + drift * t * np.cos(motes["phase"])
+                    py = motes["by"] + drift * t * np.sin(motes["phase"])
                     twinkle_t = t
                 else:
                     px = motes["bx"] + drift * np.cos(two_pi * pt + motes["phase"])
@@ -403,10 +487,10 @@ def bake_one(job: dict) -> dict:
                 far_m = np.clip((focus - motes["dm"]) / focus_span, 0.0, 1.0)
                 r_eff = motes["radius"] * (1.0 + far_m * 2.0)
                 b_eff = motes["bright"] * twinkle / (1.0 + far_m * 1.2)
-                ix = np.clip(sx.astype(int), 0, w - 1)
-                iy = np.clip(sy.astype(int), 0, h - 1)
+                ix = np.clip(sx.astype(int), 0, rw - 1)
+                iy = np.clip(sy.astype(int), 0, rh - 1)
                 for k in range(len(px)):
-                    if sx[k] < 0 or sx[k] >= w or sy[k] < 0 or sy[k] >= h:
+                    if sx[k] < 0 or sx[k] >= rw or sy[k] < 0 or sy[k] >= rh:
                         continue
                     # мягкое перекрытие передним планом (жёсткий порог прятал почти всё)
                     depth_delta = float(scene_depth[iy[k], ix[k]] - motes["dm"][k])
@@ -415,6 +499,9 @@ def bake_one(job: dict) -> dict:
                     occ = 1.0 if depth_delta <= 0.02 else max(0.0, 1.0 - (depth_delta - 0.02) / 0.14)
                     stamp_soft(acc, sx[k], sy[k], r_eff[k], b_eff[k] * occ)
                 out = out + (dust_strength * dust_gain) * acc[..., None] * dust_tint[None, None, :]
+
+            if downscale:  # супер-сэмпл → выходное разрешение (AA краёв)
+                out = cv2.resize(out, (w, h), interpolation=cv2.INTER_AREA)
 
             frame = np.clip(out + 0.5, 0, 255).astype(np.uint8)
             proc.stdin.write(frame.tobytes())
