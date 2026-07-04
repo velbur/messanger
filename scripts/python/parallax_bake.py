@@ -241,6 +241,24 @@ def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
     ]
 
 
+def build_wind_phases(seed: int, w: int, h: int):
+    """Два поля фаз для ветра: мелкое (трепет отдельных листьев) + крупное (порывы).
+
+    Мелкая октава — ключ против «марева»: соседние участки листвы получают разную
+    фазу, поэтому нет единой бегущей по кадру синусоиды (эффекта тепловой дымки).
+    """
+    rng = np.random.default_rng(seed)
+
+    def field(cells_h: int) -> np.ndarray:
+        cells_w = max(2, int(round(cells_h * w / max(h, 1))))
+        base = rng.random((max(2, cells_h), cells_w)).astype(np.float32)
+        return np.clip(cv2.resize(base, (w, h), interpolation=cv2.INTER_CUBIC), 0.0, 1.0)
+
+    fine = field(max(12, h // 16))   # трепет листьев (высокая простр. частота)
+    coarse = field(max(2, h // 90))  # медленные порывы ветра
+    return fine, coarse
+
+
 def build_alive_masks(img_rgb: np.ndarray, depth: np.ndarray, w: int, h: int, seed: int = 12345):
     """Эвристические маски «оживляемых» зон (вариант A, без сегментации).
 
@@ -412,10 +430,16 @@ def bake_one(job: dict) -> dict:
     alive_veg_frac = float(job.get("alive_veg_frac", 0.006))
     alive_sky_frac = float(job.get("alive_sky_frac", 0.012))
     alive_water_frac = float(job.get("alive_water_frac", 0.004))
-    alive_veg_cycles = float(job.get("alive_veg_cycles", 3.5))
+    alive_cloth_frac = float(job.get("alive_cloth_frac", 0.008))
+    # Частоты в Гц (реальное время) — НЕ «циклов на клип», иначе на длинном hold
+    # листва плывёт одной сверх-медленной волной («марево от жары»).
+    alive_veg_hz = float(job.get("alive_veg_hz", 0.9))
+    alive_cloth_hz = float(job.get("alive_cloth_hz", 1.1))
+    alive_gust_hz = float(job.get("alive_gust_hz", 0.14))
     veg_mask_raw = job.get("veg_mask_raw")
     sky_mask_raw = job.get("sky_mask_raw")
     water_mask_raw = job.get("water_mask_raw")
+    cloth_mask_raw = job.get("cloth_mask_raw")
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -453,34 +477,37 @@ def bake_one(job: dict) -> dict:
     focus = float(np.percentile(depth_r, 50))
 
     # Маски «живых» зон + амплитуды в render-пикселях
-    veg_mask = sky_mask = water_mask = veg_phase = None
-    veg_amp_px = sky_amp_px = water_amp_px = 0.0
+    veg_mask = sky_mask = water_mask = cloth_mask = None
+    veg_phase_fine = veg_phase_coarse = None
+    veg_amp_px = sky_amp_px = water_amp_px = cloth_amp_px = 0.0
     has_alive = False
     if alive_motion:
         # Вариант B: маски из семантической сегментации (raw-файлы).
         veg_mask = load_mask_raw(veg_mask_raw, rw, rh)
         sky_mask = load_mask_raw(sky_mask_raw, rw, rh)
         water_mask = load_mask_raw(water_mask_raw, rw, rh)
-        if veg_mask is None and sky_mask is None and water_mask is None:
+        cloth_mask = load_mask_raw(cloth_mask_raw, rw, rh)
+        if veg_mask is None and sky_mask is None and water_mask is None and cloth_mask is None:
             # Вариант A (fallback): эвристика по цвету.
-            veg_mask, sky_mask, veg_phase = build_alive_masks(img_r, depth_r, rw, rh, effect_seed)
-        if veg_phase is None:
-            rng = np.random.default_rng(effect_seed)
-            coarse = rng.random((max(2, rh // 48), max(2, rw // 48))).astype(np.float32)
-            veg_phase = cv2.resize(coarse, (rw, rh), interpolation=cv2.INTER_CUBIC)
+            veg_mask, sky_mask, _ = build_alive_masks(img_r, depth_r, rw, rh, effect_seed)
         if veg_mask is None:
             veg_mask = np.zeros((rh, rw), np.float32)
         if sky_mask is None:
             sky_mask = np.zeros((rh, rw), np.float32)
         if water_mask is None:
             water_mask = np.zeros((rh, rw), np.float32)
+        if cloth_mask is None:
+            cloth_mask = np.zeros((rh, rw), np.float32)
+        veg_phase_fine, veg_phase_coarse = build_wind_phases(effect_seed, rw, rh)
         veg_amp_px = alive_veg_frac * min(rw, rh)
         sky_amp_px = alive_sky_frac * rw
         water_amp_px = alive_water_frac * min(rw, rh)
+        cloth_amp_px = alive_cloth_frac * min(rw, rh)
         has_alive = (
             float(veg_mask.max()) > 0.02
             or float(sky_mask.max()) > 0.02
             or float(water_mask.max()) > 0.02
+            or float(cloth_mask.max()) > 0.02
         )
 
     # overscan: запас под parallax-смещение + опциональный зум
@@ -534,25 +561,38 @@ def bake_one(job: dict) -> dict:
             base_x = (grid_x - cx) / zoom + cx
             base_y = (grid_y - cy) / zoom + cy
 
-            # Procedural motion: листва качается, небо дрейфует, вода мерцает.
-            # veg+water → mid/near слои, sky → far. env(t) даёт 0 на t=0 (стык с Veo).
+            # Procedural motion: листва качается на ветру, небо дрейфует, вода мерцает.
+            # Частоты в РЕАЛЬНОМ времени (t_sec), фаза мелкозернистая по пространству —
+            # это убирает эффект «марева от жары» (единой медленной бегущей волны).
+            # env(t) даёт 0 на t=0 (плавный стык с Veo).
             veg_dx = veg_dy = sky_dx = None
             if has_alive:
+                t_sec = i / max(fps, 1)
                 env = smoothstep(0.0, 0.12, t) if linear else 1.0
-                veg_wave = np.sin(two_pi * (alive_veg_cycles * t + veg_phase))
-                veg_wave_y = np.sin(two_pi * (alive_veg_cycles * 1.3 * t + veg_phase * 1.7))
+                # порывы ветра: медленные, пространственно крупные (0..1)
+                gust = 0.45 + 0.55 * np.sin(two_pi * (alive_gust_hz * t_sec + veg_phase_coarse))
+                # трепет: частота в Гц + мелкая фаза → листья дрожат независимо
+                fl_x = np.sin(two_pi * (alive_veg_hz * t_sec + veg_phase_fine))
+                fl_y = np.sin(two_pi * (alive_veg_hz * 1.6 * t_sec + veg_phase_fine + 0.3))
+                veg_move = env * gust * veg_mask
+                # вода: быстрее и мельче, преимущественно вертикальная рябь
+                wt_x = np.sin(two_pi * (alive_veg_hz * 2.0 * t_sec + veg_phase_fine * 1.7))
+                wt_y = np.cos(two_pi * (alive_veg_hz * 2.3 * t_sec + veg_phase_fine * 1.3))
+                # ткань: колыхание — преимущественно горизонтальный флаг + бегущая рябь
+                cl_x = np.sin(two_pi * (alive_cloth_hz * t_sec + veg_phase_fine * 0.8))
+                cl_y = np.sin(two_pi * (alive_cloth_hz * 1.4 * t_sec + veg_phase_fine * 1.2))
+                cloth_move = env * gust * cloth_mask
                 sky_shift = sky_amp_px * env * t if linear else sky_amp_px * np.sin(two_pi * t)
-                # вода: мельче и быстрее, преимущественно вертикальная рябь
-                water_wave = np.sin(two_pi * (alive_veg_cycles * 1.9 * t + veg_phase * 2.3))
-                water_wave_y = np.cos(two_pi * (alive_veg_cycles * 2.2 * t + veg_phase * 1.4))
 
                 veg_dx = (
-                    veg_amp_px * env * veg_wave * veg_mask
-                    + 0.5 * water_amp_px * env * water_wave * water_mask
+                    veg_amp_px * veg_move * fl_x
+                    + 0.5 * water_amp_px * env * wt_x * water_mask
+                    + cloth_amp_px * cloth_move * cl_x
                 ).astype(np.float32)
                 veg_dy = (
-                    0.35 * veg_amp_px * env * veg_wave_y * veg_mask
-                    + water_amp_px * env * water_wave_y * water_mask
+                    0.4 * veg_amp_px * veg_move * fl_y
+                    + water_amp_px * env * wt_y * water_mask
+                    + 0.35 * cloth_amp_px * cloth_move * cl_y
                 ).astype(np.float32)
                 sky_dx = (sky_shift * sky_mask).astype(np.float32)
 

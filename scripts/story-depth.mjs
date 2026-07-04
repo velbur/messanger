@@ -34,7 +34,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 51;
+export const DEPTH_LAYER_VERSION = 53;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.1;
@@ -63,7 +63,12 @@ const PARALLAX_ALIVE = {
   vegFrac: 0.006,
   skyFrac: 0.012,
   waterFrac: 0.004,
-  vegCycles: 3.5,
+  clothFrac: 0.008,
+  // Частоты в Гц (реальное время), не «циклов на клип» — иначе на длинном hold
+  // листва плывёт медленной волной («марево от жары»).
+  vegHz: 0.9,
+  clothHz: 1.1,
+  gustHz: 0.14,
 };
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
@@ -293,8 +298,16 @@ const bakeParallaxAsset = async ({
         const vegRaw = await writeDepthRaw(masks.vegUint8, width, height);
         const skyRaw = await writeDepthRaw(masks.skyUint8, width, height);
         const waterRaw = await writeDepthRaw(masks.waterUint8, width, height);
-        maskRaws.push(vegRaw, skyRaw, waterRaw);
-        aliveMasks = {vegRaw, skyRaw, waterRaw, coverage: masks.coverage, model: masks.model};
+        const clothRaw = await writeDepthRaw(masks.clothUint8, width, height);
+        maskRaws.push(vegRaw, skyRaw, waterRaw, clothRaw);
+        aliveMasks = {
+          vegRaw,
+          skyRaw,
+          waterRaw,
+          clothRaw,
+          coverage: masks.coverage,
+          model: masks.model,
+        };
       } catch (error) {
         aliveMasks = {error: error instanceof Error ? error.message : String(error)};
       }
@@ -330,10 +343,14 @@ const bakeParallaxAsset = async ({
         aliveVegFrac: PARALLAX_ALIVE.vegFrac,
         aliveSkyFrac: PARALLAX_ALIVE.skyFrac,
         aliveWaterFrac: PARALLAX_ALIVE.waterFrac,
-        aliveVegCycles: PARALLAX_ALIVE.vegCycles,
+        aliveClothFrac: PARALLAX_ALIVE.clothFrac,
+        aliveVegHz: PARALLAX_ALIVE.vegHz,
+        aliveClothHz: PARALLAX_ALIVE.clothHz,
+        aliveGustHz: PARALLAX_ALIVE.gustHz,
         vegMaskRaw: aliveMasks?.vegRaw,
         skyMaskRaw: aliveMasks?.skyRaw,
         waterMaskRaw: aliveMasks?.waterRaw,
+        clothMaskRaw: aliveMasks?.clothRaw,
       },
     ]);
 

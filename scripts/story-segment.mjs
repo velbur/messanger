@@ -3,7 +3,8 @@
  * → маски «оживляемых» зон для procedural motion в parallax:
  *   - vegetation (деревья/кусты/трава/цветы) → покачивание на ветру;
  *   - sky (небо/облака) → медленный дрейф;
- *   - water (вода/море/река) → шиммер.
+ *   - water (вода/море/река) → шиммер;
+ *   - cloth (флаги/шторы/навесы/тенты) → колыхание на ветру.
  *
  * Работает и на Mac, и на воркере (тот же xenova, без torch). Классы берутся по
  * семантике, а не по цвету — устойчиво к стилизованной тёплой палитре иллюстраций,
@@ -45,6 +46,19 @@ const WATER_LABELS = new Set([
   "swimming pool, swimming bath, natatorium",
   "pool",
 ]);
+/** Ткань/текстиль — колышется на ветру (флаги, шторы, навесы) */
+const CLOTH_LABELS = new Set([
+  "flag",
+  "curtain, drape, drapery, mantle, pall",
+  "curtain",
+  "blind, screen",
+  "blind",
+  "awning, sunshade, sunblind",
+  "awning",
+  "canopy",
+  "tent, collapsible shelter",
+  "tent",
+]);
 
 let segmenterPromise = null;
 const getSegmenter = () => {
@@ -69,6 +83,7 @@ const categoryFor = (label) => {
   if (VEG_LABELS.has(key)) return "veg";
   if (SKY_LABELS.has(key)) return "sky";
   if (WATER_LABELS.has(key)) return "water";
+  if (CLOTH_LABELS.has(key)) return "cloth";
   return null;
 };
 
@@ -97,7 +112,8 @@ const resizeMask = async (data, srcW, srcH, dstW, dstH) => {
 /**
  * Маски «живых» зон для картинки в целевом разрешении.
  * @returns {{vegUint8: Uint8Array, skyUint8: Uint8Array, waterUint8: Uint8Array,
- *   width: number, height: number, coverage: {veg: number, sky: number, water: number}}}
+ *   clothUint8: Uint8Array, width: number, height: number,
+ *   coverage: {veg: number, sky: number, water: number, cloth: number}}}
  */
 export const inferAliveMasks = async (imageAbs, targetWidth, targetHeight) => {
   const segmenter = await getSegmenter();
@@ -108,6 +124,7 @@ export const inferAliveMasks = async (imageAbs, targetWidth, targetHeight) => {
   const veg = new Uint8Array(pixelCount);
   const sky = new Uint8Array(pixelCount);
   const water = new Uint8Array(pixelCount);
+  const cloth = new Uint8Array(pixelCount);
 
   for (const seg of segments) {
     const cat = categoryFor(seg.label);
@@ -118,7 +135,8 @@ export const inferAliveMasks = async (imageAbs, targetWidth, targetHeight) => {
     const resized = await resizeMask(data, width, height, targetWidth, targetHeight);
     if (cat === "veg") orInto(veg, resized);
     else if (cat === "sky") orInto(sky, resized);
-    else orInto(water, resized);
+    else if (cat === "water") orInto(water, resized);
+    else orInto(cloth, resized);
   }
 
   const frac = (arr) => {
@@ -133,9 +151,10 @@ export const inferAliveMasks = async (imageAbs, targetWidth, targetHeight) => {
     vegUint8: veg,
     skyUint8: sky,
     waterUint8: water,
+    clothUint8: cloth,
     width: targetWidth,
     height: targetHeight,
-    coverage: {veg: frac(veg), sky: frac(sky), water: frac(water)},
+    coverage: {veg: frac(veg), sky: frac(sky), water: frac(water), cloth: frac(cloth)},
     model: SEG_MODEL,
   };
 };

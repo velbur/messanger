@@ -1,10 +1,9 @@
 import React from "react";
 import {AbsoluteFill, useCurrentFrame} from "remotion";
-import {DepthParallaxImage} from "./components/DepthParallaxImage";
-import {KenBurnsImage} from "./components/KenBurnsImage";
-import {storyParallaxVideoPath} from "./story-depth-paths";
+import {StorySceneImage} from "./components/StorySceneImage";
 
-export const STORY_PARALLAX_PREVIEW_MARKER = "story-parallax-preview-v3";
+// Бамп маркера форсит пересборку бандла Remotion.
+export const STORY_PARALLAX_PREVIEW_MARKER = "story-parallax-preview-v4";
 
 void STORY_PARALLAX_PREVIEW_MARKER;
 
@@ -13,32 +12,32 @@ type Props = {
   animation: "kenburns" | "depthParallax";
   /** Длина превью в кадрах (совпадает с bake clip) */
   durationFrames?: number;
+  /** Длина motion-loop в секундах (как в вебе) */
+  motionLoopSec?: number;
 };
 
+/**
+ * Превью для test:parallax. Делегирует РЕАЛЬНОМУ веб-компоненту StorySceneImage,
+ * чтобы тест 1:1 совпадал с продакшеном: тот же parallax-clip, движение камеры,
+ * оверлей атмосферных частиц и loop у Ken Burns. Никакой параллельной реализации.
+ */
 export const StoryParallaxPreview: React.FC<Props> = ({
   image,
   animation,
   durationFrames = 90,
+  motionLoopSec = 3,
 }) => {
   const frame = useCurrentFrame();
-  const trimmed = image.trim();
-
   return (
     <AbsoluteFill style={{backgroundColor: "#000000", overflow: "hidden"}}>
-      {animation === "kenburns" ? (
-        <KenBurnsImage
-          image={trimmed}
-          localFrame={frame}
-          durationFrames={durationFrames}
-          animation="kenburns"
-        />
-      ) : (
-        <DepthParallaxImage
-          video={storyParallaxVideoPath(trimmed)}
-          sceneStartFrame={0}
-          durationFrames={durationFrames}
-        />
-      )}
+      <StorySceneImage
+        image={image.trim()}
+        localFrame={frame}
+        durationFrames={durationFrames}
+        sceneStartFrame={0}
+        animation={animation}
+        motionLoopSec={motionLoopSec}
+      />
     </AbsoluteFill>
   );
 };
