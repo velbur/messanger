@@ -27,7 +27,7 @@ import {
   getOpenRouterStoryVideoModel,
   getOpenRouterStoryVideoResolution,
 } from "./openrouter-video.mjs";
-import {buildStoryMotionPrompt} from "./story-video.mjs";
+import {buildStoryMotionPrompt} from "./story-motion-prompt.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
 import {

@@ -7,7 +7,12 @@ import {
   resolveStoryFramePrompts,
 } from "./image-prompt-llm.mjs";
 import {readStylePrompt, readStoryStylePrompt} from "./image-prompt.mjs";
-import {generateImageBuffer, getOpenRouterStoryImageModel, getOpenRouterStoryImageSize, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {
+  generateStoryImageBuffer,
+  getStoryImageGenerationStatus,
+  isStoryImageGenerationConfigured,
+} from "./story-image-provider.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {saveImageBuffer} from "./image-assets.mjs";
@@ -43,9 +48,11 @@ const ensureStoryObject = (conversation) => {
 
 export const generateMissingStoryImages = async (conversation, {stylePrompt, imageNamespace} = {}) => {
   const logs = [];
-  if (!isOpenRouterConfigured() || !isStoryVisual(conversation)) {
+  if (!isStoryImageGenerationConfigured() || !isStoryVisual(conversation)) {
     return logs;
   }
+
+  const imageProvider = getStoryImageGenerationStatus().provider;
 
   const style =
     typeof stylePrompt === "string" && stylePrompt.trim()
@@ -68,11 +75,9 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       stylePrompt: style,
     });
     if (finalPrompt) {
-      const {buffer} = await generateImageBuffer({
+      const {buffer} = await generateStoryImageBuffer({
         prompt: finalPrompt,
         aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-        model: getOpenRouterStoryImageModel(),
-        imageSize: getOpenRouterStoryImageSize(),
         kind: "story",
       });
       const targetRef = `images/${namespace}/story-opening.png`;
@@ -81,7 +86,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       if (resolved.imagePrompt) {
         opening.imagePrompt = resolved.imagePrompt;
       }
-      logs.push(`Сгенерирован story opening → ${publicPath} (${resolved.promptSource})`);
+      logs.push(`Сгенерирован story opening → ${publicPath} (${resolved.promptSource}, ${imageProvider})`);
     }
   }
 
@@ -107,11 +112,9 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       continue;
     }
 
-    const {buffer} = await generateImageBuffer({
+    const {buffer} = await generateStoryImageBuffer({
       prompt: finalPrompt,
       aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-      model: getOpenRouterStoryImageModel(),
-      imageSize: getOpenRouterStoryImageSize(),
       kind: "story",
     });
 
@@ -123,7 +126,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     }
 
     logs.push(
-      `Сгенерирован story-кадр: сообщение #${messageIndex + 1} → ${publicPath} (${resolved.promptSource})`,
+      `Сгенерирован story-кадр: сообщение #${messageIndex + 1} → ${publicPath} (${resolved.promptSource}, ${imageProvider})`,
     );
   }
 
@@ -135,7 +138,10 @@ export const generateMissingConversationImages = async (
   {stylePrompt, storyStylePrompt, imageNamespace} = {},
 ) => {
   const logs = [];
-  if (!isOpenRouterConfigured()) {
+  const canChatImages = isOpenRouterConfigured();
+  const canStoryImages = isStoryImageGenerationConfigured() && isStoryVisual(conversation);
+
+  if (!canChatImages && !canStoryImages) {
     return logs;
   }
 
@@ -150,46 +156,48 @@ export const generateMissingConversationImages = async (
 
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   const namespace = normalizeImageNamespace(imageNamespace);
-  for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
-    const message = messages[messageIndex];
-    if (!hasImagePromptOnly(message)) {
-      continue;
+  if (canChatImages) {
+    for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
+      const message = messages[messageIndex];
+      if (!hasImagePromptOnly(message)) {
+        continue;
+      }
+
+      const resolved = await resolveFramePrompts({
+        conversation,
+        messageIndex,
+        stylePrompt: style,
+      });
+
+      const finalPrompt = buildImageGenerationPrompt({
+        imagePrompt: resolved.imagePrompt,
+        stylePrompt: style,
+      });
+
+      if (!finalPrompt) {
+        logs.push(`Сообщение #${messageIndex + 1}: не удалось собрать промпт сцены`);
+        continue;
+      }
+
+      const referenceDataUrl = resolved.imageReferences?.primaryReference?.dataUrl ?? null;
+      const {buffer} = await generateImageBuffer({
+        prompt: finalPrompt,
+        referenceDataUrl,
+        aspectRatio: CHAT_IMAGE_ASPECT_RATIO,
+        kind: "chat",
+      });
+
+      const targetRef = `images/${namespace}/msg-${messageIndex + 1}.png`;
+      const publicPath = await saveImageBuffer(buffer, targetRef);
+      message.image = publicPath;
+      if (resolved.imagePrompt) {
+        message.imagePrompt = resolved.imagePrompt;
+      }
+
+      logs.push(
+        `Сгенерировано: сообщение #${messageIndex + 1} → ${publicPath} (${resolved.promptSource})`,
+      );
     }
-
-    const resolved = await resolveFramePrompts({
-      conversation,
-      messageIndex,
-      stylePrompt: style,
-    });
-
-    const finalPrompt = buildImageGenerationPrompt({
-      imagePrompt: resolved.imagePrompt,
-      stylePrompt: style,
-    });
-
-    if (!finalPrompt) {
-      logs.push(`Сообщение #${messageIndex + 1}: не удалось собрать промпт сцены`);
-      continue;
-    }
-
-    const referenceDataUrl = resolved.imageReferences?.primaryReference?.dataUrl ?? null;
-    const {buffer} = await generateImageBuffer({
-      prompt: finalPrompt,
-      referenceDataUrl,
-      aspectRatio: CHAT_IMAGE_ASPECT_RATIO,
-      kind: "chat",
-    });
-
-    const targetRef = `images/${namespace}/msg-${messageIndex + 1}.png`;
-    const publicPath = await saveImageBuffer(buffer, targetRef);
-    message.image = publicPath;
-    if (resolved.imagePrompt) {
-      message.imagePrompt = resolved.imagePrompt;
-    }
-
-    logs.push(
-      `Сгенерировано: сообщение #${messageIndex + 1} → ${publicPath} (${resolved.promptSource})`,
-    );
   }
 
   const storyLogs = await generateMissingStoryImages(conversation, {

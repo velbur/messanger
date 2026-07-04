@@ -89,6 +89,13 @@ import {
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
 import {getOpenRouterStoryVideoStatus} from "./openrouter-video.mjs";
+import {getStoryVideoGenerationStatus, isStoryVideoGenerationConfigured, describeStoryVideoProvider} from "./story-video-provider.mjs";
+import {
+  describeStoryImageProvider,
+  generateStoryImageBuffer,
+  getStoryImageGenerationStatus,
+  isStoryImageGenerationConfigured,
+} from "./story-image-provider.mjs";
 import {
   countPendingStoryVideos,
   generateMissingStoryVideos,
@@ -922,7 +929,7 @@ app.get("/api/images/openrouter", async (_req, res) => {
     imageModel: getOpenRouterImageModel(),
     storyImageModel: getOpenRouterStoryImageModel(),
     storyImageSize: getOpenRouterStoryImageSize(),
-    imageGenerationAvailable: isOpenRouterConfigured(),
+    imageGenerationAvailable: isOpenRouterConfigured() || isStoryImageGenerationConfigured(),
   });
 });
 
@@ -947,13 +954,15 @@ app.get("/api/status", async (_req, res) => {
       storyImageModel: getOpenRouterStoryImageModel(),
       storyImageSize: getOpenRouterStoryImageSize(),
       ttsModel: getOpenRouterTtsModel(),
-      imageGenerationAvailable: isOpenRouterConfigured(),
+      imageGenerationAvailable: isOpenRouterConfigured() || isStoryImageGenerationConfigured(),
     },
     youtube: {
       configured: isYoutubeConfigured(),
     },
     voiceover: getOpenRouterVoiceoverStatus(),
-    storyVideo: getOpenRouterStoryVideoStatus(),
+    storyVideo: getStoryVideoGenerationStatus(),
+    storyVideoVeo: getOpenRouterStoryVideoStatus(),
+    storyImage: getStoryImageGenerationStatus(),
   });
 });
 
@@ -1188,7 +1197,16 @@ app.post("/api/images/generate", async (req, res) => {
     const {prompt, json: jsonText, messageIndex, stylePrompt, targetRef, aspectRatio, imageKind} =
       req.body ?? {};
 
-    if (!isOpenRouterConfigured()) {
+    const isStoryKindEarly = imageKind === "story" || imageKind === "story-opening";
+    if (isStoryKindEarly) {
+      if (!isStoryImageGenerationConfigured()) {
+        res.status(400).json({
+          error:
+            "Story-изображения недоступны: задайте STORY_IMAGE_PROVIDER=local-gpu + LOCAL_GPU_VIDEO_URL или OPENROUTER_API_KEY",
+        });
+        return;
+      }
+    } else if (!isOpenRouterConfigured()) {
       res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
       return;
     }
@@ -1282,15 +1300,25 @@ app.post("/api/images/generate", async (req, res) => {
     }
 
     const referenceDataUrl = imageRefs?.primaryReference?.dataUrl ?? null;
-    const {buffer} = await generateImageBuffer({
-      prompt: finalPrompt,
-      referenceDataUrl,
-      model: resolveOpenRouterImageModel(isStoryKind ? "story" : "chat"),
-      aspectRatio:
-        aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
-      imageSize: isStoryKind ? getOpenRouterStoryImageSize() : undefined,
-      kind: isStoryKind ? "story" : "chat",
-    });
+    const imageResult = isStoryKind
+      ? await generateStoryImageBuffer({
+          prompt: finalPrompt,
+          aspectRatio: aspectRatio ?? STORY_IMAGE_ASPECT_RATIO,
+        })
+      : await generateImageBuffer({
+          prompt: finalPrompt,
+          referenceDataUrl,
+          model: resolveOpenRouterImageModel("chat"),
+          aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
+          kind: "chat",
+        });
+    const {buffer} = imageResult;
+    const imageProvider = isStoryKind
+      ? getStoryImageGenerationStatus().provider
+      : "openrouter";
+    const imageModel = isStoryKind
+      ? getStoryImageGenerationStatus().model
+      : resolveOpenRouterImageModel("chat");
 
     const refHint =
       targetRef && typeof targetRef === "string" && !targetRef.startsWith("http")
@@ -1305,8 +1333,8 @@ app.post("/api/images/generate", async (req, res) => {
       promptUsed: finalPrompt,
       imagePrompt: imagePromptSuggested,
       promptSource,
-      provider: "openrouter",
-      imageModel: resolveOpenRouterImageModel(isStoryKind ? "story" : "chat"),
+      provider: imageProvider,
+      imageModel,
       usedImageReference: Boolean(referenceDataUrl),
       referenceMessageIndex: imageRefs?.primaryReference?.messageIndex ?? null,
     });
@@ -1550,8 +1578,11 @@ app.post("/api/images/generate-missing", async (req, res) => {
       res.status(400).json({error: "Поле json обязательно"});
       return;
     }
-    if (!isOpenRouterConfigured()) {
-      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в .env)"});
+    if (!isOpenRouterConfigured() && !isStoryImageGenerationConfigured()) {
+      res.status(400).json({
+        error:
+          "Генерация изображений недоступна: задайте OPENROUTER_API_KEY и/или STORY_IMAGE_PROVIDER=local-gpu + LOCAL_GPU_VIDEO_URL",
+      });
       return;
     }
 
@@ -1570,7 +1601,13 @@ app.post("/api/images/generate-missing", async (req, res) => {
       imageNamespace,
     });
 
-    res.json({conversation, logs, provider: "openrouter"});
+    res.json({
+      conversation,
+      logs,
+      provider: getStoryImageGenerationStatus().provider,
+      storyImageProvider: getStoryImageGenerationStatus().provider,
+      chatImageProvider: isOpenRouterConfigured() ? "openrouter" : null,
+    });
   } catch (error) {
     const message = formatOpenRouterError(error);
     res.status(400).json({error: message});
@@ -2325,7 +2362,6 @@ const runRenderPreparation = async (
       jobSetPhase(job, "Генерация изображений…");
       jobSetProgress(job, 0.05);
       const imageGenLogs = await generateMissingConversationImages(conversation, {
-        provider: "openrouter",
         imageNamespace: job.fileName,
       });
       jobPushLogs(job, imageGenLogs);
@@ -2346,14 +2382,15 @@ const runRenderPreparation = async (
       const pendingStoryVideosNow = countPendingStoryVideos(conversation);
 
       if (pendingStoryVideosNow > 0) {
-        if (!isOpenRouterConfigured()) {
+        if (!isStoryVideoGenerationConfigured()) {
           skippedStoryVideoGeneration = true;
           jobPushLog(
             job,
-            "Story-видео: OpenRouter недоступен на этой машине — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для Veo задайте OPENROUTER_API_KEY в docs/.env и пересоберите.",
+            "Story-видео: провайдер не настроен — анимация пропущена, в ролике будут статичные story-кадры (PNG). Для local-gpu: STORY_VIDEO_PROVIDER=local-gpu + LOCAL_GPU_VIDEO_URL. Для Veo: OPENROUTER_API_KEY.",
           );
         } else {
           const total = pendingStoryVideosNow;
+          const videoProviderLabel = describeStoryVideoProvider();
           jobSetPhase(job, `Анимация story-кадров (0/${total})…`);
           jobSetProgress(job, 0.11);
 
@@ -2366,7 +2403,7 @@ const runRenderPreparation = async (
               if (stage === "polling") {
                 jobSetPhase(
                   job,
-                  `Анимация: ${label} · OpenRouter ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`,
+                  `Анимация: ${label} · ${videoProviderLabel} ${status ?? "…"} (${attempt ?? 1}/${maxAttempts ?? "?"})`,
                 );
                 jobSetProgress(job, 0.11 + (done / safeTotal) * 0.39);
                 return;
@@ -3117,6 +3154,20 @@ if (isOpenRouterConfigured()) {
   );
 } else {
   console.log("OpenRouter: не настроен (OPENROUTER_API_KEY в docs/.env)");
+}
+
+const storyImageStatus = getStoryImageGenerationStatus();
+if (storyImageStatus.configured) {
+  console.log(`Story-изображения: ${describeStoryImageProvider()}`);
+} else if (storyImageStatus.provider === "local-gpu") {
+  console.log("Story-изображения: local-gpu выбран, но LOCAL_GPU_VIDEO_URL не задан");
+}
+
+const storyVideoStatus = getStoryVideoGenerationStatus();
+if (storyVideoStatus.configured) {
+  console.log(`Story-видео: ${describeStoryVideoProvider()}`);
+} else if (storyVideoStatus.provider === "local-gpu") {
+  console.log("Story-видео: local-gpu выбран, но LOCAL_GPU_VIDEO_URL не задан");
 }
 
 if (isDialogueLlmConfigured()) {

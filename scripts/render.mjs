@@ -10,6 +10,7 @@ import {stripStorySfxFromConversation} from "./story-sfx.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {assignStoryMusicIfNeeded} from "./story-music.mjs";
 import {loadOpenRouterEnv, isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {isStoryVideoGenerationConfigured} from "./story-video-provider.mjs";
 import {renderChatVideo, getRenderConcurrency} from "./render-core.mjs";
 import {ensureConversationPreviewCovers} from "./preview-cover-assets.mjs";
 
@@ -34,7 +35,7 @@ const run = async () => {
   if (isStoryVisualLayout(conversation)) {
     stripStorySfxFromConversation(conversation);
     normalizeStoryVideoLoopFlags(conversation);
-    if (isOpenRouterConfigured() && shouldGenerateStoryVideos(conversation)) {
+    if (isStoryVideoGenerationConfigured() && shouldGenerateStoryVideos(conversation)) {
       await generateMissingStoryVideos(conversation, {
         publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim(),
       });

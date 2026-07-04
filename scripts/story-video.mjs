@@ -2,18 +2,25 @@ import {existsSync} from "node:fs";
 import path from "node:path";
 import {
   OPENROUTER_STORY_VIDEO_PROFILE,
+  LOCAL_GPU_STORY_VIDEO_PROFILE,
   storyVideoHoldFramePathForVideo,
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
-  generateImageToVideoFile,
   getOpenRouterStoryVideoModel,
   getOpenRouterStoryVideoResolution,
   snapStoryVideoDuration,
 } from "./openrouter-video.mjs";
-import {isOpenRouterConfigured} from "./openrouter-client.mjs";
+import {
+  describeStoryVideoProvider,
+  generateStoryVideoFile,
+  getStoryVideoGenerationStatus,
+  getStoryVideoProvider,
+  isStoryVideoGenerationConfigured,
+} from "./story-video-provider.mjs";
+import {getLocalGpuVideoModel} from "./local-gpu-video.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
@@ -22,24 +29,16 @@ import {buildTimeline} from "../src/chat/timeline.ts";
 import {FPS} from "../src/chat/fps.ts";
 import {videoParallaxPhaseFrames, VIDEO_PARALLAX_EXTRA_SEC} from "./render-video-parallax-preview.mjs";
 import {storyVideoForwardDurationFrames} from "../src/chat/story-motion.ts";
+import {
+  buildStoryMotionPrompt,
+  describeMotionPromptMode,
+  imagePromptLikelyHasPeople,
+} from "./story-motion-prompt.mjs";
+
+export {buildStoryMotionPrompt, describeMotionPromptMode, imagePromptLikelyHasPeople} from "./story-motion-prompt.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
-
-const LOOP_MOTION_PROMPT =
-  "Very subtle ambient motion that forms a perfect seamless loop: the final frame must be visually identical to the first frame (same pose, light, smoke, rain position). Only tiny cyclical effects — breathing light, flicker, gentle sway. Absolutely no camera travel, zoom, or drift forward/backward.";
-
-const HOLD_MOTION_PROMPT =
-  "One short subtle motion (2–4 seconds): a small natural movement or ambient effect, then settle on a stable final pose. The last frame must be calm and holdable — suitable to pause with a gentle zoom afterward. No repeating motion, no return to the starting pose.";
-
-export const buildStoryMotionPrompt = (imagePrompt, {loop = false} = {}) => {
-  const prefix = loop ? LOOP_MOTION_PROMPT : HOLD_MOTION_PROMPT;
-  const scene = String(imagePrompt ?? "").trim();
-  if (!scene) {
-    return prefix;
-  }
-  return `${prefix} Scene: ${scene}`;
-};
 
 /** Veo отклонил/отфильтровал промпт по контент-политике (а не инфраструктурная ошибка) */
 export const isVideoContentPolicyError = (message) =>
@@ -230,7 +229,10 @@ export const resolveStoryVideos = async (
             target.holder.storyVideoDurationMs = await probeVideoDurationMs(absolute);
           }
           if (!target.holder.storyVideoProfile) {
-            target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
+            target.holder.storyVideoProfile =
+              getStoryVideoProvider() === "local-gpu"
+                ? LOCAL_GPU_STORY_VIDEO_PROFILE
+                : OPENROUTER_STORY_VIDEO_PROFILE;
           }
           logs.push(`Story-видео (${target.label}): подключено с диска → ${candidate}`);
         }
@@ -293,14 +295,27 @@ export const generateMissingStoryVideos = async (
     return logs;
   }
 
-  if (!isOpenRouterConfigured()) {
+  if (!isStoryVideoGenerationConfigured()) {
+    const provider = getStoryVideoProvider();
+    if (provider === "local-gpu") {
+      throw new Error("Local GPU не настроен (LOCAL_GPU_VIDEO_URL)");
+    }
     throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
   }
 
-  const model = getOpenRouterStoryVideoModel();
-  const resolution = getOpenRouterStoryVideoResolution();
+  const videoStatus = getStoryVideoGenerationStatus();
+  const model =
+    videoStatus.provider === "local-gpu"
+      ? getLocalGpuVideoModel()
+      : getOpenRouterStoryVideoModel();
+  const resolution =
+    videoStatus.provider === "local-gpu"
+      ? videoStatus.resolution
+      : getOpenRouterStoryVideoResolution();
   const sceneSeconds = buildStorySceneSeconds(conversation);
   let generated = 0;
+
+  logs.push(`Story-видео: провайдер ${describeStoryVideoProvider()}`);
 
   for (let index = 0; index < targets.length; index += 1) {
     const target = targets[index];
@@ -328,7 +343,7 @@ export const generateMissingStoryVideos = async (
     const duration = isVideoParallax ? 4 : snapStoryVideoDuration(sceneSec);
 
     const runGeneration = (prompt) =>
-      generateImageToVideoFile({
+      generateStoryVideoFile({
         imageAbsolutePath: imageAbsolute,
         imagePublicUrl: imageUrl,
         prompt,
@@ -341,7 +356,7 @@ export const generateMissingStoryVideos = async (
             done: index,
             total,
             label: target.label,
-            stage: "polling",
+            stage: videoStatus.provider === "local-gpu" ? "generating" : "polling",
             attempt,
             maxAttempts,
             status,
@@ -350,8 +365,15 @@ export const generateMissingStoryVideos = async (
       });
 
     let result = null;
+    const motionPrompt = buildStoryMotionPrompt(target.imagePrompt, {loop: false});
+    const motionMode = describeMotionPromptMode(target.imagePrompt, {loop: false});
+    if (motionMode === "ambient-only-people") {
+      logs.push(
+        `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение, без описания сцены`,
+      );
+    }
     try {
-      result = await runGeneration(buildStoryMotionPrompt(target.imagePrompt, {loop: false}));
+      result = await runGeneration(motionPrompt);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       // Контент-фильтр Google режет описание сцены — повторяем без него,
@@ -381,7 +403,10 @@ export const generateMissingStoryVideos = async (
       .relative(PUBLIC_DIR, result.outputPath)
       .split(path.sep)
       .join("/");
-    target.holder.storyVideoProfile = OPENROUTER_STORY_VIDEO_PROFILE;
+    target.holder.storyVideoProfile =
+      result.provider === "local-gpu"
+        ? LOCAL_GPU_STORY_VIDEO_PROFILE
+        : OPENROUTER_STORY_VIDEO_PROFILE;
     target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
     await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
     if (!skipHoldParallaxBake) {
@@ -391,8 +416,12 @@ export const generateMissingStoryVideos = async (
     }
     generated += 1;
     const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
+    const providerName =
+      result.provider === "local-gpu"
+        ? `Local GPU/${result.model}`
+        : `OpenRouter/${result.model}`;
     logs.push(
-      `Story-видео (${target.label}, OpenRouter/${result.model}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
+      `Story-видео (${target.label}, ${providerName}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
     );
     onProgress?.({
       done: index + 1,

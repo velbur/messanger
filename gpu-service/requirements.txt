@@ -1,0 +1,20 @@
+# PyTorch: на CUDA 13 ставьте nightly cu13 отдельно (см. README)
+torch
+torchvision
+diffusers>=0.33.0
+transformers>=4.49.0
+accelerate>=1.3.0
+safetensors>=0.5.0
+ftfy
+sentencepiece
+protobuf
+huggingface_hub[hf_transfer]>=0.28.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-multipart>=0.0.20
+pillow>=11.0.0
+numpy>=2.0.0
+opencv-python-headless>=4.10.0
+imageio[ffmpeg]>=2.36.0
+# Опционально для GPU_UPSCALER=realesrgan (см. download_models.sh)
+spandrel>=0.4.0

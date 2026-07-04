@@ -9,6 +9,9 @@ export const STORY_VIDEO_HOLD_SUFFIX = ".video-hold.png";
 
 export const OPENROUTER_STORY_VIDEO_PROFILE = "veo-3.1-lite-scene-fit-1080-v2";
 
+/** Профиль story-видео, сгенерированного локальным GPU (Wan 2.1 I2V + upscale 1080p) */
+export const LOCAL_GPU_STORY_VIDEO_PROFILE = "wan-2.1-i2v-14b-720p-upscale-1080-v1";
+
 export const storyVideoPathForImage = (imagePublicPath: string): string => {
   const base = String(imagePublicPath).replace(/\.(png|jpe?g|webp)$/i, "");
   return `${base}${STORY_VIDEO_SUFFIX}`;
