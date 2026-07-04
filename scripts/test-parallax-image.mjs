@@ -4,6 +4,7 @@
  *
  *   npm run test:parallax -- --image path/to.png
  *   npm run test:parallax -- --image path/to.png --force-depth
+ *   npm run test:parallax -- --image path/to.png --remote http://192.168.0.137:3333 --skip-render
  */
 import path from "node:path";
 import {mkdir, copyFile, access, writeFile} from "node:fs/promises";
@@ -18,6 +19,7 @@ import {
 } from "./remote-render-client.mjs";
 import {pingRemoteWorker, uploadAssetToRemote} from "./remote-upload.mjs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
+import {statSync} from "node:fs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const TEST_SLUG = "parallax-test";
@@ -72,15 +74,24 @@ const downloadRemoteAsset = async (remoteUrl, assetRel, localAbs) => {
   const ref = String(assetRel).replace(/^\/+/, "");
   const pathUnderImages = ref.startsWith("images/") ? ref.slice("images/".length) : ref;
   const url = `${remoteUrl.replace(/\/+$/, "")}/images/${pathUnderImages}`;
-  const resp = await fetch(url);
-  if (!resp.ok || !resp.body) {
-    throw new Error(`Не удалось скачать ${ref} с воркера (${resp.status})`);
+  console.log(`Скачиваю с воркера: ${ref}…`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 300_000);
+  try {
+    const resp = await fetch(url, {signal: controller.signal});
+    if (!resp.ok || !resp.body) {
+      throw new Error(`Не удалось скачать ${ref} с воркера (${resp.status})`);
+    }
+    const {createWriteStream} = await import("node:fs");
+    const {pipeline} = await import("node:stream/promises");
+    const {Readable} = await import("node:stream");
+    await mkdir(path.dirname(localAbs), {recursive: true});
+    await pipeline(Readable.fromWeb(resp.body), createWriteStream(localAbs));
+    const mb = (statSync(localAbs).size / (1024 * 1024)).toFixed(2);
+    console.log(`Скачано → public/${ref} (${mb} МБ)`);
+  } finally {
+    clearTimeout(timer);
   }
-  const {createWriteStream} = await import("node:fs");
-  const {pipeline} = await import("node:stream/promises");
-  const {Readable} = await import("node:stream");
-  await mkdir(path.dirname(localAbs), {recursive: true});
-  await pipeline(Readable.fromWeb(resp.body), createWriteStream(localAbs));
 };
 
 const bakeParallaxOnRemote = async (remoteUrl, imageRel, {force = false} = {}) => {
@@ -120,11 +131,12 @@ const bakeParallaxOnRemote = async (remoteUrl, imageRel, {force = false} = {}) =
     },
   });
 
+  console.log("\nBake на воркере завершён — скачиваю .parallax.mp4 и depth…");
+
   const paths = storyLayerPaths(imageRel);
   for (const rel of [paths.parallaxVideo, paths.depth]) {
     const localAbs = path.join(ROOT, "public", rel);
     await downloadRemoteAsset(remoteUrl, rel, localAbs);
-    console.log(`Скачано с воркера → public/${rel}`);
   }
 
   const metaRel = paths.depth.replace(/\.depth\.png$/, ".depth-meta.json");
@@ -133,6 +145,12 @@ const bakeParallaxOnRemote = async (remoteUrl, imageRel, {force = false} = {}) =
   } catch {
     /* meta опционален для превью */
   }
+
+  console.log(
+    "Готово на воркере. Смотреть clip: public/" +
+      paths.parallaxVideo +
+      " (Remotion-превью ниже — только если нужны stills/out/…)",
+  );
 };
 
 const previewProps = (animation) => ({
@@ -164,6 +182,10 @@ const run = async () => {
 
   if (remoteUrl) {
     await bakeParallaxOnRemote(remoteUrl, IMAGE_REL, {force: forceDepth});
+    if (hasFlag("--skip-render")) {
+      console.log("\n--skip-render: Remotion пропущен. Смотри public/…/*.parallax.mp4");
+      return;
+    }
   } else {
     const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: forceDepth});
     console.log(
@@ -179,6 +201,7 @@ const run = async () => {
   const bundleLocation = await getBundleLocation({
     onStatus: (message) => console.log(message),
   });
+  console.log("Remotion: рендер stills + depthParallax-loop.mp4 (~1–2 мин)…");
 
   const loopFrames = storyMotionLoopFrames(3);
 
