@@ -134,18 +134,6 @@ export const bakeParallaxVideos = async (jobs) => {
       pan_y_gain: job.panYGain,
       oscillations: job.oscillations,
       supersample: job.supersample,
-      alive_motion: job.aliveMotion === true,
-      alive_veg_frac: job.aliveVegFrac,
-      alive_sky_frac: job.aliveSkyFrac,
-      alive_water_frac: job.aliveWaterFrac,
-      alive_cloth_frac: job.aliveClothFrac,
-      alive_veg_hz: job.aliveVegHz,
-      alive_cloth_hz: job.aliveClothHz,
-      alive_gust_hz: job.aliveGustHz,
-      veg_mask_raw: job.vegMaskRaw,
-      sky_mask_raw: job.skyMaskRaw,
-      water_mask_raw: job.waterMaskRaw,
-      cloth_mask_raw: job.clothMaskRaw,
     })),
   });
   const data = await runPythonJson(BAKE_SCRIPT, payload);

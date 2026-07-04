@@ -26,7 +26,6 @@ import {
   isDepthV2Available,
   readDepthRawFile,
 } from "./story-depth-v2.mjs";
-import {inferAliveMasks} from "./story-segment.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -34,7 +33,7 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 53;
+export const DEPTH_LAYER_VERSION = 54;
 
 /** Доля ширины кадра — амплитуда движения камеры */
 const PARALLAX_AMPLITUDE_FRAC = 0.1;
@@ -56,20 +55,6 @@ export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.15;
 
 /** Supersample-фактор для варпа: рендер в N× + downscale (чище края, дороже bake) */
 const PARALLAX_SUPERSAMPLE = 1.5;
-
-/** Procedural «оживление» (вариант A): покачивание листвы + дрейф неба в parallax */
-const PARALLAX_ALIVE = {
-  motion: true,
-  vegFrac: 0.006,
-  skyFrac: 0.012,
-  waterFrac: 0.004,
-  clothFrac: 0.008,
-  // Частоты в Гц (реальное время), не «циклов на клип» — иначе на длинном hold
-  // листва плывёт медленной волной («марево от жары»).
-  vegHz: 0.9,
-  clothHz: 1.1,
-  gustHz: 0.14,
-};
 
 /** Глубинные эффекты для усиления 3D (запекаются в clip) */
 const PARALLAX_FX = {
@@ -282,36 +267,11 @@ const bakeParallaxAsset = async ({
   oscillations,
 }) => {
   const depthRaw = await writeDepthRaw(depthUint8, width, height);
-  const maskRaws = [];
   try {
     const pan = {panX, panY};
     const outVideo = safePublicAbs(paths.parallaxVideo).absolute;
     const outDepth = safePublicAbs(paths.depth).absolute;
     await fs.mkdir(path.dirname(outVideo), {recursive: true});
-
-    // Семантические маски «живых» зон (вариант B). При сбое сегментации —
-    // parallax печётся как обычно, без procedural motion (не валим bake).
-    let aliveMasks = null;
-    if (PARALLAX_ALIVE.motion) {
-      try {
-        const masks = await inferAliveMasks(imageAbs, width, height);
-        const vegRaw = await writeDepthRaw(masks.vegUint8, width, height);
-        const skyRaw = await writeDepthRaw(masks.skyUint8, width, height);
-        const waterRaw = await writeDepthRaw(masks.waterUint8, width, height);
-        const clothRaw = await writeDepthRaw(masks.clothUint8, width, height);
-        maskRaws.push(vegRaw, skyRaw, waterRaw, clothRaw);
-        aliveMasks = {
-          vegRaw,
-          skyRaw,
-          waterRaw,
-          clothRaw,
-          coverage: masks.coverage,
-          model: masks.model,
-        };
-      } catch (error) {
-        aliveMasks = {error: error instanceof Error ? error.message : String(error)};
-      }
-    }
 
     await bakeParallaxVideos([
       {
@@ -339,18 +299,6 @@ const bakeParallaxAsset = async ({
         dustStrength: PARALLAX_FX.dustStrength,
         effectSeed: hashSeed(rel),
         supersample: PARALLAX_SUPERSAMPLE,
-        aliveMotion: PARALLAX_ALIVE.motion && Boolean(aliveMasks?.vegRaw),
-        aliveVegFrac: PARALLAX_ALIVE.vegFrac,
-        aliveSkyFrac: PARALLAX_ALIVE.skyFrac,
-        aliveWaterFrac: PARALLAX_ALIVE.waterFrac,
-        aliveClothFrac: PARALLAX_ALIVE.clothFrac,
-        aliveVegHz: PARALLAX_ALIVE.vegHz,
-        aliveClothHz: PARALLAX_ALIVE.clothHz,
-        aliveGustHz: PARALLAX_ALIVE.gustHz,
-        vegMaskRaw: aliveMasks?.vegRaw,
-        skyMaskRaw: aliveMasks?.skyRaw,
-        waterMaskRaw: aliveMasks?.waterRaw,
-        clothMaskRaw: aliveMasks?.clothRaw,
       },
     ]);
 
@@ -374,21 +322,12 @@ const bakeParallaxAsset = async ({
         panY: pan.panY,
         fx: PARALLAX_FX,
         supersample: PARALLAX_SUPERSAMPLE,
-        alive: {
-          ...PARALLAX_ALIVE,
-          coverage: aliveMasks?.coverage ?? null,
-          segModel: aliveMasks?.model ?? null,
-          segError: aliveMasks?.error ?? null,
-        },
         ...metaExtra,
       })}\n`,
       "utf8",
     );
   } finally {
     await fs.rm(depthRaw, {force: true});
-    for (const raw of maskRaws) {
-      await fs.rm(raw, {force: true});
-    }
   }
 };
 

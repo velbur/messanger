@@ -89,18 +89,6 @@ def compute_depth_torch(image_path: str):
     return normed, w, h
 
 
-def load_mask_raw(path, w: int, h: int):
-    """Маска-raw (тот же формат, что depth) → float[0..1], resize + мягкий blur."""
-    if not path or not os.path.exists(path):
-        return None
-    arr, mw, mh = read_depth_raw(path)
-    if (mw, mh) != (w, h):
-        arr = cv2.resize(arr, (w, h), interpolation=cv2.INTER_LINEAR)
-    m = arr.astype(np.float32) / 255.0
-    m = cv2.GaussianBlur(m, (0, 0), sigmaX=max(1.0, min(w, h) * 0.006))
-    return np.clip(m, 0.0, 1.0)
-
-
 def smoothstep(edge0: float, edge1: float, x: np.ndarray) -> np.ndarray:
     span = max(edge1 - edge0, 1e-6)
     t = np.clip((x - edge0) / span, 0.0, 1.0)
@@ -201,6 +189,23 @@ def inpaint_depth(depth: np.ndarray, mask_u8: np.ndarray, w: int, h: int) -> np.
     return cv2.GaussianBlur(filled, (0, 0), sigmaX=sigma, sigmaY=sigma)
 
 
+def matte_from_depth(
+    depth: np.ndarray, guide_gray: np.ndarray, edge: float, feather: float, w: int, h: int
+) -> np.ndarray:
+    """Alpha-матт слоя по порогу глубины, привязанный к контурам картинки.
+
+    smoothstep даёт мягкий переход по глубине, а guided_filter «притягивает» его
+    к реальным краям изображения → силуэт слоя совпадает с объектом, а не с
+    размытым облаком глубины (меньше halo и «резинки» на границе при parallax).
+    """
+    raw = smoothstep(edge - feather, edge + feather, depth).astype(np.float32)
+    radius = max(2, int(min(w, h) * 0.01))
+    refined = guided_filter(guide_gray, raw, radius, eps=1.0e-4)
+    fea = max(0.8, min(w, h) * 0.0025)
+    refined = cv2.GaussianBlur(refined, (0, 0), sigmaX=fea, sigmaY=fea)
+    return np.clip(refined, 0.0, 1.0)
+
+
 def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
     """LDI-декомпозиция на 3 плоскости near/mid/far (back→front).
 
@@ -210,20 +215,20 @@ def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
       - near — только ближний план, RGB = оригинал.
     За каждым слоем свои inpaint'нутые RGB и depth, поэтому при parallax-сдвиге
     открывается корректно заполненный слой позади, а не одна общая «замазка».
+    Границы слоёв привязаны к контурам картинки (edge-aware alpha) → чистое
+    разделение планов без ореолов.
     """
-    b_far = float(np.percentile(depth, 42))
-    b_near = float(np.percentile(depth, 74))
-    if b_near - b_far < 0.08:  # низкий контраст глубины — раздвинуть границы
+    b_far = float(np.percentile(depth, 40))
+    b_near = float(np.percentile(depth, 72))
+    if b_near - b_far < 0.10:  # низкий контраст глубины — раздвинуть границы
         mid = 0.5 * (b_far + b_near)
-        b_far, b_near = mid - 0.06, mid + 0.06
-    feather = max(0.03, (b_near - b_far) * 0.4)
+        b_far, b_near = mid - 0.07, mid + 0.07
+    feather = max(0.035, (b_near - b_far) * 0.42)
 
+    guide_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
     a_far = np.ones((h, w), np.float32)
-    a_mid = smoothstep(b_far - feather, b_far + feather, depth).astype(np.float32)
-    a_near = smoothstep(b_near - feather, b_near + feather, depth).astype(np.float32)
-    fea = max(1.0, min(w, h) * 0.004)
-    a_mid = np.clip(cv2.GaussianBlur(a_mid, (0, 0), sigmaX=fea, sigmaY=fea), 0.0, 1.0)
-    a_near = np.clip(cv2.GaussianBlur(a_near, (0, 0), sigmaX=fea, sigmaY=fea), 0.0, 1.0)
+    a_mid = matte_from_depth(depth, guide_gray, b_far, feather, w, h)
+    a_near = matte_from_depth(depth, guide_gray, b_near, feather, w, h)
 
     near_region = region_mask(a_near, w, h, 0.4)
     mid_region = region_mask(a_mid, w, h, 0.4)
@@ -234,83 +239,20 @@ def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
     mid_depth = inpaint_depth(depth, near_region, w, h)
     far_depth = inpaint_depth(depth, far_hidden, w, h)
 
+    # Разброс gain задаёт межплановый parallax: near движется заметно сильнее far.
+    # Шире, чем «плоский» 0.6/0.82/1.0 → выразительнее объём без разрыва силуэтов
+    # (за ближним планом всегда inpaint'нутый фон).
     return [
-        {"rgb": far_rgb, "alpha": a_far, "depth": far_depth, "gain": 0.6, "opaque": True},
+        {"rgb": far_rgb, "alpha": a_far, "depth": far_depth, "gain": 0.5, "opaque": True},
         {"rgb": mid_rgb, "alpha": a_mid, "depth": mid_depth, "gain": 0.82, "opaque": False},
-        {"rgb": img, "alpha": a_near, "depth": depth, "gain": 1.0, "opaque": False},
+        {"rgb": img, "alpha": a_near, "depth": depth, "gain": 1.12, "opaque": False},
     ]
 
 
-def build_wind_phases(seed: int, w: int, h: int):
-    """Два поля фаз для ветра: мелкое (трепет отдельных листьев) + крупное (порывы).
-
-    Мелкая октава — ключ против «марева»: соседние участки листвы получают разную
-    фазу, поэтому нет единой бегущей по кадру синусоиды (эффекта тепловой дымки).
-    """
-    rng = np.random.default_rng(seed)
-
-    def field(cells_h: int) -> np.ndarray:
-        cells_w = max(2, int(round(cells_h * w / max(h, 1))))
-        base = rng.random((max(2, cells_h), cells_w)).astype(np.float32)
-        return np.clip(cv2.resize(base, (w, h), interpolation=cv2.INTER_CUBIC), 0.0, 1.0)
-
-    fine = field(max(12, h // 16))   # трепет листьев (высокая простр. частота)
-    coarse = field(max(2, h // 90))  # медленные порывы ветра
-    return fine, coarse
-
-
-def build_alive_masks(img_rgb: np.ndarray, depth: np.ndarray, w: int, h: int, seed: int = 12345):
-    """Эвристические маски «оживляемых» зон (вариант A, без сегментации).
-
-    - vegetation: зелёный оттенок + высокочастотная текстура (листья/трава/плющ),
-      чтобы гладкие зелёные поверхности (машина, стена) не «дышали»;
-    - sky: верх кадра + дальняя глубина + голубой/светлый малонасыщенный цвет.
-    Возвращает (veg_mask, sky_mask, phase) — все float[h,w], phase для разнофазного
-    покачивания листвы.
-    """
-    hsv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2HSV)
-    hue = hsv[..., 0].astype(np.float32)  # 0..179
-    sat = hsv[..., 1].astype(np.float32) / 255.0
-    val = hsv[..., 2].astype(np.float32) / 255.0
-
-    veg = ((hue >= 30) & (hue <= 95) & (sat > 0.18) & (val > 0.12)).astype(np.float32)
-    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-    lap = np.abs(cv2.Laplacian(gray, cv2.CV_32F, ksize=3))
-    tex = cv2.GaussianBlur(lap, (0, 0), sigmaX=max(1.0, min(w, h) * 0.008))
-    # нормировка по перцентилю (не max) — резкие края окон/стен не «съедают»
-    # текстуру листвы. Текстурный гейт отделяет листья от гладкой зелени (машина).
-    tex = tex / (float(np.percentile(tex, 96)) + 1e-6)
-    veg = veg * np.clip(tex * 1.3, 0.0, 1.0)
-    veg = cv2.GaussianBlur(veg, (0, 0), sigmaX=max(1.0, min(w, h) * 0.006))
-
-    yy = np.linspace(0.0, 1.0, h, dtype=np.float32)[:, None]
-    top = np.clip(1.0 - yy / 0.55, 0.0, 1.0)  # вес верхней части кадра
-    blue = ((hue >= 95) & (hue <= 135)).astype(np.float32)
-    bright = ((val > 0.6) & (sat < 0.35)).astype(np.float32)
-    far = np.clip((0.5 - depth) / 0.5, 0.0, 1.0)  # дальняя плоскость = низкая глубина
-    sky = np.clip(blue + bright, 0.0, 1.0) * top * far
-    sky = cv2.GaussianBlur(sky, (0, 0), sigmaX=max(1.0, min(w, h) * 0.01))
-
-    rng = np.random.default_rng(seed)
-    coarse = rng.random((max(2, h // 48), max(2, w // 48))).astype(np.float32)
-    phase = cv2.resize(coarse, (w, h), interpolation=cv2.INTER_CUBIC)
-
-    return np.clip(veg, 0.0, 1.0), np.clip(sky, 0.0, 1.0), phase
-
-
-def warp_rigid(src: np.ndarray, base_x, base_y, shift_x: float, shift_y: float):
-    """Сдвиг слоя целиком — без depth-warp (лица и предметы не тянутся)."""
-    map_x = (base_x - shift_x).astype(np.float32)
-    map_y = (base_y - shift_y).astype(np.float32)
-    warped = cv2.remap(src, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-    return warped, map_x, map_y
-
-def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy,
-               mdx=None, mdy=None):
+def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, ox, oy):
     """Backward-warp по глубине: pixel сэмплится из src со смещением (d-focus)*offset.
 
     Два прохода уточняют глубину в точке сэмпла → меньше «тянучки» на разрывах.
-    mdx/mdy — доп. поле смещения (procedural motion: листва/небо) в render-пикселях.
     """
     disp = compress_displacement(depth_layer - focus)
     map_x = (base_x - disp * ox).astype(np.float32)
@@ -322,9 +264,6 @@ def warp_layer(src: np.ndarray, depth_layer: np.ndarray, base_x, base_y, focus, 
         disp = compress_displacement(d_at - focus)
         map_x = (base_x - disp * ox).astype(np.float32)
         map_y = (base_y - disp * oy).astype(np.float32)
-    if mdx is not None:
-        map_x = (map_x - mdx).astype(np.float32)
-        map_y = (map_y - mdy).astype(np.float32)
     # INTER_CUBIC для цвета — чётче при zoom/overscan; карты глубины/alpha ниже
     # сэмплятся линейно (кубик там даёт ringing на краях маски).
     warped = cv2.remap(src, map_x, map_y, cv2.INTER_CUBIC, borderMode=cv2.BORDER_REFLECT)
@@ -423,23 +362,6 @@ def bake_one(job: dict) -> dict:
     # Supersample: варп/композитинг в N× разрешении, downscale INTER_AREA → чистые края
     supersample = float(job.get("supersample", 1.0))
     supersample = min(2.0, max(1.0, supersample))
-    # Procedural «оживление»: листва качается, небо дрейфует, вода мерцает.
-    # Маски приходят из семантической сегментации (вариант B); при их отсутствии —
-    # эвристика по цвету (вариант A, fallback).
-    alive_motion = bool(job.get("alive_motion", False))
-    alive_veg_frac = float(job.get("alive_veg_frac", 0.006))
-    alive_sky_frac = float(job.get("alive_sky_frac", 0.012))
-    alive_water_frac = float(job.get("alive_water_frac", 0.004))
-    alive_cloth_frac = float(job.get("alive_cloth_frac", 0.008))
-    # Частоты в Гц (реальное время) — НЕ «циклов на клип», иначе на длинном hold
-    # листва плывёт одной сверх-медленной волной («марево от жары»).
-    alive_veg_hz = float(job.get("alive_veg_hz", 0.9))
-    alive_cloth_hz = float(job.get("alive_cloth_hz", 1.1))
-    alive_gust_hz = float(job.get("alive_gust_hz", 0.14))
-    veg_mask_raw = job.get("veg_mask_raw")
-    sky_mask_raw = job.get("sky_mask_raw")
-    water_mask_raw = job.get("water_mask_raw")
-    cloth_mask_raw = job.get("cloth_mask_raw")
 
     img = np.array(Image.open(image_path).convert("RGB"))
     img, w, h = crop_to_even(img)
@@ -476,42 +398,10 @@ def bake_one(job: dict) -> dict:
     layers = build_layers(img_r, depth_r, rw, rh)
     focus = float(np.percentile(depth_r, 50))
 
-    # Маски «живых» зон + амплитуды в render-пикселях
-    veg_mask = sky_mask = water_mask = cloth_mask = None
-    veg_phase_fine = veg_phase_coarse = None
-    veg_amp_px = sky_amp_px = water_amp_px = cloth_amp_px = 0.0
-    has_alive = False
-    if alive_motion:
-        # Вариант B: маски из семантической сегментации (raw-файлы).
-        veg_mask = load_mask_raw(veg_mask_raw, rw, rh)
-        sky_mask = load_mask_raw(sky_mask_raw, rw, rh)
-        water_mask = load_mask_raw(water_mask_raw, rw, rh)
-        cloth_mask = load_mask_raw(cloth_mask_raw, rw, rh)
-        if veg_mask is None and sky_mask is None and water_mask is None and cloth_mask is None:
-            # Вариант A (fallback): эвристика по цвету.
-            veg_mask, sky_mask, _ = build_alive_masks(img_r, depth_r, rw, rh, effect_seed)
-        if veg_mask is None:
-            veg_mask = np.zeros((rh, rw), np.float32)
-        if sky_mask is None:
-            sky_mask = np.zeros((rh, rw), np.float32)
-        if water_mask is None:
-            water_mask = np.zeros((rh, rw), np.float32)
-        if cloth_mask is None:
-            cloth_mask = np.zeros((rh, rw), np.float32)
-        veg_phase_fine, veg_phase_coarse = build_wind_phases(effect_seed, rw, rh)
-        veg_amp_px = alive_veg_frac * min(rw, rh)
-        sky_amp_px = alive_sky_frac * rw
-        water_amp_px = alive_water_frac * min(rw, rh)
-        cloth_amp_px = alive_cloth_frac * min(rw, rh)
-        has_alive = (
-            float(veg_mask.max()) > 0.02
-            or float(sky_mask.max()) > 0.02
-            or float(water_mask.max()) > 0.02
-            or float(cloth_mask.max()) > 0.02
-        )
-
-    # overscan: запас под parallax-смещение + опциональный зум
-    overscan_gain = 1.65 if motion == "linear" else 1.5
+    # overscan: запас под parallax-смещение + опциональный зум. Учитывает
+    # усиленный near-gain (1.12) — иначе на пике сдвига у края мог бы мелькнуть
+    # отражённый BORDER_REFLECT.
+    overscan_gain = 1.8 if motion == "linear" else 1.62
     zoom_overscan = 1.0 + (amp_r / max(rw, rh)) * overscan_gain
     cx, cy = (rw - 1) / 2.0, (rh - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:rh, 0:rw].astype(np.float32)
@@ -561,55 +451,14 @@ def bake_one(job: dict) -> dict:
             base_x = (grid_x - cx) / zoom + cx
             base_y = (grid_y - cy) / zoom + cy
 
-            # Procedural motion: листва качается на ветру, небо дрейфует, вода мерцает.
-            # Частоты в РЕАЛЬНОМ времени (t_sec), фаза мелкозернистая по пространству —
-            # это убирает эффект «марева от жары» (единой медленной бегущей волны).
-            # env(t) даёт 0 на t=0 (плавный стык с Veo).
-            veg_dx = veg_dy = sky_dx = None
-            if has_alive:
-                t_sec = i / max(fps, 1)
-                env = smoothstep(0.0, 0.12, t) if linear else 1.0
-                # порывы ветра: медленные, пространственно крупные (0..1)
-                gust = 0.45 + 0.55 * np.sin(two_pi * (alive_gust_hz * t_sec + veg_phase_coarse))
-                # трепет: частота в Гц + мелкая фаза → листья дрожат независимо
-                fl_x = np.sin(two_pi * (alive_veg_hz * t_sec + veg_phase_fine))
-                fl_y = np.sin(two_pi * (alive_veg_hz * 1.6 * t_sec + veg_phase_fine + 0.3))
-                veg_move = env * gust * veg_mask
-                # вода: быстрее и мельче, преимущественно вертикальная рябь
-                wt_x = np.sin(two_pi * (alive_veg_hz * 2.0 * t_sec + veg_phase_fine * 1.7))
-                wt_y = np.cos(two_pi * (alive_veg_hz * 2.3 * t_sec + veg_phase_fine * 1.3))
-                # ткань: колыхание — преимущественно горизонтальный флаг + бегущая рябь
-                cl_x = np.sin(two_pi * (alive_cloth_hz * t_sec + veg_phase_fine * 0.8))
-                cl_y = np.sin(two_pi * (alive_cloth_hz * 1.4 * t_sec + veg_phase_fine * 1.2))
-                cloth_move = env * gust * cloth_mask
-                sky_shift = sky_amp_px * env * t if linear else sky_amp_px * np.sin(two_pi * t)
-
-                veg_dx = (
-                    veg_amp_px * veg_move * fl_x
-                    + 0.5 * water_amp_px * env * wt_x * water_mask
-                    + cloth_amp_px * cloth_move * cl_x
-                ).astype(np.float32)
-                veg_dy = (
-                    0.4 * veg_amp_px * veg_move * fl_y
-                    + water_amp_px * env * wt_y * water_mask
-                    + 0.35 * cloth_amp_px * cloth_move * cl_y
-                ).astype(np.float32)
-                sky_dx = (sky_shift * sky_mask).astype(np.float32)
-
             # Композитинг слоёв back→front (far → mid → near) с over-оператором.
             out = None
             scene_depth = None
-            for idx, layer in enumerate(layers):
+            for layer in layers:
                 gain = layer["gain"]
-                if has_alive and idx == 0:  # far → небо
-                    mdx, mdy = sky_dx, None if sky_dx is None else np.zeros_like(sky_dx)
-                elif has_alive:  # mid/near → листва
-                    mdx, mdy = veg_dx, veg_dy
-                else:
-                    mdx = mdy = None
                 rgb_w, mx, my = warp_layer(
                     layer["rgb"], layer["depth"], base_x, base_y, focus,
-                    ox * gain, oy * gain, mdx, mdy,
+                    ox * gain, oy * gain,
                 )
                 d_w = cv2.remap(
                     layer["depth"], mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT
