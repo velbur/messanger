@@ -12,6 +12,12 @@ import {storyMotionLoopFrames} from "../src/chat/story-motion.ts";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {generateStoryDepthAssets} from "./story-depth.mjs";
 import {verifyParallaxOutput} from "./verify-parallax.mjs";
+import {
+  pollRemoteJobUntilDone,
+  resolveRemoteRenderUrl,
+} from "./remote-render-client.mjs";
+import {pingRemoteWorker, uploadAssetToRemote} from "./remote-upload.mjs";
+import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const TEST_SLUG = "parallax-test";
@@ -50,6 +56,85 @@ const parseArg = (name) => {
 
 const hasFlag = (name) => process.argv.includes(name);
 
+const parseRemoteUrl = () => {
+  const index = process.argv.indexOf("--remote");
+  if (index === -1) {
+    return null;
+  }
+  const next = process.argv[index + 1];
+  if (next && !next.startsWith("-")) {
+    return next;
+  }
+  return "";
+};
+
+const downloadRemoteAsset = async (remoteUrl, assetRel, localAbs) => {
+  const ref = String(assetRel).replace(/^\/+/, "");
+  const pathUnderImages = ref.startsWith("images/") ? ref.slice("images/".length) : ref;
+  const url = `${remoteUrl.replace(/\/+$/, "")}/images/${pathUnderImages}`;
+  const resp = await fetch(url);
+  if (!resp.ok || !resp.body) {
+    throw new Error(`Не удалось скачать ${ref} с воркера (${resp.status})`);
+  }
+  const {createWriteStream} = await import("node:fs");
+  const {pipeline} = await import("node:stream/promises");
+  const {Readable} = await import("node:stream");
+  await mkdir(path.dirname(localAbs), {recursive: true});
+  await pipeline(Readable.fromWeb(resp.body), createWriteStream(localAbs));
+};
+
+const bakeParallaxOnRemote = async (remoteUrl, imageRel, {force = false} = {}) => {
+  console.log(`Parallax bake: воркер (${remoteUrl})…`);
+  await pingRemoteWorker(remoteUrl);
+
+  const imageAbs = path.join(ROOT, "public", imageRel);
+  const buffer = await import("node:fs/promises").then((fs) => fs.readFile(imageAbs));
+  await uploadAssetToRemote(remoteUrl, imageRel, buffer);
+  console.log(`Отправлено на воркер: ${imageRel}`);
+
+  const resp = await fetch(`${remoteUrl}/api/parallax/bake-image`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({image: imageRel, force}),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(
+      data.error ??
+        `Воркер не поддерживает /api/parallax/bake-image (${resp.status}) — git pull && ./run.sh worker-native`,
+    );
+  }
+
+  console.log(`Задача на воркере: ${data.jobId}`);
+  await pollRemoteJobUntilDone(remoteUrl, data.jobId, {
+    onProgress: (job) => {
+      const phase = job.phase?.trim();
+      if (phase) {
+        console.log(phase);
+      }
+      for (const line of job.logs?.slice(-3) ?? []) {
+        if (line) {
+          console.log(`  ${line}`);
+        }
+      }
+    },
+  });
+
+  const paths = storyLayerPaths(imageRel);
+  for (const rel of [paths.parallaxVideo, paths.depth]) {
+    const localAbs = path.join(ROOT, "public", rel);
+    await downloadRemoteAsset(remoteUrl, rel, localAbs);
+    console.log(`Скачано с воркера → public/${rel}`);
+  }
+
+  const metaRel = paths.depth.replace(/\.depth\.png$/, ".depth-meta.json");
+  try {
+    await downloadRemoteAsset(remoteUrl, metaRel, path.join(ROOT, "public", metaRel));
+  } catch {
+    /* meta опционален для превью */
+  }
+};
+
 const previewProps = (animation) => ({
   image: IMAGE_REL,
   animation,
@@ -74,12 +159,22 @@ const run = async () => {
   await copyFile(imageAbs, imageDest);
   console.log(`Картинка → public/${IMAGE_REL}`);
 
-  const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: hasFlag("--force-depth")});
-  console.log(
-    depthResult.skipped
-      ? `Parallax: кэш OK → ${IMAGE_REL}`
-      : `Parallax: запечён loop (${depthResult.provider ?? "xenova"})`,
-  );
+  const remoteUrl = hasFlag("--local") ? null : resolveRemoteRenderUrl(parseRemoteUrl());
+  const forceDepth = hasFlag("--force-depth");
+
+  if (remoteUrl) {
+    await bakeParallaxOnRemote(remoteUrl, IMAGE_REL, {force: forceDepth});
+  } else {
+    const depthResult = await generateStoryDepthAssets(IMAGE_REL, {force: forceDepth});
+    console.log(
+      depthResult.skipped
+        ? `Parallax: кэш OK → ${IMAGE_REL}`
+        : `Parallax: запечён loop (${depthResult.provider ?? "xenova"})`,
+    );
+    if (!remoteUrl && !hasFlag("--local") && !hasFlag("--remote")) {
+      console.log("Подсказка: --remote http://192.168.0.137:3333  для bake на воркере (Depth-V2)");
+    }
+  }
 
   const bundleLocation = await getBundleLocation({
     onStatus: (message) => console.log(message),

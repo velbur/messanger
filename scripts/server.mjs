@@ -101,7 +101,7 @@ import {
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {mergeStoryConfig, needsStoryDepthLayers} from "../src/chat/story.ts";
 import {assignStoryMusicIfNeeded, applyConversationMusicSelection} from "./story-music.mjs";
-import {ensureStoryDepthForConversation} from "./story-depth.mjs";
+import {ensureStoryDepthForConversation, generateStoryDepthAssets} from "./story-depth.mjs";
 import {
   generateDialogue,
   isDialogueLlmConfigured,
@@ -513,6 +513,41 @@ const processQueue = async () => {
   if (!job) {
     renderBusy = false;
     processQueue();
+    return;
+  }
+
+  if (job.kind === "parallax-bake-image") {
+    job.status = "running";
+    jobPushLog(job, "Parallax bake…");
+    try {
+      const opts = job.bakeOpts ?? {};
+      jobSetPhase(job, `Depth + parallax: ${opts.imageRel}…`);
+      const result = await generateStoryDepthAssets(opts.imageRel, {force: opts.force === true});
+      job.status = "done";
+      job.progress = 1;
+      job.finishedAt = Date.now();
+      job.bakeResult = {
+        relative: result.relative,
+        skipped: result.skipped,
+        provider: result.provider ?? null,
+        parallaxVideo: result.paths?.parallaxVideo ?? null,
+      };
+      jobPushLog(
+        job,
+        result.skipped
+          ? `Parallax: кэш OK → ${result.relative}`
+          : `Parallax: запечён (${result.provider ?? "depth"}) → ${result.relative}`,
+      );
+    } catch (error) {
+      job.status = "error";
+      job.error = error instanceof Error ? error.message : String(error);
+      jobPushLog(job, job.error);
+    } finally {
+      job.bakeOpts = null;
+      pruneFinishedJobs();
+      renderBusy = false;
+      processQueue();
+    }
     return;
   }
 
@@ -2555,6 +2590,45 @@ const runRenderPreparation = async (
     fail(error instanceof Error ? error.message : String(error));
   }
 };
+
+app.post("/api/parallax/bake-image", async (req, res) => {
+  try {
+    const {image, force} = req.body ?? {};
+    const imageRel = String(image ?? "")
+      .trim()
+      .replace(/^\/+/, "");
+    if (!imageRel || imageRel.includes("..")) {
+      res.status(400).json({
+        error: "Поле image обязательно (путь под public/, напр. images/…/story-opening.png)",
+      });
+      return;
+    }
+
+    await access(path.join(PUBLIC_DIR, imageRel));
+
+    const jobId = String(++jobCounter);
+    const job = {
+      id: jobId,
+      kind: "parallax-bake-image",
+      status: "queued",
+      bakeOpts: {imageRel, force: force === true},
+      logs: [],
+      progress: 0.01,
+      phase: "В очереди…",
+      createdAt: Date.now(),
+    };
+
+    jobs.set(jobId, job);
+    pruneFinishedJobs();
+    enqueueRender(jobId);
+
+    res.json({jobId, image: imageRel});
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 app.post("/api/render/video-parallax-preview", async (req, res) => {
   try {
