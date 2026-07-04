@@ -151,9 +151,18 @@ def compress_displacement(disp: np.ndarray) -> np.ndarray:
     return np.tanh(disp * 1.8) * 0.48
 
 
+# Доля амплитуды на перпендикулярную дугу: превращает прямой ход «туда-обратно»
+# в мягкий эллиптический облёт (ощущение живой 3D-камеры, а не слайдера).
+PARALLAX_ARC_FRAC = 0.34
+
+
 def camera_phase(t: float) -> float:
-    """Ease по времени: камера медленнее на разворотах."""
-    return t * t * (3.0 - 2.0 * t)
+    """Ease по времени: камера медленнее на разворотах (5-й порядок, s-кривая).
+
+    Smootherstep (Perlin) — нулевые 1-я И 2-я производные на концах → нет рывка
+    ускорения на старте/развороте, движение читается как плавный наезд камеры.
+    """
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 
 
 def scene_sweep_phase(t: float, sweep: str = "round-trip") -> float:
@@ -399,12 +408,18 @@ def bake_one(job: dict) -> dict:
     focus = float(np.percentile(depth_r, 50))
 
     # overscan: запас под parallax-смещение + опциональный зум. Учитывает
-    # усиленный near-gain (1.12) — иначе на пике сдвига у края мог бы мелькнуть
-    # отражённый BORDER_REFLECT.
-    overscan_gain = 1.8 if motion == "linear" else 1.62
+    # усиленный near-gain (1.12) и перпендикулярную дугу — иначе на пике сдвига
+    # у края мог бы мелькнуть отражённый BORDER_REFLECT.
+    overscan_gain = 1.95 if motion == "linear" else 1.62
     zoom_overscan = 1.0 + (amp_r / max(rw, rh)) * overscan_gain
     cx, cy = (rw - 1) / 2.0, (rh - 1) / 2.0
     grid_y, grid_x = np.mgrid[0:rh, 0:rw].astype(np.float32)
+
+    # Единичный перпендикуляр к оси пана (pan_x, pan_y) — вдоль него идёт
+    # эллиптическая дуга, чтобы траектория камеры была кривой, а не прямой.
+    pan_mag = float(np.hypot(pan_x, pan_y)) or 1.0
+    perp_x = -pan_y / pan_mag
+    perp_y = pan_x / pan_mag
 
     # Depth-of-field / aerial haze считаем по «дальности» от фокальной плоскости
     focus_span = max(focus, 1e-3)
@@ -426,21 +441,28 @@ def bake_one(job: dict) -> dict:
                 t = i / max(frames - 1, 1)
                 if hold_handoff and sweep == "oscillate":
                     # t=0 → 0 (стык с Veo), далее sin: влево-вправо-влево…
-                    sweep_val = float(np.sin(two_pi * oscillations * t))
+                    # ease-in гасит стартовый рывок после Veo; вертикаль как sin²
+                    # (без излома на нулях |sin|) → плавный эллиптический боб.
+                    ramp = smoothstep(0.0, 0.14, t)
+                    sweep_val = ramp * float(np.sin(two_pi * oscillations * t))
                     zoom = 1.0 + zoom_frac * t
                     ox = amp_r * pan_x * sweep_val
-                    oy = amp_r * pan_y * pan_y_gain * abs(sweep_val)
+                    oy = amp_r * pan_y * pan_y_gain * ramp * float(np.sin(np.pi * oscillations * t)) ** 2
                 elif hold_handoff and sweep in ("forward", "one-way"):
-                    sweep_val = t
+                    sweep_val = camera_phase(t)
                     zoom_end = zoom_overscan + zoom_frac
                     zoom = 1.0 + (zoom_end - 1.0) * sweep_val
                     ox = amp_r * pan_x * sweep_val
                     oy = amp_r * pan_y * pan_y_gain * sweep_val
                 else:
+                    # Эллиптический облёт: ход вдоль оси (sweep_val 0→1→0) + дуга по
+                    # перпендикуляру sin(2πt). Оба = 0 на t=0 и t=1 → бесшовный цикл,
+                    # а путь камеры — плавная дуга «туда одним боком, обратно другим».
                     sweep_val = scene_sweep_phase(t, sweep)
+                    arc = float(np.sin(two_pi * t)) * PARALLAX_ARC_FRAC
                     zoom = zoom_overscan + zoom_frac * sweep_val
-                    ox = amp_r * pan_x * sweep_val
-                    oy = amp_r * pan_y * pan_y_gain * sweep_val
+                    ox = amp_r * (pan_x * sweep_val + perp_x * arc)
+                    oy = amp_r * (pan_y * pan_y_gain * sweep_val + perp_y * arc)
             else:
                 t = i / frames
                 pt = camera_phase(t)
