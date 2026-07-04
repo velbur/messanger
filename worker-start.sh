@@ -14,9 +14,12 @@ WORKER_GPU="${WORKER_GPU:-}"
 STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-}"
 
 DO_PULL=1
-DO_CLEAR=1
+CLEAR_MODE=auto   # auto | always | never
 DO_BUILD=0
 MODE=auto
+HEAD_BEFORE=""
+HEAD_AFTER=""
+DEPTH_VERSION_STAMP="${ROOT}/.cache/depth-layer-version"
 
 usage() {
   cat <<'EOF'
@@ -25,7 +28,7 @@ usage() {
 Подготовка и запуск render-воркера (порт 3333 по умолчанию):
   1. git pull
   2. зависимости (npm ci / Python venv или Docker-образ)
-  3. npm run bundle:clear && npm run depth:clear
+  3. очистка кэшей — только если код обновился или сменилась версия parallax
   4. запуск воркера
 
 Опции:
@@ -35,6 +38,7 @@ usage() {
   --build            Пересобрать Docker-образ перед запуском
   --no-pull          Не делать git pull
   --no-clear         Не очищать кэши
+  --force-clear      Всегда чистить кэши (полный ребейк при рендере)
   -h, --help         Справка
 
 По умолчанию: macOS → --native, Linux → --docker (CONTAINER=podman если docker недоступен).
@@ -78,7 +82,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --no-clear)
-      DO_CLEAR=0
+      CLEAR_MODE=never
+      shift
+      ;;
+    --force-clear)
+      CLEAR_MODE=always
       shift
       ;;
     -h|--help)
@@ -109,25 +117,77 @@ if [[ "$MODE" == docker && -z "$WORKER_GPU" ]]; then
   fi
 fi
 
+code_depth_version() {
+  grep -oE 'DEPTH_LAYER_VERSION[[:space:]]*=[[:space:]]*[0-9]+' \
+    "${ROOT}/scripts/story-depth.mjs" 2>/dev/null | grep -oE '[0-9]+' | head -1
+}
+
 git_pull() {
-  [[ "$DO_PULL" -eq 1 ]] || return 0
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "Не git-репозиторий — пропускаю git pull"
     return 0
   fi
-  echo "==> git pull"
-  if ! git pull --ff-only 2>/dev/null; then
-    git pull
+  HEAD_BEFORE="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
+  if [[ "$DO_PULL" -eq 1 ]]; then
+    echo "==> git pull"
+    if ! git pull --ff-only 2>/dev/null; then
+      git pull
+    fi
   fi
+  HEAD_AFTER="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
+}
+
+print_banner() {
+  local branch cv
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
+  cv="$(code_depth_version)"
+  echo "------------------------------------------------------------"
+  echo "  ветка:  ${branch}"
+  if [[ -n "$HEAD_BEFORE" && "$HEAD_BEFORE" != "$HEAD_AFTER" ]]; then
+    echo "  коммит: ${HEAD_BEFORE} → ${HEAD_AFTER} (обновлён)"
+  else
+    echo "  коммит: ${HEAD_AFTER:-?} (без изменений)"
+  fi
+  echo "  DEPTH_LAYER_VERSION: ${cv:-?}"
+  echo "------------------------------------------------------------"
 }
 
 clear_caches() {
-  [[ "$DO_CLEAR" -eq 1 ]] || return 0
-  echo "==> Очистка кэшей: npm run bundle:clear && npm run depth:clear"
+  # Решаем, нужна ли очистка. auto: только если код обновился (git pull сдвинул
+  # HEAD) или сменилась DEPTH_LAYER_VERSION — тогда старые parallax-ассеты
+  # заведомо несовместимы. Иначе перезапуск мгновенный, без лишнего ребейка.
+  local code_ver stamp_ver reason=""
+  code_ver="$(code_depth_version)"
+  stamp_ver="$(cat "${DEPTH_VERSION_STAMP}" 2>/dev/null || echo '')"
+
+  case "$CLEAR_MODE" in
+    never)
+      echo "==> Очистка кэшей пропущена (--no-clear)"
+      return 0
+      ;;
+    always)
+      reason="принудительно (--force-clear)"
+      ;;
+    auto)
+      if [[ -n "$HEAD_BEFORE" && "$HEAD_BEFORE" != "$HEAD_AFTER" ]]; then
+        reason="код обновился (${HEAD_BEFORE}→${HEAD_AFTER})"
+      fi
+      if [[ -n "$code_ver" && "$code_ver" != "$stamp_ver" ]]; then
+        reason="${reason:+${reason}; }DEPTH_LAYER_VERSION ${stamp_ver:-нет}→${code_ver}"
+      fi
+      if [[ -z "$reason" ]]; then
+        echo "==> Кэш актуален (код не менялся, parallax v${code_ver:-?}) — очистка не нужна"
+        return 0
+      fi
+      ;;
+  esac
+  echo "==> Очистка кэшей: ${reason}"
 
   if [[ -f "${ROOT}/node_modules/tsx/package.json" ]] && command -v npm >/dev/null 2>&1; then
     npm run bundle:clear
     npm run depth:clear
+    mkdir -p "${ROOT}/.cache"
+    [[ -n "$code_ver" ]] && printf '%s' "$code_ver" > "${DEPTH_VERSION_STAMP}"
     return 0
   fi
 
@@ -150,6 +210,8 @@ clear_caches() {
     )
   fi
   echo "    удалено ${removed} depth/parallax-файлов в public/images/"
+  mkdir -p "${ROOT}/.cache"
+  [[ -n "$code_ver" ]] && printf '%s' "$code_ver" > "${DEPTH_VERSION_STAMP}"
 }
 
 start_native() {
@@ -185,6 +247,7 @@ start_docker() {
 
 echo "worker-start: ${MODE} @ :${WORKER_PORT}"
 git_pull
+print_banner
 
 case "$MODE" in
   native)
