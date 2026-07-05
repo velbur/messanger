@@ -106,6 +106,7 @@ import {
   generateStoryVideoForSlot,
   resolveStoryVideos,
   ensureVideoParallaxHoldsForConversation,
+  suggestStoryVideoMotionPrompt,
 } from "./story-video.mjs";
 import {
   stripStorySfxFromConversation,
@@ -1725,6 +1726,38 @@ app.post("/api/images/delete", async (req, res) => {
         ? await deleteStoryImageAssets(targetRef)
         : await deletePublicImage(targetRef);
     res.json(result);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/story-videos/suggest-prompt", async (req, res) => {
+  try {
+    const {json: jsonText, messageIndex, force} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const slotIndex =
+      messageIndex === undefined || messageIndex === null || messageIndex === "opening"
+        ? null
+        : Number(messageIndex);
+    if (slotIndex != null && (!Number.isInteger(slotIndex) || slotIndex < 0)) {
+      res.status(400).json({error: "Некорректный messageIndex"});
+      return;
+    }
+
+    const result = await suggestStoryVideoMotionPrompt(conversation, slotIndex, {
+      force: force === true,
+    });
+
+    res.json({
+      ...result,
+      conversation,
+    });
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),

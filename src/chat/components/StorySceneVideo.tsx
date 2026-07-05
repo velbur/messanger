@@ -34,7 +34,7 @@ type Props = {
   sceneDurationFrames: number;
   /** Локальный кадр сцены (0 = начало). StoryPanel передаёт явно; превью — из useCurrentFrame − sceneStartFrame */
   localFrame?: number;
-  fallbackAnimation?: "kenburns" | "depthParallax";
+  fallbackAnimation?: "static" | "kenburns" | "depthParallax";
 };
 
 /** Ken Burns hold: плавный crossfade с замершего Veo */
@@ -62,19 +62,19 @@ export const StorySceneVideo: React.FC<Props> = ({
   sceneStartFrame,
   sceneDurationFrames,
   localFrame: localFrameProp,
-  fallbackAnimation = "kenburns",
+  fallbackAnimation = "static",
 }) => {
   const compositionFrame = useCurrentFrame();
   const localFrame =
     localFrameProp ?? Math.max(0, compositionFrame - sceneStartFrame);
   const {fps} = useVideoConfig();
   const isDepthParallax = fallbackAnimation === "depthParallax";
+  const isStatic = fallbackAnimation === "static";
   const playFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
   const parallaxOverlayStart = isDepthParallax
     ? storyVideoParallaxOverlayStartFrame(videoDurationMs, fps)
     : Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
   const holdFrame = storyVideoHoldFramePathForVideo(video);
-
   // Veo проигрывается 1:1 по wall-clock: Sequence from={sceneStartFrame} задаёт
   // старт, дальше OffthreadVideo идёт естественно (Remotion сам сводит 24→30 fps).
   // Никакого динамического trimBefore/startFrom — иначе кадр складывается с
@@ -84,9 +84,10 @@ export const StorySceneVideo: React.FC<Props> = ({
     : localFrame < playFrames;
 
   const motion = storyVideoSceneMotion(video, localFrame);
-  const videoStyle = isDepthParallax ? baseCoverStyle : withMotionStyle(motion, 1);
+  const videoStyle =
+    isDepthParallax || isStatic ? baseCoverStyle : withMotionStyle(motion, 1);
 
-  /** depthParallax: hold под parallax с overlayStart. Ken Burns: crossfade на хвосте Veo */
+  /** depthParallax: hold под parallax. Ken Burns: crossfade + zoom на hold-кадре */
   const holdOpacity = isDepthParallax
     ? localFrame >= parallaxOverlayStart
       ? 1
@@ -105,17 +106,19 @@ export const StorySceneVideo: React.FC<Props> = ({
     ? storyVideoParallaxPhaseFrames(videoDurationMs, sceneDurationFrames, fps)
     : Math.max(1, sceneDurationFrames - parallaxOverlayStart);
 
-  const particleIntensity = isDepthParallax
-    ? localFrame < parallaxOverlayStart
-      ? 0
-      : interpolate(localFrame, [parallaxOverlayStart, parallaxOverlayStart + 10], [0.5, 1], {
+  const particleIntensity = isStatic
+    ? 0.35
+    : isDepthParallax
+      ? localFrame < parallaxOverlayStart
+        ? 0
+        : interpolate(localFrame, [parallaxOverlayStart, parallaxOverlayStart + 10], [0.5, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+      : interpolate(localFrame, [parallaxOverlayStart, playFrames], [0.5, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
-        })
-    : interpolate(localFrame, [parallaxOverlayStart, playFrames], [0.5, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      });
+        });
 
   return (
     <Sequence
@@ -146,8 +149,11 @@ export const StorySceneVideo: React.FC<Props> = ({
               />
             </AbsoluteFill>
           </>
-        ) : (
-          <Img src={staticFile(holdFrame)} style={withMotionStyle(motion, holdOpacity)} />
+        ) : isStatic ? null : (
+          <Img
+            src={staticFile(storyVideoHoldFramePathForVideo(video))}
+            style={withMotionStyle(motion, holdOpacity)}
+          />
         )}
         <StoryAtmosphereParticles seed={video} intensity={particleIntensity} />
       </AbsoluteFill>

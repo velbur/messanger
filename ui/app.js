@@ -177,6 +177,7 @@ let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "google/gemini-2.5-flash-image";
 let openrouterStoryImageModel = "google/gemini-2.5-flash-image";
 let openrouterTtsProfile = "young-emotional-v3";
+let openrouterTtsSpeechSpeed = 1.5;
 let storyVideoConfigured = false;
 let storyVideoProvider = "veo";
 let imageModelCatalog = {chat: [], story: [], defaults: {}};
@@ -2201,6 +2202,41 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
   label.textContent = "Видео";
   col.append(label);
 
+  const promptLabel = document.createElement("label");
+  promptLabel.className = "image-slot__video-prompt-label";
+  promptLabel.textContent = "Промпт для Veo (motion)";
+
+  const promptInput = document.createElement("textarea");
+  promptInput.className = "image-slot__prompt image-slot__video-prompt textarea";
+  promptInput.rows = 3;
+  promptInput.placeholder =
+    "Движение в кадре на русском. Пусто — Gemini или эвристика при генерации.";
+  promptInput.value = getJsonStoryVideoPrompt(messageIndex);
+  promptInput.addEventListener("input", () => {
+    const timerKey = messageIndex == null ? "opening" : messageIndex;
+    if (messageIndex == null) {
+      if (storyOpeningVideoPromptSaveTimer.id) {
+        clearTimeout(storyOpeningVideoPromptSaveTimer.id);
+      }
+      storyOpeningVideoPromptSaveTimer.id = setTimeout(() => {
+        storyOpeningVideoPromptSaveTimer.id = null;
+        setJsonStoryVideoPrompt(null, promptInput.value);
+      }, 400);
+    } else {
+      if (storyVideoPromptSaveTimers.has(timerKey)) {
+        clearTimeout(storyVideoPromptSaveTimers.get(timerKey));
+      }
+      storyVideoPromptSaveTimers.set(
+        timerKey,
+        setTimeout(() => {
+          storyVideoPromptSaveTimers.delete(timerKey);
+          setJsonStoryVideoPrompt(messageIndex, promptInput.value);
+        }, 400),
+      );
+    }
+  });
+  col.append(promptLabel, promptInput);
+
   const hasVideo = slotScan?.videoStatus === "ok" && slotScan?.videoPreviewUrl;
   const previewWrap = document.createElement("div");
   previewWrap.className = "image-slot__video-preview";
@@ -2238,6 +2274,46 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
   status.setAttribute("aria-live", "polite");
   actions.append(status);
 
+  const btnSuggestPrompt = document.createElement("button");
+  btnSuggestPrompt.type = "button";
+  btnSuggestPrompt.className = "btn btn-secondary btn-small";
+  btnSuggestPrompt.textContent = "Промпт от Gemini";
+  btnSuggestPrompt.disabled = !openrouterConfigured;
+  btnSuggestPrompt.title = openrouterConfigured
+    ? "Motion-промпт для Veo / Wan I2V"
+    : "Задайте OPENROUTER_API_KEY в docs/.env";
+  btnSuggestPrompt.addEventListener("click", async () => {
+    btnSuggestPrompt.disabled = true;
+    const prevLabel = btnSuggestPrompt.textContent;
+    btnSuggestPrompt.textContent = "Gemini…";
+    status.textContent = "";
+    try {
+      const data = await suggestStoryVideoPrompt({
+        messageIndex,
+        force: Boolean(promptInput.value.trim()),
+      });
+      if (data.motionPrompt) {
+        promptInput.value = data.motionPrompt;
+        flushStoryVideoPromptToJson(messageIndex, data.motionPrompt);
+      }
+      const sourceLabel =
+        data.promptSource === "manual"
+          ? "ручной"
+          : data.promptSource === "openrouter"
+            ? "Gemini"
+            : data.promptSource === "heuristic"
+              ? "эвристика"
+              : data.promptSource ?? "";
+      status.textContent = sourceLabel ? `Промпт: ${sourceLabel}` : "Готово";
+    } catch (err) {
+      status.textContent = err instanceof Error ? err.message : String(err);
+    } finally {
+      btnSuggestPrompt.textContent = prevLabel;
+      btnSuggestPrompt.disabled = !openrouterConfigured;
+    }
+  });
+  actions.append(btnSuggestPrompt);
+
   if (hasVideo) {
     const btnWatch = document.createElement("button");
     btnWatch.type = "button";
@@ -2264,9 +2340,22 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
     btnGenerate.disabled = true;
     status.textContent = "Генерация видео…";
     try {
-      await generateStoryVideoForSlot(messageIndex, {force: hasVideo});
+      flushStoryVideoPromptToJson(messageIndex, promptInput.value.trim());
+      const data = await generateStoryVideoForSlot(messageIndex, {force: hasVideo});
+      if (data.motionPrompt) {
+        promptInput.value = data.motionPrompt;
+        flushStoryVideoPromptToJson(messageIndex, data.motionPrompt);
+      }
       await refreshDialogue();
-      status.textContent = "Готово";
+      const sourceLabel =
+        data.promptSource === "manual"
+          ? "ручной промпт"
+          : data.promptSource === "openrouter"
+            ? "Gemini"
+            : data.promptSource === "heuristic"
+              ? "эвристика"
+              : "";
+      status.textContent = sourceLabel ? `Готово · ${sourceLabel}` : "Готово";
     } catch (err) {
       status.textContent = err instanceof Error ? err.message : String(err);
     } finally {
@@ -3548,7 +3637,10 @@ const buildConversationVoiceTtsProfileLocal = (conversation) => {
   const me = resolveVoiceForAuthor(voiceover, "me");
   const them = resolveVoiceForAuthor(voiceover, "them");
   const promptFp = fingerprintVoiceTtsPrompt(voiceover.ttsPrompt);
-  const base = `${openrouterTtsProfile}|${me}|${them}`;
+  const speedTag = Number.isFinite(openrouterTtsSpeechSpeed)
+    ? `sp${openrouterTtsSpeechSpeed}`
+    : "sp1";
+  const base = `${openrouterTtsProfile}|${speedTag}|${me}|${them}`;
   return promptFp ? `${base}|${promptFp}` : base;
 };
 
@@ -4098,6 +4190,71 @@ const setJsonStoryOpeningPrompt = (imagePrompt) => {
 
 const storyImagePromptSaveTimers = new Map();
 const storyImageEditPromptSaveTimers = new Map();
+const storyVideoPromptSaveTimers = new Map();
+const storyOpeningVideoPromptSaveTimer = {id: null};
+
+const getJsonStoryVideoPrompt = (messageIndex) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    const holder =
+      messageIndex == null ? parsed.story?.opening : parsed.messages?.[messageIndex];
+    return String(holder?.storyVideoPrompt ?? "").trim();
+  } catch {
+    return "";
+  }
+};
+
+const setJsonStoryVideoPrompt = (messageIndex, storyVideoPrompt, {removeIfEmpty = true} = {}) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (messageIndex == null) {
+      if (!parsed.story) {
+        parsed.story = {};
+      }
+      if (!parsed.story.opening) {
+        parsed.story.opening = {};
+      }
+      const trimmed = String(storyVideoPrompt ?? "").trim();
+      if (trimmed) {
+        parsed.story.opening.storyVideoPrompt = trimmed;
+      } else if (removeIfEmpty) {
+        delete parsed.story.opening.storyVideoPrompt;
+      } else {
+        parsed.story.opening.storyVideoPrompt = "";
+      }
+    } else if (Array.isArray(parsed.messages) && parsed.messages[messageIndex]) {
+      const trimmed = String(storyVideoPrompt ?? "").trim();
+      if (trimmed) {
+        parsed.messages[messageIndex].storyVideoPrompt = trimmed;
+      } else if (removeIfEmpty) {
+        delete parsed.messages[messageIndex].storyVideoPrompt;
+      } else {
+        parsed.messages[messageIndex].storyVideoPrompt = "";
+      }
+    } else {
+      return;
+    }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
+const flushStoryVideoPromptToJson = (messageIndex, promptText) => {
+  if (messageIndex == null) {
+    if (storyOpeningVideoPromptSaveTimer.id) {
+      clearTimeout(storyOpeningVideoPromptSaveTimer.id);
+      storyOpeningVideoPromptSaveTimer.id = null;
+    }
+    setJsonStoryVideoPrompt(null, promptText);
+    return;
+  }
+  if (storyVideoPromptSaveTimers.has(messageIndex)) {
+    clearTimeout(storyVideoPromptSaveTimers.get(messageIndex));
+    storyVideoPromptSaveTimers.delete(messageIndex);
+  }
+  setJsonStoryVideoPrompt(messageIndex, promptText);
+};
 
 const flushStoryImagePromptToJson = (messageIndex, promptText) => {
   if (messageIndex == null) {
@@ -4616,6 +4773,33 @@ const suggestStoryImagePrompt = async ({messageIndex = null, force = false} = {}
         setJsonStorySceneCharacters(messageIndex, data.charactersInFrame);
       }
     }
+  }
+  return data;
+};
+
+const suggestStoryVideoPrompt = async ({messageIndex = null, force = false} = {}) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала вставьте JSON переписки");
+  }
+  const res = await fetch("/api/story-videos/suggest-prompt", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      messageIndex: messageIndex ?? "opening",
+      force,
+    }),
+  });
+  const data = await readApiJson(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации motion-промпта");
+  }
+  if (data.motionPrompt) {
+    flushStoryVideoPromptToJson(messageIndex, data.motionPrompt);
+  }
+  if (data.conversation) {
+    applyStoryVideoConversation(data.conversation);
   }
   return data;
 };
@@ -7786,6 +7970,9 @@ const applyApiStatusToEditor = (data) => {
   }
   if (typeof data?.voiceover?.ttsProfile === "string" && data.voiceover.ttsProfile) {
     openrouterTtsProfile = data.voiceover.ttsProfile;
+  }
+  if (typeof data?.voiceover?.speechSpeed === "number" && Number.isFinite(data.voiceover.speechSpeed)) {
+    openrouterTtsSpeechSpeed = data.voiceover.speechSpeed;
   }
   if (data?.voiceover?.voices) {
     openrouterTtsDefaults = {

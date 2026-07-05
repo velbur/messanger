@@ -3,6 +3,8 @@ import type {ConversationInput} from "./schema";
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
 export const OPENROUTER_TTS_PROFILE = "young-emotional-v4";
+/** Скорость речи Gemini TTS (1 = норма). Меняется → voiceTtsProfile → перегенерация WAV. */
+export const OPENROUTER_TTS_SPEECH_SPEED = 1.5;
 
 export type VoiceoverGender = "male" | "female";
 
@@ -131,11 +133,13 @@ export const fingerprintVoiceTtsPrompt = (prompt: string | undefined): string =>
 export const buildConversationVoiceTtsProfile = (
   voiceover: ConversationVoiceover,
   voices?: {female: string; male: string},
+  speechSpeed: number = OPENROUTER_TTS_SPEECH_SPEED,
 ): string => {
   const me = pickOpenRouterVoice(voiceover, "me", voices);
   const them = pickOpenRouterVoice(voiceover, "them", voices);
   const promptFp = fingerprintVoiceTtsPrompt(voiceover.ttsPrompt);
-  const base = `${OPENROUTER_TTS_PROFILE}|${me}|${them}`;
+  const speedTag = Number.isFinite(speechSpeed) ? `sp${speechSpeed}` : "sp1";
+  const base = `${OPENROUTER_TTS_PROFILE}|${speedTag}|${me}|${them}`;
   return promptFp ? `${base}|${promptFp}` : base;
 };
 

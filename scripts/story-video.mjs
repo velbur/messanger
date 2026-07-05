@@ -507,7 +507,43 @@ const generateOneStoryVideo = async (
     label: target.label,
     stage: "done",
   });
-  return true;
+  return {
+    ok: true,
+    motionPrompt,
+    promptSource: motionResolved.promptSource,
+  };
+};
+
+export const suggestStoryVideoMotionPrompt = async (
+  conversation,
+  messageIndex,
+  {force = false} = {},
+) => {
+  const target = findStoryVideoTarget(conversation, messageIndex);
+  if (!target) {
+    throw new Error(
+      messageIndex == null
+        ? "Нет opening story-кадра"
+        : `Нет story-кадра для сообщения №${messageIndex + 1}`,
+    );
+  }
+
+  const videoProvider = getStoryVideoProvider();
+  const resolved = await resolveStoryVideoMotionPrompt(conversation, target, {
+    loop: false,
+    force: force === true,
+    provider: videoProvider,
+  });
+  if (resolved.promptSource === "openrouter") {
+    target.holder.storyVideoPrompt = resolved.motionPrompt;
+  }
+
+  return {
+    motionPrompt: resolved.motionPrompt,
+    promptSource: resolved.promptSource,
+    motionMode: resolved.motionMode,
+    charCount: resolved.motionPrompt.length,
+  };
 };
 
 export const generateStoryVideoForSlot = async (
@@ -538,9 +574,12 @@ export const generateStoryVideoForSlot = async (
   });
 
   if (!generated && !force) {
+    const savedPrompt = String(target.holder.storyVideoPrompt ?? "").trim();
     return {
       generated: false,
       logs,
+      motionPrompt: savedPrompt || undefined,
+      promptSource: savedPrompt ? "manual" : undefined,
       storyVideo: target.holder.storyVideo,
       storyVideoDurationMs: target.holder.storyVideoDurationMs,
       storyVideoProfile: target.holder.storyVideoProfile,
@@ -556,6 +595,8 @@ export const generateStoryVideoForSlot = async (
   return {
     generated: true,
     logs,
+    motionPrompt: generated.motionPrompt ?? String(target.holder.storyVideoPrompt ?? "").trim(),
+    promptSource: generated.promptSource,
     storyVideo: target.holder.storyVideo,
     storyVideoDurationMs: target.holder.storyVideoDurationMs,
     storyVideoProfile: target.holder.storyVideoProfile,
@@ -688,7 +729,7 @@ export const generateMissingStoryVideos = async (
   const stillMissing = countPendingStoryVideos(conversation);
   if (stillMissing > 0) {
     logs.push(
-      `⚠ Без анимации остаётся ${stillMissing} story-кадров — они будут статичными (Ken Burns). Рендер продолжится.`,
+      `⚠ Без анимации остаётся ${stillMissing} story-кадров — они будут статичными. Рендер продолжится.`,
     );
   }
 

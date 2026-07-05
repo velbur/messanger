@@ -11,8 +11,8 @@ import {
 } from "./story-color-filter";
 
 export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v32";
-/** Ревизия StorySceneVideo: Veo 1:1, parallax overlay без ускорения */
-export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v3";
+/** Ревизия StorySceneVideo: Veo-only без Ken Burns / parallax на хвосте */
+export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v4";
 
 export type StorySceneAnimation = "video" | "video-parallax" | "none" | "kenburns" | "parallax" | "depthParallax";
 
@@ -66,6 +66,9 @@ const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   }
   return "depthParallax";
 };
+
+export const isStoryVideoOnlyAnimation = (conversation: ConversationInput): boolean =>
+  mergeStoryConfig(conversation).opening.animation === "video";
 
 export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean => {
   const animation = mergeStoryConfig(conversation).opening.animation;

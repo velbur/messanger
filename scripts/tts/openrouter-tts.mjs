@@ -3,10 +3,9 @@ import path from "node:path";
 import {
   createSpeech,
   getOpenRouterTtsModel,
+  OPENROUTER_TTS_SPEECH_SPEED,
 } from "../openrouter-client.mjs";
 import {textForSpeech} from "./text-for-speech.mjs";
-
-const CHAT_SPEECH_SPEED = 1.04;
 
 const normalizeExtraPrompt = (value) =>
   String(value ?? "")
@@ -63,7 +62,7 @@ export const synthesizeOpenRouterSpeech = async ({text, voice, outputPath, model
     model: resolvedModel,
     responseFormat,
     prompt: isGemini ? buildSpeechPrompt(ttsPrompt) : undefined,
-    speed: isGemini ? CHAT_SPEECH_SPEED : undefined,
+    speed: isGemini ? OPENROUTER_TTS_SPEECH_SPEED : undefined,
   });
 
   await fs.mkdir(path.dirname(outputPath), {recursive: true});

@@ -2,7 +2,7 @@ import type {ConversationInput} from "./schema";
 import {FPS, msToFrames} from "./fps";
 import {mergeIntro, mergeEndCard} from "./title-card";
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
-import {mergeStoryConfig, isStoryVisualLayout} from "./story";
+import {isStoryVideoOnlyAnimation, mergeStoryConfig, isStoryVisualLayout} from "./story";
 import {
   getTimingSpeed,
   mergeConversationTiming,
@@ -254,6 +254,9 @@ const sceneSlotDurationMs = (
     typeof message?.storyVideoDurationMs === "number" && message.storyVideoDurationMs > 0
       ? message.storyVideoDurationMs
       : 0;
+  if (isStoryVideoOnlyAnimation(conversation) && videoMs > 0) {
+    return videoMs;
+  }
   return Math.max(minSlotMs, Math.min(maxSlotMs, videoMs || minSlotMs));
 };
 

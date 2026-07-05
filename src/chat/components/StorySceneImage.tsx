@@ -122,7 +122,7 @@ export const StorySceneImage: React.FC<Props> = ({
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
         localFrame={localFrame}
-        fallbackAnimation={animation === "video-parallax" ? "depthParallax" : "kenburns"}
+        fallbackAnimation={animation === "video-parallax" ? "depthParallax" : "static"}
       />
     );
   }
@@ -132,7 +132,11 @@ export const StorySceneImage: React.FC<Props> = ({
       <MotionScene
         image={trimmedImage}
         animation={
-          animation === "video" || animation === "video-parallax" ? "kenburns" : animation
+          animation === "video"
+            ? "none"
+            : animation === "video-parallax"
+              ? "kenburns"
+              : animation
         }
         localFrame={localFrame}
         durationFrames={durationFrames}

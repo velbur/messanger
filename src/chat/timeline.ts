@@ -9,7 +9,14 @@ import {
   scaleTimingMs,
   TIMING_BUNDLE_MARKER,
 } from "./timing";
-import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
+import {
+  getStoryPresentation,
+  isStoryVisualLayout,
+  isStoryVideoOnlyAnimation,
+  mergeStoryConfig,
+  STORY_VIDEO_BUNDLE_MARKER,
+  type StorySceneAnimation,
+} from "./story";
 import type {StoryColorFilter} from "./story-color-filter";
 import {
   incomingSceneTransitionStyle,
@@ -52,7 +59,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v2";
+export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v3";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -347,10 +354,12 @@ const buildStoryTimeline = (
   const sceneOriginFrame = immediateFirstScene
     ? (events[0]?.revealFrame ?? splitCompleteFrame)
     : splitCompleteFrame;
+  const videoOnlyStory = isStoryVideoOnlyAnimation(conversation);
+  let videoChainFrame = sceneOriginFrame;
 
   if (plannedScenes.length > 0) {
     const timedScenes = assignStorySceneTimeSlots(conversation, plannedScenes);
-    timedScenes.forEach((scene) => {
+    timedScenes.forEach((scene, sceneOrder) => {
       const message = conversation.messages[scene.anchorMessageIndex];
       const image = message?.storyImage?.trim() || scene.image?.trim();
       if (!image) {
@@ -359,18 +368,34 @@ const buildStoryTimeline = (
 
       const slotMs = Math.max(1, (scene.estimatedEndMs ?? 0) - (scene.estimatedStartMs ?? 0));
       const anchorIndex = scene.anchorMessageIndex;
-      let startFrame =
-        anchorIndex === 0 && immediateFirstScene
-          ? (events[0]?.revealFrame ?? sceneOriginFrame)
-          : Math.max(
-              events[anchorIndex]?.revealFrame ?? splitCompleteFrame,
-              splitCompleteFrame,
-            );
-      let endFrame = startFrame + msToFrames(slotMs);
       const videoMs = message?.storyVideoDurationMs;
-      if (typeof videoMs === "number" && videoMs > 0) {
+      const durationMs =
+        videoOnlyStory && typeof videoMs === "number" && videoMs > 0 ? videoMs : slotMs;
+
+      let startFrame: number;
+      if (sceneOrder === 0) {
+        startFrame =
+          anchorIndex === 0 && immediateFirstScene
+            ? (events[0]?.revealFrame ?? sceneOriginFrame)
+            : Math.max(
+                events[anchorIndex]?.revealFrame ?? splitCompleteFrame,
+                splitCompleteFrame,
+              );
+      } else if (videoOnlyStory) {
+        startFrame = videoChainFrame;
+      } else {
+        startFrame = Math.max(
+          events[anchorIndex]?.revealFrame ?? splitCompleteFrame,
+          splitCompleteFrame,
+        );
+      }
+
+      let endFrame = startFrame + msToFrames(durationMs);
+      if (!videoOnlyStory && typeof videoMs === "number" && videoMs > 0) {
         endFrame = Math.max(endFrame, startFrame + msToFrames(videoMs));
       }
+
+      videoChainFrame = endFrame;
 
       sceneEvents.push({
         messageIndex: scene.anchorMessageIndex,
@@ -395,15 +420,28 @@ const buildStoryTimeline = (
         return;
       }
 
-      const startFrame =
-        messageIndex === 0 && immediateFirstScene
-          ? firstRevealFrame
-          : Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
+      const videoMs = message.storyVideoDurationMs;
       const nextSceneIndex = sceneIndices[sceneOrder + 1];
-      const endFrame =
+      const nextRevealFrame =
         nextSceneIndex !== undefined
           ? (events[nextSceneIndex]?.revealFrame ?? chatEndFrame)
           : chatEndFrame;
+
+      let startFrame: number;
+      if (messageIndex === 0 && immediateFirstScene) {
+        startFrame = firstRevealFrame;
+      } else if (videoOnlyStory && sceneOrder > 0) {
+        startFrame = videoChainFrame;
+      } else {
+        startFrame = Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
+      }
+
+      const endFrame =
+        videoOnlyStory && typeof videoMs === "number" && videoMs > 0
+          ? startFrame + msToFrames(videoMs)
+          : nextRevealFrame;
+
+      videoChainFrame = endFrame;
 
       sceneEvents.push({
         messageIndex,

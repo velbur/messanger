@@ -5,25 +5,25 @@ export const isStrictI2vMotionProvider = (provider) =>
     .toLowerCase() === "local-gpu";
 
 const LOOP_MOTION_PROMPT_STRICT =
-  "Very subtle ambient motion that forms a perfect seamless loop: the final frame must be visually identical to the first frame (same pose, light, smoke, rain position). Only tiny cyclical effects — breathing light, flicker, gentle sway. All people frozen still, feet on ground. Absolutely no camera travel, zoom, or drift forward/backward.";
+  "Очень тонкое ambient-движение, формирующее бесшовный loop: финальный кадр визуально совпадает с первым (та же поза, свет, дым, дождь). Только крошечные циклические эффекты — «дыхание» света, мерцание, лёгкое покачивание. Все люди заморожены, ноги на земле. Никакого движения камеры, зума или дрейфа.";
 
 const HOLD_MOTION_PROMPT_STRICT =
-  "One short subtle motion (2–4 seconds): gentle ambient effects only (light shift, haze, rain, smoke, curtain sway). All figures remain completely frozen — feet on ground, no limb or head movement. Settle on a stable final pose. No camera move, zoom, pan, or drift. Last frame calm and holdable for a gentle zoom afterward.";
+  "Короткое тонкое движение (2–4 с): только мягкие ambient-эффекты (смещение света, дымка, дождь, дым, колыхание штор). Все фигуры полностью заморожены — ноги на земле, без движения конечностей и головы. Финал — спокойная поза для hold. Без движения камеры, зума, панорамы или дрейфа.";
 
 const AMBIENT_ONLY_MOTION_PROMPT =
-  "Very subtle ambient motion only (2–4 seconds): light flicker, soft atmospheric haze, gentle rain or smoke drift, curtain sway. ALL people and characters must remain completely still — feet firmly on ground, frozen pose, zero body movement, zero limb motion. No walking, jumping, flying, falling, or floating. No camera movement. Final frame calm and holdable.";
+  "Очень тонкое ambient-движение (2–4 с): мерцание света, мягкая дымка, лёгкий дождь или дым, колыхание штор. ВСЕ люди и персонажи полностью неподвижны — ноги на земле, замороженная поза, ноль движения тела и конечностей. Без ходьбы, прыжков, полёта, падения или парения. Без движения камеры. Финальный кадр спокойный.";
 
 const LOOP_AMBIENT_ONLY_MOTION_PROMPT =
-  "Very subtle seamless ambient loop: light flicker, haze, rain, smoke only. ALL people frozen still, feet on ground, identical pose start and end. No body movement, no camera travel, zoom, or drift.";
+  "Очень тонкое бесшовное ambient-loop: только мерцание света, дымка, дождь, дым. ВСЕ люди заморожены, ноги на земле, одинаковая поза в начале и конце. Без движения тел, без движения камеры, зума или дрейфа.";
 
 const LOOP_MOTION_PROMPT_VEO =
-  "Very subtle seamless loop for an illustrated story frame: natural cyclical motion (light, atmosphere, small character beats) where the final frame matches the first. Same art style and composition throughout. No scene change or new objects.";
+  "Очень тонкий бесшовный loop для иллюстрированного story-кадра: естественное циклическое движение (свет, атмосфера, мелкие жесты персонажей), финальный кадр совпадает с первым. Тот же стиль и композиция. Без смены сцены и новых объектов.";
 
 const HOLD_MOTION_PROMPT_VEO =
-  "One short cinematic motion (4–8 seconds) for an illustrated story frame: natural movement that fits the scene — expressions, gestures, hair, clothes, atmosphere, light, and environment. Keep the same art style, characters, and composition. Gentle camera drift is ok. End on a calm, holdable final frame.";
+  "Короткое кинематографичное движение (4–8 с) для иллюстрированного story-кадра: естественное движение по смыслу сцены — мимика, жесты, волосы, одежда, атмосфера, свет, окружение. Тот же стиль, персонажи и композиция. Лёгкий дрейф камеры допустим. Финал — спокойный, удерживаемый кадр.";
 
 const NEUTRAL_MOTION_PROMPT_VEO =
-  "Very subtle ambient motion (4–8 seconds): soft light shift, gentle atmospheric movement, curtains or smoke drift. Keep illustrated style and composition. Calm final frame.";
+  "Очень тонкое ambient-движение (4–8 с): мягкое смещение света, лёгкое движение атмосферы, колыхание штор или дыма. Сохранить иллюстрированный стиль и композицию. Спокойный финальный кадр.";
 
 /** Эвристика: в imagePrompt упоминаются люди/персонажи. */
 const PEOPLE_WORDS =
@@ -69,5 +69,5 @@ export const buildStoryMotionPrompt = (imagePrompt, {loop = false, provider = "v
   if (!scene) {
     return prefix;
   }
-  return `${prefix} Scene: ${scene}`;
+  return `${prefix} Сцена: ${scene}`;
 };
