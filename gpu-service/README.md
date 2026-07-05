@@ -121,6 +121,30 @@ curl -o frame.png http://<server>:8008/t2i/jobs/<job_id>/download
 
 Wan и FLUX **не загружены в VRAM одновременно** — сервис выгружает одну модель перед загрузкой другой.
 
+## Remotion-рендер (MP4) на GPU-сервере
+
+Порт **3333** — отдельный Node-воркер (`RENDER_WORKER=1`), не путать с gpu-service **8008**.
+
+На GPU-сервере (после `git clone` / `rsync` проекта):
+
+```bash
+chmod +x gpu-service/start-render-worker.sh
+./gpu-service/start-render-worker.sh
+# Откройте порт 3333 в firewall
+curl -s http://127.0.0.1:3333/api/render-targets
+```
+
+На Mac (`docs/.env`):
+
+```bash
+LOCAL_GPU_RENDER_URL=http://<gpu-server>:3333
+# или автоматически тот же хост, что LOCAL_GPU_VIDEO_URL, порт 3333:
+# LOCAL_GPU_RENDER_AUTO=1
+# LOCAL_GPU_RENDER_DEFAULT=1   # выбирать GPU-сервер в UI по умолчанию
+```
+
+В UI при сборке появится пункт **«GPU-сервер (рендер)»**. Prep (картинки, Wan) идёт с Mac на :8008; финальный Remotion — на :3333.
+
 ## Доступ с локальной машины
 
 - **Публичный IP + порт 8008** (откройте в firewall провайдера), или

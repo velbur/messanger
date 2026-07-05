@@ -27,11 +27,14 @@ const wallpaperRow = document.getElementById("wallpaperRow");
 const wallpaperOverlayHint = document.getElementById("wallpaperOverlayHint");
 const videoLayoutInputs = document.querySelectorAll('input[name="videoLayout"]');
 const dialogueGenMessageCountRow = document.getElementById("dialogueGenMessageCountRow");
+const dialogueTargetDuration = document.getElementById("dialogueTargetDuration");
+const dialogueGenTargetDurationRow = document.getElementById("dialogueGenTargetDurationRow");
 const videoTextModeRow = document.getElementById("videoTextModeRow");
 const videoTextModeInputs = document.querySelectorAll('input[name="videoTextMode"]');
 const layoutRow = document.getElementById("layoutRow");
 const imagesGenerateRow = document.getElementById("imagesGenerateRow");
 const storyAnimationRow = document.getElementById("storyAnimationRow");
+const storyAnimationHint = document.getElementById("storyAnimationHint");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
 const musicSelect = document.getElementById("musicSelect");
 const btnPreviewMusic = document.getElementById("btnPreviewMusic");
@@ -339,6 +342,50 @@ const getDefaultMessageCount = () =>
 const getDialogueMessageCount = () =>
   Number(dialogueMessageCount?.value ?? getDefaultMessageCount()) || getDefaultMessageCount();
 
+const getDialogueTargetDuration = () => {
+  const value = Number(dialogueTargetDuration?.value ?? 60);
+  return Number.isFinite(value) && value >= 30 ? value : 60;
+};
+
+const isStoryVideoLayoutSelected = () => {
+  const layout = getVideoLayout();
+  return layout === "storySplit" || layout === "storyOverlay";
+};
+
+const syncTargetDurationFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed?.story?.targetDurationSec || !dialogueTargetDuration) {
+    return;
+  }
+  dialogueTargetDuration.value = String(parsed.story.targetDurationSec);
+};
+
+const syncDialogueGenDurationControls = () => {
+  const storyTimeMode =
+    editorKind === "shorts" && isStoryVideoLayoutSelected();
+  if (dialogueGenMessageCountRow) {
+    dialogueGenMessageCountRow.hidden = storyTimeMode || editorKind === "video";
+  }
+  if (dialogueGenTargetDurationRow) {
+    dialogueGenTargetDurationRow.hidden = !storyTimeMode;
+  }
+};
+
+const applyTargetDurationToJson = () => {
+  if (!isStoryVideoLayoutSelected()) {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (!parsed.story) {
+    parsed.story = {};
+  }
+  parsed.story.targetDurationSec = getDialogueTargetDuration();
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
 const readStoredDialogueTemperature = () => {
   const stored = localStorage.getItem(DIALOGUE_TEMPERATURE_STORAGE_KEY);
   if (stored == null) {
@@ -592,6 +639,7 @@ const syncEditorKindUi = () => {
   if (dialogueGenMessageCountRow) {
     dialogueGenMessageCountRow.hidden = isVideo;
   }
+  syncDialogueGenDurationControls();
   if (dialoguePromptHint) {
     dialoguePromptHint.textContent = isSeries
       ? "Генерация через ChatGPT (OpenRouter). Задание для части серии — например: «Часть 3: Даня палится современными словами…»"
@@ -785,6 +833,7 @@ const captureEditorSnapshot = () => ({
   dialogueModel: getDialogueModel(),
   dialogueTemperature: getDialogueTemperature(),
   messageCount: getDialogueMessageCount(),
+  targetDurationSec: getDialogueTargetDuration(),
   seriesId: seriesIdInput?.value ?? "",
   partNumber: currentPartNumber,
   seriesUseContext: seriesUseContext?.checked ?? true,
@@ -805,6 +854,9 @@ const restoreEditorSnapshot = async (snapshot) => {
   populateDialogueModelOptions(snapshot?.dialogueModel);
   if (dialogueMessageCount && snapshot?.messageCount) {
     dialogueMessageCount.value = String(snapshot.messageCount);
+  }
+  if (dialogueTargetDuration && snapshot?.targetDurationSec) {
+    dialogueTargetDuration.value = String(snapshot.targetDurationSec);
   }
   if (dialogueTemperature && snapshot?.dialogueTemperature != null) {
     dialogueTemperature.value = String(snapshot.dialogueTemperature);
@@ -1164,6 +1216,8 @@ const applyDialogueToEditor = (dialogue) => {
   );
   syncTitleCardFieldsFromJson();
   syncVideoLayoutFromJson();
+  syncTargetDurationFromJson();
+  syncDialogueGenDurationControls();
   syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
   syncMessageFontSizeFromJson();
@@ -1222,7 +1276,7 @@ const syncOutputFromJob = (job) => {
   if (job?.status !== "done") {
     return;
   }
-  if (job.target === "remote" && job.localCopyStatus === "error") {
+  if (job.remote && job.localCopyStatus === "error") {
     return;
   }
   const file = outputFileFromJob(job);
@@ -1257,10 +1311,10 @@ const renderJobDownloadLinks = (job, withCacheBust) => {
     link.href = withCacheBust(item.downloadUrl, item.finishedAt ?? job.finishedAt);
     const label = outputs.length > 1 ? `Эпизод ${item.episode}: ` : "";
     link.textContent =
-      job.target === "remote"
+      job.remote
         ? `${label}Открыть ${item.outputPath ?? item.outputFile ?? "video.mp4"}`
         : `${label}Скачать ${item.outputPath ?? item.outputFile ?? "video.mp4"}`;
-    if (job.target === "remote" || job.status === "done") {
+    if (job.remote || job.status === "done") {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.removeAttribute("download");
@@ -2318,6 +2372,42 @@ const resolveWallpaperPayload = () =>
 
 const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax", "video", "video-parallax"]);
 
+const STORY_I2V_ANIMATION_LABELS = {
+  "video-parallax": "Wan (4s) + Parallax",
+  video: "Wan (Full)",
+};
+
+const STORY_ANIMATION_HINT_BASE =
+  "Depth parallax — сдвиг по карте глубины (цикл 3 с). Ken Burns — лёгкий наезд без depth.";
+
+const isStoryI2vAnimationAvailable = (storyVideo) =>
+  storyVideo?.provider === "local-gpu" && Boolean(storyVideo?.configured);
+
+const updateStoryI2vAnimationOptions = (storyVideo) => {
+  const showI2v = isStoryI2vAnimationAvailable(storyVideo);
+  for (const label of document.querySelectorAll("[data-story-i2v-option]")) {
+    label.hidden = !showI2v;
+  }
+  for (const span of document.querySelectorAll("[data-story-i2v-label]")) {
+    const mode = span.getAttribute("data-story-i2v-label");
+    if (mode && STORY_I2V_ANIMATION_LABELS[mode]) {
+      span.textContent = STORY_I2V_ANIMATION_LABELS[mode];
+    }
+  }
+  if (storyAnimationHint) {
+    storyAnimationHint.textContent = showI2v
+      ? `${STORY_ANIMATION_HINT_BASE} Wan I2V — анимация story-кадров на GPU.`
+      : STORY_ANIMATION_HINT_BASE;
+  }
+  if (!showI2v) {
+    const current = getStoryAnimation();
+    if (current === "video" || current === "video-parallax") {
+      setStoryAnimation("depthParallax");
+      applyStoryAnimationToJson();
+    }
+  }
+};
+
 const normalizeStoryAnimationForUi = (animation) => {
   if (STORY_ANIMATION_UI_VALUES.has(animation)) {
     return animation;
@@ -2486,6 +2576,9 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
     if (!parsed.story) {
       parsed.story = {};
     }
+    if (!parsed.story.targetDurationSec) {
+      parsed.story.targetDurationSec = getDialogueTargetDuration();
+    }
     if (!parsed.story.opening) {
       parsed.story.opening = {};
     }
@@ -2509,6 +2602,10 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   updateWallpaperControls();
   updateStoryAnimationControls();
   syncStoryAnimationFromJson();
+  syncDialogueGenDurationControls();
+  if (parsed?.story?.targetDurationSec && dialogueTargetDuration) {
+    dialogueTargetDuration.value = String(parsed.story.targetDurationSec);
+  }
 };
 
 const syncVideoLayoutFromJson = () => {
@@ -2531,6 +2628,8 @@ const syncVideoLayoutFromJson = () => {
           : "storyOverlay",
   );
   updateWallpaperControls();
+  syncTargetDurationFromJson();
+  syncDialogueGenDurationControls();
 };
 
 const syncWallpaperFromJson = () => {
@@ -3428,6 +3527,24 @@ const setJsonStoryImage = (messageIndex, publicPath) => {
   }
 };
 
+const setJsonStoryImageEditPrompt = (messageIndex, storyImageEditPrompt) => {
+  try {
+    const parsed = JSON.parse(jsonInput.value);
+    if (!Array.isArray(parsed.messages) || !parsed.messages[messageIndex]) {
+      return;
+    }
+    const trimmed = String(storyImageEditPrompt ?? "").trim();
+    if (trimmed) {
+      parsed.messages[messageIndex].storyImageEditPrompt = trimmed;
+    } else {
+      delete parsed.messages[messageIndex].storyImageEditPrompt;
+    }
+    jsonInput.value = JSON.stringify(parsed, null, 2);
+  } catch {
+    /* ignore */
+  }
+};
+
 const setJsonStoryImagePrompt = (messageIndex, storyImagePrompt, {removeIfEmpty = true} = {}) => {
   try {
     const parsed = JSON.parse(jsonInput.value);
@@ -3510,6 +3627,7 @@ const setJsonStoryOpeningPrompt = (imagePrompt) => {
 };
 
 const storyImagePromptSaveTimers = new Map();
+const storyImageEditPromptSaveTimers = new Map();
 
 const flushStoryImagePromptToJson = (messageIndex, promptText) => {
   if (messageIndex == null) {
@@ -4094,6 +4212,7 @@ const correctFrameImage = async (item, editPromptOverride) => {
       imageEditPrompt: editPrompt,
       stylePrompt: getStylePrompt(),
       aspectRatio: "4:3",
+      imageKind: "chat",
     }),
   });
   const data = await res.json();
@@ -4105,6 +4224,55 @@ const correctFrameImage = async (item, editPromptOverride) => {
     const slot = document.querySelector(
       `[data-image-slot-index="${item.messageIndex}"]`,
     );
+    const img = slot?.querySelector(".image-slot__preview");
+    if (img) {
+      img.src = data.previewUrl;
+    }
+  }
+  return data;
+};
+
+const correctStoryFrameImage = async (messageIndex, editPromptOverride) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала вставьте JSON переписки");
+  }
+  const parsed = parseConversationJson();
+  const isOpening = messageIndex == null;
+  const editPrompt = String(
+    editPromptOverride ??
+      (isOpening
+        ? ""
+        : parsed?.messages?.[messageIndex]?.storyImageEditPrompt ?? ""),
+  ).trim();
+  if (!editPrompt) {
+    throw new Error("Заполните поле «Правки к story-кадру»");
+  }
+
+  const res = await fetch("/api/images/correct", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      messageIndex: isOpening ? undefined : messageIndex,
+      storyImageEditPrompt: editPrompt,
+      storyStylePrompt: getStoryStylePrompt(),
+      aspectRatio: "9:16",
+      imageKind: isOpening ? "story-opening" : "story",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка правки story-кадра");
+  }
+  if (isOpening) {
+    setJsonStoryOpeningImage(data.publicPath);
+  } else {
+    setJsonStoryImage(messageIndex, data.publicPath);
+  }
+  if (data.previewUrl) {
+    const slotKey = isOpening ? "opening" : messageIndex;
+    const slot = document.querySelector(`[data-story-slot-index="${slotKey}"]`);
     const img = slot?.querySelector(".image-slot__preview");
     if (img) {
       img.src = data.previewUrl;
@@ -4381,6 +4549,60 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
       (isImageUrl(imagePath) ? imagePath : `/${imagePath.replace(/^\/+/, "")}`);
     preview.addEventListener("click", () => openImageLightbox(preview.src));
     slot.append(preview);
+
+    const correctionBlock = document.createElement("div");
+    correctionBlock.className = "image-slot__correction-edit image-card__correction-edit";
+
+    const editLabel = document.createElement("label");
+    editLabel.className = "image-card__prompt-label";
+    editLabel.textContent = "Правки к story-кадру";
+
+    const editInput = document.createElement("textarea");
+    editInput.className = "image-card__prompt-input";
+    editInput.rows = 2;
+    editInput.placeholder = "Что изменить на уже готовом story-кадре…";
+    editInput.value =
+      messageIndex == null ? "" : String(message?.storyImageEditPrompt ?? "").trim();
+    if (messageIndex != null) {
+      editInput.addEventListener("input", () => {
+        const timerKey = messageIndex;
+        if (storyImageEditPromptSaveTimers.has(timerKey)) {
+          clearTimeout(storyImageEditPromptSaveTimers.get(timerKey));
+        }
+        storyImageEditPromptSaveTimers.set(
+          timerKey,
+          setTimeout(() => {
+            setJsonStoryImageEditPrompt(messageIndex, editInput.value);
+            storyImageEditPromptSaveTimers.delete(timerKey);
+          }, 400),
+        );
+      });
+    }
+
+    const editActions = document.createElement("div");
+    editActions.className = "image-card__prompt-edit-actions";
+
+    const btnCorrect = document.createElement("button");
+    btnCorrect.type = "button";
+    btnCorrect.className = "btn btn-secondary btn-small";
+    btnCorrect.textContent = "Применить правки";
+    btnCorrect.disabled = !canGenerateImages();
+    btnCorrect.addEventListener("click", async () => {
+      btnCorrect.disabled = true;
+      try {
+        await correctStoryFrameImage(messageIndex, editInput.value);
+        await refreshDialogue();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : String(err));
+      } finally {
+        btnCorrect.disabled = !canGenerateImages();
+        updateImageProviderControls();
+      }
+    });
+
+    editActions.append(btnCorrect);
+    correctionBlock.append(editLabel, editInput, editActions);
+    slot.append(correctionBlock);
   }
 
   const actions = document.createElement("div");
@@ -5559,10 +5781,15 @@ btnResetMessageFontSize?.addEventListener("click", () => {
   applyMessageFontSizeToJson();
 });
 
+dialogueTargetDuration?.addEventListener("change", () => {
+  applyTargetDurationToJson();
+});
+
 for (const input of videoLayoutInputs) {
   input.addEventListener("change", () => {
     applyVideoLayoutToJson(getVideoLayout());
     applyStoryAnimationToJson();
+    syncDialogueGenDurationControls();
     scheduleRefreshDialogue();
   });
 }
@@ -5608,7 +5835,7 @@ const isRenderJobFinished = (job) => {
   if (job.status !== "done") {
     return false;
   }
-  if (job.target === "remote") {
+  if (job.remote) {
     return job.localCopyStatus === "done" || job.localCopyStatus === "error";
   }
   return true;
@@ -5877,7 +6104,7 @@ const showStatus = (job) => {
     if (
       job.status === "done" &&
       job.downloadUrl &&
-      (job.target !== "remote" || job.localCopyStatus === "done")
+      (job.remote ? job.localCopyStatus === "done" : true)
     ) {
       syncOutputFromJob(job);
       downloadBlock.hidden = false;
@@ -6287,15 +6514,19 @@ const getDialogueGenOptions = () => {
     videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
     textMode: editorKind === "video" ? getVideoTextMode() : undefined,
   };
-  if (editorKind === "shorts" || editorKind === "series") {
+  if (editorKind === "shorts" && isStoryVideoLayoutSelected()) {
+    options.targetDurationSec = getDialogueTargetDuration();
+  } else if (editorKind === "shorts" || editorKind === "series") {
     options.messageCount = getDialogueMessageCount();
   }
   return options;
 };
 
-const formatDialogueGenSummary = ({messageCount, model, temperature, videoLayout, textMode}) => {
+const formatDialogueGenSummary = ({messageCount, targetDurationSec, model, temperature, videoLayout, textMode}) => {
   const parts = [];
-  if (editorKind === "shorts" || editorKind === "series") {
+  if (editorKind === "shorts" && isStoryVideoLayoutSelected() && targetDurationSec) {
+    parts.push(`~${targetDurationSec} с`);
+  } else if (editorKind === "shorts" || editorKind === "series") {
     parts.push(`≤${messageCount} сообщ.`);
   }
   if (typeof temperature === "number" && Number.isFinite(temperature)) {
@@ -6364,6 +6595,8 @@ const generateDialogueFromPrompt = async () => {
     updateProjectPathsHint();
   }
   syncTitleCardFieldsFromJson();
+  syncTargetDurationFromJson();
+  syncDialogueGenDurationControls();
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
   updateRefineDialogueControls();
@@ -6404,13 +6637,21 @@ const enrichStoryScenesFromJson = async () => {
   updateLogicControls();
   if (dialogueGenerateStatus) {
     const frames = data.frameCount ?? data.sceneCount ?? 0;
+    const sceneCount = Array.isArray(data.plannedScenes) ? data.plannedScenes.length : frames;
+    const targetSec = data.targetDurationSec;
+    const timeNote =
+      targetSec && sceneCount
+        ? `Запланировано ${sceneCount} сцен (~5 с каждая) на ${targetSec} с. `
+        : "";
     const indices = Array.isArray(data.plannedMessageIndices)
       ? data.plannedMessageIndices.map((index) => index + 1).join(", ")
       : "";
     const openingNote = data.includeOpening === false ? "без opening" : "с opening";
-    dialogueGenerateStatus.textContent = indices
-      ? `Кадры (${openingNote}): сообщ. №${indices}. Промптов: ${data.sceneCount ?? 0}.`
-      : `Промпты: ${frames}, героев: ${data.characterCount ?? 0}.`;
+    dialogueGenerateStatus.textContent = timeNote
+      ? `${timeNote}Промптов: ${data.sceneCount ?? 0}.`
+      : indices
+        ? `Кадры (${openingNote}): сообщ. №${indices}. Промптов: ${data.sceneCount ?? 0}.`
+        : `Промпты: ${frames}, героев: ${data.characterCount ?? 0}.`;
   }
   return data;
 };
@@ -6897,6 +7138,7 @@ const applyApiStatusToEditor = (data) => {
   if (Array.isArray(data?.voiceover?.catalog) && data.voiceover.catalog.length > 0) {
     populateVoiceSelects(data.voiceover.catalog);
   }
+  updateStoryI2vAnimationOptions(data?.storyVideo);
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateVoiceoverControls();
@@ -7011,16 +7253,16 @@ const loadOpenRouterStatus = async () => {
   }
 };
 
+loadDialogueModels();
+initDialogueTemperatureControl();
 loadOpenRouterStatus().then(() => {
-  loadDialogueModels();
-  initDialogueTemperatureControl();
   updateVoiceoverControls();
 });
 initEditorPreferenceControls();
 updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
-syncEditorKindUi();
+        syncEditorKindUi();
 
 window.addEventListener("popstate", () => {
   void (async () => {

@@ -84,16 +84,48 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const isTransientGpuNetworkError = (error) => {
+  const parts = [];
+  if (error instanceof Error) {
+    parts.push(error.message);
+    const cause = error.cause;
+    if (cause instanceof Error) {
+      parts.push(cause.message);
+    } else if (cause && typeof cause === "object" && "code" in cause) {
+      parts.push(String(cause.code));
+    }
+  } else {
+    parts.push(String(error));
+  }
+  return /ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|fetch failed|socket hang up/i.test(
+    parts.join(" "),
+  );
+};
+
 const pollLocalGpuJob = async ({baseUrl, jobId, onPoll, deadlineMs = DEFAULT_TIMEOUT_MS}) => {
   const started = Date.now();
   let attempt = 0;
   while (Date.now() - started < deadlineMs) {
     attempt += 1;
-    const response = await fetchWithTimeout(
-      `${baseUrl}/i2v/jobs/${jobId}`,
-      {},
-      Math.min(30_000, deadlineMs),
-    );
+    let response;
+    try {
+      response = await fetchWithTimeout(
+        `${baseUrl}/i2v/jobs/${jobId}`,
+        {},
+        Math.min(30_000, deadlineMs),
+      );
+    } catch (error) {
+      if (isTransientGpuNetworkError(error) && Date.now() - started < deadlineMs) {
+        onPoll?.({
+          attempt,
+          maxAttempts: Math.ceil(deadlineMs / POLL_INTERVAL_MS),
+          status: "reconnecting",
+        });
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+      throw error;
+    }
     if (!response.ok) {
       throw new Error(`Local GPU job ${response.status}: ${await parseErrorBody(response)}`);
     }

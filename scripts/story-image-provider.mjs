@@ -71,6 +71,7 @@ export const generateStoryImageBuffer = async (opts) => {
   }
   return generateImageBuffer({
     ...opts,
+    referenceDataUrl: opts.referenceDataUrl ?? null,
     aspectRatio: opts.aspectRatio ?? STORY_IMAGE_ASPECT_RATIO,
     model: opts.model ?? getOpenRouterStoryImageModel(),
     imageSize: opts.imageSize ?? getOpenRouterStoryImageSize(),

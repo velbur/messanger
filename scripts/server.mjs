@@ -66,6 +66,7 @@ import {ensureConversationPreviewCovers, collectPreviewCoverSyncRefs, episodeOut
 import {
   correctFrameImage,
   ImageCorrectionUnchangedError,
+  isImageCorrectionConfigured,
 } from "./image-correction.mjs";
 import {
   resolveFramePrompts,
@@ -119,6 +120,13 @@ import {
   normalizeDialogueTemperature,
 } from "./dialogue-gen.mjs";
 import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
+import {ensureStoryVisualBible} from "./story-visual-bible.mjs";
+import {
+  describeLocalGpuRenderTarget,
+  getLocalGpuRenderStatus,
+  getLocalGpuRenderUrl,
+  isLocalGpuRenderConfigured,
+} from "./local-gpu-render.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {
@@ -168,8 +176,33 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const UI_DIR = path.join(ROOT, "ui");
 const PORT = Number(process.env.PORT ?? 3333);
 
-/** URL удалённого render-воркера (тот же server.mjs на мощной машине), напр. http://192.168.0.136:3333 */
+/** URL удалённого render-воркера (LAN Mac и т.п.), напр. http://192.168.0.136:3333 */
 const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
+
+const isLocalGpuRenderDefaultEnabled = () =>
+  ["1", "true", "yes"].includes((process.env.LOCAL_GPU_RENDER_DEFAULT ?? "").trim().toLowerCase());
+
+const isOffloadedRenderTarget = (target) => target === "remote" || target === "gpu-server";
+
+const resolveOffloadedRenderUrl = (target) => {
+  if (target === "gpu-server") {
+    return getLocalGpuRenderUrl();
+  }
+  if (target === "remote") {
+    return REMOTE_RENDER_URL || null;
+  }
+  return null;
+};
+
+const offloadRenderTargetLabel = (target) => {
+  if (target === "gpu-server") {
+    return describeLocalGpuRenderTarget();
+  }
+  if (target === "remote") {
+    return `Мощная машина (${REMOTE_RENDER_URL})`;
+  }
+  return "удалённый воркер";
+};
 
 const resolveRequestVideoLayout = ({videoLayout, dialogueStyle, conversation, mode}) => {
   if (mode === "video" || conversation?.layout === "video") {
@@ -202,13 +235,35 @@ const formatDialogueApiError = (error) => {
 
 const getRenderTargets = () => {
   const targets = [{id: "local", label: "Локально (эта машина)"}];
+  const gpuRenderUrl = getLocalGpuRenderUrl();
+  if (gpuRenderUrl) {
+    targets.push({id: "gpu-server", label: `GPU-сервер (рендер)`, url: gpuRenderUrl});
+  }
   if (REMOTE_RENDER_URL) {
     targets.push({id: "remote", label: `Мощная машина (${REMOTE_RENDER_URL})`, url: REMOTE_RENDER_URL});
   }
   return targets;
 };
 
-const getDefaultRenderTarget = () => (REMOTE_RENDER_URL ? "remote" : "local");
+const getDefaultRenderTarget = () => {
+  if (isLocalGpuRenderDefaultEnabled() && isLocalGpuRenderConfigured()) {
+    return "gpu-server";
+  }
+  if (REMOTE_RENDER_URL) {
+    return "remote";
+  }
+  return "local";
+};
+
+const normalizeRenderTarget = (rawTarget) => {
+  if (rawTarget === "gpu-server" && isLocalGpuRenderConfigured()) {
+    return "gpu-server";
+  }
+  if (rawTarget === "remote" && REMOTE_RENDER_URL) {
+    return "remote";
+  }
+  return "local";
+};
 
 const getPublicBaseUrl = (req) => {
   const fromEnv = process.env.PUBLIC_BASE_URL?.trim();
@@ -945,25 +1000,32 @@ app.get("/api/openrouter/dialogue-models", async (_req, res) => {
 });
 
 app.get("/api/status", async (_req, res) => {
-  await loadOpenRouterEnv();
-  res.json({
-    openrouter: {
-      configured: isOpenRouterConfigured(),
-      textModel: getOpenRouterTextModel(),
-      imageModel: getOpenRouterImageModel(),
-      storyImageModel: getOpenRouterStoryImageModel(),
-      storyImageSize: getOpenRouterStoryImageSize(),
-      ttsModel: getOpenRouterTtsModel(),
-      imageGenerationAvailable: isOpenRouterConfigured() || isStoryImageGenerationConfigured(),
-    },
-    youtube: {
-      configured: isYoutubeConfigured(),
-    },
-    voiceover: getOpenRouterVoiceoverStatus(),
-    storyVideo: getStoryVideoGenerationStatus(),
-    storyVideoVeo: getOpenRouterStoryVideoStatus(),
-    storyImage: getStoryImageGenerationStatus(),
-  });
+  try {
+    await loadOpenRouterEnv();
+    res.json({
+      openrouter: {
+        configured: isOpenRouterConfigured(),
+        textModel: getOpenRouterTextModel(),
+        imageModel: getOpenRouterImageModel(),
+        storyImageModel: getOpenRouterStoryImageModel(),
+        storyImageSize: getOpenRouterStoryImageSize(),
+        ttsModel: getOpenRouterTtsModel(),
+        imageGenerationAvailable: isOpenRouterConfigured() || isStoryImageGenerationConfigured(),
+      },
+      youtube: {
+        configured: isYoutubeConfigured(),
+      },
+      voiceover: getOpenRouterVoiceoverStatus(),
+      storyVideo: getStoryVideoGenerationStatus(),
+      storyVideoVeo: getOpenRouterStoryVideoStatus(),
+      storyImage: getStoryImageGenerationStatus(),
+      renderGpu: getLocalGpuRenderStatus(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 
 app.get("/api/youtube/status", async (_req, res) => {
@@ -1220,6 +1282,9 @@ app.post("/api/images/generate", async (req, res) => {
     if (jsonText && typeof jsonText === "string") {
       const conversation = JSON.parse(jsonText);
       const isStoryKind = imageKind === "story" || imageKind === "story-opening";
+      if (isStoryKind && isOpenRouterConfigured()) {
+        await ensureStoryVisualBible(conversation);
+      }
       style =
         typeof stylePrompt === "string" && stylePrompt.trim()
           ? stylePrompt.trim()
@@ -1236,6 +1301,7 @@ app.post("/api/images/generate", async (req, res) => {
           });
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
+          imageRefs = resolved.imageReferences;
         } else {
           imagePromptSuggested = manualPrompt;
           promptSource = "manual";
@@ -1254,6 +1320,7 @@ app.post("/api/images/generate", async (req, res) => {
           });
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
+          imageRefs = resolved.imageReferences;
         } else {
           imagePromptSuggested = manualPrompt;
           promptSource = "manual";
@@ -1304,6 +1371,7 @@ app.post("/api/images/generate", async (req, res) => {
       ? await generateStoryImageBuffer({
           prompt: finalPrompt,
           aspectRatio: aspectRatio ?? STORY_IMAGE_ASPECT_RATIO,
+          referenceDataUrl,
         })
       : await generateImageBuffer({
           prompt: finalPrompt,
@@ -1345,11 +1413,22 @@ app.post("/api/images/generate", async (req, res) => {
 
 app.post("/api/images/correct", async (req, res) => {
   try {
-    const {json: jsonText, messageIndex, imageEditPrompt, stylePrompt, aspectRatio} =
-      req.body ?? {};
+    const {
+      json: jsonText,
+      messageIndex,
+      imageEditPrompt,
+      storyImageEditPrompt,
+      stylePrompt,
+      storyStylePrompt,
+      aspectRatio,
+      imageKind,
+    } = req.body ?? {};
 
-    if (!isOpenRouterConfigured()) {
-      res.status(400).json({error: "OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)"});
+    if (!isImageCorrectionConfigured()) {
+      res.status(400).json({
+        error:
+          "Правка кадров недоступна: задайте OPENROUTER_API_KEY и/или STORY_IMAGE_PROVIDER=local-gpu + LOCAL_GPU_VIDEO_URL",
+      });
       return;
     }
 
@@ -1357,30 +1436,51 @@ app.post("/api/images/correct", async (req, res) => {
       res.status(400).json({error: "Поле json обязательно"});
       return;
     }
-    if (typeof messageIndex !== "number" || messageIndex < 0) {
-      res.status(400).json({error: "Поле messageIndex обязательно"});
-      return;
+
+    const kind =
+      imageKind === "story" || imageKind === "story-opening" ? imageKind : "chat";
+    const isStoryKind = kind === "story" || kind === "story-opening";
+
+    if (kind === "story") {
+      if (typeof messageIndex !== "number" || messageIndex < 0) {
+        res.status(400).json({error: "Поле messageIndex обязательно"});
+        return;
+      }
     }
-    const editText =
-      typeof imageEditPrompt === "string" ? imageEditPrompt.trim() : "";
+
+    const editText = String(
+      isStoryKind
+        ? storyImageEditPrompt ?? imageEditPrompt
+        : imageEditPrompt ?? storyImageEditPrompt,
+    ).trim();
     if (!editText) {
-      res.status(400).json({error: "Укажите imageEditPrompt — что исправить на кадре"});
+      res.status(400).json({
+        error: isStoryKind
+          ? "Укажите storyImageEditPrompt — что исправить на story-кадре"
+          : "Укажите imageEditPrompt — что исправить на кадре",
+      });
       return;
     }
 
     const conversation = JSON.parse(jsonText);
     const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
     const style =
-      typeof stylePrompt === "string" && stylePrompt.trim()
-        ? stylePrompt.trim()
-        : await readStylePrompt();
+      typeof (isStoryKind ? storyStylePrompt : stylePrompt) === "string" &&
+      String(isStoryKind ? storyStylePrompt : stylePrompt).trim()
+        ? String(isStoryKind ? storyStylePrompt : stylePrompt).trim()
+        : isStoryKind
+          ? await readStoryStylePrompt()
+          : await readStylePrompt();
 
     const result = await correctFrameImage({
       messages,
-      messageIndex,
+      messageIndex: isStoryKind && kind === "story-opening" ? -1 : messageIndex,
       imageEditPrompt: editText,
       stylePrompt: style,
-      aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
+      aspectRatio:
+        aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
+      kind,
+      openingImage: kind === "story-opening" ? conversation?.story?.opening?.image : null,
     });
 
     const publicPath = await saveImageBuffer(result.buffer, result.ref);
@@ -1392,7 +1492,9 @@ app.post("/api/images/correct", async (req, res) => {
       promptUsed: result.promptUsed,
       provider: result.provider,
       mode: "correct",
-      imageModel: getOpenRouterImageModel(),
+      imageModel: isStoryKind
+        ? getStoryImageGenerationStatus().model
+        : getOpenRouterImageModel(),
     });
   } catch (error) {
     if (error instanceof ImageCorrectionUnchangedError) {
@@ -1728,6 +1830,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
       includeImages,
       imageCount,
       messageCount,
+      targetDurationSec,
       language,
       mode: modeRaw,
       seriesId,
@@ -1776,6 +1879,10 @@ app.post("/api/dialogues/generate", async (req, res) => {
       includeImages,
       imageCount,
       messageCount,
+      targetDurationSec:
+        targetDurationSec != null && Number.isFinite(Number(targetDurationSec))
+          ? Math.max(30, Math.min(120, Math.round(Number(targetDurationSec))))
+          : undefined,
       language,
       mode,
       seriesId: normalizedSeriesId || "usssr",
@@ -1825,8 +1932,10 @@ app.post("/api/dialogues/enrich-story-scenes", async (req, res) => {
       sceneCount: result.sceneCount ?? 0,
       frameCount: result.frameCount ?? result.sceneCount ?? 0,
       plannedMessageIndices: result.plannedMessageIndices ?? [],
+      plannedScenes: result.plannedScenes ?? [],
       includeOpening: result.includeOpening ?? true,
       planRationale: result.planRationale ?? "",
+      targetDurationSec: result.targetDurationSec ?? null,
       characterCount: result.characterCount ?? 0,
       skippedReason: result.skippedReason ?? null,
     });
@@ -2232,7 +2341,8 @@ app.get("/api/example", async (_req, res) => {
   }
 });
 
-app.get("/api/render-targets", (_req, res) => {
+app.get("/api/render-targets", async (_req, res) => {
+  await loadOpenRouterEnv();
   res.json({targets: getRenderTargets(), defaultTarget: getDefaultRenderTarget()});
 });
 
@@ -2396,7 +2506,7 @@ const runRenderPreparation = async (
 
           const storyVideoLogs = await generateMissingStoryVideos(conversation, {
             publicBaseUrl,
-            skipHoldParallaxBake: target === "remote",
+            skipHoldParallaxBake: isOffloadedRenderTarget(target),
             isCancelled: () => job.prepCancelled,
             onProgress: ({done, total: clipTotal, label, stage, attempt, maxAttempts, status}) => {
               const safeTotal = Math.max(clipTotal, 1);
@@ -2423,13 +2533,13 @@ const runRenderPreparation = async (
 
       const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
         failOnMissingVideos: false,
-        skipHoldParallaxBake: target === "remote",
+        skipHoldParallaxBake: isOffloadedRenderTarget(target),
       });
       if (linkedStoryVideoLogs.length > 0) {
         jobPushLogs(job, linkedStoryVideoLogs);
       }
 
-      if (target !== "remote" && needsStoryDepthLayers(conversation)) {
+      if (!isOffloadedRenderTarget(target) && needsStoryDepthLayers(conversation)) {
         jobSetPhase(job, "Depth-слои для parallax…");
         jobSetProgress(job, 0.5);
         const depthLogs = await ensureStoryDepthForConversation(conversation);
@@ -2439,7 +2549,7 @@ const runRenderPreparation = async (
       }
 
       if (
-        target !== "remote" &&
+        !isOffloadedRenderTarget(target) &&
         mergeStoryConfig(conversation).opening.animation === "video-parallax"
       ) {
         jobSetPhase(job, "Hold-parallax после Veo…");
@@ -2448,7 +2558,7 @@ const runRenderPreparation = async (
           jobPushLogs(job, holdLogs);
         }
       } else if (
-        target === "remote" &&
+        isOffloadedRenderTarget(target) &&
         mergeStoryConfig(conversation).opening.animation === "video-parallax"
       ) {
         jobPushLog(job, "Hold-parallax: запекётся на воркере (как test:video-parallax)");
@@ -2512,7 +2622,7 @@ const runRenderPreparation = async (
     const storyVideoResolveLogs = isStoryVisual
       ? await resolveStoryVideos(conversation, {
           failOnMissingVideos: !skippedStoryVideoGeneration,
-          skipHoldParallaxBake: target === "remote",
+          skipHoldParallaxBake: isOffloadedRenderTarget(target),
         })
       : [];
 
@@ -2542,14 +2652,29 @@ const runRenderPreparation = async (
       throw new Error("Отменено пользователем");
     }
 
-    if (target === "remote") {
+    if (isOffloadedRenderTarget(target)) {
+      const remoteUrl = resolveOffloadedRenderUrl(target);
+      if (!remoteUrl) {
+        throw new Error(
+          target === "gpu-server"
+            ? "LOCAL_GPU_RENDER_URL не задан (или LOCAL_GPU_RENDER_AUTO=1 + LOCAL_GPU_VIDEO_URL)"
+            : "REMOTE_RENDER_URL не настроен",
+        );
+      }
       jobSetPhase(job, "Отправка ассетов на воркер…");
       jobSetProgress(job, 0.58);
-      jobPushLog(job, `Цель рендера: мощная машина (${REMOTE_RENDER_URL})`);
-      jobPushLog(
-        job,
-        "На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)",
-      );
+      jobPushLog(job, `Цель рендера: ${offloadRenderTargetLabel(target)} (${remoteUrl})`);
+      if (target === "gpu-server") {
+        jobPushLog(
+          job,
+          "На GPU-сервере: git pull в /root/messanger && ./gpu-service/start-render-worker.sh",
+        );
+      } else {
+        jobPushLog(
+          job,
+          "На воркере нужен git pull и перезапуск ./run.sh worker (src/ монтируется с той машины)",
+        );
+      }
       const episodeConversations =
         job.episodeConversations?.length > 0
           ? job.episodeConversations
@@ -2558,19 +2683,19 @@ const runRenderPreparation = async (
       if (episodeConversations.length > 1) {
         jobPushLog(job, `Эпизодов на воркере: ${episodeConversations.length}`);
       }
-      await syncImagesToRemote(conversation, REMOTE_RENDER_URL, job.logs, {
+      await syncImagesToRemote(conversation, remoteUrl, job.logs, {
         fileName: job.fileName,
         episodeConversations,
       });
       if (conversation.voiceover?.enabled) {
-        jobPushLog(job, "Озвучка: WAV с Mac отправляются на воркер");
-        await syncVoiceToRemote(conversation, REMOTE_RENDER_URL, job.logs);
+        jobPushLog(job, "Озвучка: WAV отправляются на воркер");
+        await syncVoiceToRemote(conversation, remoteUrl, job.logs);
       }
 
       jobSetPhase(job, "Запуск рендера на воркере…");
       jobSetProgress(job, 0.62);
       const forwardResp = await fetchWithRetry(
-        `${REMOTE_RENDER_URL}/api/render`,
+        `${remoteUrl}/api/render`,
         {
           method: "POST",
           headers: {"Content-Type": "application/json"},
@@ -2591,7 +2716,7 @@ const runRenderPreparation = async (
       }
 
       job.remote = true;
-      job.remoteUrl = REMOTE_RENDER_URL;
+      job.remoteUrl = remoteUrl;
       job.remoteJobId = forwardData.jobId;
       job.outputRel = forwardData.outputPath ?? job.outputRel;
       job.outputFile = forwardData.outputFile ?? job.outputFile;
@@ -2753,7 +2878,7 @@ app.post("/api/render", async (req, res) => {
       target: rawTarget,
     } = req.body ?? {};
 
-    const target = rawTarget === "remote" && REMOTE_RENDER_URL ? "remote" : "local";
+    const target = normalizeRenderTarget(rawTarget);
 
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -3168,6 +3293,10 @@ if (storyVideoStatus.configured) {
   console.log(`Story-видео: ${describeStoryVideoProvider()}`);
 } else if (storyVideoStatus.provider === "local-gpu") {
   console.log("Story-видео: local-gpu выбран, но LOCAL_GPU_VIDEO_URL не задан");
+}
+
+if (isLocalGpuRenderConfigured()) {
+  console.log(`Рендер MP4: ${describeLocalGpuRenderTarget()}`);
 }
 
 if (isDialogueLlmConfigured()) {

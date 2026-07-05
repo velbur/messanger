@@ -5,6 +5,7 @@ import {
   buildStoryImageGenerationPrompt,
   resolveFramePrompts,
   resolveStoryFramePrompts,
+  resolveStoryScenePrompts,
 } from "./image-prompt-llm.mjs";
 import {readStylePrompt, readStoryStylePrompt} from "./image-prompt.mjs";
 import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.mjs";
@@ -16,7 +17,10 @@ import {
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
 import {STORY_IMAGE_ASPECT_RATIO} from "./story-image-spec.mjs";
 import {saveImageBuffer} from "./image-assets.mjs";
+import {ensureStoryVisualBible, formatVisualBible} from "./story-visual-bible.mjs";
 import {slugifyProjectName} from "./project-slug.mjs";
+import {getStoryScenes} from "./story-scene-timing.mjs";
+import {syncScenesToMessageAnchors} from "./story-scene-sync.mjs";
 
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
 const hasImagePromptOnly = (message) =>
@@ -46,10 +50,17 @@ const ensureStoryObject = (conversation) => {
   return conversation.story;
 };
 
+const hasStoryScenePromptOnly = (scene) =>
+  Boolean(scene?.imagePrompt?.trim()) && !Boolean(scene?.image?.trim());
+
 export const generateMissingStoryImages = async (conversation, {stylePrompt, imageNamespace} = {}) => {
   const logs = [];
   if (!isStoryImageGenerationConfigured() || !isStoryVisual(conversation)) {
     return logs;
+  }
+
+  if (isOpenRouterConfigured()) {
+    await ensureStoryVisualBible(conversation);
   }
 
   const imageProvider = getStoryImageGenerationStatus().provider;
@@ -73,12 +84,14 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     const finalPrompt = buildStoryImageGenerationPrompt({
       imagePrompt: resolved.imagePrompt,
       stylePrompt: style,
+      visualBible: formatVisualBible(conversation),
     });
     if (finalPrompt) {
       const {buffer} = await generateStoryImageBuffer({
         prompt: finalPrompt,
         aspectRatio: STORY_IMAGE_ASPECT_RATIO,
         kind: "story",
+        referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
       });
       const targetRef = `images/${namespace}/story-opening.png`;
       const publicPath = await saveImageBuffer(buffer, targetRef);
@@ -88,6 +101,53 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       }
       logs.push(`Сгенерирован story opening → ${publicPath} (${resolved.promptSource}, ${imageProvider})`);
     }
+  }
+
+  const scenes = getStoryScenes(conversation);
+  if (scenes.length > 0) {
+    for (let sceneIndex = 0; sceneIndex < scenes.length; sceneIndex += 1) {
+      const scene = scenes[sceneIndex];
+      if (!hasStoryScenePromptOnly(scene)) {
+        continue;
+      }
+
+      const resolved = await resolveStoryScenePrompts({
+        conversation,
+        sceneIndex,
+        stylePrompt: style,
+      });
+      const finalPrompt = buildStoryImageGenerationPrompt({
+        imagePrompt: resolved.imagePrompt,
+        stylePrompt: style,
+        visualBible: formatVisualBible(conversation),
+      });
+      if (!finalPrompt) {
+        logs.push(`Сцена #${sceneIndex + 1}: не удалось собрать story-промпт`);
+        continue;
+      }
+
+      const {buffer} = await generateStoryImageBuffer({
+        prompt: finalPrompt,
+        aspectRatio: STORY_IMAGE_ASPECT_RATIO,
+        kind: "story",
+        referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
+      });
+
+      const anchor = scene.anchorMessageIndex ?? sceneIndex;
+      const targetRef = `images/${namespace}/story-msg-${anchor + 1}.png`;
+      const publicPath = await saveImageBuffer(buffer, targetRef);
+      scene.image = publicPath;
+      if (resolved.imagePrompt) {
+        scene.imagePrompt = resolved.imagePrompt;
+      }
+      story.scenes = scenes;
+      syncScenesToMessageAnchors(conversation);
+
+      logs.push(
+        `Сгенерирован story-кадр: сцена #${sceneIndex + 1} → ${publicPath} (${resolved.promptSource}, ${imageProvider})`,
+      );
+    }
+    return logs;
   }
 
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
@@ -106,6 +166,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     const finalPrompt = buildStoryImageGenerationPrompt({
       imagePrompt: resolved.imagePrompt,
       stylePrompt: style,
+      visualBible: formatVisualBible(conversation),
     });
     if (!finalPrompt) {
       logs.push(`Сообщение #${messageIndex + 1}: не удалось собрать story-промпт`);
@@ -116,6 +177,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       prompt: finalPrompt,
       aspectRatio: STORY_IMAGE_ASPECT_RATIO,
       kind: "story",
+      referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
     });
 
     const targetRef = `images/${namespace}/story-msg-${messageIndex + 1}.png`;

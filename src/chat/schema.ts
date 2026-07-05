@@ -21,6 +21,25 @@ export const storySfxCueSchema = z.object({
   delayMs: z.number().min(0).max(8000).optional(),
 });
 
+export const storySceneSchema = z.object({
+  id: z.string().min(1),
+  /** Смысловая нагрузка сцены (~4–6 с визуала) */
+  beat: z.string().min(1),
+  anchorMessageIndex: z.number().int().min(0),
+  messageFrom: z.number().int().min(0),
+  messageTo: z.number().int().min(0),
+  estimatedStartMs: z.number().min(0).optional(),
+  estimatedEndMs: z.number().min(0).optional(),
+  imagePrompt: z.string().min(1).optional(),
+  image: z
+    .string()
+    .min(1)
+    .transform((value) => value.replace(/^\/+/, ""))
+    .optional(),
+  storyVideoPrompt: z.string().min(1).optional(),
+  storySceneCharacters: z.array(z.string().min(1)).max(6).optional(),
+});
+
 export const messageSchema = z
   .object({
     author: z.enum(["me", "them"]),
@@ -48,6 +67,8 @@ export const messageSchema = z
       .optional(),
     /** Промпт для генерации кадра сюжета сверху */
     storyImagePrompt: z.string().min(1).optional(),
+    /** Промпт I2V-анимации story-кадра (камера, движение) */
+    storyVideoPrompt: z.string().min(1).optional(),
     /** id героев из story.characters, видимых в этом кадре */
     storySceneCharacters: z.array(z.string().min(1)).max(6).optional(),
     /** Анимация story-кадра (OpenRouter Veo), public/images/… */
@@ -261,6 +282,19 @@ export const conversationSchema = z.object({
     .object({
       /** Справочник героев с фиксированной внешностью для story-кадров */
       characters: z.array(storyCharacterSchema).max(8).optional(),
+      /** Справочник визуальной преемственности (объекты, цвета, локации) */
+      visualBible: z.string().min(1).optional(),
+      /** Целевая длительность ролика, сек (Shorts) */
+      targetDurationSec: z.number().min(30).max(120).optional().default(60),
+      /** Ориентир длительности одной сцены, сек */
+      sceneDurationSec: z
+        .object({
+          min: z.number().min(3).max(8).optional().default(4),
+          max: z.number().min(4).max(10).optional().default(6),
+        })
+        .optional(),
+      /** Сцены по времени: beat + диапазон сообщений + промпты */
+      scenes: z.array(storySceneSchema).max(30).optional(),
       opening: z
         .object({
           image: z
@@ -269,6 +303,8 @@ export const conversationSchema = z.object({
             .transform((value) => value.replace(/^\/+/, ""))
             .optional(),
           imagePrompt: z.string().min(1).optional(),
+          /** Промпт I2V-анимации (камера, движение в кадре) */
+          storyVideoPrompt: z.string().min(1).optional(),
           storyVideo: z
             .string()
             .min(1)

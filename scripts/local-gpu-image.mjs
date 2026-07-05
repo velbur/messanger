@@ -68,16 +68,48 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const isTransientGpuNetworkError = (error) => {
+  const parts = [];
+  if (error instanceof Error) {
+    parts.push(error.message);
+    const cause = error.cause;
+    if (cause instanceof Error) {
+      parts.push(cause.message);
+    } else if (cause && typeof cause === "object" && "code" in cause) {
+      parts.push(String(cause.code));
+    }
+  } else {
+    parts.push(String(error));
+  }
+  return /ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|fetch failed|socket hang up/i.test(
+    parts.join(" "),
+  );
+};
+
 const pollLocalGpuT2iJob = async ({baseUrl, jobId, onPoll, deadlineMs = DEFAULT_TIMEOUT_MS}) => {
   const started = Date.now();
   let attempt = 0;
   while (Date.now() - started < deadlineMs) {
     attempt += 1;
-    const response = await fetchWithTimeout(
-      `${baseUrl}/t2i/jobs/${jobId}`,
-      {},
-      Math.min(30_000, deadlineMs),
-    );
+    let response;
+    try {
+      response = await fetchWithTimeout(
+        `${baseUrl}/t2i/jobs/${jobId}`,
+        {},
+        Math.min(30_000, deadlineMs),
+      );
+    } catch (error) {
+      if (isTransientGpuNetworkError(error) && Date.now() - started < deadlineMs) {
+        onPoll?.({
+          attempt,
+          maxAttempts: Math.ceil(deadlineMs / POLL_INTERVAL_MS),
+          status: "reconnecting",
+        });
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+      throw error;
+    }
     if (!response.ok) {
       throw new Error(`Local GPU T2I job ${response.status}: ${await parseErrorBody(response)}`);
     }
@@ -172,6 +204,96 @@ export const generateTextToImageBufferLocalGpu = async ({
     imageSize: `${meta.width ?? width}x${meta.height ?? height}`,
     provider: "local-gpu",
     jobId,
+    inferenceSec:
+      downloadResponse.headers.get("x-inference-sec") ??
+      (meta.inference_sec != null ? String(meta.inference_sec) : null),
+  };
+};
+
+/**
+ * img2img (правка кадра) через FLUX на GPU-сервисе.
+ * @param {{
+ *   prompt: string,
+ *   imageBuffer: Buffer,
+ *   imageFilename?: string,
+ *   strength?: number | null,
+ *   steps?: number | null,
+ *   guidance?: number | null,
+ *   seed?: number | null,
+ *   onPoll?: (info: {attempt: number, maxAttempts: number, status: string}) => void,
+ * }} opts
+ */
+export const generateImageToImageBufferLocalGpu = async ({
+  prompt,
+  imageBuffer,
+  imageFilename = "frame.png",
+  strength = null,
+  steps = null,
+  guidance = null,
+  seed = null,
+  onPoll,
+}) => {
+  await ensureLocalGpuVideoEnv();
+  const baseUrl = getLocalGpuImageUrl();
+  if (!baseUrl) {
+    throw new Error(
+      "Задайте LOCAL_GPU_VIDEO_URL или LOCAL_GPU_SERVICE_URL (docs/.env, например http://<server>:8008)",
+    );
+  }
+
+  const model = getLocalGpuImageModel();
+  onPoll?.({attempt: 0, maxAttempts: Math.ceil(DEFAULT_TIMEOUT_MS / POLL_INTERVAL_MS), status: "submitting"});
+
+  const form = new FormData();
+  const blob = new Blob([imageBuffer], {type: "image/png"});
+  form.append("image", blob, imageFilename);
+  form.append("prompt", prompt);
+  if (strength != null && strength > 0) {
+    form.append("strength", String(strength));
+  }
+  if (steps != null && steps > 0) {
+    form.append("steps", String(steps));
+  }
+  if (guidance != null && guidance > 0) {
+    form.append("guidance", String(guidance));
+  }
+  if (seed != null && seed >= 0) {
+    form.append("seed", String(seed));
+  }
+
+  const submitResponse = await fetchWithTimeout(
+    `${baseUrl}/t2i/img2img`,
+    {method: "POST", body: form},
+    120_000,
+  );
+  if (!submitResponse.ok) {
+    throw new Error(`Local GPU img2img ${submitResponse.status}: ${await parseErrorBody(submitResponse)}`);
+  }
+
+  const submitData = await submitResponse.json();
+  const jobId = submitData.job_id;
+  if (!jobId) {
+    throw new Error("GPU-сервис не вернул job_id для /t2i/img2img");
+  }
+
+  const job = await pollLocalGpuT2iJob({baseUrl, jobId, onPoll});
+  const downloadResponse = await fetchWithTimeout(`${baseUrl}/t2i/jobs/${jobId}/download`, {}, 120_000);
+  if (!downloadResponse.ok) {
+    throw new Error(`Local GPU img2img download ${downloadResponse.status}: ${await parseErrorBody(downloadResponse)}`);
+  }
+
+  const buffer = Buffer.from(await downloadResponse.arrayBuffer());
+  onPoll?.({attempt: 1, maxAttempts: 1, status: "completed"});
+
+  const meta = job.meta ?? {};
+  return {
+    buffer,
+    mime: "image/png",
+    model,
+    imageSize: `${meta.width ?? "?"}x${meta.height ?? "?"}`,
+    provider: "local-gpu",
+    jobId,
+    mode: "img2img",
     inferenceSec:
       downloadResponse.headers.get("x-inference-sec") ??
       (meta.inference_sec != null ? String(meta.inference_sec) : null),

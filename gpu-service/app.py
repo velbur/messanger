@@ -25,7 +25,7 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from diffusers import AutoencoderKLWan, FluxPipeline, WanImageToVideoPipeline
+from diffusers import AutoencoderKLWan, FluxImg2ImgPipeline, FluxPipeline, WanImageToVideoPipeline
 from diffusers.utils import export_to_video
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -59,6 +59,7 @@ DEFAULT_T2I_WIDTH = int(os.environ.get("GPU_T2I_WIDTH", "1080"))
 DEFAULT_T2I_HEIGHT = int(os.environ.get("GPU_T2I_HEIGHT", "1920"))
 DEFAULT_T2I_STEPS = int(os.environ.get("GPU_T2I_STEPS", "28"))
 DEFAULT_T2I_GUIDANCE = float(os.environ.get("GPU_T2I_GUIDANCE", "3.5"))
+DEFAULT_T2I_IMG2IMG_STRENGTH = float(os.environ.get("GPU_T2I_IMG2IMG_STRENGTH", "0.65"))
 MAX_T2I_JOBS = int(os.environ.get("GPU_T2I_MAX_JOBS", "32"))
 
 NEGATIVE_PROMPT = (
@@ -74,6 +75,7 @@ NEGATIVE_PROMPT = (
 
 _pipeline: WanImageToVideoPipeline | None = None
 _flux_pipeline: FluxPipeline | None = None
+_flux_img2img_pipeline: FluxImg2ImgPipeline | None = None
 _upscaler_model = None
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 _gpu_lock = asyncio.Lock()
@@ -154,16 +156,23 @@ def _unload_wan_pipeline() -> None:
 
 
 def _unload_flux_pipeline() -> None:
-    global _flux_pipeline
-    if _flux_pipeline is None:
-        return
-    log.info("Выгрузка FLUX T2I из VRAM…")
-    try:
-        _flux_pipeline.to("cpu")
-    except Exception:
-        pass
-    del _flux_pipeline
-    _flux_pipeline = None
+    global _flux_pipeline, _flux_img2img_pipeline
+    if _flux_pipeline is not None:
+        log.info("Выгрузка FLUX T2I из VRAM…")
+        try:
+            _flux_pipeline.to("cpu")
+        except Exception:
+            pass
+        del _flux_pipeline
+        _flux_pipeline = None
+    if _flux_img2img_pipeline is not None:
+        log.info("Выгрузка FLUX img2img из VRAM…")
+        try:
+            _flux_img2img_pipeline.to("cpu")
+        except Exception:
+            pass
+        del _flux_img2img_pipeline
+        _flux_img2img_pipeline = None
     _clear_cuda_cache()
 
 
@@ -210,11 +219,19 @@ def _load_pipeline() -> WanImageToVideoPipeline:
 
 
 def _load_flux_pipeline() -> FluxPipeline:
-    global _flux_pipeline
+    global _flux_pipeline, _flux_img2img_pipeline
     if _flux_pipeline is not None:
         return _flux_pipeline
 
     _unload_wan_pipeline()
+    if _flux_img2img_pipeline is not None:
+        try:
+            _flux_img2img_pipeline.to("cpu")
+        except Exception:
+            pass
+        del _flux_img2img_pipeline
+        _flux_img2img_pipeline = None
+        _clear_cuda_cache()
 
     if not FLUX_MODEL_PATH.exists():
         raise RuntimeError(
@@ -236,6 +253,43 @@ def _load_flux_pipeline() -> FluxPipeline:
     _flux_pipeline = pipe
     log.info("FLUX T2I готов (bf16)")
     return _flux_pipeline
+
+
+def _load_flux_img2img_pipeline() -> FluxImg2ImgPipeline:
+    global _flux_img2img_pipeline, _flux_pipeline
+    if _flux_img2img_pipeline is not None:
+        return _flux_img2img_pipeline
+
+    _unload_wan_pipeline()
+    if _flux_pipeline is not None:
+        try:
+            _flux_pipeline.to("cpu")
+        except Exception:
+            pass
+        del _flux_pipeline
+        _flux_pipeline = None
+        _clear_cuda_cache()
+
+    if not FLUX_MODEL_PATH.exists():
+        raise RuntimeError(
+            f"Веса FLUX не найдены: {FLUX_MODEL_PATH}. Запустите ./download_models.sh",
+        )
+
+    model_source = str(FLUX_MODEL_PATH)
+    log.info("Загрузка FLUX img2img из %s на %s…", model_source, _device)
+    pipe = FluxImg2ImgPipeline.from_pretrained(
+        model_source,
+        torch_dtype=torch.bfloat16,
+    )
+    pipe.to(_device)
+    try:
+        pipe.enable_attention_slicing()
+    except Exception:
+        pass
+
+    _flux_img2img_pipeline = pipe
+    log.info("FLUX img2img готов (bf16)")
+    return _flux_img2img_pipeline
 
 
 def _snap_t2i_dim(value: int, mod: int = 8) -> int:
@@ -303,6 +357,87 @@ def _render_t2i_image(
         prompt,
         width=width,
         height=height,
+        steps=steps,
+        guidance=guidance,
+        seed=seed,
+    )
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    image.save(tmp_path, format="PNG")
+    meta["format"] = "png"
+    return tmp_path, meta
+
+
+def _generate_t2i_img2img(
+    image: Image.Image,
+    prompt: str,
+    *,
+    strength: float,
+    steps: int | None = None,
+    guidance: float | None = None,
+    seed: int | None = None,
+) -> tuple[Image.Image, dict]:
+    pipe = _load_flux_img2img_pipeline()
+    init = image.convert("RGB")
+    out_w = _snap_t2i_dim(init.width)
+    out_h = _snap_t2i_dim(init.height)
+    if init.size != (out_w, out_h):
+        init = init.resize((out_w, out_h), Image.LANCZOS)
+    inference_steps = steps if steps and steps > 0 else DEFAULT_T2I_STEPS
+    guidance_scale = guidance if guidance and guidance > 0 else DEFAULT_T2I_GUIDANCE
+    strength_value = min(0.98, max(0.05, strength))
+
+    generator = None
+    if seed is not None and seed >= 0:
+        generator = torch.Generator(device=_device).manual_seed(seed)
+
+    log.info(
+        "img2img: %dx%d, strength=%.2f, %d steps, guidance=%.1f",
+        out_w,
+        out_h,
+        strength_value,
+        inference_steps,
+        guidance_scale,
+    )
+    started = time.time()
+    result = pipe(
+        prompt=prompt,
+        image=init,
+        strength=strength_value,
+        num_inference_steps=inference_steps,
+        guidance_scale=guidance_scale,
+        generator=generator,
+        max_sequence_length=512,
+    )
+    out_image = result.images[0]
+    meta = {
+        "width": out_w,
+        "height": out_h,
+        "strength": strength_value,
+        "inference_sec": round(time.time() - started, 1),
+        "inference_steps": inference_steps,
+        "guidance_scale": guidance_scale,
+        "seed": seed,
+        "mode": "img2img",
+    }
+    return out_image, meta
+
+
+def _render_t2i_img2img_image(
+    image_bytes: bytes,
+    prompt: str,
+    *,
+    strength: float,
+    steps: int | None = None,
+    guidance: float | None = None,
+    seed: int | None = None,
+) -> tuple[str, dict]:
+    pil = Image.open(io.BytesIO(image_bytes))
+    image, meta = _generate_t2i_img2img(
+        pil,
+        prompt,
+        strength=strength,
         steps=steps,
         guidance=guidance,
         seed=seed,
@@ -547,6 +682,44 @@ def _cleanup_old_t2i_jobs() -> None:
         _t2i_jobs.pop(job_id, None)
 
 
+async def _run_t2i_img2img_job(
+    job_id: str,
+    image_bytes: bytes,
+    prompt: str,
+    *,
+    strength: float,
+    steps: int | None,
+    guidance: float | None,
+    seed: int | None,
+) -> None:
+    job = _get_t2i_job(job_id)
+    async with _gpu_lock:
+        job.status = JobStatus.RUNNING
+        job.started_at = time.time()
+        log.info("T2I img2img job %s: старт", job_id)
+        try:
+            output_path, meta = await asyncio.to_thread(
+                _render_t2i_img2img_image,
+                image_bytes,
+                prompt,
+                strength=strength,
+                steps=steps,
+                guidance=guidance,
+                seed=seed,
+            )
+            job.output_path = output_path
+            job.meta = meta
+            job.status = JobStatus.COMPLETED
+            log.info("T2I img2img job %s: готово за %.1f с", job_id, time.time() - job.started_at)
+        except Exception as error:
+            job.status = JobStatus.FAILED
+            job.error = str(error)
+            log.exception("T2I img2img job %s: ошибка", job_id)
+        finally:
+            job.finished_at = time.time()
+            _cleanup_old_t2i_jobs()
+
+
 async def _run_t2i_job(
     job_id: str,
     prompt: str,
@@ -659,6 +832,7 @@ async def health():
         "flux_model_path": str(FLUX_MODEL_PATH),
         "model_ready": _pipeline is not None,
         "flux_model_ready": _flux_pipeline is not None,
+        "flux_img2img_ready": _flux_img2img_pipeline is not None,
         "upscaler": UPSCALER,
         "target_resolution": f"{TARGET_WIDTH}x{TARGET_HEIGHT}",
         "t2i_default_resolution": f"{DEFAULT_T2I_WIDTH}x{DEFAULT_T2I_HEIGHT}",
@@ -775,6 +949,92 @@ async def text_to_image(
             clean_prompt,
             width=width,
             height=height,
+            steps=inference_steps,
+            guidance=guidance_scale,
+            seed=resolved_seed,
+        ),
+    )
+    return JSONResponse(status_code=202, content=_t2i_job_to_dict(_get_t2i_job(job_id)))
+
+
+@app.post("/t2i/img2img")
+async def image_to_image(
+    image: UploadFile = File(...),
+    prompt: str = Form(...),
+    strength: float = Form(DEFAULT_T2I_IMG2IMG_STRENGTH),
+    steps: int = Form(0),
+    guidance: float = Form(0),
+    seed: int = Form(-1),
+    wait: int = Query(0, ge=0, le=1, description="1 = синхронный ответ png"),
+):
+    clean_prompt = prompt.strip()
+    if not clean_prompt:
+        raise HTTPException(status_code=400, detail="prompt обязателен")
+    if strength <= 0 or strength > 1:
+        raise HTTPException(status_code=400, detail="strength должен быть 0–1")
+    inference_steps = steps if steps > 0 else None
+    guidance_scale = guidance if guidance > 0 else None
+    resolved_seed = seed if seed >= 0 else None
+    if steps < 0 or steps > 80:
+        raise HTTPException(status_code=400, detail="steps должен быть 0–80")
+
+    try:
+        raw = await image.read()
+        Image.open(io.BytesIO(raw)).convert("RGB")
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Не удалось прочитать изображение: {error}") from error
+
+    job_id = str(uuid.uuid4())
+    _t2i_jobs[job_id] = Job(id=job_id, status=JobStatus.QUEUED)
+    _cleanup_old_t2i_jobs()
+
+    if wait:
+        async with _gpu_lock:
+            job = _get_t2i_job(job_id)
+            job.status = JobStatus.RUNNING
+            job.started_at = time.time()
+            try:
+                output_path, meta = await asyncio.to_thread(
+                    _render_t2i_img2img_image,
+                    raw,
+                    clean_prompt,
+                    strength=strength,
+                    steps=inference_steps,
+                    guidance=guidance_scale,
+                    seed=resolved_seed,
+                )
+                job.output_path = output_path
+                job.meta = meta
+                job.status = JobStatus.COMPLETED
+                job.finished_at = time.time()
+            except Exception as error:
+                job.status = JobStatus.FAILED
+                job.error = str(error)
+                job.finished_at = time.time()
+                log.exception("Ошибка img2img")
+                raise HTTPException(status_code=500, detail=str(error)) from error
+
+        headers = {
+            "X-Job-Id": job_id,
+            "X-Output-Resolution": f"{meta['width']}x{meta['height']}",
+            "X-Inference-Sec": str(meta["inference_sec"]),
+        }
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename="output.png",
+            headers=headers,
+            background=BackgroundTask(
+                lambda p=output_path: os.unlink(p) if os.path.exists(p) else None,
+            ),
+        )
+
+    asyncio.create_task(
+        _run_t2i_img2img_job(
+            job_id,
+            raw,
+            clean_prompt,
+            strength=strength,
             steps=inference_steps,
             guidance=guidance_scale,
             seed=resolved_seed,

@@ -255,6 +255,14 @@
                     <option value="60">до 60</option>
                   </select>
                 </label>
+                <label class="dialogue-gen-option" id="dialogueGenTargetDurationRow" hidden>
+                  <span class="dialogue-gen-option__label">Длительность</span>
+                  <select id="dialogueTargetDuration" class="select select--compact" title="Целевое время ролика">
+                    <option value="45">45 с</option>
+                    <option value="60" selected>60 с</option>
+                    <option value="90">90 с</option>
+                  </select>
+                </label>
                 <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
                   <span class="dialogue-gen-option__label">Модель</span>
                   <select id="dialogueModel" class="select select--compact" title="OpenRouter — для генерации и проверки диалога">
@@ -377,7 +385,7 @@
 
             <div class="row" id="storyAnimationRow" hidden>
               <span class="label">Анимация сюжета</span>
-              <p class="dialogue-hint">
+              <p class="dialogue-hint" id="storyAnimationHint">
                 Depth parallax — сдвиг по карте глубины (цикл 3 с). Ken Burns — лёгкий наезд без depth.
               </p>
               <div class="theme-options" role="radiogroup" aria-label="Анимация сюжета">
@@ -389,13 +397,13 @@
                   <input type="radio" name="storyAnimation" value="kenburns" />
                   <span>Ken Burns</span>
                 </label>
-                <label class="theme-option">
+                <label class="theme-option" data-story-i2v-option hidden>
                   <input type="radio" name="storyAnimation" value="video-parallax" />
-                  <span>Veo (4s) + Parallax</span>
+                  <span data-story-i2v-label="video-parallax">Wan (4s) + Parallax</span>
                 </label>
-                <label class="theme-option">
+                <label class="theme-option" data-story-i2v-option hidden>
                   <input type="radio" name="storyAnimation" value="video" />
-                  <span>Veo (Full)</span>
+                  <span data-story-i2v-label="video">Wan (Full)</span>
                 </label>
               </div>
             </div>

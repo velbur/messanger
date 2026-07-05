@@ -34,6 +34,9 @@ import {
   describeMotionPromptMode,
   imagePromptLikelyHasPeople,
 } from "./story-motion-prompt.mjs";
+import {resolveStoryVideoMotionPrompt} from "./story-video-prompt-llm.mjs";
+import {ensureStoryVisualBible} from "./story-visual-bible.mjs";
+import {isOpenRouterConfigured} from "./openrouter-client.mjs";
 
 export {buildStoryMotionPrompt, describeMotionPromptMode, imagePromptLikelyHasPeople} from "./story-motion-prompt.mjs";
 
@@ -317,6 +320,10 @@ export const generateMissingStoryVideos = async (
 
   logs.push(`Story-видео: провайдер ${describeStoryVideoProvider()}`);
 
+  if (isOpenRouterConfigured()) {
+    await ensureStoryVisualBible(conversation);
+  }
+
   for (let index = 0; index < targets.length; index += 1) {
     const target = targets[index];
     if (isCancelled?.()) {
@@ -365,8 +372,12 @@ export const generateMissingStoryVideos = async (
       });
 
     let result = null;
-    const motionPrompt = buildStoryMotionPrompt(target.imagePrompt, {loop: false});
-    const motionMode = describeMotionPromptMode(target.imagePrompt, {loop: false});
+    const motionResolved = await resolveStoryVideoMotionPrompt(conversation, target, {loop: false});
+    const motionPrompt = motionResolved.motionPrompt;
+    const motionMode = motionResolved.motionMode ?? describeMotionPromptMode(target.imagePrompt, {loop: false});
+    if (motionResolved.promptSource === "openrouter") {
+      target.holder.storyVideoPrompt = motionPrompt;
+    }
     if (motionMode === "ambient-only-people") {
       logs.push(
         `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение, без описания сцены`,

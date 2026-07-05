@@ -14,6 +14,11 @@ import {
   promptKeyForLogic,
   promptKeyForLogicRules,
 } from "./dialogue-prompts.mjs";
+import {
+  DEFAULT_STORY_TARGET_DURATION_SEC,
+  computeSceneCountFromTargetSec,
+  deriveMessageCountLimitFromTargetSec,
+} from "./story-scene-timing.mjs";
 
 export const isStoryVisualLayout = (layout) =>
   layout === "storySplit" || layout === "storyOverlay";
@@ -83,6 +88,7 @@ const buildJsonFormatBlock = ({
   language = "ru",
   withStoryVisual = false,
   storyLayout = "storyOverlay",
+  targetDurationSec = null,
   withVideoLayout = false,
   videoTextMode = "narration",
 } = {}) => {
@@ -123,6 +129,7 @@ const buildJsonFormatBlock = ({
       lines.push('        "appearance": "same stable appearance for every frame with this character"');
       lines.push("      }");
       lines.push("    ],");
+      lines.push(`    "targetDurationSec": ${targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC},`);
       lines.push('    "opening": {');
       lines.push('      "animation": "depthParallax"');
       lines.push("    }");
@@ -197,6 +204,7 @@ const buildJsonFormatBlock = ({
     lines.push('        "appearance": "то же описание внешности во всех кадрах с этим героем"');
     lines.push("      }");
     lines.push("    ],");
+    lines.push(`    "targetDurationSec": ${targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC},`);
     lines.push('    "opening": {');
     lines.push('      "animation": "depthParallax"');
     lines.push("    }");
@@ -466,13 +474,25 @@ const parseCountFromPatterns = (text, patterns) => {
 
 export const parsePromptGenerationLimits = (prompt) => {
   const text = String(prompt ?? "");
-  const limits = {messageCount: null, imageCount: null};
+  const limits = {messageCount: null, imageCount: null, targetDurationSec: null};
   if (!text.trim()) {
     return limits;
   }
 
   if (/\b(?:без\s+фото|no\s+photos?|text\s+only|только\s+текст)\b/i.test(text)) {
     limits.imageCount = 0;
+  }
+
+  const durationSec =
+    parseCountFromPatterns(text, [
+      /(?:^|[\s,.:;—-])(?:~|около\s*)?(\d{2,3})\s*(?:сек|секунд|seconds?|sec)\b/i,
+      /(?:^|[\s,.:;—-])(?:~|около\s*)?(\d{1,2})\s*(?:мин(?:ут(?:а|ы)?)?|minutes?|min)\b/i,
+    ]) ??
+    (/\b(?:минут(?:а|у)?|minute|60\s*сек)\b/i.test(text) ? 60 : null) ??
+    (/\b(?:полминуты|30\s*сек)\b/i.test(text) ? 30 : null);
+  if (durationSec != null) {
+    const asSec = text.match(/(\d{1,2})\s*(?:мин)/i) ? durationSec * 60 : durationSec;
+    limits.targetDurationSec = Math.max(30, Math.min(120, asSec));
   }
 
   const imageCount =
@@ -530,6 +550,37 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
   ].filter(Boolean);
 };
 
+const buildTimeBasedStoryRules = (targetDurationSec, language = "ru") => {
+  const scenes = computeSceneCountFromTargetSec(targetDurationSec);
+  const maxMessages = deriveMessageCountLimitFromTargetSec(targetDurationSec);
+  if (language === "en") {
+    return [
+      `- Target Shorts length ~${targetDurationSec}s; story will get ~${scenes} illustrated scenes (~4–6s of meaning each).`,
+      "- Write short chat lines (1–2 lines); group messages into ~5s readable beats — no padding.",
+      `- Use at most ${maxMessages} messages; fewer is fine if the story is tight.`,
+      "- Do not add storyImagePrompt — scene images are generated in a separate step.",
+      "- Set story.targetDurationSec in JSON to match the target length.",
+    ];
+  }
+  return [
+    `- Целевая длительность ролика ~${targetDurationSec} с; будет ~${scenes} смен иллюстраций (~4–6 с смысла на кадр).`,
+    "- Короткие реплики (1–2 строки); каждый блок текста — один смысловой отрезок ~5 с, без воды.",
+    `- Не больше ${maxMessages} сообщений; меньше — нормально, если сцена уложилась.`,
+    "- Не добавляй storyImagePrompt — кадры сгенерирует отдельный шаг.",
+    `- В JSON укажи story.targetDurationSec: ${targetDurationSec}.`,
+  ];
+};
+
+const targetDurationUserHint = (targetDurationSec, language = "ru") => {
+  if (targetDurationSec == null) {
+    return null;
+  }
+  const scenes = computeSceneCountFromTargetSec(targetDurationSec);
+  return language === "en"
+    ? `Target video ~${targetDurationSec}s (~${scenes} visual scenes).`
+    : `Целевое время ролика ~${targetDurationSec} с (~${scenes} сцен).`;
+};
+
 export const normalizeGenerationOptions = ({
   prompt,
   messageCount,
@@ -537,15 +588,30 @@ export const normalizeGenerationOptions = ({
   includeImages,
   language,
   mode,
+  targetDurationSec,
+  storyVisual = false,
 } = {}) => {
   const fromPrompt = parsePromptGenerationLimits(prompt);
   const normalizedMode = normalizeContentMode(mode);
 
+  let resolvedTargetDuration = null;
+  if (storyVisual) {
+    const td = Number(targetDurationSec);
+    resolvedTargetDuration =
+      Number.isFinite(td) && td >= 30
+        ? Math.min(120, Math.round(td))
+        : fromPrompt.targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC;
+  }
+
   const mc = Number(messageCount);
-  const resolvedMessageCount =
-    Number.isFinite(mc) && mc > 0
-      ? Math.min(Math.round(mc), 80)
-      : fromPrompt.messageCount;
+  let resolvedMessageCount;
+  if (storyVisual && resolvedTargetDuration) {
+    resolvedMessageCount = deriveMessageCountLimitFromTargetSec(resolvedTargetDuration);
+  } else if (Number.isFinite(mc) && mc > 0) {
+    resolvedMessageCount = Math.min(Math.round(mc), 80);
+  } else {
+    resolvedMessageCount = fromPrompt.messageCount;
+  }
 
   let resolvedImageCount;
   const ic = Number(imageCount);
@@ -563,6 +629,7 @@ export const normalizeGenerationOptions = ({
     messageCount: resolvedMessageCount,
     imageCount: resolvedImageCount,
     language: language === "en" ? "en" : "ru",
+    targetDurationSec: resolvedTargetDuration,
   };
 };
 
@@ -590,6 +657,7 @@ const imageCountUserHint = (imageCount, language = "ru") => {
 const buildTemplateVars = async ({
   imageCount = null,
   messageCount = null,
+  targetDurationSec = null,
   language = "ru",
   mode = "shorts",
   ussrStyle = false,
@@ -601,6 +669,10 @@ const buildTemplateVars = async ({
   const storyVisual = !isVideoMode && isStoryVisualLayout(videoLayout);
   const storyLayout = normalizeVideoLayout(videoLayout);
   const ussr = ussrStyle || mode === "series";
+  const timeStoryRules =
+    storyVisual && targetDurationSec
+      ? buildTimeBasedStoryRules(targetDurationSec, language)
+      : null;
   return {
     JSON_FORMAT: buildJsonFormatBlock({
       withDisplayTitle: mode === "shorts" || mode === "video",
@@ -616,14 +688,17 @@ const buildTemplateVars = async ({
       language,
       withStoryVisual: storyVisual,
       storyLayout,
+      targetDurationSec: storyVisual ? targetDurationSec : null,
       withVideoLayout: isVideoMode,
       videoTextMode,
     }).join("\n"),
     LANGUAGE_RULES: buildLanguageRules(language, mode).join("\n"),
-    MESSAGE_COUNT_RULES: (isVideoMode
-      ? buildVideoMessageCountRules(messageCount, language)
-      : buildMessageCountRules(messageCount, language)
-    ).join("\n"),
+    MESSAGE_COUNT_RULES: timeStoryRules
+      ? timeStoryRules.join("\n")
+      : (isVideoMode
+          ? buildVideoMessageCountRules(messageCount, language)
+          : buildMessageCountRules(messageCount, language)
+        ).join("\n"),
     LOGIC_RULES: logicRules,
     HOOK_RULES: buildHookRules(language, mode).join("\n"),
     EMOJI_RULES: buildEmojiRules(language).join("\n"),
@@ -680,6 +755,7 @@ const buildSeriesSystemPrompt = async ({
 const buildShortsSystemPrompt = async ({
   imageCount = 0,
   messageCount = 20,
+  targetDurationSec = null,
   language = "ru",
   videoLayout = "chat",
   mode = "shorts",
@@ -695,6 +771,7 @@ const buildShortsSystemPrompt = async ({
     await buildTemplateVars({
       imageCount,
       messageCount,
+      targetDurationSec,
       language,
       mode,
       videoLayout,
@@ -751,6 +828,7 @@ const buildSystemPrompt = async ({
   mode = "shorts",
   imageCount = 0,
   messageCount = 20,
+  targetDurationSec = null,
   language = "ru",
   seriesId = DEFAULT_SERIES_ID,
   videoLayout = "chat",
@@ -762,6 +840,7 @@ const buildSystemPrompt = async ({
   return buildShortsSystemPrompt({
     imageCount,
     messageCount,
+    targetDurationSec,
     language,
     videoLayout: mode === "video" ? "video" : videoLayout,
     mode,
@@ -774,6 +853,7 @@ const buildUserPrompt = async ({
   previousMessages,
   imageCount = null,
   messageCount = null,
+  targetDurationSec = null,
   language = "ru",
   mode = "shorts",
   singleSpeaker = false,
@@ -788,7 +868,9 @@ const buildUserPrompt = async ({
         : "Напиши самостоятельную переписку по этому заданию:",
     prompt.trim(),
     imageCountUserHint(imageCount, language),
-    messageCountUserHint(messageCount, language),
+    targetDurationSec != null
+      ? targetDurationUserHint(targetDurationSec, language)
+      : messageCountUserHint(messageCount, language),
     language === "en"
       ? "Write the dialogue in English for a native English-speaking audience. Humor and voice must be originally English, not translated from Russian."
       : "Пиши переписку на русском.",
@@ -1044,13 +1126,18 @@ const applyVideoDefaults = (conversation, textMode = "narration") => {
   return conversation;
 };
 
-const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay") => {
+const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay", targetDurationSec = null) => {
   if (!conversation || typeof conversation !== "object") {
     return conversation;
   }
   conversation.layout = isStoryVisualLayout(videoLayout) ? videoLayout : "storyOverlay";
   if (!conversation.story) {
     conversation.story = {};
+  }
+  if (targetDurationSec != null) {
+    conversation.story.targetDurationSec = targetDurationSec;
+  } else if (!conversation.story.targetDurationSec) {
+    conversation.story.targetDurationSec = DEFAULT_STORY_TARGET_DURATION_SEC;
   }
   if (!conversation.story.opening) {
     conversation.story.opening = {};
@@ -1093,9 +1180,23 @@ const parseGeneratedPayload = (data, mode, {videoLayout = "chat", videoTextMode 
       ? videoLayout
       : null;
   if (targetLayout) {
-    conversation = applyStoryVisualDefaults(conversation, targetLayout);
+    conversation = applyStoryVisualDefaults(
+      conversation,
+      targetLayout,
+      conversation.story?.targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC,
+    );
   }
   return {conversation, displayTitle};
+};
+
+const applyStoryTargetDuration = (conversation, targetDurationSec) => {
+  if (!conversation?.story || targetDurationSec == null) {
+    return conversation;
+  }
+  if (!conversation.story.targetDurationSec) {
+    conversation.story.targetDurationSec = targetDurationSec;
+  }
+  return conversation;
 };
 
 const wantsSingleSpeakerNarration = (prompt) => {
@@ -1369,6 +1470,7 @@ export const generateDialogue = async ({
   includeImages,
   imageCount,
   messageCount,
+  targetDurationSec,
   language,
   mode = "shorts",
   seriesId = DEFAULT_SERIES_ID,
@@ -1387,6 +1489,8 @@ export const generateDialogue = async ({
   const resolvedTemperature = normalizeDialogueTemperature(temperature);
   const normalizedMode = normalizeContentMode(mode);
   const enforceSingleSpeaker = wantsSingleSpeakerNarration(prompt);
+  const genVideoLayout = resolveGenerationVideoLayout({videoLayout, mode: normalizedMode});
+  const storyVisual = isStoryVisualLayout(genVideoLayout);
   const gen = normalizeGenerationOptions({
     prompt,
     messageCount,
@@ -1394,13 +1498,13 @@ export const generateDialogue = async ({
     includeImages,
     language,
     mode: normalizedMode,
+    targetDurationSec,
+    storyVisual,
   });
   const contextMessages =
     normalizedMode === "series" && Array.isArray(previousMessages) && previousMessages.length > 0
       ? previousMessages
       : undefined;
-
-  const genVideoLayout = resolveGenerationVideoLayout({videoLayout, mode: normalizedMode});
 
   const fullPrompt = await buildFullUserPrompt({
     prompt,
@@ -1412,6 +1516,7 @@ export const generateDialogue = async ({
     mode: normalizedMode,
     imageCount: gen.imageCount,
     messageCount: gen.messageCount,
+    targetDurationSec: gen.targetDurationSec,
     language: gen.language,
     seriesId,
     videoLayout: genVideoLayout,
@@ -1422,6 +1527,7 @@ export const generateDialogue = async ({
     previousMessages: contextMessages,
     imageCount: gen.imageCount,
     messageCount: gen.messageCount,
+    targetDurationSec: gen.targetDurationSec,
     language: gen.language,
     mode: normalizedMode,
     singleSpeaker: enforceSingleSpeaker,
@@ -1446,6 +1552,9 @@ export const generateDialogue = async ({
   });
 
   let finalResult = {...result, provider: llm.provider, temperature: resolvedTemperature};
+  if (storyVisual && gen.targetDurationSec) {
+    applyStoryTargetDuration(finalResult.conversation, gen.targetDurationSec);
+  }
   if (enforceSingleSpeaker) {
     finalResult = {
       ...finalResult,
@@ -1490,7 +1599,12 @@ export const generateDialogue = async ({
     }
   }
 
-  return {...finalResult, provider: llm.provider, temperature: resolvedTemperature};
+  return {
+    ...finalResult,
+    provider: llm.provider,
+    temperature: resolvedTemperature,
+    targetDurationSec: gen.targetDurationSec ?? null,
+  };
 };
 
 export const refineDialogue = async ({
