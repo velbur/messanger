@@ -35,7 +35,7 @@ alwaysApply: true
 
 Хост: `GPU_DEPLOY_HOST` или `LOCAL_GPU_RENDER_URL` из `docs/.env`, иначе `vm-7742.user-project-3417.cloud.intcld.ru`.
 
-На сервере: `git pull` → `npm ci` при необходимости → `./gpu-service/start-render-worker.sh`.
+На сервере: **rsync** кода с Mac → `npm ci` при первом запуске → `./gpu-service/start-render-worker.sh`. `docs/.env` на сервере не перезаписывается.
 
 SSH: `root@vm-7742…` (ключ в `~/.ssh`, BatchMode).
 
