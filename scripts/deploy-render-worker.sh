@@ -79,3 +79,10 @@ echo "Деплой завершён."
 REMOTE
 
 echo "==> Готово: ${SSH_TARGET}"
+
+# Chromium для Remotion (на GPU-сервере remotion.media часто недоступен/медленный)
+if [[ -x "${ROOT}/scripts/install-remotion-chromium-linux.sh" ]]; then
+  echo "==> Chromium для Remotion…"
+  "${ROOT}/scripts/install-remotion-chromium-linux.sh" "${SSH_TARGET}" || true
+fi
+
