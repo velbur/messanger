@@ -6498,7 +6498,8 @@ for (const el of document.querySelectorAll("[data-text-gen-modal-dismiss]")) {
 const updateRenderModalActions = (job) => {
   const busy =
     job &&
-    (job.status === "queued" ||
+    (job.status === "preparing" ||
+      job.status === "queued" ||
       job.status === "running" ||
       (job.status === "done" && job.localCopyStatus === "copying"));
   if (btnStopRender) {

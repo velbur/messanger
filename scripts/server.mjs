@@ -2804,7 +2804,8 @@ const runRenderPreparation = async (
 
       const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
         failOnMissingVideos: false,
-        skipHoldParallaxBake: isOffloadedRenderTarget(target),
+        // Hold-parallax на воркере — только в ensureVideoParallaxHolds (параллель + phase в UI)
+        skipHoldParallaxBake: isOffloadedRenderTarget(target) || IS_RENDER_WORKER,
       });
       if (linkedStoryVideoLogs.length > 0) {
         jobPushLogs(job, linkedStoryVideoLogs);
@@ -2824,6 +2825,7 @@ const runRenderPreparation = async (
         mergeStoryConfig(conversation).opening.animation === "video-parallax"
       ) {
         jobSetPhase(job, "Hold-parallax после Veo…");
+        jobSetProgress(job, 0.52);
         const holdLogs = await ensureVideoParallaxHoldsForConversation(conversation);
         if (holdLogs.length > 0) {
           jobPushLogs(job, holdLogs);
