@@ -408,6 +408,18 @@
               </div>
             </div>
 
+            <div class="row" id="storySceneTransitionRow" hidden>
+              <span class="label">Переход между кадрами</span>
+              <p class="dialogue-hint">
+                На стыке story-сцен: zoom — наезд и вспышка, push — сдвиг, crossfade — мягкое растворение.
+              </p>
+              <select id="storySceneTransitionSelect" class="select" aria-label="Переход между story-кадрами">
+                <option value="zoom">Zoom + вспышка</option>
+                <option value="push">Горизонтальный push</option>
+                <option value="crossfade">Crossfade (растворение)</option>
+              </select>
+            </div>
+
             <div class="row row--title-cards editor-series-fields" id="seriesTitleCardsRow">
               <span class="label">Заставки</span>
               <div class="title-cards">

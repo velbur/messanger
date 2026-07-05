@@ -36,6 +36,8 @@ const imagesGenerateRow = document.getElementById("imagesGenerateRow");
 const storyAnimationRow = document.getElementById("storyAnimationRow");
 const storyAnimationHint = document.getElementById("storyAnimationHint");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
+const storySceneTransitionRow = document.getElementById("storySceneTransitionRow");
+const storySceneTransitionSelect = document.getElementById("storySceneTransitionSelect");
 const musicSelect = document.getElementById("musicSelect");
 const btnPreviewMusic = document.getElementById("btnPreviewMusic");
 const btnOpenMusicCatalog = document.getElementById("btnOpenMusicCatalog");
@@ -1331,6 +1333,7 @@ const applyDialogueToEditor = (dialogue) => {
   syncDialogueGenDurationControls();
   syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
+  syncStorySceneTransitionFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
   syncEpisodesFromJson();
@@ -2538,6 +2541,7 @@ const prepareJsonForRender = () => {
   applyEpisodesToJson();
   applyMusicToJson();
   applyStoryAnimationToJson();
+  applyStorySceneTransitionToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
@@ -2742,6 +2746,8 @@ const STORY_VIDEO_ANIMATION_LABELS = {
 const STORY_ANIMATION_HINT_BASE =
   "Depth parallax — сдвиг по карте глубины (цикл 3 с). Ken Burns — лёгкий наезд без depth.";
 
+const STORY_SCENE_TRANSITION_VALUES = new Set(["crossfade", "zoom", "push"]);
+
 const isStoryVideoAnimationAvailable = (storyVideo) => Boolean(storyVideo?.configured);
 
 const updateStoryI2vAnimationOptions = (storyVideo) => {
@@ -2799,6 +2805,45 @@ const setStoryAnimation = (animation) => {
 const updateStoryAnimationControls = () => {
   const storyLayout = getVideoLayout() !== "chat";
   storyAnimationRow?.toggleAttribute("hidden", !storyLayout);
+  storySceneTransitionRow?.toggleAttribute("hidden", !storyLayout);
+};
+
+const getStorySceneTransition = () => {
+  const value = storySceneTransitionSelect?.value;
+  return STORY_SCENE_TRANSITION_VALUES.has(value) ? value : "zoom";
+};
+
+const setStorySceneTransition = (transition) => {
+  if (!storySceneTransitionSelect) {
+    return;
+  }
+  storySceneTransitionSelect.value = STORY_SCENE_TRANSITION_VALUES.has(transition)
+    ? transition
+    : "zoom";
+};
+
+const applyStorySceneTransitionToJson = () => {
+  if (getVideoLayout() === "chat") {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (!parsed.story) {
+    parsed.story = {};
+  }
+  parsed.story.sceneTransition = getStorySceneTransition();
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const syncStorySceneTransitionFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed || !isStoryVisualLayout(parsed)) {
+    setStorySceneTransition("zoom");
+    return;
+  }
+  setStorySceneTransition(parsed.story?.sceneTransition ?? "zoom");
 };
 
 const applyStoryAnimationToJson = () => {
@@ -2975,6 +3020,7 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   updateWallpaperControls();
   updateStoryAnimationControls();
   syncStoryAnimationFromJson();
+  syncStorySceneTransitionFromJson();
   syncDialogueGenDurationControls();
   if (parsed?.story?.targetDurationSec && dialogueTargetDuration) {
     dialogueTargetDuration.value = String(parsed.story.targetDurationSec);
@@ -6176,6 +6222,7 @@ jsonInput.addEventListener("input", () => {
   syncVideoLayoutFromJson();
   syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
+  syncStorySceneTransitionFromJson();
   syncMessageFontSizeFromJson();
   updateWallpaperControls();
   updateStoryAnimationControls();
@@ -6207,6 +6254,7 @@ for (const input of videoLayoutInputs) {
   input.addEventListener("change", () => {
     applyVideoLayoutToJson(getVideoLayout());
     applyStoryAnimationToJson();
+    applyStorySceneTransitionToJson();
     syncDialogueGenDurationControls();
     scheduleRefreshDialogue();
   });
@@ -6226,6 +6274,11 @@ for (const input of storyAnimationInputs) {
     updateGenerateAnimationsControls();
   });
 }
+
+storySceneTransitionSelect?.addEventListener("change", () => {
+  applyStorySceneTransitionToJson();
+  scheduleRefreshDialogue();
+});
 stylePromptInput.addEventListener("input", scheduleRefreshDialogue);
 btnRefreshDialogue.addEventListener("click", refreshDialogue);
 
@@ -7859,6 +7912,7 @@ initEditorPreferenceControls();
 updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
+syncStorySceneTransitionFromJson();
 syncEditorKindUi();
 syncDialogueGenDurationControls();
 
