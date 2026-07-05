@@ -79,6 +79,8 @@ _flux_img2img_pipeline: FluxImg2ImgPipeline | None = None
 _upscaler_model = None
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 _gpu_lock = asyncio.Lock()
+_active_model: str = "none"
+GPU_STARTUP_MODEL = os.environ.get("GPU_STARTUP_MODEL", "none").strip().lower()
 
 
 class JobStatus(str, Enum):
@@ -141,6 +143,33 @@ def _clear_cuda_cache() -> None:
         torch.cuda.empty_cache()
 
 
+def _set_active_model(name: str) -> None:
+    global _active_model
+    _active_model = name
+
+
+def _has_active_jobs() -> bool:
+    for job in list(_jobs.values()) + list(_t2i_jobs.values()):
+        if job.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
+            return True
+    return False
+
+
+def _models_status_payload() -> dict[str, Any]:
+    return {
+        "active_model": _active_model,
+        "wan_ready": _pipeline is not None,
+        "flux_ready": _flux_pipeline is not None,
+        "flux_img2img_ready": _flux_img2img_pipeline is not None,
+        "active_i2v_jobs": sum(
+            1 for job in _jobs.values() if job.status in {JobStatus.QUEUED, JobStatus.RUNNING}
+        ),
+        "active_t2i_jobs": sum(
+            1 for job in _t2i_jobs.values() if job.status in {JobStatus.QUEUED, JobStatus.RUNNING}
+        ),
+    }
+
+
 def _unload_wan_pipeline() -> None:
     global _pipeline
     if _pipeline is None:
@@ -152,6 +181,8 @@ def _unload_wan_pipeline() -> None:
         pass
     del _pipeline
     _pipeline = None
+    if _flux_pipeline is None and _flux_img2img_pipeline is None:
+        _set_active_model("none")
     _clear_cuda_cache()
 
 
@@ -173,6 +204,8 @@ def _unload_flux_pipeline() -> None:
             pass
         del _flux_img2img_pipeline
         _flux_img2img_pipeline = None
+    if _pipeline is None:
+        _set_active_model("none")
     _clear_cuda_cache()
 
 
@@ -214,6 +247,7 @@ def _load_pipeline() -> WanImageToVideoPipeline:
         pass
 
     _pipeline = pipe
+    _set_active_model("wan")
     log.info("Wan I2V готов (bf16, без offload)")
     return _pipeline
 
@@ -251,6 +285,7 @@ def _load_flux_pipeline() -> FluxPipeline:
         pass
 
     _flux_pipeline = pipe
+    _set_active_model("flux")
     log.info("FLUX T2I готов (bf16)")
     return _flux_pipeline
 
@@ -288,6 +323,7 @@ def _load_flux_img2img_pipeline() -> FluxImg2ImgPipeline:
         pass
 
     _flux_img2img_pipeline = pipe
+    _set_active_model("flux-img2img")
     log.info("FLUX img2img готов (bf16)")
     return _flux_img2img_pipeline
 
@@ -798,10 +834,32 @@ async def _run_job(
             _cleanup_old_jobs()
 
 
+def _switch_model_sync(target: str) -> None:
+    """Синхронное переключение (вызывать под _gpu_lock)."""
+    if target == "none":
+        _unload_wan_pipeline()
+        _unload_flux_pipeline()
+        _set_active_model("none")
+        return
+    if target == "flux":
+        _load_flux_pipeline()
+        return
+    if target == "wan":
+        _load_pipeline()
+        return
+    raise ValueError(f"Неизвестная модель: {target}")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    startup = GPU_STARTUP_MODEL
     try:
-        await asyncio.to_thread(_load_pipeline)
+        if startup == "wan":
+            await asyncio.to_thread(_load_pipeline)
+        elif startup == "flux":
+            await asyncio.to_thread(_load_flux_pipeline)
+        else:
+            log.info("Старт без предзагрузки модели (GPU_STARTUP_MODEL=%s)", startup or "none")
         await asyncio.to_thread(_load_upscaler)
     except Exception as error:
         log.warning("Прогрев при старте пропущен: %s", error)
@@ -830,6 +888,7 @@ async def health():
         "cuda": cuda,
         "model_path": str(WAN_MODEL_PATH),
         "flux_model_path": str(FLUX_MODEL_PATH),
+        "active_model": _active_model,
         "model_ready": _pipeline is not None,
         "flux_model_ready": _flux_pipeline is not None,
         "flux_img2img_ready": _flux_img2img_pipeline is not None,
@@ -845,6 +904,40 @@ async def health():
         info["gpu_name"] = torch.cuda.get_device_name(0)
         info["vram_gb"] = round(torch.cuda.get_device_properties(0).total_memory / 1e9, 1)
     return info
+
+
+@app.get("/models/status")
+async def models_status():
+    payload = _models_status_payload()
+    payload["ok"] = True
+    payload["startup_model"] = GPU_STARTUP_MODEL
+    if torch.cuda.is_available():
+        payload["gpu_name"] = torch.cuda.get_device_name(0)
+        payload["vram_gb"] = round(torch.cuda.get_device_properties(0).total_memory / 1e9, 1)
+    return payload
+
+
+@app.post("/models/switch")
+async def models_switch(target: str = Form(...)):
+    raw = target.strip().lower()
+    if raw not in {"none", "flux", "wan"}:
+        raise HTTPException(status_code=400, detail="target: none | flux | wan")
+
+    async with _gpu_lock:
+        if _has_active_jobs():
+            raise HTTPException(
+                status_code=409,
+                detail="Есть активные задачи — дождитесь завершения перед переключением модели",
+            )
+        started = time.time()
+        try:
+            await asyncio.to_thread(_switch_model_sync, raw)
+        except Exception as error:
+            log.exception("Ошибка переключения модели → %s", raw)
+            raise HTTPException(status_code=500, detail=str(error)) from error
+        load_sec = round(time.time() - started, 1)
+
+    return {"ok": True, "load_sec": load_sec, **_models_status_payload()}
 
 
 @app.get("/t2i/jobs/{job_id}")

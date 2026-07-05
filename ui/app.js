@@ -371,6 +371,9 @@ const syncDialogueGenDurationControls = () => {
   if (dialogueGenTargetDurationRow) {
     dialogueGenTargetDurationRow.hidden = !storyTimeMode;
   }
+  if (conversationTimingPanel && storyTimeMode) {
+    conversationTimingPanel.hidden = true;
+  }
 };
 
 const applyTargetDurationToJson = () => {
@@ -3724,7 +3727,9 @@ const renderConversationTimingPanel = (conversation, timingPreview) => {
     return;
   }
 
-  if (!conversation?.messages?.length) {
+  const storyTimeMode =
+    editorKind === "shorts" && isStoryVideoLayoutSelected();
+  if (!conversation?.messages?.length || storyTimeMode) {
     conversationTimingPanel.hidden = true;
     return;
   }
@@ -7193,6 +7198,65 @@ const renderApiStatusPanel = (data) => {
     ].join("\n");
   }
   apiStatusContent.append(appendApiStatusSection("OpenRouter (ChatGPT)", openrouterText));
+
+  const gpu = data?.localGpuModel;
+  if (gpu?.configured) {
+    const gpuText = document.createElement("p");
+    gpuText.className = "api-status-section__text";
+    const active = gpu.active_model ?? "none";
+    const lines = [
+      gpu.ok
+        ? `VRAM: ${active === "none" ? "модель не загружена" : active}`
+        : `Ошибка: ${gpu.error ?? "нет связи"}`,
+    ];
+    if (gpu.wan_ready) {
+      lines.push("Wan I2V: в памяти");
+    }
+    if (gpu.flux_ready) {
+      lines.push("FLUX T2I: в памяти");
+    }
+    if (gpu.flux_img2img_ready) {
+      lines.push("FLUX img2img: в памяти");
+    }
+    gpuText.textContent = lines.join("\n");
+
+    const gpuActions = document.createElement("div");
+    gpuActions.className = "actions actions--inline";
+    for (const [target, label] of [
+      ["flux", "FLUX (картинки)"],
+      ["wan", "Wan (видео)"],
+      ["none", "Выгрузить"],
+    ]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-secondary btn-small";
+      btn.textContent = label;
+      btn.disabled = active === target || (target === "flux" && active === "flux-img2img");
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/gpu/switch-model", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({target}),
+          });
+          const payload = await res.json();
+          if (!res.ok) {
+            throw new Error(payload.error ?? "Ошибка переключения");
+          }
+          await loadApiStatus();
+        } catch (error) {
+          alert(error instanceof Error ? error.message : String(error));
+          btn.disabled = false;
+        }
+      });
+      gpuActions.append(btn);
+    }
+
+    const gpuSection = appendApiStatusSection("GPU-сервис (модели)", gpuText);
+    gpuSection.append(gpuActions);
+    apiStatusContent.append(gpuSection);
+  }
 };
 
 const loadApiStatus = async () => {

@@ -127,6 +127,10 @@ import {
   getLocalGpuRenderUrl,
   isLocalGpuRenderConfigured,
 } from "./local-gpu-render.mjs";
+import {
+  ensureLocalGpuModel,
+  fetchLocalGpuModelStatus,
+} from "./local-gpu-models.mjs";
 import {readShortsStylesMeta} from "./dialogue-prompts.mjs";
 import {runShortsPreRenderChecklist} from "./shorts-checklist.mjs";
 import {
@@ -1020,6 +1024,7 @@ app.get("/api/status", async (_req, res) => {
       storyVideoVeo: getOpenRouterStoryVideoStatus(),
       storyImage: getStoryImageGenerationStatus(),
       renderGpu: getLocalGpuRenderStatus(),
+      localGpuModel: await fetchLocalGpuModelStatus(),
     });
   } catch (error) {
     res.status(500).json({
@@ -1031,6 +1036,28 @@ app.get("/api/status", async (_req, res) => {
 app.get("/api/youtube/status", async (_req, res) => {
   await loadOpenRouterEnv();
   res.json({configured: isYoutubeConfigured()});
+});
+
+app.get("/api/gpu/model-status", async (_req, res) => {
+  try {
+    res.json(await fetchLocalGpuModelStatus());
+  } catch (error) {
+    res.status(500).json({error: error instanceof Error ? error.message : String(error)});
+  }
+});
+
+app.post("/api/gpu/switch-model", async (req, res) => {
+  try {
+    const target = typeof req.body?.target === "string" ? req.body.target.trim().toLowerCase() : "";
+    if (!["none", "flux", "wan"].includes(target)) {
+      res.status(400).json({error: "target должен быть none, flux или wan"});
+      return;
+    }
+    const result = await ensureLocalGpuModel(target, {force: true});
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({error: error instanceof Error ? error.message : String(error)});
+  }
 });
 
 app.post("/api/youtube/publish", async (req, res) => {

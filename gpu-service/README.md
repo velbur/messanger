@@ -57,6 +57,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration 
 | `GPU_I2V_WIDTH` / `GPU_I2V_HEIGHT` | `1080` / `1920` | Финальное разрешение |
 | `GPU_I2V_STEPS` | `30` | Шаги диффузии (меньше = быстрее, хуже детали; для теста: 15) |
 | `GPU_I2V_GUIDANCE` | `5.0` | guidance_scale |
+| `GPU_STARTUP_MODEL` | `none` | При старте: `none` (не грузить), `flux` или `wan` |
 
 ## Доставка весов (эфемерный сервер)
 
@@ -73,15 +74,28 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 
 - **Диск переживает stop/start** (ваш провайдер) → веса остаются в `./models`, качать заново не нужно. После рестарта VM:
   ```bash
-  cd gpu-service && chmod +x start-server.sh && ./start-server.sh
+  cd gpu-service && GPU_STARTUP_MODEL=none ./start-server.sh
   ```
-  Прогрев Wan в VRAM — 1–3 минуты, затем `/health` → `model_ready: true`.
+  Модель в VRAM не загружается при старте — переключите через API или UI перед работой.
 - **Диск обнуляется** → сделайте **снапшот образа** после первого `./download_models.sh` (рестарт = готовый сервер).
 - **Частое пересоздание** → храните `./models` на S3-совместимом volume того же региона и монтируйте при старте.
 
 ### Синхронизация кода
 
 Код сервиса — через `git pull` или `rsync gpu-service/` (килобайты). Веса не трогаются.
+
+### Переключение моделей (FLUX ↔ Wan)
+
+Wan и FLUX не держатся в VRAM одновременно.
+
+```bash
+curl http://<server>:8008/models/status
+curl -X POST http://<server>:8008/models/switch -F "target=flux"   # картинки
+curl -X POST http://<server>:8008/models/switch -F "target=wan"    # I2V
+curl -X POST http://<server>:8008/models/switch -F "target=none"    # выгрузить
+```
+
+UI и скрипты переключают автоматически: батч картинок → `flux`, story-видео → `wan`.
 
 ## Интеграция с проектом
 

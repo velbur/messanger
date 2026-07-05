@@ -21,6 +21,7 @@ import {ensureStoryVisualBible, formatVisualBible} from "./story-visual-bible.mj
 import {slugifyProjectName} from "./project-slug.mjs";
 import {getStoryScenes} from "./story-scene-timing.mjs";
 import {syncScenesToMessageAnchors} from "./story-scene-sync.mjs";
+import {ensureLocalGpuModel} from "./local-gpu-models.mjs";
 
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
 const hasImagePromptOnly = (message) =>
@@ -64,6 +65,17 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
   }
 
   const imageProvider = getStoryImageGenerationStatus().provider;
+
+  if (imageProvider === "local-gpu") {
+    try {
+      await ensureLocalGpuModel("flux", {
+        onStatus: (message) => logs.push(message),
+      });
+    } catch (error) {
+      logs.push(`GPU FLUX: ${error instanceof Error ? error.message : String(error)}`);
+      return logs;
+    }
+  }
 
   const style =
     typeof stylePrompt === "string" && stylePrompt.trim()

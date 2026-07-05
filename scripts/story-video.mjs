@@ -21,6 +21,7 @@ import {
   isStoryVideoGenerationConfigured,
 } from "./story-video-provider.mjs";
 import {getLocalGpuVideoModel} from "./local-gpu-video.mjs";
+import {ensureLocalGpuModel} from "./local-gpu-models.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
@@ -319,6 +320,18 @@ export const generateMissingStoryVideos = async (
   let generated = 0;
 
   logs.push(`Story-видео: провайдер ${describeStoryVideoProvider()}`);
+
+  if (videoStatus.provider === "local-gpu") {
+    try {
+      await ensureLocalGpuModel("wan", {
+        onStatus: (message) => logs.push(message),
+      });
+    } catch (error) {
+      throw new Error(
+        `Не удалось переключить GPU на Wan I2V: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   if (isOpenRouterConfigured()) {
     await ensureStoryVisualBible(conversation);
