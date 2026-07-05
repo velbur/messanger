@@ -52,7 +52,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-scene-time-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -357,10 +357,16 @@ const buildStoryTimeline = (
         return;
       }
 
-      const startMs = scene.estimatedStartMs ?? 0;
-      const endMs = scene.estimatedEndMs ?? startMs;
-      let startFrame = sceneOriginFrame + msToFrames(startMs);
-      let endFrame = sceneOriginFrame + msToFrames(Math.max(endMs, startMs + 1));
+      const slotMs = Math.max(1, (scene.estimatedEndMs ?? 0) - (scene.estimatedStartMs ?? 0));
+      const anchorIndex = scene.anchorMessageIndex;
+      let startFrame =
+        anchorIndex === 0 && immediateFirstScene
+          ? (events[0]?.revealFrame ?? sceneOriginFrame)
+          : Math.max(
+              events[anchorIndex]?.revealFrame ?? splitCompleteFrame,
+              splitCompleteFrame,
+            );
+      let endFrame = startFrame + msToFrames(slotMs);
       const videoMs = message?.storyVideoDurationMs;
       if (typeof videoMs === "number" && videoMs > 0) {
         endFrame = Math.max(endFrame, startFrame + msToFrames(videoMs));
@@ -571,15 +577,19 @@ type StorySegment = {
 
 /**
  * Непрерывные сегменты story-медиа: заставка (если есть отдельно) + каждая сцена.
- * endFrame каждого сегмента = startFrame следующего (последний — до начала outro),
- * что повторяет окно показа из resolveStorySceneTiming, но в виде упорядоченного списка.
+ * endFrame берётся из sceneEvents (плановая длительность), не растягивается до outro.
  */
 const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): StorySegment[] => {
-  const raw: Omit<StorySegment, "endFrame">[] = [];
+  const raw: StorySegment[] = [];
 
   if (!story.immediateFirstScene && (story.openingImage || story.openingVideo)) {
+    const openingEnd =
+      story.sceneEvents[0]?.startFrame ??
+      story.openingEndFrame ??
+      outroStartFrame;
     raw.push({
       startFrame: story.openingStartFrame,
+      endFrame: openingEnd,
       image: story.openingImage,
       video: story.openingVideo,
       videoDurationMs: story.openingVideoDurationMs,
@@ -587,20 +597,47 @@ const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): Stor
     });
   }
 
-  for (const event of story.sceneEvents) {
+  for (let i = 0; i < story.sceneEvents.length; i += 1) {
+    const event = story.sceneEvents[i];
     raw.push({
       startFrame: event.startFrame,
+      endFrame: event.endFrame,
       image: event.image,
       video: event.video,
       videoDurationMs: event.videoDurationMs,
       videoLoop: event.videoLoop,
     });
+    const nextStart = story.sceneEvents[i + 1]?.startFrame;
+    if (nextStart != null && nextStart > event.endFrame) {
+      raw.push({
+        startFrame: event.endFrame,
+        endFrame: nextStart,
+        image: event.image,
+        video: undefined,
+        videoDurationMs: undefined,
+        videoLoop: false,
+      });
+    }
   }
 
-  return raw.map((segment, index) => ({
-    ...segment,
-    endFrame: raw[index + 1]?.startFrame ?? outroStartFrame,
-  }));
+  if (raw.length === 0) {
+    return raw;
+  }
+
+  const lastEnd = raw[raw.length - 1].endFrame;
+  if (lastEnd < outroStartFrame) {
+    const last = raw[raw.length - 1];
+    raw.push({
+      startFrame: last.endFrame,
+      endFrame: outroStartFrame,
+      image: last.image,
+      video: undefined,
+      videoDurationMs: undefined,
+      videoLoop: false,
+    });
+  }
+
+  return raw;
 };
 
 const MIN_PARALLAX_BAKE_FRAMES = 45;

@@ -159,7 +159,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
     const bundleJs = await readFile(path.join(bundleLocation, "bundle.js"), "utf8");
     return (
       bundleJs.includes("fs-story-split-v1") &&
-      bundleJs.includes("story-scene-time-v1") &&
+      bundleJs.includes("story-scene-anchor-v1") &&
       bundleJs.includes("story-video-particles-v11") &&
       bundleJs.includes("StorySceneVideo") &&
       bundleJs.includes("timing-scale-050-v1") &&
@@ -177,8 +177,8 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("sfxMixSrc") &&
       bundleJs.includes("preview-cover-baked-v3") &&
       bundleJs.includes("preview-cover-art-v3") &&
-      bundleJs.includes("story-parallax-video-v31") &&
-      bundleJs.includes("story-scene-video-localframe-v2") &&
+      bundleJs.includes("story-parallax-video-v32") &&
+      bundleJs.includes("story-scene-video-localframe-v3") &&
       bundleJs.includes("story-parallax-preview-v4") &&
       bundleJs.includes("story-video-parallax-preview-v9") &&
       bundleJs.includes("video-horizontal-layout-v1") &&

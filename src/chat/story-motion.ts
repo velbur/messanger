@@ -60,15 +60,28 @@ export const storyVideoForwardDurationFrames = (
   compositionFps: number,
 ): number => Math.max(2, Math.round(((videoDurationMs ?? 4000) / 1000) * compositionFps));
 
-/** Кадр handoff Veo → depth parallax (раньше конца клипа на TRIM кадров) */
-export const storyVideoParallaxHandoffFrame = (
+/** Кадр начала parallax-оверлея (Veo ещё играет поверх до конца playFrames) */
+export const storyVideoParallaxOverlayStartFrame = (
   videoDurationMs: number | undefined,
   compositionFps: number,
-  sceneDurationFrames: number,
 ): number => {
-  const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, compositionFps);
-  const playFrames = videoDurationFrames;
-  return Math.max(2, playFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
+  const playFrames = storyVideoForwardDurationFrames(videoDurationMs, compositionFps);
+  return Math.max(0, playFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
+};
+
+/** @deprecated используй storyVideoParallaxOverlayStartFrame */
+export const storyVideoParallaxHandoffFrame = storyVideoParallaxOverlayStartFrame;
+
+/** Кадр источника Veo по кадру композиции — 1:1 по wall-clock */
+export const storyVideoSourceFrameAtCompositionFrame = (
+  compositionLocalFrame: number,
+  videoDurationMs: number | undefined,
+  compositionFps: number,
+): number => {
+  const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
+  const playFrames = storyVideoForwardDurationFrames(videoDurationMs, compositionFps);
+  const clamped = Math.min(Math.max(0, compositionLocalFrame), Math.max(0, playFrames - 1));
+  return storyVideoSourceFrameAtPlayFrame(clamped, Math.max(1, playFrames), lastSourceFrame);
 };
 
 /** Длина parallax-фазы после handoff */
@@ -80,7 +93,7 @@ export const storyVideoParallaxPhaseFrames = (
   Math.max(
     1,
     sceneDurationFrames -
-      storyVideoParallaxHandoffFrame(videoDurationMs, compositionFps, sceneDurationFrames),
+      storyVideoParallaxOverlayStartFrame(videoDurationMs, compositionFps),
   );
 
 /** Бесшовное зацикливание: кадр источника по локальному кадру сцены */
