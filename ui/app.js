@@ -6686,6 +6686,17 @@ const pollJob = (jobId) => {
       const job = await res.json();
 
       if (!res.ok) {
+        if (res.status === 404) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          activeRenderJobId = null;
+          setBusy(false);
+          updateRenderModalActions({status: "error"});
+          statusText.className = "status-text status-text--error";
+          statusText.textContent =
+            "Сессия UI сброшена (перезапуск Docker). Рендер на воркере может продолжаться — дождитесь или запустите «Собрать видео» снова.";
+          return;
+        }
         throw new Error(job.error ?? "Не удалось получить статус");
       }
 

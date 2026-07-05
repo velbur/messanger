@@ -190,10 +190,14 @@ const UI_DIR = path.join(ROOT, "ui");
 const PORT = Number(process.env.PORT ?? 3333);
 
 /** URL удалённого render-воркера (LAN Mac и т.п.), напр. http://192.168.0.136:3333 */
-const REMOTE_RENDER_URL = (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
+const getRemoteRenderUrl = () =>
+  (process.env.REMOTE_RENDER_URL ?? "").trim().replace(/\/+$/, "");
 
 const isLocalGpuRenderDefaultEnabled = () =>
   ["1", "true", "yes"].includes((process.env.LOCAL_GPU_RENDER_DEFAULT ?? "").trim().toLowerCase());
+
+const REMOTE_RENDER_DEFAULT_ENABLED = () =>
+  ["1", "true", "yes"].includes((process.env.REMOTE_RENDER_DEFAULT ?? "").trim().toLowerCase());
 
 const isOffloadedRenderTarget = (target) => target === "remote" || target === "gpu-server";
 
@@ -202,7 +206,7 @@ const resolveOffloadedRenderUrl = (target) => {
     return getLocalGpuRenderUrl();
   }
   if (target === "remote") {
-    return REMOTE_RENDER_URL || null;
+    return getRemoteRenderUrl() || null;
   }
   return null;
 };
@@ -212,7 +216,8 @@ const offloadRenderTargetLabel = (target) => {
     return describeLocalGpuRenderTarget();
   }
   if (target === "remote") {
-    return `Мощная машина (${REMOTE_RENDER_URL})`;
+    const url = getRemoteRenderUrl();
+    return url ? `Мощная машина (${url})` : "Мощная машина";
   }
   return "удалённый воркер";
 };
@@ -252,17 +257,21 @@ const getRenderTargets = () => {
   if (gpuRenderUrl) {
     targets.push({id: "gpu-server", label: `GPU-сервер (рендер)`, url: gpuRenderUrl});
   }
-  if (REMOTE_RENDER_URL) {
-    targets.push({id: "remote", label: `Мощная машина (${REMOTE_RENDER_URL})`, url: REMOTE_RENDER_URL});
+  const remoteRenderUrl = getRemoteRenderUrl();
+  if (remoteRenderUrl) {
+    targets.push({id: "remote", label: `Мощная машина (${remoteRenderUrl})`, url: remoteRenderUrl});
   }
   return targets;
 };
 
 const getDefaultRenderTarget = () => {
+  if (REMOTE_RENDER_DEFAULT_ENABLED() && getRemoteRenderUrl()) {
+    return "remote";
+  }
   if (isLocalGpuRenderDefaultEnabled() && isLocalGpuRenderConfigured()) {
     return "gpu-server";
   }
-  if (REMOTE_RENDER_URL) {
+  if (getRemoteRenderUrl()) {
     return "remote";
   }
   return "local";
@@ -272,7 +281,7 @@ const normalizeRenderTarget = (rawTarget) => {
   if (rawTarget === "gpu-server" && isLocalGpuRenderConfigured()) {
     return "gpu-server";
   }
-  if (rawTarget === "remote" && REMOTE_RENDER_URL) {
+  if (rawTarget === "remote" && getRemoteRenderUrl()) {
     return "remote";
   }
   return "local";
@@ -3372,7 +3381,9 @@ app.get("/api/jobs/:id", async (req, res) => {
 
 /** Скопировать уже готовый MP4 с воркера без повторного рендера */
 app.post("/api/remote/fetch-output", async (req, res) => {
-  if (!REMOTE_RENDER_URL) {
+  await loadOpenRouterEnv();
+  const remoteRenderUrl = getRemoteRenderUrl();
+  if (!remoteRenderUrl) {
     res.status(400).json({error: "REMOTE_RENDER_URL не настроен"});
     return;
   }
@@ -3394,7 +3405,7 @@ app.post("/api/remote/fetch-output", async (req, res) => {
   const logs = [`Запрос копирования: out/${outputFile}`];
   try {
     const result = await copyRemoteOutputToLocal({
-      remoteUrl: REMOTE_RENDER_URL,
+      remoteUrl: remoteRenderUrl,
       outputFile,
       logs,
     });
