@@ -7,7 +7,7 @@ import {
   storyVideoHoldFramePathForVideo,
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
-import {deletePublicImage, isStoryVisualLayout} from "./image-assets.mjs";
+import {deletePublicImage, invalidateVideoHoldParallaxForVideo, isStoryVisualLayout} from "./image-assets.mjs";
 import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
   getOpenRouterStoryVideoModel,
@@ -485,6 +485,7 @@ const generateOneStoryVideo = async (
       ? LOCAL_GPU_STORY_VIDEO_PROFILE
       : OPENROUTER_STORY_VIDEO_PROFILE;
   target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
+  await invalidateVideoHoldParallaxForVideo(target.holder.storyVideo);
   await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
   if (!skipHoldParallaxBake) {
     await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});

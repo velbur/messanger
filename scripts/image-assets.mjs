@@ -1,6 +1,6 @@
 import path from "node:path";
 import {createHash} from "node:crypto";
-import {mkdir, writeFile, access, readFile, unlink, stat} from "node:fs/promises";
+import {mkdir, writeFile, access, readFile, unlink, stat, rm} from "node:fs/promises";
 import {existsSync} from "node:fs";
 import {collectStoryVideoRefs} from "./story-video.mjs";
 
@@ -268,6 +268,70 @@ export const deleteStoryImageAssets = async (targetRef) => {
   return {deleted, missing, publicPath: refs[0]};
 };
 
+/** Story-PNG (opening / msg-N) — для авто-сброса parallax после перегенерации */
+export const isStoryFramePublicPath = (ref) => {
+  const normalized = String(ref ?? "")
+    .trim()
+    .replace(/^\/+/, "");
+  if (!normalized || isImageUrl(normalized)) {
+    return false;
+  }
+  return (
+    /(?:^|\/)story-opening\.(png|jpe?g|webp)$/i.test(normalized) ||
+    /(?:^|\/)story-msg-\d+\.(png|jpe?g|webp)$/i.test(normalized)
+  );
+};
+
+const isStoryParallaxAssetRef = (ref) =>
+  /\.(?:depth\.png|depth-meta\.json|parallax\.mp4|layer-(?:far|mid|near)\.png|video-hold\.(?:depth\.png|depth-meta\.json|parallax\.mp4))$/i.test(
+    String(ref ?? ""),
+  );
+
+const removePublicAssets = async (refs) => {
+  const removed = [];
+  for (const ref of new Set(refs)) {
+    try {
+      const {absolute} = safePublicPath(ref);
+      await rm(absolute, {force: true});
+      removed.push(ref);
+    } catch {
+      /* skip */
+    }
+  }
+  return removed;
+};
+
+/** Сбросить parallax/depth рядом со story-PNG (не трогает .video.mp4) */
+export const invalidateStoryParallaxForImage = async (imagePublicPath) => {
+  const image = String(imagePublicPath ?? "")
+    .trim()
+    .replace(/^\/+/, "");
+  if (!image || isImageUrl(image)) {
+    return [];
+  }
+  const refs = collectStoryImageAssetRefs(image).filter(
+    (ref) => isStoryParallaxAssetRef(ref) && !/\.video-hold\.png$/i.test(ref),
+  );
+  return removePublicAssets(refs);
+};
+
+/** Сбросить hold + parallax после перегенерации Veo */
+export const invalidateVideoHoldParallaxForVideo = async (videoPublicPath) => {
+  const video = String(videoPublicPath ?? "")
+    .trim()
+    .replace(/^\/+/, "");
+  if (!video) {
+    return [];
+  }
+  const base = video.replace(/\.video\.mp4$/i, "");
+  return removePublicAssets([
+    `${base}.video-hold.png`,
+    `${base}.video-hold.depth.png`,
+    `${base}.video-hold.depth-meta.json`,
+    `${base}.video-hold.parallax.mp4`,
+  ]);
+};
+
 export const saveImageBuffer = async (buffer, targetRef) => {
   let relative;
   if (targetRef && !isImageUrl(targetRef)) {
@@ -281,8 +345,14 @@ export const saveImageBuffer = async (buffer, targetRef) => {
     await mkdir(path.dirname(absolute), {recursive: true});
     await writeFile(absolute, buffer);
   }
+  if (isStoryFramePublicPath(relative)) {
+    await invalidateStoryParallaxForImage(relative);
+  }
   return relative;
 };
+
+/** @deprecated inline — saveImageBuffer сам сбрасывает parallax для story-кадров */
+export const saveStoryImageBuffer = saveImageBuffer;
 
 const hasRenderableText = (message) => (message.text ?? "").trim().length > 0;
 const hasRenderableImage = (message) => Boolean(message.image?.trim());
