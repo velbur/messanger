@@ -142,3 +142,84 @@ export const buildConversationVoiceTtsProfile = (
 export const messageHasVoiceover = (
   message: ConversationInput["messages"][number],
 ): boolean => Boolean(message.voiceAudio?.trim() && message.voiceDurationMs);
+
+export type VoiceFrameRange = {
+  start: number;
+  end: number;
+};
+
+/** ~400 ms при 30 fps — плавный вход/выход ducking без резких скачков */
+export const MUSIC_DUCK_FADE_FRAMES = 12;
+
+const smoothStep = (t: number): number => {
+  const clamped = Math.min(1, Math.max(0, t));
+  return clamped * clamped * (3 - 2 * clamped);
+};
+
+export const buildVoiceFrameRanges = (
+  events: ReadonlyArray<{
+    revealFrame: number;
+    voiceAudio?: string;
+    voiceDurationFrames: number;
+  }>,
+): VoiceFrameRange[] =>
+  events
+    .filter((event) => event.voiceAudio && event.voiceDurationFrames > 0)
+    .map((event) => ({
+      start: event.revealFrame,
+      end: event.revealFrame + event.voiceDurationFrames,
+    }));
+
+/** 1 = полная громкость музыки, musicDuck = приглушение во время озвучки */
+export const musicDuckMultiplierAtFrame = (
+  frame: number,
+  ranges: readonly VoiceFrameRange[],
+  musicDuck: number,
+  fadeFrames = MUSIC_DUCK_FADE_FRAMES,
+): number => {
+  if (!ranges.length || musicDuck >= 1) {
+    return 1;
+  }
+
+  const duck = Math.min(1, Math.max(0, musicDuck));
+  let factor = 1;
+
+  for (const {start, end} of ranges) {
+    if (end <= start) {
+      continue;
+    }
+
+    const attackStart = start - fadeFrames;
+    const releaseEnd = end + fadeFrames;
+    let rangeFactor = 1;
+
+    if (frame >= start && frame < end) {
+      rangeFactor = duck;
+    } else if (frame >= attackStart && frame < start) {
+      rangeFactor = 1 + (duck - 1) * smoothStep((frame - attackStart) / fadeFrames);
+    } else if (frame >= end && frame < releaseEnd) {
+      rangeFactor = duck + (1 - duck) * smoothStep((frame - end) / fadeFrames);
+    }
+
+    factor = Math.min(factor, rangeFactor);
+  }
+
+  return factor;
+};
+
+export const createMusicVolumeAtFrame = (
+  music: {enabled: boolean; volume: number},
+  voiceover: {enabled: boolean; musicDuck: number},
+  voiceFrameRanges: readonly VoiceFrameRange[],
+): ((frame: number) => number) => {
+  return (frame: number) => {
+    if (!music.enabled) {
+      return 0;
+    }
+    if (!voiceover.enabled || !voiceFrameRanges.length) {
+      return music.volume;
+    }
+    const duckMul = musicDuckMultiplierAtFrame(frame, voiceFrameRanges, voiceover.musicDuck);
+    return music.volume * duckMul;
+  };
+};

@@ -1,4 +1,9 @@
 import type {ConversationInput} from "./schema";
+import {
+  coerceStorySceneTransition,
+  DEFAULT_STORY_SCENE_TRANSITION,
+  type StorySceneTransition,
+} from "./story-scene-transition";
 
 export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v30";
 /** Ревизия StorySceneVideo: localFrame от StoryPanel, не глобальный useCurrentFrame */
@@ -17,6 +22,8 @@ export type StoryOpeningConfig = {
 
 export type StoryConfig = {
   opening: StoryOpeningConfig;
+  /** Переход между story-кадрами */
+  sceneTransition: StorySceneTransition;
   /** Длина одного бесшовного цикла Ken Burns / parallax, сек */
   motionLoopSec: number;
   splitTransitionMs: number;
@@ -31,6 +38,7 @@ const DEFAULT_OPENING: StoryOpeningConfig = {
 
 const DEFAULT_STORY: StoryConfig = {
   opening: DEFAULT_OPENING,
+  sceneTransition: DEFAULT_STORY_SCENE_TRANSITION,
   motionLoopSec: 3,
   splitTransitionMs: 600,
   topPanelRatio: 0.45,
@@ -75,6 +83,7 @@ export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig =
       storyVideoDurationMs: openingRaw?.storyVideoDurationMs,
       animation: coerceStoryAnimation(openingRaw?.animation),
     },
+    sceneTransition: coerceStorySceneTransition(raw?.sceneTransition),
     motionLoopSec:
       typeof raw?.motionLoopSec === "number" && raw.motionLoopSec >= 2 && raw.motionLoopSec <= 8
         ? raw.motionLoopSec

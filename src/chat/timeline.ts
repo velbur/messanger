@@ -10,6 +10,14 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
+import {
+  incomingSceneTransitionStyle,
+  outgoingSceneTransitionStyle,
+  sceneTransitionFlashOpacity,
+  sceneTransitionProgress,
+  storySceneTransitionFrames,
+  type StorySceneTransition,
+} from "./story-scene-transition";
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
@@ -42,7 +50,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-first-msg-with-image-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-scene-transition-zoom-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -96,6 +104,8 @@ export type StoryTimeline = {
   splitTransitionFrames: number;
   topPanelRatio: number;
   openingAnimation: StorySceneAnimation;
+  sceneTransition: StorySceneTransition;
+  sceneTransitionFrames: number;
   motionLoopSec: number;
   openingSfx: ResolvedStorySfxCue[];
   sfxMasterVolume: number;
@@ -265,6 +275,8 @@ const buildStoryTimeline = (
     splitTransitionFrames: 0,
     topPanelRatio: 0.45,
     openingAnimation: "video",
+    sceneTransition: "zoom",
+    sceneTransitionFrames: 15,
     motionLoopSec: 3,
     openingSfx: [],
     sfxMasterVolume: 1,
@@ -383,6 +395,8 @@ const buildStoryTimeline = (
     splitTransitionFrames,
     topPanelRatio: storyConfig.topPanelRatio,
     openingAnimation: storyConfig.opening.animation,
+    sceneTransition: storyConfig.sceneTransition,
+    sceneTransitionFrames: storySceneTransitionFrames(storyConfig.sceneTransition),
     motionLoopSec: storyConfig.motionLoopSec,
     openingSfx,
     sfxMasterVolume: sfxConfig.masterVolume,
@@ -487,6 +501,15 @@ export type StorySceneLayer = {
   sceneStartFrame: number;
   sceneDurationFrames: number;
   opacity: number;
+  scale: number;
+  translateXPercent: number;
+  translateYPercent: number;
+  blurPx: number;
+};
+
+export type ResolvedStorySceneLayers = {
+  layers: StorySceneLayer[];
+  flashOpacity: number;
 };
 
 type StorySegment = {
@@ -581,29 +604,23 @@ export const storyParallaxBakeFramesByImage = (
   return map;
 };
 
-const smoothstep = (value: number): number => {
-  const x = Math.max(0, Math.min(1, value));
-  return x * x * (3 - 2 * x);
-};
 
 /**
- * Слои story-сцены на кадре. На стыке двух сцен возвращаются два слоя:
- * уходящая сцена снизу (opacity 1, окно Sequence продлено на кросс-фейд),
- * входящая сверху с opacity 0→1 — мягкий dissolve без чёрного провала.
+ * Слои story-сцены на кадре. На стыке двух сцен — два слоя с переходом
+ * (dissolve, zoom-punch или горизонтальный push).
  */
 export const resolveStorySceneLayers = (
   story: StoryTimeline,
   frame: number,
   outroStartFrame: number,
-  crossfadeFrames: number = STORY_SCENE_CROSSFADE_FRAMES,
-): StorySceneLayer[] => {
+): ResolvedStorySceneLayers => {
   if (!story.enabled) {
-    return [];
+    return {layers: [], flashOpacity: 0};
   }
 
   const segments = buildStorySegments(story, outroStartFrame);
   if (segments.length === 0) {
-    return [];
+    return {layers: [], flashOpacity: 0};
   }
 
   let index = 0;
@@ -613,11 +630,20 @@ export const resolveStorySceneLayers = (
     }
   }
 
+  const transition = story.sceneTransition;
+  const transitionFrames = story.sceneTransitionFrames;
+
   const toLayer = (
     segment: StorySegment,
     segmentIndex: number,
     durationFrames: number,
-    opacity: number,
+    style: {
+      opacity: number;
+      scale: number;
+      translateXPercent: number;
+      translateYPercent: number;
+      blurPx: number;
+    },
   ): StorySceneLayer => ({
     key: `seg-${segmentIndex}`,
     image: segment.image,
@@ -626,29 +652,49 @@ export const resolveStorySceneLayers = (
     videoLoop: segment.videoLoop,
     sceneStartFrame: segment.startFrame,
     sceneDurationFrames: Math.max(1, durationFrames),
-    opacity,
+    opacity: style.opacity,
+    scale: style.scale,
+    translateXPercent: style.translateXPercent,
+    translateYPercent: style.translateYPercent,
+    blurPx: style.blurPx,
   });
 
   const current = segments[index];
   const currentDuration = current.endFrame - current.startFrame;
   const localFrame = frame - current.startFrame;
-  const crossfading = index > 0 && crossfadeFrames > 0 && localFrame < crossfadeFrames;
+  const crossfading = index > 0 && transitionFrames > 0 && localFrame < transitionFrames;
 
   if (crossfading) {
     const previous = segments[index - 1];
-    const incomingOpacity = smoothstep(localFrame / crossfadeFrames);
-    return [
-      toLayer(
-        previous,
-        index - 1,
-        current.startFrame - previous.startFrame + crossfadeFrames,
-        1,
-      ),
-      toLayer(current, index, currentDuration, incomingOpacity),
-    ];
+    const progress = sceneTransitionProgress(localFrame, transitionFrames);
+    const outgoing = outgoingSceneTransitionStyle(progress, transition);
+    const incoming = incomingSceneTransitionStyle(progress, transition);
+    return {
+      layers: [
+        toLayer(
+          previous,
+          index - 1,
+          current.startFrame - previous.startFrame + transitionFrames,
+          outgoing,
+        ),
+        toLayer(current, index, currentDuration, incoming),
+      ],
+      flashOpacity: sceneTransitionFlashOpacity(progress, transition),
+    };
   }
 
-  return [toLayer(current, index, currentDuration, 1)];
+  return {
+    layers: [
+      toLayer(current, index, currentDuration, {
+        opacity: 1,
+        scale: 1,
+        translateXPercent: 0,
+        translateYPercent: 0,
+        blurPx: 0,
+      }),
+    ],
+    flashOpacity: 0,
+  };
 };
 
 const firstSceneMedia = (story: StoryTimeline) =>

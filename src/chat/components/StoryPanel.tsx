@@ -8,12 +8,37 @@ void STORY_SPLIT_TIMELINE_REV;
 
 type Props = {
   layers: StorySceneLayer[];
+  transitionFlash?: number;
   height: number;
   animation: StorySceneAnimation;
   motionLoopSec?: number;
 };
 
-export const StoryPanel: React.FC<Props> = ({layers, height, animation, motionLoopSec = 3}) => {
+const layerTransform = (layer: StorySceneLayer): React.CSSProperties => {
+  const transforms: string[] = [];
+  if (layer.scale !== 1) {
+    transforms.push(`scale(${layer.scale})`);
+  }
+  if (layer.translateXPercent !== 0 || layer.translateYPercent !== 0) {
+    transforms.push(
+      `translate(${layer.translateXPercent}%, ${layer.translateYPercent}%)`,
+    );
+  }
+  return {
+    opacity: layer.opacity,
+    transform: transforms.length > 0 ? transforms.join(" ") : undefined,
+    filter: layer.blurPx > 0 ? `blur(${layer.blurPx}px)` : undefined,
+    willChange: transforms.length > 0 || layer.blurPx > 0 ? "transform, opacity, filter" : undefined,
+  };
+};
+
+export const StoryPanel: React.FC<Props> = ({
+  layers,
+  transitionFlash = 0,
+  height,
+  animation,
+  motionLoopSec = 3,
+}) => {
   const frame = useCurrentFrame();
 
   return (
@@ -30,7 +55,7 @@ export const StoryPanel: React.FC<Props> = ({layers, height, animation, motionLo
       {layers.map((layer) => {
         const localFrame = Math.max(0, frame - layer.sceneStartFrame);
         return (
-          <AbsoluteFill key={layer.key} style={{opacity: layer.opacity}}>
+          <AbsoluteFill key={layer.key} style={layerTransform(layer)}>
             <StorySceneImage
               image={layer.image}
               video={layer.video}
@@ -45,6 +70,16 @@ export const StoryPanel: React.FC<Props> = ({layers, height, animation, motionLo
           </AbsoluteFill>
         );
       })}
+      {transitionFlash > 0 ? (
+        <AbsoluteFill
+          style={{
+            pointerEvents: "none",
+            backgroundColor: "#ffffff",
+            opacity: transitionFlash,
+            mixBlendMode: "screen",
+          }}
+        />
+      ) : null}
     </div>
   );
 };

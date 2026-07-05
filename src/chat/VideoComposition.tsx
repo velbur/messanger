@@ -13,7 +13,7 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {mergeConversationVoiceover} from "./voiceover";
+import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceover} from "./voiceover";
 import {
   buildTimeline,
   getStatusBarTime,
@@ -69,31 +69,14 @@ export const VideoComposition: React.FC<Props> = ({conversation}) => {
   const contentDim = inTitleCard ? 0 : outroDim;
 
   const voiceFrameRanges = useMemo(
-    () =>
-      voiceover.enabled
-        ? timeline.events
-            .filter((event) => event.voiceAudio && event.voiceDurationFrames > 0)
-            .map((event) => ({
-              start: event.revealFrame,
-              end: event.revealFrame + event.voiceDurationFrames,
-            }))
-        : [],
+    () => (voiceover.enabled ? buildVoiceFrameRanges(timeline.events) : []),
     [timeline.events, voiceover.enabled],
   );
 
-  const isVoiceActiveAtFrame = (f: number): boolean =>
-    voiceFrameRanges.some((range) => f >= range.start && f < range.end);
-
-  const musicVolumeAtFrame = (f: number): number => {
-    if (!music.enabled) {
-      return 0;
-    }
-    let volume = music.volume;
-    if (voiceover.enabled && isVoiceActiveAtFrame(f)) {
-      volume *= voiceover.musicDuck;
-    }
-    return volume;
-  };
+  const musicVolumeAtFrame = useMemo(
+    () => createMusicVolumeAtFrame(music, voiceover, voiceFrameRanges),
+    [music, voiceover, voiceFrameRanges],
+  );
 
   const activeEvent = timeline.events.find(
     (event) => frame >= event.typingStartFrame && frame < event.revealFrame,

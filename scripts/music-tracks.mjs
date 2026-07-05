@@ -31,6 +31,7 @@ export const MUSIC_TRACK_MOODS = {
   "kremlin.mp3": ["dramatic", "serious", "political", "neutral"],
   "Thermal Relay.mp3": ["neutral", "calm", "ambient", "story"],
   "gasoline-heist.mp3": ["comedy", "tension", "story", "dramatic", "neutral"],
+  "2007.mp3": ["story", "dramatic", "nostalgic", "neutral", "calm"],
 };
 
 export const DEFAULT_MUSIC_ID = "romantic-beautiful-dream.mp3";

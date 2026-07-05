@@ -469,6 +469,23 @@
       "licenseUrl": null,
       "licenseNote": "mishellbox — убедитесь в правах перед публикацией",
       "sourceUrl": null
+    },
+    {
+      "id": "2007.mp3",
+      "label": "Кино — 2007",
+      "title": "2007",
+      "category": "cinematic",
+      "moods": [
+        "story",
+        "dramatic",
+        "nostalgic",
+        "neutral",
+        "calm"
+      ],
+      "license": "Custom",
+      "licenseUrl": null,
+      "licenseNote": "mishellbox / Suno — убедитесь в правах перед публикацией",
+      "sourceUrl": null
     }
   ]
 }
