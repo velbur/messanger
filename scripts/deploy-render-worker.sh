@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Деплой на GPU render-воркер после git push.
-# Синхронизирует код с Mac (rsync), перезапускает :3333.
+# Деплой на LAN GPU render-воркер (rsync + перезапуск :3333).
 #
-# Использование:
+# Хост: GPU_DEPLOY_HOST или хост из LOCAL_GPU_RENDER_URL в docs/.env
+#
 #   ./scripts/deploy-render-worker.sh
-#   GPU_DEPLOY_HOST=vm-7742.user-project-3417.cloud.intcld.ru ./scripts/deploy-render-worker.sh
+#   GPU_DEPLOY_HOST=192.168.0.136 ./scripts/deploy-render-worker.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,7 +23,8 @@ resolve_deploy_host() {
       return
     fi
   fi
-  echo "vm-7742.user-project-3417.cloud.intcld.ru"
+  echo "Задай GPU_DEPLOY_HOST или LOCAL_GPU_RENDER_URL в docs/.env" >&2
+  exit 1
 }
 
 HOST="$(resolve_deploy_host)"
@@ -80,9 +81,7 @@ REMOTE
 
 echo "==> Готово: ${SSH_TARGET}"
 
-# Chromium для Remotion (на GPU-сервере remotion.media часто недоступен/медленный)
 if [[ -x "${ROOT}/scripts/install-remotion-chromium-linux.sh" ]]; then
   echo "==> Chromium для Remotion…"
   "${ROOT}/scripts/install-remotion-chromium-linux.sh" "${SSH_TARGET}" || true
 fi
-

@@ -17,4 +17,9 @@ export {
   getStoryScenes,
   assignStorySceneTimeSlots,
   sceneAnchorMessageIndices,
+  buildDialogueAnimationSyncRules,
+  buildScenePlanAnimationSyncRules,
+  storyAnimationClipSec,
+  storyReadableWordBudget,
+  STORY_VEO_CLIP_SEC,
 } from "../src/chat/story-scene-timing.ts";

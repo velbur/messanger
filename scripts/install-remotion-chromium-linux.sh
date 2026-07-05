@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Устанавливает Chrome Headless Shell для Remotion на Linux render-воркер.
-# На GPU-серверах провайдера скачивание с remotion.media часто обрывается.
 #
-# Использование:
 #   ./scripts/install-remotion-chromium-linux.sh
-#   ./scripts/install-remotion-chromium-linux.sh root@vm-7742.user-project-3417.cloud.intcld.ru
+#   ./scripts/install-remotion-chromium-linux.sh root@192.168.0.136
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,7 +31,8 @@ resolve_ssh_target() {
       return
     fi
   fi
-  echo "root@vm-7742.user-project-3417.cloud.intcld.ru"
+  echo "Задай SSH target, GPU_DEPLOY_HOST или LOCAL_GPU_RENDER_URL в docs/.env" >&2
+  exit 1
 }
 
 SSH_TARGET="$(resolve_ssh_target "${1:-}")"

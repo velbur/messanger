@@ -4,6 +4,9 @@ import {
   getStoryTargetDurationSec,
   suggestSceneAnchorsByTime,
   buildMessageTimelineMs,
+  buildScenePlanAnimationSyncRules,
+  storyAnimationClipSec,
+  storyReadableWordBudget,
 } from "./story-scene-timing.mjs";
 import {
   applyStoryScenesPlan,
@@ -146,6 +149,9 @@ export const planStoryScenesByTime = async (conversation) => {
   const targetSec = getStoryTargetDurationSec(conversation);
   const sceneCount = computeSceneCountFromTarget(conversation);
   const {min, max} = getStorySceneDurationSec(conversation);
+  const clipSec = storyAnimationClipSec(conversation);
+  const wordBudget = storyReadableWordBudget(clipSec);
+  const syncRules = buildScenePlanAnimationSyncRules(conversation, "ru");
   const myName = normalizeSpace(conversation?.myName) || "Я";
   const contactName = normalizeSpace(conversation?.contactName) || "Собеседник";
 
@@ -157,7 +163,7 @@ export const planStoryScenesByTime = async (conversation) => {
           content: [
             "Ты монтажёр рисованного Shorts: переписка внизу, иллюстрации 9:16 сверху.",
             `Целевая длительность ролика ~${targetSec} с. Нужно ~${sceneCount} смен кадра.`,
-            `Каждая сцена — один смысловой блок на ~${min}–${max} с визуала (не каждая реплика).`,
+            ...syncRules,
             "Разбей переписку на сцены: beat, messageFrom/messageTo, anchorMessageIndex (0-based).",
             "includeOpening: true — establishing shot до чата.",
             'Ответ JSON: {"includeOpening":true,"rationale":"...","scenes":[{"id":"s1","beat":"...","anchorMessageIndex":0,"messageFrom":0,"messageTo":2}]}',
@@ -168,9 +174,9 @@ export const planStoryScenesByTime = async (conversation) => {
           content: [
             `Я: ${myName}`,
             `Собеседник: ${contactName}`,
-            `Цель: ${sceneCount} сцен, блок ~${min}–${max} с`,
+            `Цель: ${sceneCount} сцен, ~${clipSec} с анимации на кадр, до ~${wordBudget} слов на блок messageFrom..messageTo`,
             "",
-            "Переписка с оценкой времени:",
+            "Переписка с оценкой времени (если блок длиннее клипа — разбей на следующую сцену):",
             formatTimedTranscript(conversation),
           ].join("\n"),
         },

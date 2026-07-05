@@ -300,3 +300,88 @@ export const sceneAnchorMessageIndices = (conversation: ConversationInput): numb
     )
     .filter((index) => index >= 0);
 };
+
+/** Типичная длина I2V-клипа Veo в story */
+export const STORY_VEO_CLIP_SEC = 4;
+
+/** Комфортный темп чтения реплик в Shorts, слов/с */
+export const STORY_READABLE_WORDS_PER_SEC = 2.5;
+
+export const storyReadableWordBudget = (clipSec: number): number =>
+  Math.max(8, Math.round(clipSec * STORY_READABLE_WORDS_PER_SEC));
+
+export const storyAnimationClipSec = (conversation: ConversationInput): number => {
+  const animation = mergeStoryConfig(conversation).opening.animation;
+  if (animation === "video" || animation === "video-parallax") {
+    return STORY_VEO_CLIP_SEC;
+  }
+  const {min, max} = getStorySceneDurationSec(conversation);
+  return (min + max) / 2;
+};
+
+/** Правила для LLM при генерации переписки под story-анимацию */
+export const buildDialogueAnimationSyncRules = (
+  targetDurationSec: number,
+  language: "ru" | "en" = "ru",
+): string[] => {
+  const scenes = computeSceneCountFromTargetSec(targetDurationSec);
+  const clipSec = STORY_VEO_CLIP_SEC;
+  const words = storyReadableWordBudget(clipSec);
+  const maxMessages = deriveMessageCountLimitFromTargetSec(targetDurationSec);
+  const maxLinesPerScene = Math.min(3, Math.max(1, Math.ceil(maxMessages / Math.max(1, scenes))));
+
+  if (language === "en") {
+    return [
+      `- Target ~${targetDurationSec}s → ~${scenes} illustrated scenes; each scene is ~${clipSec}s of Veo/I2V animation on screen.`,
+      `- One visual beat = 1–${maxLinesPerScene} short chat lines (≤~${words} words total) that fit while the clip plays — no long paragraphs on one frame.`,
+      "- If a thought needs more time, start the next scene/beat; don't stack many messages under one illustration.",
+      `- At most ${maxMessages} messages total; fewer is fine when the story is tight.`,
+      "- Do not add storyImagePrompt — scene images are generated separately.",
+      `- Set story.targetDurationSec to ${targetDurationSec}.`,
+    ];
+  }
+
+  return [
+    `- Целевое время ~${targetDurationSec} с → ~${scenes} смен кадра; каждая сцена ≈ ${clipSec} с анимации Veo/I2V на экране.`,
+    `- Один визуальный блок = 1–${maxLinesPerScene} короткие реплики (суммарно до ~${words} слов), которые успевают «прожить» за время клипа — без длинных абзацев на одном кадре.`,
+    "- Если мысль не помещается — начни следующий блок/сцену, не нагружай один кадр множеством сообщений.",
+    `- Не больше ${maxMessages} сообщений; меньше — нормально, если сюжет уложился.`,
+    "- Не добавляй storyImagePrompt — кадры сгенерирует отдельный шаг.",
+    `- В JSON укажи story.targetDurationSec: ${targetDurationSec}.`,
+  ];
+};
+
+/** Правила для LLM при разбиении готовой переписки на story.scenes[] */
+export const buildScenePlanAnimationSyncRules = (
+  conversation: ConversationInput,
+  language: "ru" | "en" = "ru",
+): string[] => {
+  const clipSec = storyAnimationClipSec(conversation);
+  const words = storyReadableWordBudget(clipSec);
+  const {min, max} = getStorySceneDurationSec(conversation);
+  const animation = mergeStoryConfig(conversation).opening.animation;
+  const veo =
+    animation === "video" || animation === "video-parallax"
+      ? language === "en"
+        ? "Veo/I2V clip"
+        : "клип Veo/I2V"
+      : language === "en"
+        ? "animated frame"
+        : "анимированный кадр";
+
+  if (language === "en") {
+    return [
+      `Each scene matches one ${veo} (~${clipSec}s on screen${animation === "video" || animation === "video-parallax" ? "" : `, guide ${min}–${max}s`}).`,
+      `messageFrom..messageTo must be readable within that window: usually 1–3 short lines, ≤~${words} words total.`,
+      "Split into the next scene if the transcript block would exceed the clip — don't assign long dialogue chunks to one frame.",
+      "anchorMessageIndex = the key line for the illustration; beat = what happens visually in that clip.",
+    ];
+  }
+
+  return [
+    `Каждая сцена = один ${veo} (~${clipSec} с на экране${animation === "video" || animation === "video-parallax" ? "" : `, ориентир ${min}–${max} с`}).`,
+    `messageFrom..messageTo должны укладываться в это окно: обычно 1–3 короткие реплики, суммарно до ~${words} слов.`,
+    "Если блок переписки по времени не помещается — вынеси хвост в следующую сцену, не привязывай длинный диалог к одному кадру.",
+    "anchorMessageIndex — ключевая реплика для иллюстрации; beat — что визуально происходит за время клипа.",
+  ];
+};

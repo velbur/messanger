@@ -18,6 +18,7 @@ import {
   DEFAULT_STORY_TARGET_DURATION_SEC,
   computeSceneCountFromTargetSec,
   deriveMessageCountLimitFromTargetSec,
+  buildDialogueAnimationSyncRules,
 } from "./story-scene-timing.mjs";
 
 export const isStoryVisualLayout = (layout) =>
@@ -550,26 +551,8 @@ const buildLanguageRules = (language = "ru", mode = "shorts") => {
   ].filter(Boolean);
 };
 
-const buildTimeBasedStoryRules = (targetDurationSec, language = "ru") => {
-  const scenes = computeSceneCountFromTargetSec(targetDurationSec);
-  const maxMessages = deriveMessageCountLimitFromTargetSec(targetDurationSec);
-  if (language === "en") {
-    return [
-      `- Target Shorts length ~${targetDurationSec}s; story will get ~${scenes} illustrated scenes (~4–6s of meaning each).`,
-      "- Write short chat lines (1–2 lines); group messages into ~5s readable beats — no padding.",
-      `- Use at most ${maxMessages} messages; fewer is fine if the story is tight.`,
-      "- Do not add storyImagePrompt — scene images are generated in a separate step.",
-      "- Set story.targetDurationSec in JSON to match the target length.",
-    ];
-  }
-  return [
-    `- Целевая длительность ролика ~${targetDurationSec} с; будет ~${scenes} смен иллюстраций (~4–6 с смысла на кадр).`,
-    "- Короткие реплики (1–2 строки); каждый блок текста — один смысловой отрезок ~5 с, без воды.",
-    `- Не больше ${maxMessages} сообщений; меньше — нормально, если сцена уложилась.`,
-    "- Не добавляй storyImagePrompt — кадры сгенерирует отдельный шаг.",
-    `- В JSON укажи story.targetDurationSec: ${targetDurationSec}.`,
-  ];
-};
+const buildTimeBasedStoryRules = (targetDurationSec, language = "ru") =>
+  buildDialogueAnimationSyncRules(targetDurationSec, language === "en" ? "en" : "ru");
 
 const targetDurationUserHint = (targetDurationSec, language = "ru") => {
   if (targetDurationSec == null) {
