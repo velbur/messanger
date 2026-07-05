@@ -363,8 +363,10 @@ const syncTargetDurationFromJson = () => {
 const syncDialogueGenDurationControls = () => {
   const storyTimeMode =
     editorKind === "shorts" && isStoryVideoLayoutSelected();
+  const showMessageCount =
+    editorKind !== "video" && !storyTimeMode;
   if (dialogueGenMessageCountRow) {
-    dialogueGenMessageCountRow.hidden = storyTimeMode || editorKind === "video";
+    dialogueGenMessageCountRow.hidden = !showMessageCount;
   }
   if (dialogueGenTargetDurationRow) {
     dialogueGenTargetDurationRow.hidden = !storyTimeMode;
@@ -635,9 +637,6 @@ const syncEditorKindUi = () => {
   }
   if (videoTextModeRow) {
     videoTextModeRow.hidden = !isVideo;
-  }
-  if (dialogueGenMessageCountRow) {
-    dialogueGenMessageCountRow.hidden = isVideo;
   }
   syncDialogueGenDurationControls();
   if (dialoguePromptHint) {
@@ -959,6 +958,7 @@ const updateContentViewVisibility = () => {
 const showEditorView = async () => {
   editorVisible = true;
   updateContentViewVisibility();
+  syncDialogueGenDurationControls();
 };
 
 const updateSeriesBrowseVisibility = () => {
@@ -1469,6 +1469,7 @@ const newDialogue = async ({openEditor = false} = {}) => {
   if (editorKind === "shorts") {
     applyShortsGenDefaults();
     setVideoLayout("storyOverlay");
+    syncDialogueGenDurationControls();
   }
   if (editorKind === "video") {
     applyShortsGenDefaults();
@@ -7262,7 +7263,8 @@ initEditorPreferenceControls();
 updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
-        syncEditorKindUi();
+syncEditorKindUi();
+syncDialogueGenDurationControls();
 
 window.addEventListener("popstate", () => {
   void (async () => {

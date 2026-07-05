@@ -242,7 +242,7 @@
                 <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
               <div class="dialogue-gen-options" id="dialogueGenOptions">
-                <label class="dialogue-gen-option" id="dialogueGenMessageCountRow">
+                <label class="dialogue-gen-option" id="dialogueGenMessageCountRow" hidden>
                   <span class="dialogue-gen-option__label">Сообщений</span>
                   <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
                     <option value="10" selected>до 10</option>
@@ -255,7 +255,7 @@
                     <option value="60">до 60</option>
                   </select>
                 </label>
-                <label class="dialogue-gen-option" id="dialogueGenTargetDurationRow" hidden>
+                <label class="dialogue-gen-option" id="dialogueGenTargetDurationRow">
                   <span class="dialogue-gen-option__label">Длительность</span>
                   <select id="dialogueTargetDuration" class="select select--compact" title="Целевое время ролика">
                     <option value="45">45 с</option>

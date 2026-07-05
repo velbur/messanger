@@ -454,6 +454,10 @@ body {
   color: #aebac1;
 }
 
+.dialogue-gen-option[hidden] {
+  display: none !important;
+}
+
 .dialogue-gen-option--wide {
   flex: 1 1 220px;
   min-width: 200px;
