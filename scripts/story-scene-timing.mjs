@@ -6,6 +6,7 @@ export {
   getStorySceneDurationSec,
   estimateTimelineOverheadMs,
   estimateMessagesOnlyDurationMs,
+  storySceneTrackDurationMs,
   estimateContentDurationMs,
   computeSceneCountFromTarget,
   computeSceneCountFromTargetSec,
@@ -14,5 +15,6 @@ export {
   buildMessageTimelineMs,
   suggestSceneAnchorsByTime,
   getStoryScenes,
+  assignStorySceneTimeSlots,
   sceneAnchorMessageIndices,
 } from "../src/chat/story-scene-timing.ts";

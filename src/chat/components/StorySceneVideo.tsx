@@ -73,7 +73,7 @@ export const StorySceneVideo: React.FC<Props> = ({
   const isDepthParallax = fallbackAnimation === "depthParallax";
   const lastSourceFrame = Math.max(0, storyVideoSourceFrameCount(videoDurationMs) - 1);
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, fps);
-  const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
+  const playFrames = videoDurationFrames;
   const handoffFrame = isDepthParallax
     ? storyVideoParallaxHandoffFrame(videoDurationMs, fps, sceneDurationFrames)
     : playFrames;

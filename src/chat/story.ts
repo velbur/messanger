@@ -10,7 +10,7 @@ import {
   type StoryColorFilter,
 } from "./story-color-filter";
 
-export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v30";
+export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v31";
 /** Ревизия StorySceneVideo: localFrame от StoryPanel, не глобальный useCurrentFrame */
 export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v2";
 

@@ -1,5 +1,5 @@
 import {
-  buildMessageTimelineMs,
+  assignStorySceneTimeSlots,
   getStoryScenes,
 } from "./story-scene-timing.mjs";
 
@@ -88,27 +88,8 @@ export const applyLegacyMessageIndices = (conversation, {includeOpening, message
   return conversation;
 };
 
-export const enrichScenesWithTimelineMs = (conversation, scenes) => {
-  const rows = buildMessageTimelineMs(conversation);
-  const rowByIndex = new Map(rows.map((r) => [r.index, r]));
-
-  return scenes.map((scene, order) => {
-    const fromRow = rowByIndex.get(scene.messageFrom);
-    const toRow = rowByIndex.get(scene.messageTo);
-    const anchorRow = rowByIndex.get(scene.anchorMessageIndex);
-    const nextScene = scenes[order + 1];
-    const nextRow = nextScene ? rowByIndex.get(nextScene.anchorMessageIndex) : null;
-
-    return {
-      ...scene,
-      estimatedStartMs:
-        scene.estimatedStartMs ?? fromRow?.startMs ?? anchorRow?.revealMs ?? 0,
-      estimatedEndMs:
-        scene.estimatedEndMs ??
-        (nextRow ? nextRow.revealMs : toRow?.endMs ?? anchorRow?.endMs ?? 0),
-    };
-  });
-};
+export const enrichScenesWithTimelineMs = (conversation, scenes) =>
+  assignStorySceneTimeSlots(conversation, scenes);
 
 export const scenesFromLegacyMessageIndices = (conversation, {includeOpening, messageIndices, rationale = ""}) => {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];

@@ -25,6 +25,7 @@ import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUN
 import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
+import {assignStorySceneTimeSlots, getStoryScenes} from "./story-scene-timing";
 
 /** Пауза на последнем кадре переписки перед заставками (музыка доигрывает в этот хвост) */
 export const POST_LAST_MESSAGE_TAIL_MS = 8000;
@@ -51,7 +52,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-color-filter-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-scene-time-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -230,21 +231,28 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
     cursor = endFrame;
   });
 
+  const chatEndFrame = cursor;
+  const story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
+
+  const storyTrackEndFrame =
+    story.enabled && story.sceneEvents.length > 0
+      ? Math.max(...story.sceneEvents.map((event) => event.endFrame))
+      : chatEndFrame;
+  const contentEndFrame = Math.max(chatEndFrame, storyTrackEndFrame);
+
   const outro = mergeConversationOutro(conversation);
   const tailFrames = msToFrames(scaleConversationMs(conversation, POST_LAST_MESSAGE_TAIL_MS));
   const outroPause = outro.enabled ? outroPauseFrames(outro, conversation) : 0;
   const endCardFrames = endCard.enabled
     ? msToFrames(scaleConversationMs(conversation, endCard.durationMs))
     : 0;
-  const endCardStart = cursor + tailFrames + outroPause;
+  const endCardStart = contentEndFrame + tailFrames + outroPause;
   const outroFrames = outro.enabled ? outroDurationFrames(outro, conversation) : 0;
   const outroStart = endCardStart + endCardFrames;
 
   const previewCover = mergePreviewCover(conversation);
   const previewCoverFrames = previewCoverDurationFrames(previewCover);
   const previewCoverStart = outroStart + outroFrames;
-
-  const story = buildStoryTimeline(conversation, events, introFrames, outroStart);
 
   return {
     events,
@@ -335,38 +343,74 @@ const buildStoryTimeline = (
   }
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
-  const sceneIndices = conversation.messages
-    .map((message, index) => (message.storyImage?.trim() ? index : -1))
-    .filter((index) => index >= 0);
+  const plannedScenes = getStoryScenes(conversation);
+  const sceneOriginFrame = immediateFirstScene
+    ? (events[0]?.revealFrame ?? splitCompleteFrame)
+    : splitCompleteFrame;
 
-  sceneIndices.forEach((messageIndex, sceneOrder) => {
-    const message = conversation.messages[messageIndex];
-    const image = message.storyImage?.trim();
-    if (!image) {
-      return;
-    }
+  if (plannedScenes.length > 0) {
+    const timedScenes = assignStorySceneTimeSlots(conversation, plannedScenes);
+    timedScenes.forEach((scene) => {
+      const message = conversation.messages[scene.anchorMessageIndex];
+      const image = message?.storyImage?.trim() || scene.image?.trim();
+      if (!image) {
+        return;
+      }
 
-    const startFrame =
-      messageIndex === 0 && immediateFirstScene
-        ? firstRevealFrame
-        : Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
-    const nextSceneIndex = sceneIndices[sceneOrder + 1];
-    const endFrame =
-      nextSceneIndex !== undefined
-        ? (events[nextSceneIndex]?.revealFrame ?? chatEndFrame)
-        : chatEndFrame;
+      const startMs = scene.estimatedStartMs ?? 0;
+      const endMs = scene.estimatedEndMs ?? startMs;
+      let startFrame = sceneOriginFrame + msToFrames(startMs);
+      let endFrame = sceneOriginFrame + msToFrames(Math.max(endMs, startMs + 1));
+      const videoMs = message?.storyVideoDurationMs;
+      if (typeof videoMs === "number" && videoMs > 0) {
+        endFrame = Math.max(endFrame, startFrame + msToFrames(videoMs));
+      }
 
-    sceneEvents.push({
-      messageIndex,
-      image,
-      video: message.storyVideo?.trim() || undefined,
-      videoDurationMs: message.storyVideoDurationMs,
-      videoLoop: resolveStoryVideoLoop(message.storyVideoLoop, message.storyImagePrompt),
-      startFrame,
-      endFrame,
-      sfx: sfxConfig.enabled ? resolveStorySfxCues(message.storySfx) : [],
+      sceneEvents.push({
+        messageIndex: scene.anchorMessageIndex,
+        image,
+        video: message?.storyVideo?.trim() || undefined,
+        videoDurationMs: message?.storyVideoDurationMs,
+        videoLoop: resolveStoryVideoLoop(message?.storyVideoLoop, message?.storyImagePrompt),
+        startFrame,
+        endFrame,
+        sfx: sfxConfig.enabled ? resolveStorySfxCues(message?.storySfx) : [],
+      });
     });
-  });
+  } else {
+    const sceneIndices = conversation.messages
+      .map((message, index) => (message.storyImage?.trim() ? index : -1))
+      .filter((index) => index >= 0);
+
+    sceneIndices.forEach((messageIndex, sceneOrder) => {
+      const message = conversation.messages[messageIndex];
+      const image = message.storyImage?.trim();
+      if (!image) {
+        return;
+      }
+
+      const startFrame =
+        messageIndex === 0 && immediateFirstScene
+          ? firstRevealFrame
+          : Math.max(events[messageIndex]?.revealFrame ?? splitCompleteFrame, splitCompleteFrame);
+      const nextSceneIndex = sceneIndices[sceneOrder + 1];
+      const endFrame =
+        nextSceneIndex !== undefined
+          ? (events[nextSceneIndex]?.revealFrame ?? chatEndFrame)
+          : chatEndFrame;
+
+      sceneEvents.push({
+        messageIndex,
+        image,
+        video: message.storyVideo?.trim() || undefined,
+        videoDurationMs: message.storyVideoDurationMs,
+        videoLoop: resolveStoryVideoLoop(message.storyVideoLoop, message.storyImagePrompt),
+        startFrame,
+        endFrame,
+        sfx: sfxConfig.enabled ? resolveStorySfxCues(message.storySfx) : [],
+      });
+    });
+  }
 
   const openingSfx =
     sfxConfig.enabled && conversation.story?.opening?.storySfx

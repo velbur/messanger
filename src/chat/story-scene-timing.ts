@@ -118,12 +118,16 @@ export const estimateMessagesOnlyDurationMs = (conversation: ConversationInput):
   return total;
 };
 
+/** Длительность story-контента по целевому времени ролика (без привязки к скорости чата). */
+export const storySceneTrackDurationMs = (conversation: ConversationInput): number => {
+  const targetMs = getStoryTargetDurationSec(conversation) * 1000;
+  return Math.max(0, targetMs - estimateTimelineOverheadMs(conversation));
+};
+
 /** Контентное окно для сцен: targetDuration или фактическая переписка минус overhead. */
 export const estimateContentDurationMs = (conversation: ConversationInput): number => {
-  const targetMs = getStoryTargetDurationSec(conversation) * 1000;
-  const overhead = estimateTimelineOverheadMs(conversation);
+  const fromTarget = storySceneTrackDurationMs(conversation);
   const messagesMs = estimateMessagesOnlyDurationMs(conversation);
-  const fromTarget = Math.max(0, targetMs - overhead);
   return Math.max(messagesMs, fromTarget);
 };
 
@@ -235,6 +239,51 @@ export const getStoryScenes = (conversation: ConversationInput): StoryScenePlanE
       typeof scene.beat === "string" &&
       typeof scene.anchorMessageIndex === "number",
   );
+};
+
+/** Длительность story-слота с учётом Veo (не короче клипа). */
+const sceneSlotDurationMs = (
+  conversation: ConversationInput,
+  scene: StoryScenePlanEntry,
+): number => {
+  const {min, max} = getStorySceneDurationSec(conversation);
+  const minSlotMs = min * 1000;
+  const maxSlotMs = max * 1000;
+  const message = conversation.messages[scene.anchorMessageIndex];
+  const videoMs =
+    typeof message?.storyVideoDurationMs === "number" && message.storyVideoDurationMs > 0
+      ? message.storyVideoDurationMs
+      : 0;
+  return Math.max(minSlotMs, Math.min(maxSlotMs, videoMs || minSlotMs));
+};
+
+/**
+ * Равномерная сетка сцен по целевому времени ролика — не по скорости переписки.
+ * estimatedStartMs/EndMs отсчитываются от начала story-контента (0 = первый кадр сцен).
+ */
+export const assignStorySceneTimeSlots = (
+  conversation: ConversationInput,
+  scenes: StoryScenePlanEntry[],
+): StoryScenePlanEntry[] => {
+  if (scenes.length === 0) {
+    return [];
+  }
+
+  const contentMs = storySceneTrackDurationMs(conversation);
+  const evenSlotMs = contentMs / scenes.length;
+  let cursorMs = 0;
+
+  return scenes.map((scene) => {
+    const durationMs = Math.max(sceneSlotDurationMs(conversation, scene), evenSlotMs);
+    const startMs = cursorMs;
+    const endMs = startMs + durationMs;
+    cursorMs = endMs;
+    return {
+      ...scene,
+      estimatedStartMs: Math.round(startMs),
+      estimatedEndMs: Math.round(endMs),
+    };
+  });
 };
 
 export const sceneAnchorMessageIndices = (conversation: ConversationInput): number[] => {

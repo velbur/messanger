@@ -34,12 +34,12 @@ const CACHE_DIR = path.join(ROOT, ".cache/huggingface");
 const RAW_TMP_DIR = path.join(ROOT, ".cache/parallax-raw");
 
 /** Меняй при правках алгоритма — старые ассеты пересоберутся */
-export const DEPTH_LAYER_VERSION = 55;
+export const DEPTH_LAYER_VERSION = 56;
 
-/** Доля ширины кадра — амплитуда движения камеры */
-const PARALLAX_AMPLITUDE_FRAC = 0.1;
-/** Ken Burns-зум поверх parallax */
-const PARALLAX_ZOOM_FRAC = 0.046;
+/** Доля ширины кадра — амплитуда движения камеры (ниже = меньше артефактов на краях) */
+const PARALLAX_AMPLITUDE_FRAC = 0.055;
+/** Лёгкий Ken Burns-зум поверх parallax */
+const PARALLAX_ZOOM_FRAC = 0.058;
 /** Кадров в bake, если нет таймлайна разговора (тест / одиночный кадр) */
 const PARALLAX_DEFAULT_FRAMES = 90;
 const PARALLAX_MOTION = "linear";
@@ -50,9 +50,9 @@ export const VIDEO_PARALLAX_HOLD_SWEEP = "oscillate";
 /** Полных циклов влево→вправо→влево за фазу parallax (~4 за 15 с) */
 export const VIDEO_PARALLAX_HOLD_OSCILLATIONS = 1;
 /** Зум за фазу parallax; t=0 → 1.0 (стык с hold PNG) */
-export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0.036;
-/** Амплитуда hold-фазы после Veo — между «слабо» и «артефакты» */
-export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.15;
+export const VIDEO_PARALLAX_HOLD_ZOOM_FRAC = 0.05;
+/** Hold после Veo: умеренный pan, без раздвоения на depth-краях */
+export const VIDEO_PARALLAX_HOLD_AMPLITUDE_FRAC = 0.06;
 
 /** Supersample-фактор для варпа: рендер в N× + downscale (чище края, дороже bake) */
 const PARALLAX_SUPERSAMPLE = 1.5;
@@ -289,7 +289,7 @@ const bakeParallaxAsset = async ({
         sweep,
         zoomFrac,
         holdHandoff,
-        panYGain: holdHandoff && sweep === "oscillate" ? 0.22 : holdHandoff ? 0.42 : undefined,
+        panYGain: holdHandoff && sweep === "oscillate" ? 0.12 : holdHandoff ? 0.28 : undefined,
         oscillations:
           holdHandoff && sweep === "oscillate"
             ? (oscillations ?? VIDEO_PARALLAX_HOLD_OSCILLATIONS)

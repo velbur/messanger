@@ -67,7 +67,7 @@ export const storyVideoParallaxHandoffFrame = (
   sceneDurationFrames: number,
 ): number => {
   const videoDurationFrames = storyVideoForwardDurationFrames(videoDurationMs, compositionFps);
-  const playFrames = Math.min(videoDurationFrames, sceneDurationFrames);
+  const playFrames = videoDurationFrames;
   return Math.max(2, playFrames - STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES);
 };
 
@@ -119,20 +119,20 @@ export const storyVideoSceneMotion = (
   const t = sceneLocalFrame / FPS;
   // cinematicEase — быстрый старт, поэтому движение заметно уже в первые секунды
   const progress = sceneMotionProgress(sceneLocalFrame, STORY_VIDEO_ZOOM_RAMP_FRAMES);
-  const rampScale = interpolate(progress, [0, 1], [1.0, 1.1], {
+  const rampScale = interpolate(progress, [0, 1], [1.0, 1.04], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const extraDrift = Math.min(
-    0.04,
-    (Math.max(0, sceneLocalFrame - STORY_VIDEO_ZOOM_RAMP_FRAMES) / (30 * FPS)) * 0.04,
+    0.02,
+    (Math.max(0, sceneLocalFrame - STORY_VIDEO_ZOOM_RAMP_FRAMES) / (30 * FPS)) * 0.02,
   );
-  const breathe = 0.01 * Math.sin(t * 0.6 + seed * 0.013);
+  const breathe = 0.006 * Math.sin(t * 0.6 + seed * 0.013);
   const panPhase = t * 0.5 + seed * 0.019;
   return {
     scale: rampScale + extraDrift + breathe,
-    translateX: panX * (progress * 1.6 + 0.5 * Math.sin(panPhase)),
-    translateY: panY * (progress * 1.0 + 0.32 * Math.cos(panPhase * 0.9)),
+    translateX: panX * (progress * 0.7 + 0.25 * Math.sin(panPhase)),
+    translateY: panY * (progress * 0.45 + 0.18 * Math.cos(panPhase * 0.9)),
   };
 };
 

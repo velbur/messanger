@@ -153,7 +153,7 @@ def compress_displacement(disp: np.ndarray) -> np.ndarray:
 
 # Доля амплитуды на перпендикулярную дугу: превращает прямой ход «туда-обратно»
 # в мягкий эллиптический облёт (ощущение живой 3D-камеры, а не слайдера).
-PARALLAX_ARC_FRAC = 0.34
+PARALLAX_ARC_FRAC = 0.18
 
 
 def camera_phase(t: float) -> float:
@@ -252,9 +252,9 @@ def build_layers(img: np.ndarray, depth: np.ndarray, w: int, h: int):
     # Шире, чем «плоский» 0.6/0.82/1.0 → выразительнее объём без разрыва силуэтов
     # (за ближним планом всегда inpaint'нутый фон).
     return [
-        {"rgb": far_rgb, "alpha": a_far, "depth": far_depth, "gain": 0.5, "opaque": True},
-        {"rgb": mid_rgb, "alpha": a_mid, "depth": mid_depth, "gain": 0.82, "opaque": False},
-        {"rgb": img, "alpha": a_near, "depth": depth, "gain": 1.12, "opaque": False},
+        {"rgb": far_rgb, "alpha": a_far, "depth": far_depth, "gain": 0.42, "opaque": True},
+        {"rgb": mid_rgb, "alpha": a_mid, "depth": mid_depth, "gain": 0.68, "opaque": False},
+        {"rgb": img, "alpha": a_near, "depth": depth, "gain": 0.95, "opaque": False},
     ]
 
 
