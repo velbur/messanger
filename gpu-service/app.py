@@ -80,7 +80,7 @@ _upscaler_model = None
 _device = "cuda" if torch.cuda.is_available() else "cpu"
 _gpu_lock = asyncio.Lock()
 _active_model: str = "none"
-GPU_STARTUP_MODEL = os.environ.get("GPU_STARTUP_MODEL", "none").strip().lower()
+GPU_STARTUP_MODEL = os.environ.get("GPU_STARTUP_MODEL", "wan").strip().lower()
 
 
 class JobStatus(str, Enum):

@@ -12,6 +12,9 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
+# Story-кадры на Gemini; на GPU по умолчанию только Wan I2V
+export GPU_STARTUP_MODEL="${GPU_STARTUP_MODEL:-wan}"
+
 if ! [[ -f "$ROOT/models/wan-i2v-14b-720p/vae/config.json" ]]; then
   echo "Веса Wan не найдены. Сначала: ./download_models.sh" >&2
   exit 1

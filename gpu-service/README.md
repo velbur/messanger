@@ -57,7 +57,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration 
 | `GPU_I2V_WIDTH` / `GPU_I2V_HEIGHT` | `1080` / `1920` | Финальное разрешение |
 | `GPU_I2V_STEPS` | `30` | Шаги диффузии (меньше = быстрее, хуже детали; для теста: 15) |
 | `GPU_I2V_GUIDANCE` | `5.0` | guidance_scale |
-| `GPU_STARTUP_MODEL` | `none` | При старте: `none` (не грузить), `flux` или `wan` |
+| `GPU_STARTUP_MODEL` | `wan` | При старте: `wan` (I2V), `flux` (T2I), `none` (не грузить) |
 
 ## Доставка весов (эфемерный сервер)
 
@@ -74,7 +74,8 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 
 - **Диск переживает stop/start** (ваш провайдер) → веса остаются в `./models`, качать заново не нужно. После рестарта VM:
   ```bash
-  cd gpu-service && GPU_STARTUP_MODEL=none ./start-server.sh
+  cd gpu-service && ./start-server.sh
+  # без предзагрузки: GPU_STARTUP_MODEL=none ./start-server.sh
   ```
   Модель в VRAM не загружается при старте — переключите через API или UI перед работой.
 - **Диск обнуляется** → сделайте **снапшот образа** после первого `./download_models.sh` (рестарт = готовый сервер).
