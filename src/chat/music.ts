@@ -10,7 +10,7 @@ export type ConversationMusic = {
 
 export const DEFAULT_MUSIC: ConversationMusic = {
   enabled: true,
-  src: "music/romantic-beautiful-dream.mp3",
+  src: "music/2007.mp3",
   volume: 0.24,
 };
 

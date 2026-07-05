@@ -8,8 +8,16 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 export const AUDIO_DIR = path.join(ROOT, "audio");
 export const PUBLIC_MUSIC_DIR = path.join(ROOT, "public", "music");
 
-/** Не показывать в UI (старые треки / только для legacy JSON) */
-export const HIDDEN_TRACKS = new Set(["velvet-receiver.mp3"]);
+/** Не показывать в UI (старые stock-треки / только для legacy JSON) */
+export const HIDDEN_TRACKS = new Set([
+  "velvet-receiver.mp3",
+  "romantic.mp3",
+  "fun.mp3",
+  "mystic.mp3",
+  "kremlin.mp3",
+  "Thermal Relay.mp3",
+  "romantic-beautiful-dream.mp3",
+]);
 
 /** Legacy подписи для старых имён файлов */
 export const TRACK_LABELS = {
@@ -34,7 +42,7 @@ export const MUSIC_TRACK_MOODS = {
   "2007.mp3": ["story", "dramatic", "nostalgic", "neutral", "calm"],
 };
 
-export const DEFAULT_MUSIC_ID = "romantic-beautiful-dream.mp3";
+export const DEFAULT_MUSIC_ID = "2007.mp3";
 
 const isMp3 = (name) => name.toLowerCase().endsWith(".mp3");
 
@@ -87,8 +95,8 @@ const loadLibraryTracks = async () => {
         title: track.title ?? track.label,
         category: track.category ?? null,
         moods: track.moods ?? [],
-        license: track.license ?? library.license?.name ?? "Mixkit Free License",
-        licenseUrl: track.licenseUrl ?? library.license?.url ?? "https://mixkit.co/license/",
+        license: track.license ?? library.license?.name ?? "Custom",
+        licenseUrl: track.licenseUrl ?? library.license?.url ?? null,
         licenseNote: track.licenseNote ?? library.license?.note ?? null,
         sourceUrl: track.sourceUrl ?? null,
         src: `music/${track.id}`,

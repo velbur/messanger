@@ -659,7 +659,7 @@ const updateImageProviderControls = () => {
     }
   }
 };
-let defaultMusicId = "romantic-beautiful-dream.mp3";
+let defaultMusicId = "2007.mp3";
 /** @type {Array<{id:string,label:string,previewUrl?:string,license?:string,licenseUrl?:string,category?:string}>} */
 let musicTrackCatalog = [];
 let musicLicenseInfo = null;
@@ -3781,7 +3781,7 @@ const renderMusicCatalog = () => {
   const currentId = getMusicId();
 
   if (musicCatalogLicense) {
-    const licenseName = musicLicenseInfo?.name ?? "Mixkit Free License";
+    const licenseName = musicLicenseInfo?.name ?? "Custom";
     const licenseUrl = musicLicenseInfo?.url ?? "https://mixkit.co/license/";
     const note =
       musicLicenseInfo?.note ??
