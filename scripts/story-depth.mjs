@@ -26,6 +26,7 @@ import {
   isDepthV2Available,
   readDepthRawFile,
 } from "./story-depth-v2.mjs";
+import {resolveWorkerConcurrency, runWithConcurrency} from "./concurrency.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -498,6 +499,10 @@ const storyImagesWithVideoHybrid = (conversation) => {
   return set;
 };
 
+/** Параллельных parallax bake (CPU: opencv + ffmpeg). Env: STORY_DEPTH_BAKE_CONCURRENCY */
+export const resolveParallaxBakeConcurrency = () =>
+  resolveWorkerConcurrency("STORY_DEPTH_BAKE_CONCURRENCY", {defaultMin: 2, defaultMax: 6});
+
 export const ensureStoryDepthForConversation = async (conversation, {force = false} = {}) => {
   if (!isStoryVisualLayout(conversation)) {
     return [];
@@ -544,7 +549,18 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     provider,
   );
 
-  for (const {imagePath, frames, sceneIndex, panX, panY} of pending) {
+  const bakeConcurrency = resolveParallaxBakeConcurrency();
+  if (pending.length > 1) {
+    logs.push(`Parallax bake: параллельно до ${bakeConcurrency} сцен (${pending.length} в очереди)`);
+  }
+
+  const baked = await runWithConcurrency(pending, bakeConcurrency, async ({
+    imagePath,
+    frames,
+    sceneIndex,
+    panX,
+    panY,
+  }) => {
     const {absolute: imageAbs} = safePublicAbs(imagePath);
     const paths = storyLayerPaths(imagePath);
     const entry = depthMaps.get(imagePath);
@@ -565,9 +581,14 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     });
     const model = entry.metaExtra?.model ? ` (${entry.metaExtra.model})` : "";
     const dir = panX > 0 ? "вправо" : "влево";
-    logs.push(
-      `Parallax: clip запечён (${frames} кадров, сцена ${sceneIndex}, ${dir})${model} → ${imagePath}`,
-    );
+    return {
+      sceneIndex,
+      log: `Parallax: clip запечён (${frames} кадров, сцена ${sceneIndex}, ${dir})${model} → ${imagePath}`,
+    };
+  });
+
+  for (const {log} of baked.sort((a, b) => a.sceneIndex - b.sceneIndex)) {
+    logs.push(log);
   }
 
   return logs;

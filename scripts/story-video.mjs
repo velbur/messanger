@@ -26,8 +26,9 @@ import {ensureLocalGpuModel} from "./local-gpu-models.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
 import {ensureStoryVideoHoldFrameFile} from "./story-video-hold-frame.mjs";
-import {ensureVideoParallaxHoldDepth} from "./story-depth.mjs";
+import {ensureVideoParallaxHoldDepth, resolveParallaxBakeConcurrency} from "./story-depth.mjs";
 import {buildTimeline} from "../src/chat/timeline.ts";
+import {runWithConcurrency} from "./concurrency.mjs";
 import {FPS} from "../src/chat/fps.ts";
 import {videoParallaxPhaseFrames, VIDEO_PARALLAX_EXTRA_SEC} from "./render-video-parallax-preview.mjs";
 import {storyVideoForwardDurationFrames} from "../src/chat/story-motion.ts";
@@ -740,6 +741,7 @@ export const ensureVideoParallaxHoldsForConversation = async (conversation, {for
     return logs;
   }
 
+  const jobs = [];
   for (const target of collectStoryVideoTargets(conversation)) {
     let videoRef = String(target.holder?.storyVideo ?? "").trim();
     if (!videoRef) {
@@ -761,8 +763,34 @@ export const ensureVideoParallaxHoldsForConversation = async (conversation, {for
     if (!existsSync(absolute)) {
       continue;
     }
-    await ensureStoryVideoHoldFrameFile(videoRef, logs);
-    await bakeHoldParallaxAfterVideo(conversation, target, videoRef, logs, {force});
+
+    jobs.push({
+      target,
+      videoRef,
+      order: target.kind === "opening" ? -1 : (target.messageIndex ?? 0),
+    });
+  }
+
+  if (jobs.length === 0) {
+    return logs;
+  }
+
+  const bakeConcurrency = resolveParallaxBakeConcurrency();
+  if (jobs.length > 1) {
+    logs.push(`Parallax hold: параллельно до ${bakeConcurrency} сцен (${jobs.length} в очереди)`);
+  }
+
+  const batches = await runWithConcurrency(jobs, bakeConcurrency, async ({target, videoRef}) => {
+    const entryLogs = [];
+    await ensureStoryVideoHoldFrameFile(videoRef, entryLogs);
+    await bakeHoldParallaxAfterVideo(conversation, target, videoRef, entryLogs, {force});
+    return entryLogs;
+  });
+
+  for (const batch of batches) {
+    for (const line of batch) {
+      logs.push(line);
+    }
   }
 
   return logs;

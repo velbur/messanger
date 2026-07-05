@@ -44,6 +44,8 @@ export RENDER_WORKER=1
 export PORT
 export WORKER_GPU="${WORKER_GPU:-1}"
 export STORY_DEPTH_PROVIDER="${STORY_DEPTH_PROVIDER:-auto}"
+# Параллельный parallax bake (opencv + ffmpeg на CPU). На A10 обычно 4–6.
+export STORY_DEPTH_BAKE_CONCURRENCY="${STORY_DEPTH_BAKE_CONCURRENCY:-4}"
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 # Не требуем OPENROUTER / :8008 — воркер не генерирует картинки и Veo
 unset LOCAL_GPU_VIDEO_URL 2>/dev/null || true
