@@ -38,6 +38,8 @@ const storyAnimationHint = document.getElementById("storyAnimationHint");
 const storyAnimationInputs = document.querySelectorAll('input[name="storyAnimation"]');
 const storySceneTransitionRow = document.getElementById("storySceneTransitionRow");
 const storySceneTransitionSelect = document.getElementById("storySceneTransitionSelect");
+const storyColorFilterRow = document.getElementById("storyColorFilterRow");
+const storyColorFilterSelect = document.getElementById("storyColorFilterSelect");
 const musicSelect = document.getElementById("musicSelect");
 const btnPreviewMusic = document.getElementById("btnPreviewMusic");
 const btnOpenMusicCatalog = document.getElementById("btnOpenMusicCatalog");
@@ -1334,6 +1336,7 @@ const applyDialogueToEditor = (dialogue) => {
   syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
   syncStorySceneTransitionFromJson();
+  syncStoryColorFilterFromJson();
   syncMessageFontSizeFromJson();
   syncVoiceoverFromJson();
   syncEpisodesFromJson();
@@ -2542,6 +2545,7 @@ const prepareJsonForRender = () => {
   applyMusicToJson();
   applyStoryAnimationToJson();
   applyStorySceneTransitionToJson();
+  applyStoryColorFilterToJson();
   const json = jsonInput.value.trim();
   if (!json) {
     return "";
@@ -2747,6 +2751,15 @@ const STORY_ANIMATION_HINT_BASE =
   "Depth parallax — сдвиг по карте глубины (цикл 3 с). Ken Burns — лёгкий наезд без depth.";
 
 const STORY_SCENE_TRANSITION_VALUES = new Set(["crossfade", "zoom", "push"]);
+const STORY_COLOR_FILTER_VALUES = new Set([
+  "none",
+  "warm",
+  "cold",
+  "cinematic",
+  "vintage",
+  "noir",
+  "vivid",
+]);
 
 const isStoryVideoAnimationAvailable = (storyVideo) => Boolean(storyVideo?.configured);
 
@@ -2806,6 +2819,7 @@ const updateStoryAnimationControls = () => {
   const storyLayout = getVideoLayout() !== "chat";
   storyAnimationRow?.toggleAttribute("hidden", !storyLayout);
   storySceneTransitionRow?.toggleAttribute("hidden", !storyLayout);
+  storyColorFilterRow?.toggleAttribute("hidden", !storyLayout);
 };
 
 const getStorySceneTransition = () => {
@@ -2844,6 +2858,42 @@ const syncStorySceneTransitionFromJson = () => {
     return;
   }
   setStorySceneTransition(parsed.story?.sceneTransition ?? "zoom");
+};
+
+const getStoryColorFilter = () => {
+  const value = storyColorFilterSelect?.value;
+  return STORY_COLOR_FILTER_VALUES.has(value) ? value : "none";
+};
+
+const setStoryColorFilter = (filter) => {
+  if (!storyColorFilterSelect) {
+    return;
+  }
+  storyColorFilterSelect.value = STORY_COLOR_FILTER_VALUES.has(filter) ? filter : "none";
+};
+
+const applyStoryColorFilterToJson = () => {
+  if (getVideoLayout() === "chat") {
+    return;
+  }
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (!parsed.story) {
+    parsed.story = {};
+  }
+  parsed.story.colorFilter = getStoryColorFilter();
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const syncStoryColorFilterFromJson = () => {
+  const parsed = parseConversationJson();
+  if (!parsed || !isStoryVisualLayout(parsed)) {
+    setStoryColorFilter("none");
+    return;
+  }
+  setStoryColorFilter(parsed.story?.colorFilter ?? "none");
 };
 
 const applyStoryAnimationToJson = () => {
@@ -3021,6 +3071,7 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
   updateStoryAnimationControls();
   syncStoryAnimationFromJson();
   syncStorySceneTransitionFromJson();
+  syncStoryColorFilterFromJson();
   syncDialogueGenDurationControls();
   if (parsed?.story?.targetDurationSec && dialogueTargetDuration) {
     dialogueTargetDuration.value = String(parsed.story.targetDurationSec);
@@ -6223,6 +6274,7 @@ jsonInput.addEventListener("input", () => {
   syncVideoTextModeFromJson();
   syncStoryAnimationFromJson();
   syncStorySceneTransitionFromJson();
+  syncStoryColorFilterFromJson();
   syncMessageFontSizeFromJson();
   updateWallpaperControls();
   updateStoryAnimationControls();
@@ -6255,6 +6307,7 @@ for (const input of videoLayoutInputs) {
     applyVideoLayoutToJson(getVideoLayout());
     applyStoryAnimationToJson();
     applyStorySceneTransitionToJson();
+  applyStoryColorFilterToJson();
     syncDialogueGenDurationControls();
     scheduleRefreshDialogue();
   });
@@ -6277,6 +6330,11 @@ for (const input of storyAnimationInputs) {
 
 storySceneTransitionSelect?.addEventListener("change", () => {
   applyStorySceneTransitionToJson();
+  scheduleRefreshDialogue();
+});
+
+storyColorFilterSelect?.addEventListener("change", () => {
+  applyStoryColorFilterToJson();
   scheduleRefreshDialogue();
 });
 stylePromptInput.addEventListener("input", scheduleRefreshDialogue);
@@ -7913,6 +7971,7 @@ updateWallpaperControls();
 updateStoryAnimationControls();
 syncStoryAnimationFromJson();
 syncStorySceneTransitionFromJson();
+syncStoryColorFilterFromJson();
 syncEditorKindUi();
 syncDialogueGenDurationControls();
 

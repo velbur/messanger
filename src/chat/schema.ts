@@ -323,6 +323,11 @@ export const conversationSchema = z.object({
         .optional(),
       /** Переход между story-кадрами: dissolve, zoom-punch или горизонтальный push */
       sceneTransition: z.enum(["crossfade", "zoom", "push"]).optional().default("zoom"),
+      /** Цветовой фильтр story-панели */
+      colorFilter: z
+        .enum(["none", "warm", "cold", "cinematic", "vintage", "noir", "vivid"])
+        .optional()
+        .default("none"),
       /** Длина одного бесшовного цикла Ken Burns / parallax, сек (2–8) */
       motionLoopSec: z.number().min(2).max(8).optional().default(3),
       splitTransitionMs: z.number().min(200).max(2000).optional().default(600),

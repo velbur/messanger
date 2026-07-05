@@ -10,6 +10,7 @@ import {
   TIMING_BUNDLE_MARKER,
 } from "./timing";
 import {getStoryPresentation, isStoryVisualLayout, mergeStoryConfig, STORY_VIDEO_BUNDLE_MARKER, type StorySceneAnimation} from "./story";
+import type {StoryColorFilter} from "./story-color-filter";
 import {
   incomingSceneTransitionStyle,
   outgoingSceneTransitionStyle,
@@ -50,7 +51,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-scene-transition-zoom-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-color-filter-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -106,6 +107,7 @@ export type StoryTimeline = {
   openingAnimation: StorySceneAnimation;
   sceneTransition: StorySceneTransition;
   sceneTransitionFrames: number;
+  colorFilter: StoryColorFilter;
   motionLoopSec: number;
   openingSfx: ResolvedStorySfxCue[];
   sfxMasterVolume: number;
@@ -277,6 +279,7 @@ const buildStoryTimeline = (
     openingAnimation: "video",
     sceneTransition: "zoom",
     sceneTransitionFrames: 15,
+    colorFilter: "none",
     motionLoopSec: 3,
     openingSfx: [],
     sfxMasterVolume: 1,
@@ -397,6 +400,7 @@ const buildStoryTimeline = (
     openingAnimation: storyConfig.opening.animation,
     sceneTransition: storyConfig.sceneTransition,
     sceneTransitionFrames: storySceneTransitionFrames(storyConfig.sceneTransition),
+    colorFilter: storyConfig.colorFilter,
     motionLoopSec: storyConfig.motionLoopSec,
     openingSfx,
     sfxMasterVolume: sfxConfig.masterVolume,

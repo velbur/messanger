@@ -380,6 +380,7 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
               <StoryPanel
                 layers={storyLayers}
                 transitionFlash={storyTransitionFlash}
+                colorFilter={story.colorFilter}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 motionLoopSec={story.motionLoopSec}
@@ -402,6 +403,7 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
               <StoryPanel
                 layers={storyLayers}
                 transitionFlash={storyTransitionFlash}
+                colorFilter={story.colorFilter}
                 height={storyPanelHeight}
                 animation={story.openingAnimation}
                 motionLoopSec={story.motionLoopSec}

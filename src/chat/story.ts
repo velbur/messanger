@@ -4,6 +4,11 @@ import {
   DEFAULT_STORY_SCENE_TRANSITION,
   type StorySceneTransition,
 } from "./story-scene-transition";
+import {
+  coerceStoryColorFilter,
+  DEFAULT_STORY_COLOR_FILTER,
+  type StoryColorFilter,
+} from "./story-color-filter";
 
 export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v30";
 /** Ревизия StorySceneVideo: localFrame от StoryPanel, не глобальный useCurrentFrame */
@@ -24,6 +29,8 @@ export type StoryConfig = {
   opening: StoryOpeningConfig;
   /** Переход между story-кадрами */
   sceneTransition: StorySceneTransition;
+  /** Цветовой фильтр story-панели */
+  colorFilter: StoryColorFilter;
   /** Длина одного бесшовного цикла Ken Burns / parallax, сек */
   motionLoopSec: number;
   splitTransitionMs: number;
@@ -39,6 +46,7 @@ const DEFAULT_OPENING: StoryOpeningConfig = {
 const DEFAULT_STORY: StoryConfig = {
   opening: DEFAULT_OPENING,
   sceneTransition: DEFAULT_STORY_SCENE_TRANSITION,
+  colorFilter: DEFAULT_STORY_COLOR_FILTER,
   motionLoopSec: 3,
   splitTransitionMs: 600,
   topPanelRatio: 0.45,
@@ -84,6 +92,7 @@ export const mergeStoryConfig = (conversation: ConversationInput): StoryConfig =
       animation: coerceStoryAnimation(openingRaw?.animation),
     },
     sceneTransition: coerceStorySceneTransition(raw?.sceneTransition),
+    colorFilter: coerceStoryColorFilter(raw?.colorFilter),
     motionLoopSec:
       typeof raw?.motionLoopSec === "number" && raw.motionLoopSec >= 2 && raw.motionLoopSec <= 8
         ? raw.motionLoopSec
