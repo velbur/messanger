@@ -1,4 +1,25 @@
-# GPU I2V Service (Wan 2.1 → 1080p)
+# GPU-сервер messanger
+
+## Рекомендуемая схема (Mac + GPU)
+
+| Где | Что |
+|-----|-----|
+| **Mac (UI)** | Диалоги, Gemini story-кадры, Veo-клипы, озвучка, prep |
+| **GPU :3333** | Depth, hold-parallax, **Remotion → MP4** |
+| **GPU :8008** | *(опционально)* Wan / FLUX, если `STORY_*_PROVIDER=local-gpu` |
+
+На GPU-сервере достаточно render-воркера:
+
+```bash
+cd /root/messanger
+./gpu-service/start-render-worker.sh   # порт 3333
+```
+
+На Mac (`docs/.env`): `STORY_IMAGE_PROVIDER=openrouter`, `STORY_VIDEO_PROVIDER=veo`, `LOCAL_GPU_RENDER_URL=http://<gpu>:3333`.
+
+---
+
+# GPU I2V Service (Wan 2.1 → 1080p, опционально :8008)
 
 Self-hosted image-to-video для story-кадров: **Wan 2.1 I2V-14B 720P** на GPU, финальный вывод **1080×1920 (9:16)**.
 
@@ -57,7 +78,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration 
 | `GPU_I2V_WIDTH` / `GPU_I2V_HEIGHT` | `1080` / `1920` | Финальное разрешение |
 | `GPU_I2V_STEPS` | `30` | Шаги диффузии (меньше = быстрее, хуже детали; для теста: 15) |
 | `GPU_I2V_GUIDANCE` | `5.0` | guidance_scale |
-| `GPU_STARTUP_MODEL` | `wan` | При старте: `wan` (I2V), `flux` (T2I), `none` (не грузить) |
+| `GPU_STARTUP_MODEL` | `none` | При старте: `none` (только render :3333), `wan` (I2V), `flux` (T2I) |
 
 ## Доставка весов (эфемерный сервер)
 
@@ -98,21 +119,33 @@ curl -X POST http://<server>:8008/models/switch -F "target=none"    # выгру
 
 UI и скрипты переключают автоматически: батч картинок → `flux`, story-видео → `wan`.
 
-## Интеграция с проектом
+## Интеграция с проектом (legacy: Wan/FLUX на :8008)
 
-На машине, где запускается UI / render (docs/.env):
+Если story-кадры и видео генерируете на GPU, а не через OpenRouter:
 
 ```bash
-# Story-кадры 9:16 (FLUX.1-dev)
 export STORY_IMAGE_PROVIDER=local-gpu
-export LOCAL_GPU_VIDEO_URL=http://<server-ip>:8008
-
-# Story-видео (Wan 2.1 I2V)
 export STORY_VIDEO_PROVIDER=local-gpu
-# LOCAL_GPU_VIDEO_URL — тот же URL GPU-сервиса
+export LOCAL_GPU_VIDEO_URL=http://<server-ip>:8008
+export GPU_STARTUP_MODEL=wan   # в gpu-service/.env
+./gpu-service/start-server.sh
 ```
 
-Тесты из репозитория:
+Иначе достаточно `start-render-worker.sh` на :3333 (см. начало README).
+
+## Remotion-рендер (MP4, порт 3333)
+
+Основной режим GPU-сервера — **только сборка** финального ролика:
+
+```bash
+chmod +x gpu-service/start-render-worker.sh
+./gpu-service/start-render-worker.sh
+curl -s http://127.0.0.1:3333/api/render-targets
+```
+
+Mac: `LOCAL_GPU_RENDER_URL`, `LOCAL_GPU_RENDER_DEFAULT=1` в `docs/.env`. В UI — **«GPU-сервер (рендер)»**.
+
+Тесты Wan/FLUX (:8008):
 
 ```bash
 npm run test:local-gpu-image -- --health-only
@@ -135,30 +168,6 @@ curl -o frame.png http://<server>:8008/t2i/jobs/<job_id>/download
 ```
 
 Wan и FLUX **не загружены в VRAM одновременно** — сервис выгружает одну модель перед загрузкой другой.
-
-## Remotion-рендер (MP4) на GPU-сервере
-
-Порт **3333** — отдельный Node-воркер (`RENDER_WORKER=1`), не путать с gpu-service **8008**.
-
-На GPU-сервере (после `git clone` / `rsync` проекта):
-
-```bash
-chmod +x gpu-service/start-render-worker.sh
-./gpu-service/start-render-worker.sh
-# Откройте порт 3333 в firewall
-curl -s http://127.0.0.1:3333/api/render-targets
-```
-
-На Mac (`docs/.env`):
-
-```bash
-LOCAL_GPU_RENDER_URL=http://<gpu-server>:3333
-# или автоматически тот же хост, что LOCAL_GPU_VIDEO_URL, порт 3333:
-# LOCAL_GPU_RENDER_AUTO=1
-# LOCAL_GPU_RENDER_DEFAULT=1   # выбирать GPU-сервер в UI по умолчанию
-```
-
-В UI при сборке появится пункт **«GPU-сервер (рендер)»**. Prep (картинки, Wan) идёт с Mac на :8008; финальный Remotion — на :3333.
 
 ## Доступ с локальной машины
 

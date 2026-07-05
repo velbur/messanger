@@ -399,11 +399,11 @@
                 </label>
                 <label class="theme-option" data-story-i2v-option hidden>
                   <input type="radio" name="storyAnimation" value="video-parallax" />
-                  <span data-story-i2v-label="video-parallax">Wan (4s) + Parallax</span>
+                  <span data-story-i2v-label="video-parallax">Veo (4s) + Parallax</span>
                 </label>
                 <label class="theme-option" data-story-i2v-option hidden>
                   <input type="radio" name="storyAnimation" value="video" />
-                  <span data-story-i2v-label="video">Wan (Full)</span>
+                  <span data-story-i2v-label="video">Veo</span>
                 </label>
               </div>
             </div>
@@ -539,6 +539,9 @@
                 <button type="button" id="btnGenerateImages" class="btn btn-secondary" disabled>
                   Сгенерировать изображения
                 </button>
+                <button type="button" id="btnGenerateAnimations" class="btn btn-secondary" disabled hidden>
+                  Сгенерировать анимацию
+                </button>
                 <span id="imagesGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
@@ -672,6 +675,20 @@
           </button>
           <span id="storyStylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
         </div>
+        <div class="row image-model-row">
+          <label class="label" for="chatImageModelSelect">Модель для чата (4:3)</label>
+          <p class="prompt-tab-hint">
+            Модель OpenRouter для картинок в переписке. Выбор сохраняется в браузере и передаётся при генерации.
+          </p>
+          <select id="chatImageModelSelect" class="select"></select>
+        </div>
+        <div class="row image-model-row">
+          <label class="label" for="storyImageModelSelect">Модель для story (9:16)</label>
+          <p class="prompt-tab-hint">
+            Модель для сюжетных кадров story-split. При STORY_IMAGE_PROVIDER=local-gpu список не влияет на рендер.
+          </p>
+          <select id="storyImageModelSelect" class="select"></select>
+        </div>
       </section>
     </main>
 
@@ -776,6 +793,14 @@
       <div class="lightbox__inner">
         <button type="button" class="lightbox__close" aria-label="Закрыть">×</button>
         <img id="lightboxImg" class="lightbox__img" alt="" />
+      </div>
+    </div>
+
+    <div id="videoLightbox" class="lightbox lightbox--video" hidden aria-hidden="true">
+      <button type="button" class="lightbox__backdrop" aria-label="Закрыть"></button>
+      <div class="lightbox__inner lightbox__inner--video">
+        <button type="button" class="lightbox__close" aria-label="Закрыть">×</button>
+        <video id="lightboxVideo" class="lightbox__video" controls playsinline></video>
       </div>
     </div>
 

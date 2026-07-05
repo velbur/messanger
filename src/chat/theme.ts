@@ -264,8 +264,8 @@ export const CENTER_SCREEN = {
   platePaddingY: S(26),
   platePaddingX: S(36),
   plateRadius: S(22),
-  plateBg: "rgba(8, 14, 20, 0.48)",
-  plateBorder: "rgba(255, 255, 255, 0.08)",
+  plateBg: "rgba(8, 14, 20, 0.30)",
+  plateBorder: "rgba(255, 255, 255, 0.06)",
   plateBlur: 16,
 } as const;
 

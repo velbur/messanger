@@ -1,4 +1,5 @@
 import {existsSync} from "node:fs";
+import {stat} from "node:fs/promises";
 import path from "node:path";
 import {
   OPENROUTER_STORY_VIDEO_PROFILE,
@@ -6,7 +7,7 @@ import {
   storyVideoHoldFramePathForVideo,
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
-import {isStoryVisualLayout} from "./image-assets.mjs";
+import {deletePublicImage, isStoryVisualLayout} from "./image-assets.mjs";
 import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
   getOpenRouterStoryVideoModel,
@@ -205,6 +206,361 @@ export const countPendingStoryVideos = (conversation) => {
   ).length;
 };
 
+export const findStoryVideoTarget = (conversation, messageIndex) => {
+  const targets = collectStoryVideoTargets(conversation);
+  if (messageIndex == null) {
+    return targets.find((target) => target.kind === "opening") ?? null;
+  }
+  return targets.find((target) => target.messageIndex === messageIndex) ?? null;
+};
+
+export const collectStoryVideoOnlyRefs = (imageRef, videoRef) => {
+  const image = String(imageRef ?? "").trim().replace(/^\/+/, "");
+  if (!image) {
+    return [];
+  }
+  const video =
+    String(videoRef ?? "").trim() || storyVideoPathForImage(image);
+  const base = video.replace(/\.video\.mp4$/i, "");
+  return [
+    video,
+    `${base}.video-hold.png`,
+    `${base}.video-hold.depth.png`,
+    `${base}.video-hold.parallax.mp4`,
+    `${base}.video-hold.depth-meta.json`,
+    `${base}.video.seamless.mp4`,
+    `${base}.video.loop.mp4`,
+  ];
+};
+
+export const collectStoryVideoScanItems = async (conversation) => {
+  if (!shouldGenerateStoryVideos(conversation)) {
+    return [];
+  }
+  normalizeStoryVideoLoopFlags(conversation);
+  const items = [];
+  for (const target of collectStoryVideoTargets(conversation)) {
+    let videoRef = String(target.holder?.storyVideo ?? "").trim();
+    if (!videoRef) {
+      videoRef = storyVideoPathForImage(target.image);
+    }
+    let status = "missing";
+    let previewUrl = null;
+    let durationMs = target.holder?.storyVideoDurationMs ?? null;
+    try {
+      const {relative, absolute} = safePublicPath(videoRef);
+      if (existsSync(absolute)) {
+        status = "ok";
+        videoRef = relative;
+        const fileStat = await stat(absolute);
+        previewUrl = `/${relative}?t=${Math.floor(fileStat.mtimeMs)}`;
+        if (!durationMs) {
+          durationMs = await probeVideoDurationMs(absolute);
+        }
+      }
+    } catch {
+      /* skip */
+    }
+    items.push({
+      messageIndex: target.kind === "opening" ? null : target.messageIndex,
+      videoRef: status === "ok" ? videoRef : undefined,
+      videoStatus: status,
+      videoPreviewUrl: previewUrl,
+      videoDurationMs: durationMs,
+    });
+  }
+  return items;
+};
+
+export const enrichStoryScanWithVideo = async (conversation, storyItems) => {
+  const videoItems = await collectStoryVideoScanItems(conversation);
+  if (videoItems.length === 0) {
+    return storyItems;
+  }
+  const byKey = new Map(
+    videoItems.map((item) => [item.messageIndex == null ? "opening" : item.messageIndex, item]),
+  );
+  return (storyItems ?? []).map((item) => {
+    const key = item.messageIndex == null ? "opening" : item.messageIndex;
+    const video = byKey.get(key);
+    return video ? {...item, ...video} : item;
+  });
+};
+
+export const deleteStoryVideoForSlot = async (conversation, messageIndex) => {
+  const target = findStoryVideoTarget(conversation, messageIndex);
+  if (!target) {
+    throw new Error(
+      messageIndex == null
+        ? "Нет opening story-кадра"
+        : `Нет story-кадра для сообщения №${messageIndex + 1}`,
+    );
+  }
+  const videoRef =
+    String(target.holder?.storyVideo ?? "").trim() ||
+    storyVideoPathForImage(target.image);
+  const deleted = [];
+  const missing = [];
+  for (const ref of collectStoryVideoOnlyRefs(target.image, videoRef)) {
+    try {
+      const result = await deletePublicImage(ref);
+      if (result.deleted) {
+        deleted.push(result.publicPath);
+      } else {
+        missing.push(result.publicPath);
+      }
+    } catch {
+      missing.push(ref);
+    }
+  }
+  delete target.holder.storyVideo;
+  delete target.holder.storyVideoDurationMs;
+  delete target.holder.storyVideoProfile;
+  delete target.holder.storyVideoLoop;
+  return {deleted, missing, messageIndex: messageIndex ?? null};
+};
+
+const prepareStoryVideoGeneration = async (conversation, {logs = []} = {}) => {
+  if (!isStoryVisualLayout(conversation)) {
+    throw new Error("Story-видео доступно только для storySplit / storyOverlay");
+  }
+  if (!shouldGenerateStoryVideos(conversation)) {
+    throw new Error('Story-видео: выберите анимацию «Wan I2V» или «Veo + parallax»');
+  }
+  if (!isStoryVideoGenerationConfigured()) {
+    const provider = getStoryVideoProvider();
+    if (provider === "local-gpu") {
+      throw new Error("Local GPU не настроен (LOCAL_GPU_VIDEO_URL)");
+    }
+    throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
+  }
+
+  normalizeStoryVideoLoopFlags(conversation);
+
+  const videoStatus = getStoryVideoGenerationStatus();
+  logs.push(`Story-видео: провайдер ${describeStoryVideoProvider()}`);
+
+  if (videoStatus.provider === "local-gpu") {
+    try {
+      await ensureLocalGpuModel("wan", {
+        onStatus: (message) => logs.push(message),
+      });
+    } catch (error) {
+      throw new Error(
+        `Не удалось переключить GPU на Wan I2V: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  if (isOpenRouterConfigured()) {
+    await ensureStoryVisualBible(conversation);
+  }
+
+  return {
+    videoStatus,
+    videoProvider: videoStatus.provider,
+    model:
+      videoStatus.provider === "local-gpu"
+        ? getLocalGpuVideoModel()
+        : getOpenRouterStoryVideoModel(),
+    resolution:
+      videoStatus.provider === "local-gpu"
+        ? videoStatus.resolution
+        : getOpenRouterStoryVideoResolution(),
+    sceneSeconds: buildStorySceneSeconds(conversation),
+  };
+};
+
+const generateOneStoryVideo = async (
+  conversation,
+  target,
+  {
+    publicBaseUrl,
+    force = false,
+    skipHoldParallaxBake = false,
+    onProgress,
+    logs = [],
+    videoStatus,
+    videoProvider,
+    model,
+    resolution,
+    sceneSeconds,
+    index = 0,
+    total = 1,
+  },
+) => {
+  if (!force && !needsStoryVideo(target.image, target.holder)) {
+    logs.push(`Story-видео (${target.label}): уже есть на диске`);
+    return false;
+  }
+
+  onProgress?.({
+    done: index,
+    total,
+    label: target.label,
+    stage: "generating",
+  });
+
+  const {absolute: imageAbsolute} = safePublicPath(target.image);
+  const videoRef = storyVideoPathForImage(target.image);
+  const {absolute: videoAbsolute} = safePublicPath(videoRef);
+  const imageUrl = publicImageUrl(publicBaseUrl, target.image);
+
+  const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
+  const animation = conversation.story?.opening?.animation;
+  const isVideoParallax = animation === "video-parallax";
+  const duration = isVideoParallax ? 4 : snapStoryVideoDuration(sceneSec);
+
+  const runGeneration = (prompt) =>
+    generateStoryVideoFile({
+      imageAbsolutePath: imageAbsolute,
+      imagePublicUrl: imageUrl,
+      prompt,
+      outputPath: videoAbsolute,
+      model,
+      duration,
+      resolution,
+      onPoll: ({attempt, maxAttempts, status}) => {
+        onProgress?.({
+          done: index,
+          total,
+          label: target.label,
+          stage: videoStatus.provider === "local-gpu" ? "generating" : "polling",
+          attempt,
+          maxAttempts,
+          status,
+        });
+      },
+    });
+
+  let result = null;
+  const motionResolved = await resolveStoryVideoMotionPrompt(conversation, target, {
+    loop: false,
+    provider: videoProvider,
+  });
+  const motionPrompt = motionResolved.motionPrompt;
+  const motionMode =
+    motionResolved.motionMode ??
+    describeMotionPromptMode(target.imagePrompt, {loop: false, provider: videoProvider});
+  if (motionResolved.promptSource === "openrouter") {
+    target.holder.storyVideoPrompt = motionPrompt;
+  }
+  if (motionMode === "ambient-only-people" && videoProvider === "local-gpu") {
+    logs.push(
+      `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение (режим Wan I2V)`,
+    );
+  }
+  try {
+    result = await runGeneration(motionPrompt);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    if (isVideoContentPolicyError(reason)) {
+      logs.push(
+        `Story-видео (${target.label}): промпт отклонён фильтром Google — повтор с нейтральным движением без описания сцены`,
+      );
+      try {
+        result = await runGeneration(
+          buildStoryMotionPrompt("", {loop: false, provider: videoProvider, neutral: true}),
+        );
+      } catch (retryError) {
+        const retryReason = retryError instanceof Error ? retryError.message : String(retryError);
+        throw new Error(`Анимация недоступна: ${retryReason}`);
+      }
+    } else {
+      throw new Error(reason);
+    }
+  }
+
+  if (!result) {
+    throw new Error("Генерация не вернула файл");
+  }
+
+  target.holder.storyVideo = path
+    .relative(PUBLIC_DIR, result.outputPath)
+    .split(path.sep)
+    .join("/");
+  target.holder.storyVideoProfile =
+    result.provider === "local-gpu"
+      ? LOCAL_GPU_STORY_VIDEO_PROFILE
+      : OPENROUTER_STORY_VIDEO_PROFILE;
+  target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
+  await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
+  if (!skipHoldParallaxBake) {
+    await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});
+  } else {
+    logs.push(`Parallax (hold): запекётся на воркере → ${target.label}`);
+  }
+
+  const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
+  const providerName =
+    result.provider === "local-gpu"
+      ? `Local GPU/${result.model}`
+      : `OpenRouter/${result.model}`;
+  logs.push(
+    `Story-видео (${target.label}, ${providerName}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
+  );
+  onProgress?.({
+    done: index + 1,
+    total,
+    label: target.label,
+    stage: "done",
+  });
+  return true;
+};
+
+export const generateStoryVideoForSlot = async (
+  conversation,
+  messageIndex,
+  {publicBaseUrl, force = false, skipHoldParallaxBake = true, onProgress} = {},
+) => {
+  const logs = [];
+  const target = findStoryVideoTarget(conversation, messageIndex);
+  if (!target) {
+    throw new Error(
+      messageIndex == null
+        ? "Нет opening story-кадра"
+        : `Нет story-кадра для сообщения №${messageIndex + 1}`,
+    );
+  }
+
+  const ctx = await prepareStoryVideoGeneration(conversation, {logs});
+  const generated = await generateOneStoryVideo(conversation, target, {
+    publicBaseUrl,
+    force,
+    skipHoldParallaxBake,
+    onProgress,
+    logs,
+    ...ctx,
+    index: 0,
+    total: 1,
+  });
+
+  if (!generated && !force) {
+    return {
+      generated: false,
+      logs,
+      storyVideo: target.holder.storyVideo,
+      storyVideoDurationMs: target.holder.storyVideoDurationMs,
+      storyVideoProfile: target.holder.storyVideoProfile,
+      videoPreviewUrl: target.holder.storyVideo ? `/${target.holder.storyVideo}` : null,
+    };
+  }
+
+  if (!generated) {
+    throw new Error("Не удалось сгенерировать story-видео");
+  }
+
+  const previewUrl = `/${target.holder.storyVideo}?t=${Date.now()}`;
+  return {
+    generated: true,
+    logs,
+    storyVideo: target.holder.storyVideo,
+    storyVideoDurationMs: target.holder.storyVideoDurationMs,
+    storyVideoProfile: target.holder.storyVideoProfile,
+    videoPreviewUrl: previewUrl,
+  };
+};
+
 export const resolveStoryVideos = async (
   conversation,
   {failOnMissingVideos = false, skipHoldParallaxBake = false, logs = []} = {},
@@ -288,8 +644,6 @@ export const generateMissingStoryVideos = async (
     return logs;
   }
 
-  normalizeStoryVideoLoopFlags(conversation);
-
   const targets = collectStoryVideoTargets(conversation).filter(
     (target) => force || needsStoryVideo(target.image, target.holder),
   );
@@ -299,44 +653,8 @@ export const generateMissingStoryVideos = async (
     return logs;
   }
 
-  if (!isStoryVideoGenerationConfigured()) {
-    const provider = getStoryVideoProvider();
-    if (provider === "local-gpu") {
-      throw new Error("Local GPU не настроен (LOCAL_GPU_VIDEO_URL)");
-    }
-    throw new Error("OpenRouter не настроен (OPENROUTER_API_KEY в docs/.env)");
-  }
-
-  const videoStatus = getStoryVideoGenerationStatus();
-  const videoProvider = videoStatus.provider;
-  const model =
-    videoStatus.provider === "local-gpu"
-      ? getLocalGpuVideoModel()
-      : getOpenRouterStoryVideoModel();
-  const resolution =
-    videoStatus.provider === "local-gpu"
-      ? videoStatus.resolution
-      : getOpenRouterStoryVideoResolution();
-  const sceneSeconds = buildStorySceneSeconds(conversation);
+  const ctx = await prepareStoryVideoGeneration(conversation, {logs});
   let generated = 0;
-
-  logs.push(`Story-видео: провайдер ${describeStoryVideoProvider()}`);
-
-  if (videoStatus.provider === "local-gpu") {
-    try {
-      await ensureLocalGpuModel("wan", {
-        onStatus: (message) => logs.push(message),
-      });
-    } catch (error) {
-      throw new Error(
-        `Не удалось переключить GPU на Wan I2V: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  if (isOpenRouterConfigured()) {
-    await ensureStoryVisualBible(conversation);
-  }
 
   for (let index = 0; index < targets.length; index += 1) {
     const target = targets[index];
@@ -344,121 +662,24 @@ export const generateMissingStoryVideos = async (
       throw new Error("Отменено пользователем");
     }
 
-    const total = targets.length;
-    onProgress?.({
-      done: index,
-      total,
-      label: target.label,
-      stage: "generating",
-    });
-
-    const {absolute: imageAbsolute} = safePublicPath(target.image);
-    const videoRef = storyVideoPathForImage(target.image);
-    const {absolute: videoAbsolute} = safePublicPath(videoRef);
-    const imageUrl = publicImageUrl(publicBaseUrl, target.image);
-
-    const sceneSec = sceneSecondsForTarget(sceneSeconds, target);
-    const animation = conversation.story?.opening?.animation;
-    const isVideoParallax = animation === "video-parallax";
-    // Если video-parallax, генерируем только 4 секунды (минимальная длина Veo), остальное покроет parallax
-    const duration = isVideoParallax ? 4 : snapStoryVideoDuration(sceneSec);
-
-    const runGeneration = (prompt) =>
-      generateStoryVideoFile({
-        imageAbsolutePath: imageAbsolute,
-        imagePublicUrl: imageUrl,
-        prompt,
-        outputPath: videoAbsolute,
-        model,
-        duration,
-        resolution,
-        onPoll: ({attempt, maxAttempts, status}) => {
-          onProgress?.({
-            done: index,
-            total,
-            label: target.label,
-            stage: videoStatus.provider === "local-gpu" ? "generating" : "polling",
-            attempt,
-            maxAttempts,
-            status,
-          });
-        },
-      });
-
-    let result = null;
-    const motionResolved = await resolveStoryVideoMotionPrompt(conversation, target, {
-      loop: false,
-      provider: videoProvider,
-    });
-    const motionPrompt = motionResolved.motionPrompt;
-    const motionMode =
-      motionResolved.motionMode ??
-      describeMotionPromptMode(target.imagePrompt, {loop: false, provider: videoProvider});
-    if (motionResolved.promptSource === "openrouter") {
-      target.holder.storyVideoPrompt = motionPrompt;
-    }
-    if (motionMode === "ambient-only-people" && videoProvider === "local-gpu") {
-      logs.push(
-        `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение (режим Wan I2V)`,
-      );
-    }
     try {
-      result = await runGeneration(motionPrompt);
+      const ok = await generateOneStoryVideo(conversation, target, {
+        publicBaseUrl,
+        force,
+        skipHoldParallaxBake,
+        onProgress,
+        logs,
+        ...ctx,
+        index,
+        total: targets.length,
+      });
+      if (ok) {
+        generated += 1;
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      // Контент-фильтр Google режет описание сцены — повторяем без него,
-      // только нейтральное ambient-движение по уже одобренной картинке.
-      if (isVideoContentPolicyError(reason)) {
-        logs.push(
-          `Story-видео (${target.label}): промпт отклонён фильтром Google — повтор с нейтральным движением без описания сцены`,
-        );
-        try {
-          result = await runGeneration(buildStoryMotionPrompt("", {loop: false, provider: videoProvider, neutral: true}));
-        } catch (retryError) {
-          const retryReason = retryError instanceof Error ? retryError.message : String(retryError);
-          logs.push(
-            `Story-видео (${target.label}): анимация недоступна (${retryReason}) — кадр останется статичным`,
-          );
-        }
-      } else {
-        logs.push(`Story-видео (${target.label}): ошибка — ${reason} — кадр останется статичным`);
-      }
+      logs.push(`Story-видео (${target.label}): ${reason} — кадр останется статичным`);
     }
-
-    if (!result) {
-      continue;
-    }
-
-    target.holder.storyVideo = path
-      .relative(PUBLIC_DIR, result.outputPath)
-      .split(path.sep)
-      .join("/");
-    target.holder.storyVideoProfile =
-      result.provider === "local-gpu"
-        ? LOCAL_GPU_STORY_VIDEO_PROFILE
-        : OPENROUTER_STORY_VIDEO_PROFILE;
-    target.holder.storyVideoDurationMs = await probeVideoDurationMs(result.outputPath);
-    await ensureStoryVideoHoldFrameFile(target.holder.storyVideo, logs);
-    if (!skipHoldParallaxBake) {
-      await bakeHoldParallaxAfterVideo(conversation, target, target.holder.storyVideo, logs, {force});
-    } else {
-      logs.push(`Parallax (hold): запекётся на воркере → ${target.label}`);
-    }
-    generated += 1;
-    const sceneHint = Number.isFinite(sceneSec) ? `, сцена ~${sceneSec.toFixed(1)} с` : "";
-    const providerName =
-      result.provider === "local-gpu"
-        ? `Local GPU/${result.model}`
-        : `OpenRouter/${result.model}`;
-    logs.push(
-      `Story-видео (${target.label}, ${providerName}, ${duration} с/${resolution}${sceneHint}) → ${target.holder.storyVideo} · ${(target.holder.storyVideoDurationMs / 1000).toFixed(1)} с`,
-    );
-    onProgress?.({
-      done: index + 1,
-      total,
-      label: target.label,
-      stage: "done",
-    });
   }
 
   // Нехватка видео не валит рендер: сцена показывается статичным кадром с Ken Burns.

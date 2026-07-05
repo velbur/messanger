@@ -12,12 +12,19 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
-# Story-кадры на Gemini; на GPU по умолчанию только Wan I2V
-export GPU_STARTUP_MODEL="${GPU_STARTUP_MODEL:-wan}"
+# Story-кадры на Gemini/Veo — на Mac; GPU-сервер только render-воркер (:3333)
+export GPU_STARTUP_MODEL="${GPU_STARTUP_MODEL:-none}"
 
-if ! [[ -f "$ROOT/models/wan-i2v-14b-720p/vae/config.json" ]]; then
+if [[ "${GPU_STARTUP_MODEL}" != "none" && ! -f "$ROOT/models/wan-i2v-14b-720p/vae/config.json" ]]; then
   echo "Веса Wan не найдены. Сначала: ./download_models.sh" >&2
+  echo "Или GPU_STARTUP_MODEL=none — только render-воркер на :3333, без :8008." >&2
   exit 1
+fi
+
+if [[ "${GPU_STARTUP_MODEL}" == "none" ]]; then
+  echo "gpu-service :8008 не стартует (GPU_STARTUP_MODEL=none)."
+  echo "Тяжёлый рендер: ./start-render-worker.sh → http://0.0.0.0:3333"
+  exit 0
 fi
 
 source "$ROOT/.venv/bin/activate"

@@ -85,7 +85,6 @@ import {
   getOpenRouterImageModel,
   getOpenRouterStoryImageModel,
   getOpenRouterStoryImageSize,
-  resolveOpenRouterImageModel,
   getOpenRouterTtsModel,
   getOpenRouterVoiceoverStatus,
   formatOpenRouterError,
@@ -101,7 +100,10 @@ import {
 } from "./story-image-provider.mjs";
 import {
   countPendingStoryVideos,
+  deleteStoryVideoForSlot,
+  enrichStoryScanWithVideo,
   generateMissingStoryVideos,
+  generateStoryVideoForSlot,
   resolveStoryVideos,
   ensureVideoParallaxHoldsForConversation,
 } from "./story-video.mjs";
@@ -145,6 +147,11 @@ import {
 import {generateYoutubeMetadata} from "./youtube-metadata.mjs";
 import {listDialogueModels, resolveDialogueModel} from "./openrouter-dialogue-models.mjs";
 import {generateMissingConversationImages} from "./conversation-images.mjs";
+import {
+  IMAGE_MODEL_CATALOG,
+  modelsForScope,
+  normalizeImageModelId,
+} from "./image-model-catalog.mjs";
 import {
   generateMissingVoiceover,
   countPendingVoiceover,
@@ -1005,6 +1012,37 @@ app.get("/api/openrouter/dialogue-models", async (_req, res) => {
   }
 });
 
+const resolveRequestChatImageModel = (body) =>
+  normalizeImageModelId(body?.chatImageModel ?? body?.imageModel, {
+    scope: "chat",
+    fallback: getOpenRouterImageModel(),
+  });
+
+const resolveRequestStoryImageModel = (body) =>
+  normalizeImageModelId(body?.storyImageModel ?? body?.imageModel, {
+    scope: "story",
+    fallback: getOpenRouterStoryImageModel(),
+  });
+
+app.get("/api/images/models", async (_req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    res.json({
+      catalog: IMAGE_MODEL_CATALOG,
+      chat: modelsForScope("chat"),
+      story: modelsForScope("story"),
+      defaults: {
+        chat: getOpenRouterImageModel(),
+        story: getOpenRouterStoryImageModel(),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.get("/api/status", async (_req, res) => {
   try {
     await loadOpenRouterEnv();
@@ -1249,8 +1287,17 @@ app.post("/api/images/scan", async (req, res) => {
     }
     const result = await scanImagesFromJson(jsonText);
 
+    let storyItems = result.storyItems ?? [];
+    try {
+      const conversation = parseConversation(JSON.parse(jsonText));
+      storyItems = await enrichStoryScanWithVideo(conversation, storyItems);
+    } catch {
+      /* invalid json shape — keep raw storyItems */
+    }
+
     res.json({
       ...result,
+      storyItems,
       openrouterConfigured: isOpenRouterConfigured(),
       openrouterTextModel: getOpenRouterTextModel(),
       openrouterImageModel: getOpenRouterImageModel(),
@@ -1285,8 +1332,18 @@ app.post("/api/images/fetch", async (req, res) => {
 
 app.post("/api/images/generate", async (req, res) => {
   try {
-    const {prompt, json: jsonText, messageIndex, stylePrompt, targetRef, aspectRatio, imageKind} =
-      req.body ?? {};
+    const {
+      prompt,
+      json: jsonText,
+      messageIndex,
+      stylePrompt,
+      targetRef,
+      aspectRatio,
+      imageKind,
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    } = req.body ?? {};
 
     const isStoryKindEarly = imageKind === "story" || imageKind === "story-opening";
     if (isStoryKindEarly) {
@@ -1410,17 +1467,28 @@ app.post("/api/images/generate", async (req, res) => {
     }
 
     const referenceDataUrl = styleAnchor.dataUrl;
+    const resolvedChatModel = resolveRequestChatImageModel({
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    });
+    const resolvedStoryModel = resolveRequestStoryImageModel({
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    });
     const imageResult = isStoryKind
       ? await generateStoryImageBuffer({
           prompt: finalPrompt,
           aspectRatio: aspectRatio ?? STORY_IMAGE_ASPECT_RATIO,
           referenceDataUrl,
           referenceKind: styleAnchor.kind,
+          model: resolvedStoryModel,
         })
       : await generateImageBuffer({
           prompt: finalPrompt,
           referenceDataUrl,
-          model: resolveOpenRouterImageModel("chat"),
+          model: resolvedChatModel,
           aspectRatio: aspectRatio ?? CHAT_IMAGE_ASPECT_RATIO,
           kind: "chat",
         });
@@ -1428,9 +1496,11 @@ app.post("/api/images/generate", async (req, res) => {
     const imageProvider = isStoryKind
       ? getStoryImageGenerationStatus().provider
       : "openrouter";
-    const imageModel = isStoryKind
-      ? getStoryImageGenerationStatus().model
-      : resolveOpenRouterImageModel("chat");
+    const usedImageModel = isStoryKind
+      ? getStoryImageProvider() === "local-gpu"
+        ? getStoryImageGenerationStatus().model
+        : resolvedStoryModel
+      : resolvedChatModel;
 
     const refHint =
       targetRef && typeof targetRef === "string" && !targetRef.startsWith("http")
@@ -1446,7 +1516,7 @@ app.post("/api/images/generate", async (req, res) => {
       imagePrompt: imagePromptSuggested,
       promptSource,
       provider: imageProvider,
-      imageModel,
+      imageModel: usedImageModel,
       usedImageReference: Boolean(referenceDataUrl),
       referenceMessageIndex: imageRefs?.primaryReference?.messageIndex ?? null,
     });
@@ -1466,6 +1536,9 @@ app.post("/api/images/correct", async (req, res) => {
       storyStylePrompt,
       aspectRatio,
       imageKind,
+      chatImageModel,
+      storyImageModel,
+      imageModel,
     } = req.body ?? {};
 
     if (!isImageCorrectionConfigured()) {
@@ -1516,6 +1589,17 @@ app.post("/api/images/correct", async (req, res) => {
           ? await readStoryStylePrompt()
           : await readStylePrompt();
 
+    const resolvedChatModel = resolveRequestChatImageModel({
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    });
+    const resolvedStoryModel = resolveRequestStoryImageModel({
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    });
+
     const result = await correctFrameImage({
       messages,
       messageIndex: isStoryKind && kind === "story-opening" ? -1 : messageIndex,
@@ -1525,6 +1609,7 @@ app.post("/api/images/correct", async (req, res) => {
         aspectRatio ?? (isStoryKind ? STORY_IMAGE_ASPECT_RATIO : CHAT_IMAGE_ASPECT_RATIO),
       kind,
       openingImage: kind === "story-opening" ? conversation?.story?.opening?.image : null,
+      model: isStoryKind ? resolvedStoryModel : resolvedChatModel,
     });
 
     const publicPath = await saveImageBuffer(result.buffer, result.ref);
@@ -1537,8 +1622,10 @@ app.post("/api/images/correct", async (req, res) => {
       provider: result.provider,
       mode: "correct",
       imageModel: isStoryKind
-        ? getStoryImageGenerationStatus().model
-        : getOpenRouterImageModel(),
+        ? getStoryImageProvider() === "local-gpu"
+          ? getStoryImageGenerationStatus().model
+          : resolvedStoryModel
+        : resolvedChatModel,
     });
   } catch (error) {
     if (error instanceof ImageCorrectionUnchangedError) {
@@ -1636,6 +1723,115 @@ app.post("/api/images/delete", async (req, res) => {
   }
 });
 
+app.post("/api/story-videos/generate", async (req, res) => {
+  try {
+    const {json: jsonText, messageIndex, force} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const slotIndex =
+      messageIndex === undefined || messageIndex === null || messageIndex === "opening"
+        ? null
+        : Number(messageIndex);
+    if (slotIndex != null && (!Number.isInteger(slotIndex) || slotIndex < 0)) {
+      res.status(400).json({error: "Некорректный messageIndex"});
+      return;
+    }
+
+    const result = await generateStoryVideoForSlot(conversation, slotIndex, {
+      publicBaseUrl: getPublicBaseUrl(req),
+      force: force === true,
+      skipHoldParallaxBake: true,
+    });
+
+    res.json({
+      ...result,
+      conversation,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/story-videos/delete", async (req, res) => {
+  try {
+    const {json: jsonText, messageIndex} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const slotIndex =
+      messageIndex === undefined || messageIndex === null || messageIndex === "opening"
+        ? null
+        : Number(messageIndex);
+    if (slotIndex != null && (!Number.isInteger(slotIndex) || slotIndex < 0)) {
+      res.status(400).json({error: "Некорректный messageIndex"});
+      return;
+    }
+
+    const result = await deleteStoryVideoForSlot(conversation, slotIndex);
+    res.json({
+      ...result,
+      conversation,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/story-videos/generate-missing", async (req, res) => {
+  try {
+    const {json: jsonText} = req.body ?? {};
+    if (!jsonText || typeof jsonText !== "string") {
+      res.status(400).json({error: "Поле json обязательно"});
+      return;
+    }
+    if (!isStoryVideoGenerationConfigured()) {
+      res.status(400).json({
+        error:
+          "Story-видео недоступно — задайте OPENROUTER_API_KEY (Veo) или STORY_VIDEO_PROVIDER=local-gpu + LOCAL_GPU_VIDEO_URL",
+      });
+      return;
+    }
+
+    const conversation = parseConversation(JSON.parse(jsonText));
+    const pendingBefore = countPendingStoryVideos(conversation);
+    if (pendingBefore === 0) {
+      res.json({
+        conversation,
+        logs: ["Все story-кадры уже анимированы"],
+        pending: 0,
+        generated: 0,
+      });
+      return;
+    }
+
+    const logs = await generateMissingStoryVideos(conversation, {
+      publicBaseUrl: getPublicBaseUrl(req),
+      skipHoldParallaxBake: false,
+    });
+    const pendingAfter = countPendingStoryVideos(conversation);
+
+    res.json({
+      conversation,
+      logs,
+      pending: pendingAfter,
+      generated: Math.max(0, pendingBefore - pendingAfter),
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.post("/api/images/upload", async (req, res) => {
   try {
     const {targetRef, fileName, contentBase64} = req.body ?? {};
@@ -1719,7 +1915,15 @@ app.get("/api/dialogues/:id", (req, res) => {
 
 app.post("/api/images/generate-missing", async (req, res) => {
   try {
-    const {json: jsonText, stylePrompt, storyStylePrompt, imageNamespace} = req.body ?? {};
+    const {
+      json: jsonText,
+      stylePrompt,
+      storyStylePrompt,
+      imageNamespace,
+      chatImageModel,
+      storyImageModel,
+      imageModel,
+    } = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
       return;
@@ -1745,6 +1949,16 @@ app.post("/api/images/generate-missing", async (req, res) => {
       stylePrompt: style,
       storyStylePrompt: storyStyle,
       imageNamespace,
+      chatImageModel: resolveRequestChatImageModel({
+        chatImageModel,
+        storyImageModel,
+        imageModel,
+      }),
+      storyImageModel: resolveRequestStoryImageModel({
+        chatImageModel,
+        storyImageModel,
+        imageModel,
+      }),
     });
 
     res.json({
@@ -2512,7 +2726,14 @@ const runRenderPreparation = async (
 
     await loadOpenRouterEnv();
 
-    if (autoGenerateImages) {
+    if (IS_RENDER_WORKER) {
+      jobPushLog(
+        job,
+        "GPU-воркер: только тяжёлая сборка (depth, hold-parallax, Remotion). Картинки, Veo и озвучка — на машине с UI.",
+      );
+    }
+
+    if (autoGenerateImages && !IS_RENDER_WORKER) {
       jobSetPhase(job, "Генерация изображений…");
       jobSetProgress(job, 0.05);
       const imageGenLogs = await generateMissingConversationImages(conversation, {
@@ -2521,7 +2742,7 @@ const runRenderPreparation = async (
       jobPushLogs(job, imageGenLogs);
     }
 
-    if (shouldGenerateVoice) {
+    if (shouldGenerateVoice && !IS_RENDER_WORKER) {
       jobSetPhase(job, "Озвучка (OpenRouter)…");
       jobSetProgress(job, 0.1);
       const voiceGenLogs = await generateMissingVoiceover(conversation, {
@@ -2535,7 +2756,7 @@ const runRenderPreparation = async (
     if (isStoryVisual) {
       const pendingStoryVideosNow = countPendingStoryVideos(conversation);
 
-      if (pendingStoryVideosNow > 0) {
+      if (pendingStoryVideosNow > 0 && !IS_RENDER_WORKER) {
         if (!isStoryVideoGenerationConfigured()) {
           skippedStoryVideoGeneration = true;
           jobPushLog(
@@ -2573,6 +2794,12 @@ const runRenderPreparation = async (
           });
           jobPushLogs(job, storyVideoLogs);
         }
+      } else if (pendingStoryVideosNow > 0 && IS_RENDER_WORKER) {
+        skippedStoryVideoGeneration = true;
+        jobPushLog(
+          job,
+          `Story-видео: на воркере не генерируются (${pendingStoryVideosNow} клип(ов) должны быть отправлены с UI).`,
+        );
       }
 
       const linkedStoryVideoLogs = await resolveStoryVideos(conversation, {
@@ -2639,7 +2866,9 @@ const runRenderPreparation = async (
 
     jobSetPhase(job, "Обложка превью…");
     jobSetProgress(job, 0.48);
-    if (conversation.previewCover?.enabled === false) {
+    if (IS_RENDER_WORKER) {
+      jobPushLog(job, "Обложка превью: используется JSON с UI (воркер не генерирует)");
+    } else if (conversation.previewCover?.enabled === false) {
       jobPushLog(job, "Обложка превью: выключена");
     } else {
       const coverResult = await ensureConversationPreviewCovers(conversation, {
@@ -2711,7 +2940,7 @@ const runRenderPreparation = async (
       if (target === "gpu-server") {
         jobPushLog(
           job,
-          "На GPU-сервере: git pull в /root/messanger && ./gpu-service/start-render-worker.sh",
+          "GPU-сервер: prep на Mac (Gemini, Veo, озвучка) → sync ассетов → Remotion/parallax на :3333",
         );
       } else {
         jobPushLog(
@@ -3357,7 +3586,7 @@ if (isYoutubeConfigured()) {
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   if (IS_RENDER_WORKER) {
-    console.log(`Render-воркер: http://0.0.0.0:${PORT} (этапы задач в stdout)`);
+    console.log(`Render-воркер: http://0.0.0.0:${PORT} (только сборка MP4 — без Gemini/Veo/Wan)`);
   } else {
     console.log(`UI: http://localhost:${PORT}`);
   }

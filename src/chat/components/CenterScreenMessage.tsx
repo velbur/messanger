@@ -96,7 +96,7 @@ export const CenterScreenMessage: React.FC<Props> = ({
           border: `1px solid ${CENTER_SCREEN.plateBorder}`,
           backdropFilter: `blur(${CENTER_SCREEN.plateBlur}px)`,
           WebkitBackdropFilter: `blur(${CENTER_SCREEN.plateBlur}px)`,
-          boxShadow: "0 12px 40px rgba(0, 0, 0, 0.35)",
+          boxShadow: "0 12px 40px rgba(0, 0, 0, 0.22)",
           textAlign: "center",
           fontFamily: CENTER_SCREEN_FONT,
           fontSize,

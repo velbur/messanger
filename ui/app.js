@@ -121,6 +121,7 @@ const btnRegenerateEnding = document.getElementById("btnRegenerateEnding");
 const preRenderChecklist = document.getElementById("preRenderChecklist");
 const btnRefineDialogue = document.getElementById("btnRefineDialogue");
 const btnGenerateImages = document.getElementById("btnGenerateImages");
+const btnGenerateAnimations = document.getElementById("btnGenerateAnimations");
 const imagesGenerateStatus = document.getElementById("imagesGenerateStatus");
 const previewCoverPreview = document.getElementById("previewCoverPreview");
 const voiceoverEnabled = document.getElementById("voiceoverEnabled");
@@ -155,8 +156,12 @@ const stylePromptStatus = document.getElementById("stylePromptStatus");
 const storyStylePromptInput = document.getElementById("storyStylePromptInput");
 const btnSaveStoryStylePrompt = document.getElementById("btnSaveStoryStylePrompt");
 const storyStylePromptStatus = document.getElementById("storyStylePromptStatus");
+const chatImageModelSelect = document.getElementById("chatImageModelSelect");
+const storyImageModelSelect = document.getElementById("storyImageModelSelect");
 const imageLightbox = document.getElementById("imageLightbox");
 const lightboxImg = document.getElementById("lightboxImg");
+const videoLightbox = document.getElementById("videoLightbox");
+const lightboxVideo = document.getElementById("lightboxVideo");
 
 let scanImagesTimer = null;
 let pollTimer = null;
@@ -168,8 +173,107 @@ let openrouterTextModel = "openai/gpt-5.4";
 let openrouterImageModel = "google/gemini-2.5-flash-image";
 let openrouterStoryImageModel = "google/gemini-2.5-flash-image";
 let openrouterTtsProfile = "young-emotional-v3";
+let storyVideoConfigured = false;
+let storyVideoProvider = "veo";
+let imageModelCatalog = {chat: [], story: [], defaults: {}};
+let lastStoryScanItems = [];
+
+const getChatImageModel = () =>
+  chatImageModelSelect?.value?.trim() || openrouterImageModel;
+const getStoryImageModel = () =>
+  storyImageModelSelect?.value?.trim() || openrouterStoryImageModel;
+
+const populateImageModelSelect = (selectEl, models, preferredId, fallbackId) => {
+  if (!selectEl) {
+    return;
+  }
+  const stored =
+    selectEl === chatImageModelSelect
+      ? localStorage.getItem(CHAT_IMAGE_MODEL_STORAGE_KEY)
+      : localStorage.getItem(STORY_IMAGE_MODEL_STORAGE_KEY);
+  const resolved =
+    (preferredId && models.some((item) => item.id === preferredId) ? preferredId : null) ||
+    (stored && models.some((item) => item.id === stored) ? stored : null) ||
+    (fallbackId && models.some((item) => item.id === fallbackId) ? fallbackId : null) ||
+    models[0]?.id ||
+    "";
+
+  selectEl.replaceChildren();
+  for (const item of models) {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    if (item.hint) {
+      opt.title = item.hint;
+    }
+    selectEl.append(opt);
+  }
+  if (resolved && [...selectEl.options].some((opt) => opt.value === resolved)) {
+    selectEl.value = resolved;
+  }
+  selectEl.disabled = !openrouterImageAvailable || models.length === 0;
+};
+
+const populateImageModelSelects = () => {
+  populateImageModelSelect(
+    chatImageModelSelect,
+    imageModelCatalog.chat ?? [],
+    imageModelCatalog.defaults?.chat,
+    openrouterImageModel,
+  );
+  populateImageModelSelect(
+    storyImageModelSelect,
+    imageModelCatalog.story ?? [],
+    imageModelCatalog.defaults?.story,
+    openrouterStoryImageModel,
+  );
+};
+
+const loadImageModels = async () => {
+  try {
+    const res = await fetch("/api/images/models");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить модели изображений");
+    }
+    imageModelCatalog = {
+      chat: data.chat ?? data.catalog ?? [],
+      story: data.story ?? data.catalog ?? [],
+      defaults: data.defaults ?? {},
+    };
+    populateImageModelSelects();
+  } catch (err) {
+    for (const selectEl of [chatImageModelSelect, storyImageModelSelect]) {
+      if (!selectEl) {
+        continue;
+      }
+      selectEl.replaceChildren();
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Ошибка загрузки";
+      selectEl.append(opt);
+      selectEl.disabled = true;
+      selectEl.title = err instanceof Error ? err.message : String(err);
+    }
+  }
+};
+
+chatImageModelSelect?.addEventListener("change", () => {
+  if (chatImageModelSelect?.value) {
+    localStorage.setItem(CHAT_IMAGE_MODEL_STORAGE_KEY, chatImageModelSelect.value);
+    updateImageProviderControls();
+  }
+});
+
+storyImageModelSelect?.addEventListener("change", () => {
+  if (storyImageModelSelect?.value) {
+    localStorage.setItem(STORY_IMAGE_MODEL_STORAGE_KEY, storyImageModelSelect.value);
+    updateImageProviderControls();
+  }
+});
 
 const canGenerateImages = () => openrouterImageAvailable;
+const canGenerateStoryVideos = () => storyVideoConfigured;
 
 const readApiJson = async (res) => {
   const raw = await res.text();
@@ -189,6 +293,8 @@ const readApiJson = async (res) => {
 
 const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DIALOGUE_TEMPERATURE_STORAGE_KEY = "messanger.dialogueTemperature";
+const CHAT_IMAGE_MODEL_STORAGE_KEY = "messanger.chatImageModel";
+const STORY_IMAGE_MODEL_STORAGE_KEY = "messanger.storyImageModel";
 const DEFAULT_DIALOGUE_TEMPERATURE = 0.45;
 const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
@@ -504,10 +610,12 @@ dialoguePromptInput?.addEventListener("input", () => {
 
 const getImageProviderUnavailableHint = () =>
   openrouterConfigured
-    ? `OpenRouter (${openrouterImageModel}) недоступен`
+    ? `OpenRouter (${getChatImageModel()}) недоступен`
     : "OpenRouter: задайте OPENROUTER_API_KEY в docs/.env";
 
 const updateImageProviderControls = () => {
+  const chatModel = getChatImageModel();
+  const storyModel = getStoryImageModel();
   for (const slot of document.querySelectorAll("[data-image-slot-index]")) {
     const available = canGenerateImages();
     const hasFile = slot.classList.contains("image-slot--ok");
@@ -516,8 +624,8 @@ const updateImageProviderControls = () => {
       btn.textContent = hasFile ? "Перегенерировать" : "Сгенерировать";
       btn.title = available
         ? hasFile
-          ? `Заменить картинку через OpenRouter (${openrouterImageModel})`
-          : `Генерация через OpenRouter (${openrouterImageModel})`
+          ? `Заменить картинку через OpenRouter (${chatModel})`
+          : `Генерация через OpenRouter (${chatModel})`
         : getImageProviderUnavailableHint();
     }
     for (const btn of slot.querySelectorAll("[data-action='suggest-prompt']")) {
@@ -535,8 +643,8 @@ const updateImageProviderControls = () => {
       btn.textContent = hasFile ? "Перегенерировать" : "Сгенерировать";
       btn.title = available
         ? hasFile
-          ? `Заменить story-кадр через OpenRouter (${openrouterStoryImageModel})`
-          : `Генерация story-кадра через OpenRouter (${openrouterStoryImageModel})`
+          ? `Заменить story-кадр через OpenRouter (${storyModel})`
+          : `Генерация story-кадра через OpenRouter (${storyModel})`
         : getImageProviderUnavailableHint();
     }
     for (const btn of slot.querySelectorAll("[data-action='suggest-story-prompt']")) {
@@ -1932,27 +2040,271 @@ btnNewVideo?.addEventListener("click", async () => {
 });
 
 const openLightbox = (src) => {
-  if (!src) {
+  if (!src || !imageLightbox || !lightboxImg) {
     return;
   }
   lightboxImg.src = src;
+  lightboxImg.alt = "Просмотр изображения";
   imageLightbox.hidden = false;
   imageLightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("lightbox-open");
 };
 
 const closeLightbox = () => {
+  if (!imageLightbox || !lightboxImg) {
+    return;
+  }
   imageLightbox.hidden = true;
   imageLightbox.setAttribute("aria-hidden", "true");
   lightboxImg.removeAttribute("src");
-  document.body.classList.remove("lightbox-open");
+  lightboxImg.alt = "";
+  if (videoLightbox?.hidden !== false) {
+    document.body.classList.remove("lightbox-open");
+  }
 };
 
-imageLightbox.querySelector(".lightbox__backdrop")?.addEventListener("click", closeLightbox);
-imageLightbox.querySelector(".lightbox__close")?.addEventListener("click", closeLightbox);
+document.addEventListener("click", (event) => {
+  if (imageLightbox && !imageLightbox.hidden) {
+    return;
+  }
+  const direct = event.target.closest(".image-slot__preview, .dialogue-scene__img");
+  if (direct instanceof HTMLImageElement && direct.src) {
+    event.preventDefault();
+    event.stopPropagation();
+    openLightbox(direct.currentSrc || direct.src);
+    return;
+  }
+  const frame = event.target.closest(".dialogue-scene__frame:not(.dialogue-scene__frame--empty)");
+  if (
+    frame &&
+    !event.target.closest("button, a, input, textarea, select, label, .dialogue-scene__controls")
+  ) {
+    const img = frame.querySelector(".dialogue-scene__img");
+    if (img?.src) {
+      event.preventDefault();
+      openLightbox(img.currentSrc || img.src);
+    }
+  }
+});
+
+previewCoverPreview?.addEventListener("click", (event) => {
+  const href = previewCoverPreview.href;
+  if (previewCoverPreview.hidden || !href || href.endsWith("#")) {
+    return;
+  }
+  event.preventDefault();
+  openLightbox(href);
+});
+
+const openVideoLightbox = (src) => {
+  if (!src || !videoLightbox || !lightboxVideo) {
+    return;
+  }
+  lightboxVideo.src = src;
+  videoLightbox.hidden = false;
+  videoLightbox.setAttribute("aria-hidden", "false");
+  document.body.classList.add("lightbox-open");
+  lightboxVideo.play().catch(() => {});
+};
+
+const closeVideoLightbox = () => {
+  if (!videoLightbox || !lightboxVideo) {
+    return;
+  }
+  lightboxVideo.pause();
+  lightboxVideo.removeAttribute("src");
+  lightboxVideo.load();
+  videoLightbox.hidden = true;
+  videoLightbox.setAttribute("aria-hidden", "true");
+  if (imageLightbox?.hidden !== false) {
+    document.body.classList.remove("lightbox-open");
+  }
+};
+
+videoLightbox?.querySelector(".lightbox__backdrop")?.addEventListener("click", closeVideoLightbox);
+videoLightbox?.querySelector(".lightbox__close")?.addEventListener("click", closeVideoLightbox);
+
+const applyStoryVideoConversation = (conversation) => {
+  if (!conversation) {
+    return;
+  }
+  jsonInput.value = JSON.stringify(conversation, null, 2);
+};
+
+const generateStoryVideoForSlot = async (messageIndex, {force = false} = {}) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала вставьте JSON переписки");
+  }
+  const res = await fetch("/api/story-videos/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      messageIndex: messageIndex ?? "opening",
+      force,
+    }),
+  });
+  const data = await readApiJson(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации story-видео");
+  }
+  if (data.conversation) {
+    applyStoryVideoConversation(data.conversation);
+  }
+  return data;
+};
+
+const deleteStoryVideoForSlot = async (messageIndex) => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала вставьте JSON переписки");
+  }
+  const res = await fetch("/api/story-videos/delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      json,
+      messageIndex: messageIndex ?? "opening",
+    }),
+  });
+  const data = await readApiJson(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка удаления story-видео");
+  }
+  if (data.conversation) {
+    applyStoryVideoConversation(data.conversation);
+  }
+  return data;
+};
+
+const formatVideoDurationLabel = (durationMs) => {
+  const sec = Number(durationMs);
+  if (!Number.isFinite(sec) || sec <= 0) {
+    return "";
+  }
+  return `${(sec / 1000).toFixed(1)} с`;
+};
+
+const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
+  const col = document.createElement("div");
+  col.className = "image-slot__media-col image-slot__media-col--video";
+
+  const label = document.createElement("span");
+  label.className = "image-slot__media-label";
+  label.textContent = "Видео";
+  col.append(label);
+
+  const hasVideo = slotScan?.videoStatus === "ok" && slotScan?.videoPreviewUrl;
+  const previewWrap = document.createElement("div");
+  previewWrap.className = "image-slot__video-preview";
+
+  if (hasVideo) {
+    const video = document.createElement("video");
+    video.className = "image-slot__video";
+    video.src = slotScan.videoPreviewUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    video.controls = true;
+    const durationLabel = formatVideoDurationLabel(slotScan.videoDurationMs);
+    video.title = durationLabel ? `Story-видео · ${durationLabel}` : "Story-видео";
+    previewWrap.append(video);
+    if (durationLabel) {
+      const meta = document.createElement("span");
+      meta.className = "image-slot__video-meta";
+      meta.textContent = durationLabel;
+      previewWrap.append(meta);
+    }
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "image-slot__video-placeholder";
+    placeholder.textContent = "Видео ещё не сгенерировано";
+    previewWrap.append(placeholder);
+  }
+  col.append(previewWrap);
+
+  const actions = document.createElement("div");
+  actions.className = "image-slot__video-actions";
+
+  const status = document.createElement("span");
+  status.className = "image-slot__gen-status style-prompt-status";
+  status.setAttribute("aria-live", "polite");
+  actions.append(status);
+
+  if (hasVideo) {
+    const btnWatch = document.createElement("button");
+    btnWatch.type = "button";
+    btnWatch.className = "btn btn-secondary btn-small";
+    btnWatch.textContent = "Смотреть";
+    btnWatch.addEventListener("click", () => {
+      openVideoLightbox(slotScan.videoPreviewUrl);
+    });
+    actions.append(btnWatch);
+  }
+
+  const btnGenerate = document.createElement("button");
+  btnGenerate.type = "button";
+  btnGenerate.className = "btn btn-primary btn-small";
+  btnGenerate.textContent = hasVideo ? "Перегенерировать" : "Сгенерировать";
+  btnGenerate.disabled = !canGenerateStoryVideos();
+  btnGenerate.title = canGenerateStoryVideos()
+    ? "Анимировать story-кадр (Veo / Wan I2V)"
+    : "Story-видео недоступно — проверьте OPENROUTER_API_KEY или LOCAL_GPU_VIDEO_URL";
+  btnGenerate.addEventListener("click", async () => {
+    if (hasVideo && !window.confirm("Перегенерировать story-видео? Текущий клип будет заменён.")) {
+      return;
+    }
+    btnGenerate.disabled = true;
+    status.textContent = "Генерация видео…";
+    try {
+      await generateStoryVideoForSlot(messageIndex, {force: hasVideo});
+      await refreshDialogue();
+      status.textContent = "Готово";
+    } catch (err) {
+      status.textContent = err instanceof Error ? err.message : String(err);
+    } finally {
+      btnGenerate.disabled = !canGenerateStoryVideos();
+    }
+  });
+  actions.append(btnGenerate);
+
+  if (hasVideo) {
+    const btnDelete = document.createElement("button");
+    btnDelete.type = "button";
+    btnDelete.className = "btn btn-danger btn-small";
+    btnDelete.textContent = "Удалить";
+    btnDelete.addEventListener("click", async () => {
+      if (!window.confirm("Удалить story-видео с диска? Кадр останется — можно сгенерировать заново.")) {
+        return;
+      }
+      btnDelete.disabled = true;
+      status.textContent = "Удаление…";
+      try {
+        await deleteStoryVideoForSlot(messageIndex);
+        await refreshDialogue();
+        status.textContent = "Удалено";
+      } catch (err) {
+        status.textContent = err instanceof Error ? err.message : String(err);
+      } finally {
+        btnDelete.disabled = false;
+      }
+    });
+    actions.append(btnDelete);
+  }
+
+  col.append(actions);
+  return col;
+};
+
+imageLightbox?.querySelector(".lightbox__backdrop")?.addEventListener("click", closeLightbox);
+imageLightbox?.querySelector(".lightbox__close")?.addEventListener("click", closeLightbox);
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !imageLightbox.hidden) {
+  if (event.key === "Escape" && imageLightbox && !imageLightbox.hidden) {
     closeLightbox();
+  }
+  if (event.key === "Escape" && videoLightbox && !videoLightbox.hidden) {
+    closeVideoLightbox();
   }
 });
 
@@ -2376,34 +2728,43 @@ const resolveWallpaperPayload = () =>
 
 const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax", "video", "video-parallax"]);
 
-const STORY_I2V_ANIMATION_LABELS = {
-  "video-parallax": "Wan (4s) + Parallax",
-  video: "Wan (Full)",
+const STORY_VIDEO_ANIMATION_LABELS = {
+  veo: {
+    "video-parallax": "Veo (4s) + Parallax",
+    video: "Veo",
+  },
+  "local-gpu": {
+    "video-parallax": "Wan (4s) + Parallax",
+    video: "Wan (Full)",
+  },
 };
 
 const STORY_ANIMATION_HINT_BASE =
   "Depth parallax — сдвиг по карте глубины (цикл 3 с). Ken Burns — лёгкий наезд без depth.";
 
-const isStoryI2vAnimationAvailable = (storyVideo) =>
-  storyVideo?.provider === "local-gpu" && Boolean(storyVideo?.configured);
+const isStoryVideoAnimationAvailable = (storyVideo) => Boolean(storyVideo?.configured);
 
 const updateStoryI2vAnimationOptions = (storyVideo) => {
-  const showI2v = isStoryI2vAnimationAvailable(storyVideo);
+  const showVideoAnimation = isStoryVideoAnimationAvailable(storyVideo);
+  const provider = storyVideo?.provider === "local-gpu" ? "local-gpu" : "veo";
+  const labels = STORY_VIDEO_ANIMATION_LABELS[provider];
   for (const label of document.querySelectorAll("[data-story-i2v-option]")) {
-    label.hidden = !showI2v;
+    label.hidden = !showVideoAnimation;
   }
   for (const span of document.querySelectorAll("[data-story-i2v-label]")) {
     const mode = span.getAttribute("data-story-i2v-label");
-    if (mode && STORY_I2V_ANIMATION_LABELS[mode]) {
-      span.textContent = STORY_I2V_ANIMATION_LABELS[mode];
+    if (mode && labels[mode]) {
+      span.textContent = labels[mode];
     }
   }
   if (storyAnimationHint) {
-    storyAnimationHint.textContent = showI2v
-      ? `${STORY_ANIMATION_HINT_BASE} Wan I2V — анимация story-кадров на GPU.`
+    storyAnimationHint.textContent = showVideoAnimation
+      ? provider === "local-gpu"
+        ? `${STORY_ANIMATION_HINT_BASE} Wan I2V — анимация story-кадров на GPU.`
+        : `${STORY_ANIMATION_HINT_BASE} Veo — анимация story-кадров через OpenRouter.`
       : STORY_ANIMATION_HINT_BASE;
   }
-  if (!showI2v) {
+  if (!showVideoAnimation) {
     const current = getStoryAnimation();
     if (current === "video" || current === "video-parallax") {
       setStoryAnimation("depthParallax");
@@ -2486,6 +2847,14 @@ const syncStoryAnimationFromJson = () => {
 
 const isStoryVisualLayout = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
+
+const shouldShowStoryVideoUi = (conversation) => {
+  const animation = conversation?.story?.opening?.animation ?? "depthParallax";
+  return (
+    isStoryVisualLayout(conversation) &&
+    (animation === "video" || animation === "video-parallax")
+  );
+};
 
 const getVideoLayout = () => {
   const checked = [...videoLayoutInputs].find((input) => input.checked);
@@ -3659,6 +4028,15 @@ const buildStoryPreviewLookup = (storyItems) => {
   }
   return lookup;
 };
+
+const buildStorySlotLookup = (storyItems) => {
+  const lookup = new Map();
+  for (const item of storyItems ?? []) {
+    const key = item.messageIndex == null ? "opening" : item.messageIndex;
+    lookup.set(key, item);
+  }
+  return lookup;
+};
 const storyOpeningPromptSaveTimer = {id: null};
 
 const imagePromptSaveTimers = new Map();
@@ -4170,6 +4548,7 @@ const generateFrameImage = async (item) => {
       stylePrompt: getStylePrompt(),
       targetRef,
       aspectRatio: "4:3",
+      chatImageModel: getChatImageModel(),
     }),
   });
   const data = await res.json();
@@ -4219,6 +4598,7 @@ const correctFrameImage = async (item, editPromptOverride) => {
       stylePrompt: getStylePrompt(),
       aspectRatio: "4:3",
       imageKind: "chat",
+      chatImageModel: getChatImageModel(),
     }),
   });
   const data = await res.json();
@@ -4265,6 +4645,7 @@ const correctStoryFrameImage = async (messageIndex, editPromptOverride) => {
       storyStylePrompt: getStoryStylePrompt(),
       aspectRatio: "9:16",
       imageKind: isOpening ? "story-opening" : "story",
+      storyImageModel: getStoryImageModel(),
     }),
   });
   const data = await res.json();
@@ -4492,7 +4873,7 @@ const enrichImageItem = (message, messageIndex, item) => {
   return {...base, ...state};
 };
 
-const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null}) => {
+const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null, slotScan = null}) => {
   const slot = document.createElement("div");
   slot.className = "image-slot image-slot--story";
   slot.dataset.storySlotIndex = String(messageIndex ?? "opening");
@@ -4546,6 +4927,15 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
       : String(message?.storyImage ?? "").trim();
 
   if (imagePath) {
+    const media = document.createElement("div");
+    media.className = "image-slot__media";
+
+    const imageCol = document.createElement("div");
+    imageCol.className = "image-slot__media-col";
+    const imageLabel = document.createElement("span");
+    imageLabel.className = "image-slot__media-label";
+    imageLabel.textContent = "Кадр";
+
     const preview = document.createElement("img");
     preview.className = "image-slot__preview";
     preview.alt = title;
@@ -4553,8 +4943,22 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
     preview.src =
       previewUrl ||
       (isImageUrl(imagePath) ? imagePath : `/${imagePath.replace(/^\/+/, "")}`);
-    preview.addEventListener("click", () => openImageLightbox(preview.src));
-    slot.append(preview);
+    preview.title = "Открыть в полном размере";
+
+    imageCol.append(imageLabel, preview);
+    media.append(imageCol);
+
+    const conversation = parseConversationJson();
+    if (shouldShowStoryVideoUi(conversation)) {
+      media.append(
+        renderStoryVideoColumn({
+          messageIndex,
+          slotScan: slotScan ?? null,
+        }),
+      );
+    }
+
+    slot.append(media);
 
     const correctionBlock = document.createElement("div");
     correctionBlock.className = "image-slot__correction-edit image-card__correction-edit";
@@ -4669,6 +5073,7 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
             messageIndex == null ? buildEditorStoryOpeningRef() : buildEditorStoryRef(messageIndex),
           aspectRatio: "9:16",
           stylePrompt: getStoryStylePrompt(),
+          storyImageModel: getStoryImageModel(),
         }),
       });
       const data = await res.json();
@@ -4745,7 +5150,7 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null})
   return slot;
 };
 
-const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
+const renderStoryOpeningPanel = (conversation, storyPreviewLookup, storySlotLookup) => {
   const panel = document.createElement("section");
   panel.className = "dialogue-block dialogue-block--opening";
   const sceneCol = document.createElement("div");
@@ -4772,7 +5177,7 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
     img.alt = "Opening";
     img.loading = "lazy";
     img.src = previewUrl;
-    img.addEventListener("click", () => openImageLightbox(img.src));
+    img.title = "Открыть в полном размере";
     frame.append(img);
     const gradient = document.createElement("div");
     gradient.className = "dialogue-scene__gradient";
@@ -4790,6 +5195,7 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup) => {
       message: conversation,
       title: "story.opening",
       previewUrl: storyPreviewLookup?.get("opening") ?? null,
+      slotScan: storySlotLookup?.get("opening") ?? null,
     }),
   );
   scene.append(controls);
@@ -4884,7 +5290,6 @@ const renderImageControls = (item) => {
     img.src = item.previewUrl;
     img.alt = "Превью изображения";
     img.title = "Открыть в полном размере";
-    img.addEventListener("click", () => openLightbox(item.previewUrl));
     slot.append(img);
   } else if (item.status !== "ok") {
     const placeholder = document.createElement("div");
@@ -5160,6 +5565,7 @@ const renderDialogueSceneBlock = ({
   messageIndex,
   item,
   storyPreviewLookup,
+  storySlotLookup,
   messageText,
   isStoryVisual,
   display = "center",
@@ -5185,7 +5591,7 @@ const renderDialogueSceneBlock = ({
     img.alt = `Кадр ${messageIndex + 1}`;
     img.loading = "lazy";
     img.src = preview.previewUrl;
-    img.addEventListener("click", () => openImageLightbox(img.src));
+    img.title = "Открыть в полном размере";
     frame.append(img);
     const gradient = document.createElement("div");
     gradient.className = "dialogue-scene__gradient";
@@ -5219,6 +5625,7 @@ const renderDialogueSceneBlock = ({
         message,
         title: `Кадр · №${messageIndex + 1}`,
         previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
+        slotScan: storySlotLookup?.get(messageIndex) ?? null,
       }),
     );
   } else if (message.image?.trim() || message.imagePrompt?.trim()) {
@@ -5270,7 +5677,7 @@ const renderMessageDisplayToggle = (messageIndex, currentDisplay) => {
   return wrap;
 };
 
-const renderDialogueMessage = (message, messageIndex, item, contactName, storyPreviewLookup) => {
+const renderDialogueMessage = (message, messageIndex, item, contactName, storyPreviewLookup, storySlotLookup) => {
   const row = document.createElement("article");
   const isMe = message.author === "me";
   const display = getMessageDisplay(message);
@@ -5301,6 +5708,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
         messageIndex,
         item,
         storyPreviewLookup,
+        storySlotLookup,
         messageText,
         isStoryVisual,
         display,
@@ -5485,6 +5893,7 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
 
   const itemsByIndex = new Map((items ?? []).map((item) => [item.messageIndex, item]));
   const storyPreviewLookup = buildStoryPreviewLookup(storyItems);
+  const storySlotLookup = buildStorySlotLookup(storyItems);
 
   const needsImageIndexes = [];
   if (conversation.layout !== "storySplit" && conversation.layout !== "storyOverlay") {
@@ -5521,7 +5930,7 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
   }
 
   if (isStoryVisualLayout(conversation)) {
-    dialogueEditor.append(renderStoryOpeningPanel(conversation, storyPreviewLookup));
+    dialogueEditor.append(renderStoryOpeningPanel(conversation, storyPreviewLookup, storySlotLookup));
   }
 
   for (let i = 0; i < conversation.messages.length; i++) {
@@ -5532,6 +5941,7 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
         itemsByIndex.get(i),
         conversation.contactName,
         storyPreviewLookup,
+        storySlotLookup,
       ),
     );
   }
@@ -5622,10 +6032,12 @@ const refreshDialogue = async () => {
     syncMessageFontSizeFromJson();
     syncVoiceoverFromJson();
   syncEpisodesFromJson();
-    renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview, data.storyItems ?? []);
+    lastStoryScanItems = data.storyItems ?? [];
+    renderDialogueEditor(conversation, data.items ?? [], messageTimingPreview, lastStoryScanItems);
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
   } catch {
+    lastStoryScanItems = [];
     renderDialogueEditor(conversation, [], messageTimingPreview, []);
     updateGenerateImagesControls(conversation);
     updateVoiceoverControls(conversation);
@@ -5811,6 +6223,7 @@ for (const input of storyAnimationInputs) {
   input.addEventListener("change", () => {
     applyStoryAnimationToJson();
     scheduleRefreshDialogue();
+    updateGenerateAnimationsControls();
   });
 }
 stylePromptInput.addEventListener("input", scheduleRefreshDialogue);
@@ -6477,7 +6890,50 @@ const updateGenerateImagesControls = (conversation = null) => {
     btnGenerateImages.title = `Сгенерировать ${pending} изображени${pending === 1 ? "е" : pending < 5 ? "я" : "й"}`;
   }
 
+  updateGenerateAnimationsControls(parsed, lastStoryScanItems);
   updatePreviewCoverControls(parsed);
+};
+
+const countPendingStoryVideosFromScan = (conversation, storyItems = lastStoryScanItems) => {
+  if (!shouldShowStoryVideoUi(conversation)) {
+    return 0;
+  }
+  return (storyItems ?? []).filter((item) => {
+    const hasImage = item.status === "ok" || Boolean(item.previewUrl);
+    return hasImage && item.videoStatus !== "ok";
+  }).length;
+};
+
+const getStoryVideoProviderLabel = () =>
+  storyVideoProvider === "local-gpu" ? "Wan I2V" : "Veo";
+
+const updateGenerateAnimationsControls = (conversation = null, storyItems = lastStoryScanItems) => {
+  if (!btnGenerateAnimations) {
+    return;
+  }
+
+  const parsed = conversation ?? parseConversationJson();
+  const show = Boolean(parsed && shouldShowStoryVideoUi(parsed));
+  btnGenerateAnimations.hidden = !show;
+
+  if (!show) {
+    btnGenerateAnimations.disabled = true;
+    btnGenerateAnimations.title = "Выберите анимацию Veo или Video parallax в настройках story";
+    return;
+  }
+
+  const pending = countPendingStoryVideosFromScan(parsed, storyItems);
+  const canGenerate = storyVideoConfigured && pending > 0;
+
+  btnGenerateAnimations.disabled = !canGenerate;
+  if (!storyVideoConfigured) {
+    btnGenerateAnimations.title =
+      "Story-видео недоступно — задайте OPENROUTER_API_KEY (Veo) или LOCAL_GPU_VIDEO_URL";
+  } else if (pending === 0) {
+    btnGenerateAnimations.title = "Все story-кадры с изображениями уже анимированы";
+  } else {
+    btnGenerateAnimations.title = `Анимировать ${pending} story-кадр${pending === 1 ? "" : pending < 5 ? "а" : "ов"} (${getStoryVideoProviderLabel()})`;
+  }
 };
 
 const updatePreviewCoverControls = (conversation = null) => {
@@ -6905,6 +7361,8 @@ const generateMissingImages = async () => {
       storyStylePrompt: getStoryStylePrompt(),
       provider: "openrouter",
       imageNamespace: resolveEditorImageNamespace(),
+      chatImageModel: getChatImageModel(),
+      storyImageModel: getStoryImageModel(),
     }),
   });
   const data = await res.json();
@@ -6916,6 +7374,58 @@ const generateMissingImages = async () => {
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
   return data;
+};
+
+const generateMissingAnimations = async () => {
+  const json = jsonInput.value.trim();
+  if (!json) {
+    throw new Error("Сначала добавьте JSON переписки");
+  }
+  if (!storyVideoConfigured) {
+    throw new Error(
+      "Story-видео недоступно — задайте OPENROUTER_API_KEY (Veo) или LOCAL_GPU_VIDEO_URL",
+    );
+  }
+
+  const parsed = parseConversationJson();
+  if (!shouldShowStoryVideoUi(parsed)) {
+    throw new Error("Анимация Veo доступна только при режиме «Veo» или «Video parallax»");
+  }
+
+  const res = await fetch("/api/story-videos/generate-missing", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({json}),
+  });
+  const data = await readApiJson(res);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка генерации анимации");
+  }
+
+  if (data.conversation) {
+    jsonInput.value = JSON.stringify(data.conversation, null, 2);
+  }
+  await refreshDialogue();
+  updateGenerateAnimationsControls(data.conversation ?? parsed);
+  return data;
+};
+
+const formatGenerateAnimationsResult = (data) => {
+  const generated = Number(data?.generated) || 0;
+  const pending = Number(data?.pending) || 0;
+  const logs = Array.isArray(data?.logs) ? data.logs : [];
+  let title = "Готово";
+  if (generated > 0) {
+    title = `Анимация: ${generated} клип${generated === 1 ? "" : generated < 5 ? "а" : "ов"}`;
+  } else if (pending > 0) {
+    title = `Не все кадры анимированы (осталось ${pending})`;
+  } else if (logs[0]) {
+    title = logs[0];
+  }
+  return {
+    title,
+    log: logs.length > 0 ? logs.join("\n") : undefined,
+  };
 };
 
 btnGenerateDialogue?.addEventListener("click", async () => {
@@ -7035,6 +7545,22 @@ btnGenerateImages?.addEventListener("click", async () => {
   }
 });
 
+btnGenerateAnimations?.addEventListener("click", async () => {
+  btnGenerateAnimations.disabled = true;
+  try {
+    await runTextGenTask({
+      title: "Анимация story-кадров",
+      runningLabel: `${getStoryVideoProviderLabel()} анимирует кадры… Обычно 1–3 минуты на клип.`,
+      task: generateMissingAnimations,
+      onSuccess: formatGenerateAnimationsResult,
+    });
+  } catch {
+    // ошибка в модальном окне
+  } finally {
+    updateGenerateAnimationsControls();
+  }
+});
+
 voiceoverEnabled?.addEventListener("change", () => {
   applyVoiceoverToJson();
   scheduleRefreshDialogue();
@@ -7132,6 +7658,9 @@ const applyApiStatusToEditor = (data) => {
       openrouterStoryImageModel = data.openrouter.storyImageModel;
     }
   }
+  if ((imageModelCatalog.chat?.length ?? 0) > 0 || (imageModelCatalog.story?.length ?? 0) > 0) {
+    populateImageModelSelects();
+  }
   if (typeof data?.voiceover?.ttsProfile === "string" && data.voiceover.ttsProfile) {
     openrouterTtsProfile = data.voiceover.ttsProfile;
   }
@@ -7145,6 +7674,8 @@ const applyApiStatusToEditor = (data) => {
     populateVoiceSelects(data.voiceover.catalog);
   }
   updateStoryI2vAnimationOptions(data?.storyVideo);
+  storyVideoConfigured = Boolean(data?.storyVideo?.configured);
+  storyVideoProvider = data?.storyVideo?.provider === "local-gpu" ? "local-gpu" : "veo";
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateVoiceoverControls();
@@ -7300,6 +7831,7 @@ for (const el of document.querySelectorAll("[data-music-catalog-dismiss]")) {
 loadRenderTargets();
 loadStylePrompt();
 loadStoryStylePrompt();
+loadImageModels();
 populateVoiceSelects();
 const loadOpenRouterStatus = async () => {
   try {

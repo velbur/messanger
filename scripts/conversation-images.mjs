@@ -59,6 +59,7 @@ const renderStoryFrameBuffer = async ({
   style,
   imageProvider,
   useStyleAnchor = true,
+  storyImageModel,
 }) => {
   const styleAnchor = useStyleAnchor
     ? pickStoryStyleAnchorReference(resolved.imageReferences)
@@ -83,6 +84,7 @@ const renderStoryFrameBuffer = async ({
     kind: "story",
     referenceDataUrl: styleAnchor.dataUrl,
     referenceKind: styleAnchor.kind,
+    model: storyImageModel,
   });
   return buffer;
 };
@@ -90,7 +92,10 @@ const renderStoryFrameBuffer = async ({
 const hasStoryScenePromptOnly = (scene) =>
   Boolean(scene?.imagePrompt?.trim()) && !Boolean(scene?.image?.trim());
 
-export const generateMissingStoryImages = async (conversation, {stylePrompt, imageNamespace} = {}) => {
+export const generateMissingStoryImages = async (
+  conversation,
+  {stylePrompt, imageNamespace, storyImageModel} = {},
+) => {
   const logs = [];
   if (!isStoryImageGenerationConfigured() || !isStoryVisual(conversation)) {
     return logs;
@@ -135,6 +140,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       style,
       imageProvider,
       useStyleAnchor: false,
+      storyImageModel,
     });
     if (buffer) {
       const targetRef = `images/${namespace}/story-opening.png`;
@@ -165,6 +171,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
         resolved,
         style,
         imageProvider,
+        storyImageModel,
       });
       if (!buffer) {
         logs.push(`Сцена #${sceneIndex + 1}: не удалось собрать story-промпт`);
@@ -206,6 +213,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       resolved,
       style,
       imageProvider,
+      storyImageModel,
     });
     if (!buffer) {
       logs.push(`Сообщение #${messageIndex + 1}: не удалось собрать story-промпт`);
@@ -229,7 +237,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
 
 export const generateMissingConversationImages = async (
   conversation,
-  {stylePrompt, storyStylePrompt, imageNamespace} = {},
+  {stylePrompt, storyStylePrompt, imageNamespace, chatImageModel, storyImageModel} = {},
 ) => {
   const logs = [];
   const canChatImages = isOpenRouterConfigured();
@@ -279,6 +287,7 @@ export const generateMissingConversationImages = async (
         referenceDataUrl,
         aspectRatio: CHAT_IMAGE_ASPECT_RATIO,
         kind: "chat",
+        model: chatImageModel,
       });
 
       const targetRef = `images/${namespace}/msg-${messageIndex + 1}.png`;
@@ -297,6 +306,7 @@ export const generateMissingConversationImages = async (
   const storyLogs = await generateMissingStoryImages(conversation, {
     stylePrompt: storyStylePrompt,
     imageNamespace: namespace,
+    storyImageModel,
   });
   logs.push(...storyLogs);
 

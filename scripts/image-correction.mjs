@@ -135,6 +135,7 @@ export const correctFrameImage = async ({
   aspectRatio,
   kind = "chat",
   openingImage = null,
+  model,
 }) => {
   const isStoryKind = kind === "story" || kind === "story-opening";
   const useLocalGpu = shouldUseLocalGpuCorrection(kind);
@@ -177,6 +178,7 @@ export const correctFrameImage = async ({
       referenceDataUrl: dataUrl,
       aspectRatio: resolvedAspect,
       kind: isStoryKind ? "story" : "chat",
+      model,
     });
     buffer = result.buffer;
     provider = "openrouter";
