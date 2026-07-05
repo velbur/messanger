@@ -135,8 +135,8 @@ const main = async () => {
 
   await access(image);
   const storyImagePrompt = await resolveStoryImagePrompt(image);
-  const motionMode = describeMotionPromptMode(storyImagePrompt);
-  const prompt = buildStoryMotionPrompt(storyImagePrompt);
+  const motionMode = describeMotionPromptMode(storyImagePrompt, {provider: "local-gpu"});
+  const prompt = buildStoryMotionPrompt(storyImagePrompt, {provider: "local-gpu"});
   console.log(
     `Генерация: ${image} → ${output} (${resolution}${steps ? `, ${steps} steps` : ""}, motion: ${motionMode})`,
   );

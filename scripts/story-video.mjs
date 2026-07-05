@@ -308,6 +308,7 @@ export const generateMissingStoryVideos = async (
   }
 
   const videoStatus = getStoryVideoGenerationStatus();
+  const videoProvider = videoStatus.provider;
   const model =
     videoStatus.provider === "local-gpu"
       ? getLocalGpuVideoModel()
@@ -385,15 +386,20 @@ export const generateMissingStoryVideos = async (
       });
 
     let result = null;
-    const motionResolved = await resolveStoryVideoMotionPrompt(conversation, target, {loop: false});
+    const motionResolved = await resolveStoryVideoMotionPrompt(conversation, target, {
+      loop: false,
+      provider: videoProvider,
+    });
     const motionPrompt = motionResolved.motionPrompt;
-    const motionMode = motionResolved.motionMode ?? describeMotionPromptMode(target.imagePrompt, {loop: false});
+    const motionMode =
+      motionResolved.motionMode ??
+      describeMotionPromptMode(target.imagePrompt, {loop: false, provider: videoProvider});
     if (motionResolved.promptSource === "openrouter") {
       target.holder.storyVideoPrompt = motionPrompt;
     }
-    if (motionMode === "ambient-only-people") {
+    if (motionMode === "ambient-only-people" && videoProvider === "local-gpu") {
       logs.push(
-        `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение, без описания сцены`,
+        `Story-видео (${target.label}): в imagePrompt есть люди — только ambient-движение (режим Wan I2V)`,
       );
     }
     try {
@@ -407,7 +413,7 @@ export const generateMissingStoryVideos = async (
           `Story-видео (${target.label}): промпт отклонён фильтром Google — повтор с нейтральным движением без описания сцены`,
         );
         try {
-          result = await runGeneration(buildStoryMotionPrompt("", {loop: false}));
+          result = await runGeneration(buildStoryMotionPrompt("", {loop: false, provider: videoProvider, neutral: true}));
         } catch (retryError) {
           const retryReason = retryError instanceof Error ? retryError.message : String(retryError);
           logs.push(
