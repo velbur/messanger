@@ -2,6 +2,7 @@ import React from "react";
 import {AbsoluteFill} from "remotion";
 import type {StorySceneAnimation} from "../story";
 import {storyMotionLoopFrames} from "../story-motion";
+import {storyVideoPathForImage} from "../story-video-paths";
 import {DepthDisplacementImage} from "./DepthDisplacementImage";
 import {KenBurnsImage} from "./KenBurnsImage";
 import {PerspectiveParallaxImage} from "./PerspectiveParallaxImage";
@@ -104,12 +105,19 @@ export const StorySceneImage: React.FC<Props> = ({
   motionLoopSec = 3,
 }) => {
   const motionLoopFrameCount = storyMotionLoopFrames(motionLoopSec);
+  const trimmedImage = image?.trim();
+  const trimmedVideo = video?.trim();
+  const hybridVideo =
+    trimmedVideo ||
+    (animation === "video-parallax" && trimmedImage
+      ? storyVideoPathForImage(trimmedImage)
+      : undefined);
 
-  if ((animation === "video" || animation === "video-parallax") && video?.trim()) {
+  if ((animation === "video" || animation === "video-parallax") && hybridVideo) {
     return (
       <StorySceneVideo
-        video={video.trim()}
-        image={image?.trim()}
+        video={hybridVideo}
+        image={trimmedImage}
         videoDurationMs={videoDurationMs}
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
@@ -119,11 +127,13 @@ export const StorySceneImage: React.FC<Props> = ({
     );
   }
 
-  if (image?.trim()) {
+  if (trimmedImage) {
     return (
       <MotionScene
-        image={image.trim()}
-        animation={animation === "video" ? "kenburns" : animation}
+        image={trimmedImage}
+        animation={
+          animation === "video" || animation === "video-parallax" ? "kenburns" : animation
+        }
         localFrame={localFrame}
         durationFrames={durationFrames}
         sceneStartFrame={sceneStartFrame}

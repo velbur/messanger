@@ -52,7 +52,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v1";
+export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v2";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -577,7 +577,7 @@ type StorySegment = {
 
 /**
  * Непрерывные сегменты story-медиа: заставка (если есть отдельно) + каждая сцена.
- * endFrame берётся из sceneEvents (плановая длительность), не растягивается до outro.
+ * Сцена тянется до старта следующей (без «дыр» с PNG-parallax в video-parallax).
  */
 const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): StorySegment[] => {
   const raw: StorySegment[] = [];
@@ -599,41 +599,15 @@ const buildStorySegments = (story: StoryTimeline, outroStartFrame: number): Stor
 
   for (let i = 0; i < story.sceneEvents.length; i += 1) {
     const event = story.sceneEvents[i];
+    const nextStart = story.sceneEvents[i + 1]?.startFrame;
+    const displayEnd = nextStart ?? Math.max(event.endFrame, outroStartFrame);
     raw.push({
       startFrame: event.startFrame,
-      endFrame: event.endFrame,
+      endFrame: displayEnd,
       image: event.image,
       video: event.video,
       videoDurationMs: event.videoDurationMs,
       videoLoop: event.videoLoop,
-    });
-    const nextStart = story.sceneEvents[i + 1]?.startFrame;
-    if (nextStart != null && nextStart > event.endFrame) {
-      raw.push({
-        startFrame: event.endFrame,
-        endFrame: nextStart,
-        image: event.image,
-        video: undefined,
-        videoDurationMs: undefined,
-        videoLoop: false,
-      });
-    }
-  }
-
-  if (raw.length === 0) {
-    return raw;
-  }
-
-  const lastEnd = raw[raw.length - 1].endFrame;
-  if (lastEnd < outroStartFrame) {
-    const last = raw[raw.length - 1];
-    raw.push({
-      startFrame: last.endFrame,
-      endFrame: outroStartFrame,
-      image: last.image,
-      video: undefined,
-      videoDurationMs: undefined,
-      videoLoop: false,
     });
   }
 
