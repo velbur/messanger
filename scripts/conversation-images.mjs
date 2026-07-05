@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   buildImageGenerationPrompt,
   buildStoryImageGenerationPrompt,
+  pickStoryStyleAnchorReference,
   resolveFramePrompts,
   resolveStoryFramePrompts,
   resolveStoryScenePrompts,
@@ -12,6 +13,7 @@ import {generateImageBuffer, isOpenRouterConfigured} from "./openrouter-client.m
 import {
   generateStoryImageBuffer,
   getStoryImageGenerationStatus,
+  getStoryImageProvider,
   isStoryImageGenerationConfigured,
 } from "./story-image-provider.mjs";
 import {CHAT_IMAGE_ASPECT_RATIO} from "./chat-image-spec.mjs";
@@ -51,6 +53,40 @@ const ensureStoryObject = (conversation) => {
   return conversation.story;
 };
 
+const renderStoryFrameBuffer = async ({
+  conversation,
+  resolved,
+  style,
+  imageProvider,
+  useStyleAnchor = true,
+}) => {
+  const styleAnchor = useStyleAnchor
+    ? pickStoryStyleAnchorReference(resolved.imageReferences)
+    : {dataUrl: null, kind: null};
+
+  const finalPrompt = buildStoryImageGenerationPrompt({
+    imagePrompt: resolved.imagePrompt,
+    stylePrompt: style,
+    visualBible: formatVisualBible(conversation),
+    conversation,
+    charactersInFrame: resolved.charactersInFrame,
+    provider: imageProvider,
+    hasStyleReference: Boolean(styleAnchor.dataUrl),
+  });
+  if (!finalPrompt) {
+    return null;
+  }
+
+  const {buffer} = await generateStoryImageBuffer({
+    prompt: finalPrompt,
+    aspectRatio: STORY_IMAGE_ASPECT_RATIO,
+    kind: "story",
+    referenceDataUrl: styleAnchor.dataUrl,
+    referenceKind: styleAnchor.kind,
+  });
+  return buffer;
+};
+
 const hasStoryScenePromptOnly = (scene) =>
   Boolean(scene?.imagePrompt?.trim()) && !Boolean(scene?.image?.trim());
 
@@ -64,7 +100,7 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
     await ensureStoryVisualBible(conversation);
   }
 
-  const imageProvider = getStoryImageGenerationStatus().provider;
+  const imageProvider = getStoryImageProvider();
 
   if (imageProvider === "local-gpu") {
     try {
@@ -93,18 +129,14 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       stylePrompt: style,
       kind: "opening",
     });
-    const finalPrompt = buildStoryImageGenerationPrompt({
-      imagePrompt: resolved.imagePrompt,
-      stylePrompt: style,
-      visualBible: formatVisualBible(conversation),
+    const buffer = await renderStoryFrameBuffer({
+      conversation,
+      resolved,
+      style,
+      imageProvider,
+      useStyleAnchor: false,
     });
-    if (finalPrompt) {
-      const {buffer} = await generateStoryImageBuffer({
-        prompt: finalPrompt,
-        aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-        kind: "story",
-        referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
-      });
+    if (buffer) {
       const targetRef = `images/${namespace}/story-opening.png`;
       const publicPath = await saveImageBuffer(buffer, targetRef);
       opening.image = publicPath;
@@ -128,22 +160,16 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
         sceneIndex,
         stylePrompt: style,
       });
-      const finalPrompt = buildStoryImageGenerationPrompt({
-        imagePrompt: resolved.imagePrompt,
-        stylePrompt: style,
-        visualBible: formatVisualBible(conversation),
+      const buffer = await renderStoryFrameBuffer({
+        conversation,
+        resolved,
+        style,
+        imageProvider,
       });
-      if (!finalPrompt) {
+      if (!buffer) {
         logs.push(`Сцена #${sceneIndex + 1}: не удалось собрать story-промпт`);
         continue;
       }
-
-      const {buffer} = await generateStoryImageBuffer({
-        prompt: finalPrompt,
-        aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-        kind: "story",
-        referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
-      });
 
       const anchor = scene.anchorMessageIndex ?? sceneIndex;
       const targetRef = `images/${namespace}/story-msg-${anchor + 1}.png`;
@@ -175,22 +201,16 @@ export const generateMissingStoryImages = async (conversation, {stylePrompt, ima
       stylePrompt: style,
       kind: "message",
     });
-    const finalPrompt = buildStoryImageGenerationPrompt({
-      imagePrompt: resolved.imagePrompt,
-      stylePrompt: style,
-      visualBible: formatVisualBible(conversation),
+    const buffer = await renderStoryFrameBuffer({
+      conversation,
+      resolved,
+      style,
+      imageProvider,
     });
-    if (!finalPrompt) {
+    if (!buffer) {
       logs.push(`Сообщение #${messageIndex + 1}: не удалось собрать story-промпт`);
       continue;
     }
-
-    const {buffer} = await generateStoryImageBuffer({
-      prompt: finalPrompt,
-      aspectRatio: STORY_IMAGE_ASPECT_RATIO,
-      kind: "story",
-      referenceDataUrl: resolved.imageReferences?.primaryReference?.dataUrl ?? null,
-    });
 
     const targetRef = `images/${namespace}/story-msg-${messageIndex + 1}.png`;
     const publicPath = await saveImageBuffer(buffer, targetRef);

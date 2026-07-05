@@ -19,13 +19,14 @@ import {
 import {
   appendSceneCharacterAppearances,
   formatCharacterBible,
+  formatCharactersForScene,
   hasStoryCharacters,
 } from "./story-characters.mjs";
 import {
   formatPriorStoryFramesText,
   resolveStoryImageReferences,
 } from "./story-image-references.mjs";
-import {formatVisualBible, hasStoryVisualBible} from "./story-visual-bible.mjs";
+import {compactVisualBible, formatVisualBible, hasStoryVisualBible} from "./story-visual-bible.mjs";
 import {getStoryScenes} from "./story-scene-timing.mjs";
 
 const normalizeSpace = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
@@ -235,6 +236,8 @@ const buildStorySystemPrompt = ({hasReferences = false, stylePrompt = "", hasCha
       : "Стиль: рисованная иллюстрация, сториборд, не фотореализм.",
     "Опиши establishing shot / атмосферу момента истории, как кадр художника-иллюстратора.",
     "Запрещены формулировки «фото», «фотореализм», «снято на камеру», «shot on 35mm», «как в кино».",
+    "Запрещены аниме, манга, webtoon, cel-shading — только digital painting / storyboard illustration.",
+    "Одежда однотонная, без надписей, логотипов и принтов на футболках.",
     "Визуальная преемственность внутри одной истории обязательна:",
     "- Повторяющиеся объекты (машины, одежда, мебель, животные) сохраняют цвет, форму и ключевые детали между кадрами.",
     "- Меняй объект только если переписка явно описывает изменение (покраска, покупка, переодевание).",
@@ -541,7 +544,14 @@ export const resolveStoryScenePrompts = async ({
   const style = normalizeSpace(stylePrompt) || normalizeSpace(await readStoryStylePrompt());
   const manual = normalizeSpace(scene.imagePrompt);
   if (manual) {
-    return {imagePrompt: manual, promptSource: "manual", imageReferences: null, beat: scene.beat};
+    const refs = await resolveStoryImageReferences(conversation, {sceneIndex, kind: "scene"});
+    return {
+      imagePrompt: manual,
+      promptSource: "manual",
+      imageReferences: refs,
+      beat: scene.beat,
+      charactersInFrame: scene.storySceneCharacters ?? [],
+    };
   }
 
   if (isOpenRouterConfigured()) {
@@ -549,18 +559,19 @@ export const resolveStoryScenePrompts = async ({
   }
 
   const refs = await resolveStoryImageReferences(conversation, {sceneIndex, kind: "scene"});
-  const priorText = formatPriorStoryFramesText(refs.priorFrames, refs.referenceImages);
-  const visualBible = formatVisualBible(conversation);
-  const imagePrompt = [
+  const imagePrompt = appendSceneCharacterAppearances(
     `Рисованная иллюстрация: ${scene.beat}`,
-    visualBible ? `Visual bible: ${visualBible}` : "",
-    priorText,
-    style ? `Стиль: ${style}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+    conversation,
+    scene.storySceneCharacters,
+  );
 
-  return {imagePrompt, promptSource: "heuristic", imageReferences: refs, beat: scene.beat};
+  return {
+    imagePrompt,
+    promptSource: "heuristic",
+    imageReferences: refs,
+    beat: scene.beat,
+    charactersInFrame: scene.storySceneCharacters ?? [],
+  };
 };
 
 export const suggestStoryImagePrompt = async ({
@@ -691,14 +702,122 @@ export const resolveStoryFramePrompts = async ({
   };
 };
 
-export const buildStoryImageGenerationPrompt = ({imagePrompt, stylePrompt, visualBible = ""}) => {
-  const style = normalizeSpace(stylePrompt);
-  const scene = normalizeSpace(imagePrompt);
-  const bible = normalizeSpace(visualBible);
+const LOCAL_GPU_PROMPT_MAX_CHARS = 1200;
+
+const stripStoryPromptBloat = (imagePrompt) => {
+  let scene = normalizeSpace(imagePrompt);
+  scene = scene.replace(/\bVisual bible:[\s\S]*?(?=\b(?:Стиль:|Предыдущие story|Преемственность|$))/gi, "");
+  scene = scene.replace(/Предыдущие story-кадры[\s\S]*?(?=\b(?:Стиль:|Visual bible|Преемственность|$))/gi, "");
+  scene = scene.replace(/Внешность героев[^.]*\.(\s*[^.]+\.)*/gi, "");
+  scene = scene.replace(/Единый стиль проекта:[^.]+\./gi, "");
+  scene = scene.replace(/Детализированная рисованная иллюстрация[^.]+\./gi, "");
+  return normalizeSpace(scene);
+};
+
+/** Короткая сцена для FLUX — без дублей внешности и стилевых блоков. */
+export const compactStoryImagePromptForGpu = (imagePrompt, maxLen = 260) => {
+  let scene = stripStoryPromptBloat(imagePrompt);
+  const sentences = scene.match(/[^.!?…]+[.!?…]+/g);
+  if (sentences?.length) {
+    scene = sentences.slice(0, 2).join(" ").trim();
+  }
+  if (scene.length > maxLen) {
+    return `${scene.slice(0, maxLen - 1).trim()}…`;
+  }
+  return scene;
+};
+
+const FLUX_STYLE_LOCK_T2I =
+  "Vertical 9:16 storyboard illustration, digital painting with visible brushwork and clear contours, cinematic lighting. NOT photography, NOT photorealistic, NOT hyperrealistic, NOT anime, NOT manga, NOT webtoon, NOT 3D render. Plain solid-color clothing without logos, text, or graphics. No text anywhere in image.";
+
+const FLUX_STYLE_LOCK_IMG2IMG =
+  "Keep the exact same illustration style, linework, painterly rendering, palette and character face from the reference image. NOT photography, NOT photorealistic, NOT anime, NOT manga, NOT 3D. Plain clothes without logos or text. No text in image.";
+
+const buildLocalGpuStoryPrompt = ({
+  scene,
+  stylePrompt,
+  visualBible,
+  conversation,
+  charactersInFrame,
+  hasStyleReference = false,
+}) => {
+  const sceneCompact = compactStoryImagePromptForGpu(scene, hasStyleReference ? 220 : 260);
+
+  const styleCompact =
+    normalizeSpace(stylePrompt).slice(0, 180) ||
+    "Digital painting storyboard illustration, painterly, cinematic light.";
+
+  const charIds = Array.isArray(charactersInFrame) ? charactersInFrame : [];
+  let charBlock = "";
+  if (conversation && charIds.length) {
+    charBlock = formatCharactersForScene(conversation, charIds);
+  } else if (conversation && hasStoryCharacters(conversation)) {
+    charBlock = formatCharacterBible(conversation).replace(/\n/g, "; ").slice(0, 280);
+  }
+  if (charBlock && !/без надпис|plain|logo|логотип/i.test(charBlock)) {
+    charBlock = `${charBlock}; plain clothes without text or logos`;
+  }
+
+  const bible = compactVisualBible(visualBible, 200);
+
+  if (hasStyleReference) {
+    return normalizeSpace(
+      [
+        FLUX_STYLE_LOCK_IMG2IMG,
+        `Project style: ${styleCompact}`,
+        charBlock ? `Same characters: ${charBlock.slice(0, 240)}` : "",
+        bible ? `Continuity: ${bible}` : "",
+        `New scene composition: ${sceneCompact}`,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    ).slice(0, LOCAL_GPU_PROMPT_MAX_CHARS);
+  }
+
+  const prefix = [
+    FLUX_STYLE_LOCK_T2I,
+    `Art style: ${styleCompact}`,
+    charBlock ? `Character design (repeat in every frame): ${charBlock.slice(0, 240)}` : "",
+    bible ? `Continuity: ${bible}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const maxSceneLen = Math.max(80, LOCAL_GPU_PROMPT_MAX_CHARS - prefix.length - 8);
+  const scenePart =
+    sceneCompact.length > maxSceneLen
+      ? `${sceneCompact.slice(0, maxSceneLen - 1).trim()}…`
+      : sceneCompact;
+  return normalizeSpace(`${prefix} Scene: ${scenePart}`);
+};
+
+export const buildStoryImageGenerationPrompt = ({
+  imagePrompt,
+  stylePrompt,
+  visualBible = "",
+  conversation = null,
+  charactersInFrame = [],
+  provider = "openrouter",
+  hasStyleReference = false,
+}) => {
+  const scene = stripStoryPromptBloat(imagePrompt);
   if (!scene) {
     return "";
   }
 
+  if (provider === "local-gpu") {
+    return buildLocalGpuStoryPrompt({
+      scene,
+      stylePrompt,
+      visualBible,
+      conversation,
+      charactersInFrame,
+      hasStyleReference,
+    });
+  }
+
+  const style = normalizeSpace(stylePrompt);
+  const bible = normalizeSpace(visualBible);
   return [
     scene,
     bible ? `Преемственность истории: ${bible}` : "",
@@ -707,4 +826,20 @@ export const buildStoryImageGenerationPrompt = ({imagePrompt, stylePrompt, visua
   ]
     .filter(Boolean)
     .join(" ");
+};
+
+/** Opening-кадр как якорь стиля/героев для img2img (предпочтительнее последнего кадра). */
+export const pickStoryStyleAnchorReference = (imageReferences) => {
+  if (!imageReferences) {
+    return {dataUrl: null, kind: null};
+  }
+  const opening = imageReferences.referenceImages?.find((ref) => ref.kind === "opening");
+  if (opening?.dataUrl) {
+    return {dataUrl: opening.dataUrl, kind: "opening"};
+  }
+  const primary = imageReferences.primaryReference;
+  if (primary?.dataUrl) {
+    return {dataUrl: primary.dataUrl, kind: primary.kind ?? "scene"};
+  }
+  return {dataUrl: null, kind: null};
 };

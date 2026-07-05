@@ -75,6 +75,7 @@ import {
   suggestStoryImagePrompt,
   buildImageGenerationPrompt,
   buildStoryImageGenerationPrompt,
+  pickStoryStyleAnchorReference,
 } from "./image-prompt-llm.mjs";
 import {
   loadOpenRouterEnv,
@@ -95,6 +96,7 @@ import {
   describeStoryImageProvider,
   generateStoryImageBuffer,
   getStoryImageGenerationStatus,
+  getStoryImageProvider,
   isStoryImageGenerationConfigured,
 } from "./story-image-provider.mjs";
 import {
@@ -120,7 +122,7 @@ import {
   normalizeDialogueTemperature,
 } from "./dialogue-gen.mjs";
 import {enrichStoryVisualDialogue} from "./story-enrich.mjs";
-import {ensureStoryVisualBible} from "./story-visual-bible.mjs";
+import {ensureStoryVisualBible, formatVisualBible} from "./story-visual-bible.mjs";
 import {
   describeLocalGpuRenderTarget,
   getLocalGpuRenderStatus,
@@ -1305,9 +1307,11 @@ app.post("/api/images/generate", async (req, res) => {
     let promptSource = "manual";
     let style = "";
     let imageRefs = null;
+    let conversation = null;
+    let storyCharactersInFrame = [];
 
     if (jsonText && typeof jsonText === "string") {
-      const conversation = JSON.parse(jsonText);
+      conversation = JSON.parse(jsonText);
       const isStoryKind = imageKind === "story" || imageKind === "story-opening";
       if (isStoryKind && isOpenRouterConfigured()) {
         await ensureStoryVisualBible(conversation);
@@ -1329,6 +1333,7 @@ app.post("/api/images/generate", async (req, res) => {
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
           imageRefs = resolved.imageReferences;
+          storyCharactersInFrame = resolved.charactersInFrame ?? [];
         } else {
           imagePromptSuggested = manualPrompt;
           promptSource = "manual";
@@ -1348,6 +1353,7 @@ app.post("/api/images/generate", async (req, res) => {
           imagePromptSuggested = resolved.imagePrompt;
           promptSource = resolved.promptSource;
           imageRefs = resolved.imageReferences;
+          storyCharactersInFrame = resolved.charactersInFrame ?? [];
         } else {
           imagePromptSuggested = manualPrompt;
           promptSource = "manual";
@@ -1377,10 +1383,20 @@ app.post("/api/images/generate", async (req, res) => {
     }
 
     const isStoryKind = imageKind === "story" || imageKind === "story-opening";
+    const storyImageProvider = getStoryImageProvider();
+    const styleAnchor =
+      isStoryKind && imageKind !== "story-opening"
+        ? pickStoryStyleAnchorReference(imageRefs)
+        : {dataUrl: null, kind: null};
     const finalPrompt = isStoryKind
       ? buildStoryImageGenerationPrompt({
           imagePrompt: imagePromptSuggested,
           stylePrompt: style || (await readStoryStylePrompt()),
+          visualBible: conversation ? formatVisualBible(conversation) : "",
+          conversation,
+          charactersInFrame: storyCharactersInFrame,
+          provider: storyImageProvider,
+          hasStyleReference: Boolean(styleAnchor.dataUrl),
         })
       : manualPrompt ||
         buildImageGenerationPrompt({
@@ -1393,12 +1409,13 @@ app.post("/api/images/generate", async (req, res) => {
       return;
     }
 
-    const referenceDataUrl = imageRefs?.primaryReference?.dataUrl ?? null;
+    const referenceDataUrl = styleAnchor.dataUrl;
     const imageResult = isStoryKind
       ? await generateStoryImageBuffer({
           prompt: finalPrompt,
           aspectRatio: aspectRatio ?? STORY_IMAGE_ASPECT_RATIO,
           referenceDataUrl,
+          referenceKind: styleAnchor.kind,
         })
       : await generateImageBuffer({
           prompt: finalPrompt,

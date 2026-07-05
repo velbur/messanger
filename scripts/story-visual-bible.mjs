@@ -122,6 +122,33 @@ export const ensureStoryVisualBible = async (conversation, {force = false} = {})
 export const formatVisualBible = (conversation) =>
   normalizeSpace(conversation?.story?.visualBible);
 
+/** Короткая выжимка visual bible для FLUX (лимит ~512 токенов на промпт). */
+export const compactVisualBible = (visualBible, maxLen = 280) => {
+  const bible = normalizeSpace(visualBible);
+  if (!bible) {
+    return "";
+  }
+
+  const parts = [];
+  const rulesMatch = bible.match(/Правила преемственности:\s*[^.]+\.?/);
+  const paletteMatch = bible.match(/Палитра и освещение:\s*[^.]+\.?/);
+  if (rulesMatch) {
+    parts.push(rulesMatch[0].trim());
+  }
+  if (paletteMatch) {
+    parts.push(paletteMatch[0].trim());
+  }
+
+  let compact = parts.join(" ");
+  if (!compact) {
+    compact = bible;
+  }
+  if (compact.length > maxLen) {
+    return `${compact.slice(0, maxLen - 1).trim()}…`;
+  }
+  return compact;
+};
+
 export const hasStoryVisualBible = (conversation) =>
   formatVisualBible(conversation).length >= MIN_BIBLE_LENGTH;
 
