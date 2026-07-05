@@ -55,6 +55,8 @@ if [[ ! -d .git ]]; then
   git remote add origin https://github.com/velbur/messanger.git 2>/dev/null || git remote set-url origin https://github.com/velbur/messanger.git
 fi
 
+git config --global --add safe.directory "\${REPO_PATH}" 2>/dev/null || true
+
 ENV_BACKUP=""
 if [[ -f docs/.env ]]; then
   ENV_BACKUP="\$(mktemp)"
