@@ -13,7 +13,9 @@ import {
   resolveMessageTiming,
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
-import {estimateVideoDurationMs} from "../src/chat/timeline.ts";
+import {estimateVideoDurationMs, buildTimeline} from "../src/chat/timeline.ts";
+import {STORY_VOICE_SYNC_BUNDLE_MARKER} from "../src/chat/voiceover.ts";
+import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
   buildNativeRenderCommand,
@@ -688,6 +690,18 @@ const processQueue = async () => {
   job.logs.push(
     `Тайминг переписки: scale ${TIMING_SCALE}, ~${(messagesMs / 1000).toFixed(1)} с на сообщения`,
   );
+  if (
+    job.conversation.voiceover?.enabled &&
+    shouldGenerateStoryVideos(job.conversation) &&
+    Array.isArray(job.conversation.story?.scenes) &&
+    job.conversation.story.scenes.length > 0
+  ) {
+    const timeline = buildTimeline(job.conversation);
+    const boosted = timeline.events.filter((event) => (event.voicePlaybackRate ?? 1) > 1.001).length;
+    job.logs.push(
+      `Озвучка↔Veo (${STORY_VOICE_SYNC_BUNDLE_MARKER}): ~${(timeline.durationInFrames / 30).toFixed(0)} с, ускорено реплик: ${boosted}`,
+    );
+  }
   if (episodes.length > 1) {
     job.logs.push(`Эпизодов: ${episodes.length}`);
   }

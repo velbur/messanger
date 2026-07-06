@@ -149,7 +149,14 @@ export const StorySceneVideo: React.FC<Props> = ({
               />
             </AbsoluteFill>
           </>
-        ) : isStatic ? null : (
+        ) : isStatic ? (
+          localFrame >= playFrames ? (
+            <Img
+              src={staticFile(holdFrame)}
+              style={{...baseCoverStyle, position: "absolute", inset: 0}}
+            />
+          ) : null
+        ) : (
           <Img
             src={staticFile(storyVideoHoldFramePathForVideo(video))}
             style={withMotionStyle(motion, holdOpacity)}

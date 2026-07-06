@@ -17,13 +17,13 @@ resolve_deploy_host() {
   fi
   if [[ -f "${ROOT}/docs/.env" ]]; then
     local url
-    url="$(grep -E '^LOCAL_GPU_RENDER_URL=' "${ROOT}/docs/.env" | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    url="$(grep -E '^(LOCAL_GPU_RENDER_URL|REMOTE_RENDER_URL)=' "${ROOT}/docs/.env" | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
     if [[ -n "$url" ]]; then
       echo "$url" | sed -E 's#^https?://##' | cut -d/ -f1 | cut -d: -f1
       return
     fi
   fi
-  echo "Задай GPU_DEPLOY_HOST или LOCAL_GPU_RENDER_URL в docs/.env" >&2
+  echo "Задай GPU_DEPLOY_HOST или LOCAL_GPU_RENDER_URL / REMOTE_RENDER_URL в docs/.env" >&2
   exit 1
 }
 

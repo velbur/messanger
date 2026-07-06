@@ -523,7 +523,11 @@ const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
             ) : null}
             {event.voiceAudio && event.voiceDurationFrames > 0 ? (
               <Sequence from={event.revealFrame} durationInFrames={event.voiceDurationFrames}>
-                <Audio src={staticFile(event.voiceAudio)} volume={voiceover.volume} />
+                <Audio
+                  src={staticFile(event.voiceAudio)}
+                  volume={voiceover.volume}
+                  playbackRate={event.voicePlaybackRate ?? 1}
+                />
               </Sequence>
             ) : null}
             {event.display === "bubble" && event.typingFrames >= 12 ? (

@@ -1,6 +1,10 @@
 import type {ConversationInput} from "./schema";
 
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
+/** Маркер авто-ускорения озвучки под Veo-клипы в story */
+export const STORY_VOICE_SYNC_BUNDLE_MARKER = "story-voice-sync-v1";
+/** Максимальное ускорение WAV при подгонке под длительность story-сцены (1 = без ускорения) */
+export const STORY_VOICE_SYNC_MAX_PLAYBACK_RATE = 4;
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
 export const OPENROUTER_TTS_PROFILE = "young-emotional-v4";
 /** Скорость речи Gemini TTS (1 = норма). Меняется → voiceTtsProfile → перегенерация WAV. */

@@ -14,6 +14,7 @@ import {
   isStoryVisualLayout,
   isStoryVideoOnlyAnimation,
   mergeStoryConfig,
+  shouldGenerateStoryVideos,
   STORY_VIDEO_BUNDLE_MARKER,
   type StorySceneAnimation,
 } from "./story";
@@ -29,10 +30,10 @@ import {
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
-import {mergeConversationVoiceover, messageHasVoiceover, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
-import {assignStorySceneTimeSlots, getStoryScenes} from "./story-scene-timing";
+import {assignStorySceneTimeSlots, computeStoryVoicePlaybackRates, getStoryScenes, type StoryVoiceSyncSceneEvent} from "./story-scene-timing";
 
 /** Пауза на последнем кадре переписки перед заставками (музыка доигрывает в этот хвост) */
 export const POST_LAST_MESSAGE_TAIL_MS = 8000;
@@ -59,7 +60,7 @@ export const TIMELINE_TIMING_MARKER = TIMING_BUNDLE_MARKER;
 export const FULLSCREEN_TIMELINE_REV = "fs-story-split-v1";
 
 /** Маркер story-split таймлайна в bundle */
-export const STORY_SPLIT_TIMELINE_REV = "story-scene-anchor-v3";
+export const STORY_SPLIT_TIMELINE_REV = "story-voice-sync-v1";
 
 export type MessageTimelineEvent = {
   index: number;
@@ -84,6 +85,8 @@ export type MessageTimelineEvent = {
   voiceAudio?: string;
   voiceDurationMs?: number;
   voiceDurationFrames: number;
+  /** >1 — ускорение WAV при подгонке озвучки под Veo-клип story-сцены */
+  voicePlaybackRate?: number;
 };
 
 export type StorySceneTimelineEvent = {
@@ -156,33 +159,190 @@ export const getStatusBarTime = (
   return fallback;
 };
 
-export const buildTimeline = (conversation: ConversationInput): ConversationTimeline => {
-  void TIMING_SPEED_TIMELINE_MARKER;
-  void TIMELINE_TAIL_MARKER;
-  void VOICEOVER_BUNDLE_MARKER;
-  void STORY_VIDEO_BUNDLE_MARKER;
-  void SFX_BUNDLE_MARKER;
-  void SFX_MIX_BUNDLE_MARKER;
-  void PREVIEW_COVER_BUNDLE_MARKER;
-  const intro = mergeIntro(conversation);
-  const endCard = mergeEndCard(conversation);
-  const introFrames = intro.enabled
-    ? msToFrames(scaleConversationMs(conversation, intro.durationMs))
-    : 0;
+const voicePlaybackRatesEqual = (
+  a: Map<number, number>,
+  b: Map<number, number>,
+): boolean => {
+  if (a.size !== b.size) {
+    return false;
+  }
+  for (const [key, rate] of a) {
+    if (Math.abs((b.get(key) ?? 1) - rate) > 0.01) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/** Короткая пауза между репликами внутри одной Veo-сцены (story video + озвучка) */
+const STORY_SYNC_INTER_MESSAGE_MS = 150;
+
+const buildVideoOnlyStorySceneBounds = (
+  conversation: ConversationInput,
+  introFrames: number,
+): StoryVoiceSyncSceneEvent[] => {
+  const planned = getStoryScenes(conversation);
+  const immediateFirstScene = Boolean(conversation.messages[0]?.storyImage?.trim());
+  const storyConfig = mergeStoryConfig(conversation);
+  let chainFrame = introFrames;
+
+  if (!immediateFirstScene) {
+    const openingMs = scaleConversationMs(conversation, storyConfig.opening.durationMs);
+    const splitMs = scaleConversationMs(conversation, storyConfig.splitTransitionMs);
+    const hasOpeningAsset =
+      Boolean(storyConfig.opening.image?.trim()) ||
+      Boolean(storyConfig.opening.storyVideo?.trim()) ||
+      storyConfig.opening.animation !== "none";
+    if (hasOpeningAsset) {
+      chainFrame += msToFrames(openingMs + splitMs);
+    }
+  }
+
+  const bounds: StoryVoiceSyncSceneEvent[] = [];
+  for (const scene of planned) {
+    const message = conversation.messages[scene.anchorMessageIndex];
+    const image = message?.storyImage?.trim() || scene.image?.trim();
+    if (!image) {
+      continue;
+    }
+    const videoMs =
+      typeof message?.storyVideoDurationMs === "number" && message.storyVideoDurationMs > 0
+        ? message.storyVideoDurationMs
+        : 4000;
+    const startFrame = bounds.length === 0 && immediateFirstScene ? introFrames : chainFrame;
+    const endFrame = startFrame + msToFrames(videoMs);
+    bounds.push({
+      messageIndex: scene.anchorMessageIndex,
+      startFrame,
+      endFrame,
+      messageFrom: scene.messageFrom ?? scene.anchorMessageIndex,
+      messageTo: scene.messageTo ?? scene.anchorMessageIndex,
+    });
+    chainFrame = endFrame;
+  }
+
+  return bounds;
+};
+
+const buildVideoOnlyStoryMessageEvents = (
+  conversation: ConversationInput,
+  introFrames: number,
+  sceneBounds: readonly StoryVoiceSyncSceneEvent[],
+): MessageTimelineEvent[] => {
   const storyVisual = isStoryVisualLayout(conversation);
   const videoLayout = isVideoLayout(conversation);
   const storyConfig = mergeStoryConfig(conversation);
   const disableMessageFullscreen =
     videoLayout || (storyVisual && storyConfig.disableMessageFullscreen);
+  const voiceover = mergeConversationVoiceover(conversation);
+  const voicePaddingMs = scaleTimingMs(200);
+  const gapFrames = msToFrames(scaleTimingMs(STORY_SYNC_INTER_MESSAGE_MS));
+  const slots = new Array<MessageTimelineEvent | undefined>(conversation.messages.length);
+  const covered = new Set<number>();
+
+  for (const scene of sceneBounds) {
+    const from = Math.max(0, scene.messageFrom);
+    const to = Math.min(conversation.messages.length - 1, Math.max(from, scene.messageTo));
+    const indices: number[] = [];
+    for (let i = from; i <= to; i++) {
+      indices.push(i);
+    }
+    if (indices.length === 0) {
+      continue;
+    }
+
+    const budgetFrames = Math.max(1, scene.endFrame - scene.startFrame);
+    const gapTotal = indices.length > 1 ? gapFrames * (indices.length - 1) : 0;
+    const voiceCapFrames = Math.max(1, budgetFrames - gapTotal - 1);
+    let totalVoiceFrames = 0;
+    for (const index of indices) {
+      const message = conversation.messages[index];
+      if (messageHasVoiceover(message)) {
+        totalVoiceFrames += msToFrames(message.voiceDurationMs ?? 0);
+      }
+    }
+
+    let sceneRate = 1;
+    if (totalVoiceFrames > voiceCapFrames) {
+      sceneRate = Math.min(
+        STORY_VOICE_SYNC_MAX_PLAYBACK_RATE,
+        totalVoiceFrames / voiceCapFrames,
+      );
+    }
+
+    let cursor = scene.startFrame;
+    indices.forEach((index, order) => {
+      const message = conversation.messages[index];
+      const voiceRate = sceneRate;
+      const revealFrame = cursor;
+      const typingFrames = order === 0 ? 0 : gapFrames;
+      const typingStartFrame = revealFrame - typingFrames;
+      const typingEndFrame = revealFrame;
+      const voiceDurationMs =
+        voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
+      const voiceDurationFrames =
+        voiceDurationMs && voiceRate > 1
+          ? msToFrames(voiceDurationMs / voiceRate)
+          : voiceDurationMs
+            ? msToFrames(voiceDurationMs)
+            : 0;
+      const postRevealFrames = Math.max(
+        voiceDurationFrames,
+        voiceDurationMs ? msToFrames(voiceDurationMs / voiceRate + voicePaddingMs) : 0,
+      );
+      const hasImage = Boolean(message.image?.trim());
+      const fullscreenDelayFrames =
+        hasImage && !disableMessageFullscreen
+          ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_DELAY_MS))
+          : 0;
+      const fullscreenFrames =
+        hasImage && !disableMessageFullscreen
+          ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_MS))
+          : 0;
+      const fullscreenStartFrame = revealFrame + fullscreenDelayFrames;
+      const fullscreenEndFrame = fullscreenStartFrame + fullscreenFrames;
+      const endFrame = fullscreenEndFrame + postRevealFrames;
+
+      slots[index] = {
+        index,
+        author: message.author,
+        text: message.text ?? "",
+        image: message.image,
+        sentAt: message.sentAt,
+        display: message.display === "bubble" ? "bubble" : "center",
+        startFrame: typingStartFrame,
+        typingStartFrame,
+        typingEndFrame,
+        revealFrame,
+        fullscreenStartFrame,
+        fullscreenEndFrame,
+        fullscreenFrames,
+        endFrame,
+        pauseFrames: typingFrames,
+        typingFrames,
+        voiceAudio:
+          voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
+        voiceDurationMs,
+        voiceDurationFrames,
+        voicePlaybackRate: voiceRate > 1.001 ? voiceRate : undefined,
+      };
+      covered.add(index);
+      cursor = revealFrame + voiceDurationFrames + (order < indices.length - 1 ? gapFrames : 0);
+    });
+  }
 
   const events: MessageTimelineEvent[] = [];
   let cursor = introFrames;
   const timingConfig = mergeConversationTiming(conversation);
   const timingSpeed = getTimingSpeed(conversation);
-  const voiceover = mergeConversationVoiceover(conversation);
-  const voicePaddingMs = scaleTimingMs(200);
 
   conversation.messages.forEach((message, index) => {
+    if (covered.has(index) && slots[index]) {
+      events.push(slots[index]!);
+      cursor = Math.max(cursor, slots[index]!.endFrame);
+      return;
+    }
+
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     if (voiceover.enabled && messageHasVoiceover(message)) {
       const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) + voicePaddingMs;
@@ -234,12 +394,165 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
       voiceDurationMs,
       voiceDurationFrames,
     });
+    cursor = endFrame;
+  });
+
+  return events;
+};
+
+const buildMessageTimelineEvents = (
+  conversation: ConversationInput,
+  introFrames: number,
+  voicePlaybackRates: Map<number, number>,
+): MessageTimelineEvent[] => {
+  const storyVisual = isStoryVisualLayout(conversation);
+  const videoLayout = isVideoLayout(conversation);
+  const storyConfig = mergeStoryConfig(conversation);
+  const disableMessageFullscreen =
+    videoLayout || (storyVisual && storyConfig.disableMessageFullscreen);
+
+  const events: MessageTimelineEvent[] = [];
+  let cursor = introFrames;
+  const timingConfig = mergeConversationTiming(conversation);
+  const timingSpeed = getTimingSpeed(conversation);
+  const voiceover = mergeConversationVoiceover(conversation);
+  const voicePaddingMs = scaleTimingMs(200);
+
+  conversation.messages.forEach((message, index) => {
+    let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
+    const voiceRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
+    if (voiceRate > 1.001) {
+      resolved = {
+        ...resolved,
+        pauseBeforeMs: resolved.pauseBeforeMs / voiceRate,
+        typingMs: resolved.typingMs / voiceRate,
+      };
+    }
+    if (voiceover.enabled && messageHasVoiceover(message)) {
+      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) / voiceRate + voicePaddingMs;
+      if (voiceMinPostRevealMs > resolved.postRevealMs) {
+        resolved = {...resolved, postRevealMs: voiceMinPostRevealMs};
+      }
+    }
+    const pauseFrames = index === 0 ? 0 : msToFrames(resolved.pauseBeforeMs);
+    const typingFrames = index === 0 ? 0 : msToFrames(resolved.typingMs);
+    const postRevealFrames = msToFrames(resolved.postRevealMs);
+    const typingStartFrame = cursor + pauseFrames;
+    const typingEndFrame = typingStartFrame + typingFrames;
+    const revealFrame = typingEndFrame;
+    const hasImage = Boolean(message.image?.trim());
+    const fullscreenDelayFrames =
+      hasImage && !disableMessageFullscreen
+        ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_DELAY_MS))
+        : 0;
+    const fullscreenFrames =
+      hasImage && !disableMessageFullscreen
+        ? msToFrames(scaleConversationMs(conversation, IMAGE_FULLSCREEN_MS))
+        : 0;
+    const fullscreenStartFrame = revealFrame + fullscreenDelayFrames;
+    const fullscreenEndFrame = fullscreenStartFrame + fullscreenFrames;
+    const endFrame = fullscreenEndFrame + postRevealFrames;
+    const voiceDurationMs =
+      voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
+    const voiceDurationFrames =
+      voiceDurationMs && voiceRate > 1
+        ? msToFrames(voiceDurationMs / voiceRate)
+        : voiceDurationMs
+          ? msToFrames(voiceDurationMs)
+          : 0;
+
+    events.push({
+      index,
+      author: message.author,
+      text: message.text ?? "",
+      image: message.image,
+      sentAt: message.sentAt,
+      display: message.display === "bubble" ? "bubble" : "center",
+      startFrame: cursor,
+      typingStartFrame,
+      typingEndFrame,
+      revealFrame,
+      fullscreenStartFrame,
+      fullscreenEndFrame,
+      fullscreenFrames,
+      endFrame,
+      pauseFrames,
+      typingFrames,
+      voiceAudio:
+        voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
+      voiceDurationMs,
+      voiceDurationFrames,
+      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : undefined,
+    });
 
     cursor = endFrame;
   });
 
-  const chatEndFrame = cursor;
-  const story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
+  return events;
+};
+
+export const buildTimeline = (conversation: ConversationInput): ConversationTimeline => {
+  void TIMING_SPEED_TIMELINE_MARKER;
+  void TIMELINE_TAIL_MARKER;
+  void VOICEOVER_BUNDLE_MARKER;
+  void STORY_VOICE_SYNC_BUNDLE_MARKER;
+  void STORY_VIDEO_BUNDLE_MARKER;
+  void SFX_BUNDLE_MARKER;
+  void SFX_MIX_BUNDLE_MARKER;
+  void PREVIEW_COVER_BUNDLE_MARKER;
+  const intro = mergeIntro(conversation);
+  const endCard = mergeEndCard(conversation);
+  const introFrames = intro.enabled
+    ? msToFrames(scaleConversationMs(conversation, intro.durationMs))
+    : 0;
+  const storyVisual = isStoryVisualLayout(conversation);
+  const videoLayout = isVideoLayout(conversation);
+  void videoLayout;
+  void storyVisual;
+  const voiceover = mergeConversationVoiceover(conversation);
+  const videoOnlyVoiceSync =
+    voiceover.enabled &&
+    shouldGenerateStoryVideos(conversation) &&
+    getStoryScenes(conversation).length > 0;
+
+  let events: MessageTimelineEvent[];
+  let chatEndFrame: number;
+  let story: StoryTimeline;
+
+  if (videoOnlyVoiceSync) {
+    const sceneBounds = buildVideoOnlyStorySceneBounds(conversation, introFrames);
+    events = buildVideoOnlyStoryMessageEvents(conversation, introFrames, sceneBounds);
+    chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
+    story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
+  } else {
+    let voicePlaybackRates = new Map<number, number>();
+    events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates);
+    chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
+    story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
+
+    for (let iter = 0; iter < 4; iter++) {
+      const syncScenes = story.sceneEvents.map((sceneEv) => {
+        const plan = getStoryScenes(conversation).find(
+          (scene) => scene.anchorMessageIndex === sceneEv.messageIndex,
+        );
+        return {
+          messageIndex: sceneEv.messageIndex,
+          startFrame: sceneEv.startFrame,
+          endFrame: sceneEv.endFrame,
+          messageFrom: plan?.messageFrom ?? sceneEv.messageIndex,
+          messageTo: plan?.messageTo ?? sceneEv.messageIndex,
+        };
+      });
+      const nextRates = computeStoryVoicePlaybackRates(conversation, events, syncScenes);
+      if (voicePlaybackRatesEqual(voicePlaybackRates, nextRates)) {
+        break;
+      }
+      voicePlaybackRates = nextRates;
+      events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates);
+      chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
+      story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
+    }
+  }
 
   const storyTrackEndFrame =
     story.enabled && story.sceneEvents.length > 0
@@ -351,10 +664,13 @@ const buildStoryTimeline = (
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
   const plannedScenes = getStoryScenes(conversation);
-  const sceneOriginFrame = immediateFirstScene
-    ? (events[0]?.revealFrame ?? splitCompleteFrame)
-    : splitCompleteFrame;
   const videoOnlyStory = isStoryVideoOnlyAnimation(conversation);
+  const sceneOriginFrame =
+    videoOnlyStory && immediateFirstScene
+      ? introFrames
+      : immediateFirstScene
+        ? (events[0]?.revealFrame ?? splitCompleteFrame)
+        : splitCompleteFrame;
   let videoChainFrame = sceneOriginFrame;
 
   if (plannedScenes.length > 0) {

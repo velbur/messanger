@@ -2,14 +2,14 @@ import type {ConversationInput} from "./schema";
 import {FPS, msToFrames} from "./fps";
 import {mergeIntro, mergeEndCard} from "./title-card";
 import {mergeConversationOutro, outroDurationFrames, outroPauseFrames} from "./outro";
-import {isStoryVideoOnlyAnimation, mergeStoryConfig, isStoryVisualLayout} from "./story";
+import {isStoryVideoOnlyAnimation, mergeStoryConfig, isStoryVisualLayout, shouldGenerateStoryVideos} from "./story";
 import {
   getTimingSpeed,
   mergeConversationTiming,
   resolveMessageTiming,
   scaleConversationMs,
 } from "./timing";
-import {mergeConversationVoiceover, messageHasVoiceover} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE} from "./voiceover";
 import {POST_LAST_MESSAGE_TAIL_MS} from "./timeline";
 
 export const DEFAULT_STORY_TARGET_DURATION_SEC = 60;
@@ -157,7 +157,11 @@ export const deriveMessageCountLimitFromTargetSec = (targetDurationSec: number):
   return Math.min(80, Math.max(12, sceneCount * 4));
 };
 
-export const buildMessageTimelineMs = (conversation: ConversationInput): MessageTimelineMs[] => {
+export const buildMessageTimelineMs = (
+  conversation: ConversationInput,
+  options?: {voicePlaybackRateForMessage?: (index: number) => number},
+): MessageTimelineMs[] => {
+  const rateFor = options?.voicePlaybackRateForMessage ?? (() => 1);
   const timingConfig = mergeConversationTiming(conversation);
   const timingSpeed = getTimingSpeed(conversation);
   const voiceover = mergeConversationVoiceover(conversation);
@@ -169,7 +173,8 @@ export const buildMessageTimelineMs = (conversation: ConversationInput): Message
   conversation.messages.forEach((message, index) => {
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     if (voiceover.enabled && messageHasVoiceover(message)) {
-      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) + voicePaddingMs;
+      const rate = Math.max(1, rateFor(index));
+      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) / rate + voicePaddingMs;
       if (voiceMinPostRevealMs > resolved.postRevealMs) {
         resolved = {...resolved, postRevealMs: voiceMinPostRevealMs};
       }
@@ -241,6 +246,40 @@ export const getStoryScenes = (conversation: ConversationInput): StoryScenePlanE
   );
 };
 
+export const sceneAnchorMessageIndices = (conversation: ConversationInput): number[] => {
+  const scenes = getStoryScenes(conversation);
+  if (scenes.length > 0) {
+    return [...new Set(scenes.map((s) => s.anchorMessageIndex))].sort((a, b) => a - b);
+  }
+  return conversation.messages
+    .map((message, index) =>
+      message.storyImage?.trim() || message.storyImagePrompt?.trim() ? index : -1,
+    )
+    .filter((index) => index >= 0);
+};
+
+/** Длительность озвучки блока messageFrom..messageTo по таймлайну чата (reveal → end). */
+export const sceneMessageChatSpanMs = (
+  conversation: ConversationInput,
+  scene: Pick<StoryScenePlanEntry, "messageFrom" | "messageTo" | "anchorMessageIndex">,
+): number => {
+  const rows = buildMessageTimelineMs(conversation);
+  if (rows.length === 0) {
+    return 0;
+  }
+  const from = Math.max(0, scene.messageFrom ?? scene.anchorMessageIndex);
+  const to = Math.min(
+    rows.length - 1,
+    Math.max(from, scene.messageTo ?? scene.anchorMessageIndex),
+  );
+  const startRow = rows[from];
+  const endRow = rows[to];
+  if (!startRow || !endRow) {
+    return 0;
+  }
+  return Math.max(1, endRow.endMs - startRow.revealMs);
+};
+
 /** Длительность story-слота с учётом Veo (не короче клипа). */
 const sceneSlotDurationMs = (
   conversation: ConversationInput,
@@ -258,6 +297,99 @@ const sceneSlotDurationMs = (
     return videoMs;
   }
   return Math.max(minSlotMs, Math.min(maxSlotMs, videoMs || minSlotMs));
+};
+
+export type StoryVoiceSyncMessageEvent = {
+  index: number;
+  revealFrame: number;
+};
+
+export type StoryVoiceSyncSceneEvent = {
+  messageIndex: number;
+  startFrame: number;
+  endFrame: number;
+  messageFrom: number;
+  messageTo: number;
+};
+
+/**
+ * Ускорение озвучки по сценам: каждая реплика должна закончиться до конца Veo-клипа сцены.
+ * Возвращает Map messageIndex → playbackRate (≥ 1).
+ */
+export const computeStoryVoicePlaybackRates = (
+  conversation: ConversationInput,
+  messageEvents: readonly StoryVoiceSyncMessageEvent[],
+  sceneEvents: readonly StoryVoiceSyncSceneEvent[],
+): Map<number, number> => {
+  const voiceover = mergeConversationVoiceover(conversation);
+  if (!voiceover.enabled || !shouldGenerateStoryVideos(conversation)) {
+    return new Map();
+  }
+
+  const planned = getStoryScenes(conversation);
+  if (planned.length === 0 || sceneEvents.length === 0) {
+    return new Map();
+  }
+
+  const rates = new Map<number, number>();
+
+  planned.forEach((scene) => {
+    const bounds = sceneEvents.find((ev) => ev.messageIndex === scene.anchorMessageIndex);
+    if (!bounds) {
+      return;
+    }
+
+    const from = Math.max(0, scene.messageFrom ?? scene.anchorMessageIndex);
+    const to = Math.max(from, scene.messageTo ?? scene.anchorMessageIndex);
+    const sceneEnd = bounds.endFrame;
+    const sceneStart = bounds.startFrame;
+    const budgetFrames = Math.max(1, sceneEnd - sceneStart);
+    let sceneRate = 1;
+
+    let totalVoiceFrames = 0;
+    for (let i = from; i <= to; i++) {
+      const message = conversation.messages[i];
+      if (messageHasVoiceover(message)) {
+        totalVoiceFrames += msToFrames(message.voiceDurationMs ?? 0);
+      }
+    }
+    if (totalVoiceFrames > budgetFrames) {
+      sceneRate = Math.max(sceneRate, totalVoiceFrames / budgetFrames);
+    }
+
+    for (let i = from; i <= to; i++) {
+      const event = messageEvents[i];
+      const message = conversation.messages[i];
+      if (!event || !messageHasVoiceover(message)) {
+        continue;
+      }
+
+      const voiceFrames = msToFrames(message.voiceDurationMs ?? 0);
+      const budgetFrames = sceneEnd - event.revealFrame;
+      if (budgetFrames <= 0) {
+        sceneRate = STORY_VOICE_SYNC_MAX_PLAYBACK_RATE;
+        continue;
+      }
+      if (voiceFrames > budgetFrames) {
+        sceneRate = Math.max(sceneRate, voiceFrames / budgetFrames);
+      }
+    }
+
+    sceneRate = Math.min(
+      STORY_VOICE_SYNC_MAX_PLAYBACK_RATE,
+      Math.max(1, sceneRate),
+    );
+
+    if (sceneRate <= 1.001) {
+      return;
+    }
+
+    for (let i = from; i <= to; i++) {
+      rates.set(i, Math.max(rates.get(i) ?? 1, sceneRate));
+    }
+  });
+
+  return rates;
 };
 
 /**
@@ -287,18 +419,6 @@ export const assignStorySceneTimeSlots = (
       estimatedEndMs: Math.round(endMs),
     };
   });
-};
-
-export const sceneAnchorMessageIndices = (conversation: ConversationInput): number[] => {
-  const scenes = getStoryScenes(conversation);
-  if (scenes.length > 0) {
-    return [...new Set(scenes.map((s) => s.anchorMessageIndex))].sort((a, b) => a - b);
-  }
-  return conversation.messages
-    .map((message, index) =>
-      message.storyImage?.trim() || message.storyImagePrompt?.trim() ? index : -1,
-    )
-    .filter((index) => index >= 0);
 };
 
 /** Типичная длина I2V-клипа Veo в story */
