@@ -162,6 +162,11 @@ const btnSaveStoryStylePrompt = document.getElementById("btnSaveStoryStylePrompt
 const storyStylePromptStatus = document.getElementById("storyStylePromptStatus");
 const chatImageModelSelect = document.getElementById("chatImageModelSelect");
 const storyImageModelSelect = document.getElementById("storyImageModelSelect");
+const storyVideoModelSelect = document.getElementById("storyVideoModelSelect");
+const editorMediaModelsRow = document.getElementById("editorMediaModelsRow");
+const chatImageModelField = document.getElementById("chatImageModelField");
+const storyImageModelField = document.getElementById("storyImageModelField");
+const storyVideoModelField = document.getElementById("storyVideoModelField");
 const imageLightbox = document.getElementById("imageLightbox");
 const lightboxImg = document.getElementById("lightboxImg");
 const videoLightbox = document.getElementById("videoLightbox");
@@ -180,13 +185,17 @@ let openrouterTtsProfile = "young-emotional-v3";
 let openrouterTtsSpeechSpeed = 1.5;
 let storyVideoConfigured = false;
 let storyVideoProvider = "veo";
+let openrouterStoryVideoModel = "google/veo-3.1-lite";
 let imageModelCatalog = {chat: [], story: [], defaults: {}};
+let storyVideoModelCatalog = {veo: [], localGpu: [], defaults: {}};
 let lastStoryScanItems = [];
 
 const getChatImageModel = () =>
   chatImageModelSelect?.value?.trim() || openrouterImageModel;
 const getStoryImageModel = () =>
   storyImageModelSelect?.value?.trim() || openrouterStoryImageModel;
+const getStoryVideoModel = () =>
+  storyVideoModelSelect?.value?.trim() || openrouterStoryVideoModel;
 
 const populateImageModelSelect = (selectEl, models, preferredId, fallbackId) => {
   if (!selectEl) {
@@ -232,6 +241,109 @@ const populateImageModelSelects = () => {
     imageModelCatalog.defaults?.story,
     openrouterStoryImageModel,
   );
+  updateEditorMediaModelFields();
+};
+
+const populateStoryVideoModelSelect = () => {
+  if (!storyVideoModelSelect) {
+    return;
+  }
+  const models =
+    storyVideoProvider === "local-gpu"
+      ? storyVideoModelCatalog.localGpu ?? []
+      : storyVideoModelCatalog.veo ?? [];
+  const stored = localStorage.getItem(STORY_VIDEO_MODEL_STORAGE_KEY);
+  const preferred =
+    storyVideoProvider === "local-gpu"
+      ? storyVideoModelCatalog.defaults?.localGpu
+      : storyVideoModelCatalog.defaults?.veo;
+  const resolved =
+    (preferred && models.some((item) => item.id === preferred) ? preferred : null) ||
+    (stored && models.some((item) => item.id === stored) ? stored : null) ||
+    (openrouterStoryVideoModel && models.some((item) => item.id === openrouterStoryVideoModel)
+      ? openrouterStoryVideoModel
+      : null) ||
+    models[0]?.id ||
+    "";
+
+  storyVideoModelSelect.replaceChildren();
+  for (const item of models) {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    if (item.hint) {
+      opt.title = item.hint;
+    }
+    storyVideoModelSelect.append(opt);
+  }
+  if (resolved && [...storyVideoModelSelect.options].some((opt) => opt.value === resolved)) {
+    storyVideoModelSelect.value = resolved;
+  }
+  const localGpuLocked = storyVideoProvider === "local-gpu";
+  storyVideoModelSelect.disabled =
+    !storyVideoConfigured || models.length === 0 || localGpuLocked;
+  storyVideoModelSelect.title = localGpuLocked
+    ? "Модель Wan I2V задаётся на GPU-воркере"
+    : "Модель Veo для story-анимации";
+};
+
+const loadStoryVideoModels = async () => {
+  try {
+    const res = await fetch("/api/story-videos/models");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? "Не удалось загрузить модели story-видео");
+    }
+    storyVideoModelCatalog = {
+      veo: data.veo ?? data.catalog ?? [],
+      localGpu: data.localGpu ?? [],
+      defaults: data.defaults ?? {},
+    };
+    if (data.defaults?.veo) {
+      openrouterStoryVideoModel = data.defaults.veo;
+    }
+    populateStoryVideoModelSelect();
+  } catch (err) {
+    if (!storyVideoModelSelect) {
+      return;
+    }
+    storyVideoModelSelect.replaceChildren();
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Ошибка загрузки";
+    storyVideoModelSelect.append(opt);
+    storyVideoModelSelect.disabled = true;
+    storyVideoModelSelect.title = err instanceof Error ? err.message : String(err);
+  }
+};
+
+const updateEditorMediaModelFields = () => {
+  const layout = getVideoLayout();
+  const isStory = layout !== "chat";
+  const showVideo = isStory && storyVideoConfigured;
+
+  chatImageModelField?.toggleAttribute("hidden", layout !== "chat");
+  storyImageModelField?.toggleAttribute("hidden", !isStory);
+  storyVideoModelField?.toggleAttribute("hidden", !showVideo);
+
+  const videoLabel = storyVideoModelField?.querySelector("span");
+  if (videoLabel) {
+    videoLabel.textContent =
+      storyVideoProvider === "local-gpu" ? "Story-анимация (Wan I2V)" : "Story-анимация (Veo)";
+  }
+
+  const anyVisible = layout === "chat" || isStory;
+  editorMediaModelsRow?.toggleAttribute("hidden", !anyVisible);
+};
+
+const updateStoryVideoGenerateButtonTitles = () => {
+  const videoModelLabel =
+    storyVideoProvider === "local-gpu" ? "Wan I2V" : getStoryVideoModel();
+  for (const btn of document.querySelectorAll("[data-action='generate-story-video']")) {
+    btn.title = canGenerateStoryVideos()
+      ? `Анимировать story-кадр (${videoModelLabel})`
+      : "Story-видео недоступно — проверьте OPENROUTER_API_KEY или LOCAL_GPU_VIDEO_URL";
+  }
 };
 
 const loadImageModels = async () => {
@@ -277,6 +389,14 @@ storyImageModelSelect?.addEventListener("change", () => {
   }
 });
 
+storyVideoModelSelect?.addEventListener("change", () => {
+  if (storyVideoModelSelect?.value && storyVideoProvider !== "local-gpu") {
+    localStorage.setItem(STORY_VIDEO_MODEL_STORAGE_KEY, storyVideoModelSelect.value);
+    updateStoryVideoGenerateButtonTitles();
+    updateGenerateAnimationsControls();
+  }
+});
+
 const canGenerateImages = () => openrouterImageAvailable;
 const canGenerateStoryVideos = () => storyVideoConfigured;
 
@@ -300,6 +420,7 @@ const DIALOGUE_MODEL_STORAGE_KEY = "messanger.dialogueModel";
 const DIALOGUE_TEMPERATURE_STORAGE_KEY = "messanger.dialogueTemperature";
 const CHAT_IMAGE_MODEL_STORAGE_KEY = "messanger.chatImageModel";
 const STORY_IMAGE_MODEL_STORAGE_KEY = "messanger.storyImageModel";
+const STORY_VIDEO_MODEL_STORAGE_KEY = "messanger.storyVideoModel";
 const DEFAULT_DIALOGUE_TEMPERATURE = 0.45;
 const DEFAULT_SHORTS_MESSAGE_COUNT = 10;
 const DEFAULT_SERIES_MESSAGE_COUNT = 20;
@@ -659,6 +780,7 @@ const updateImageProviderControls = () => {
         : "Задайте OPENROUTER_API_KEY в docs/.env";
     }
   }
+  updateStoryVideoGenerateButtonTitles();
 };
 let defaultMusicId = "2007.mp3";
 /** @type {Array<{id:string,label:string,previewUrl?:string,license?:string,licenseUrl?:string,category?:string}>} */
@@ -2150,6 +2272,7 @@ const generateStoryVideoForSlot = async (messageIndex, {force = false} = {}) => 
       json,
       messageIndex: messageIndex ?? "opening",
       force,
+      storyVideoModel: getStoryVideoModel(),
     }),
   });
   const data = await readApiJson(res);
@@ -2328,10 +2451,11 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
   const btnGenerate = document.createElement("button");
   btnGenerate.type = "button";
   btnGenerate.className = "btn btn-primary btn-small";
+  btnGenerate.dataset.action = "generate-story-video";
   btnGenerate.textContent = hasVideo ? "Перегенерировать" : "Сгенерировать";
   btnGenerate.disabled = !canGenerateStoryVideos();
   btnGenerate.title = canGenerateStoryVideos()
-    ? "Анимировать story-кадр (Veo / Wan I2V)"
+    ? `Анимировать story-кадр (${storyVideoProvider === "local-gpu" ? "Wan I2V" : getStoryVideoModel()})`
     : "Story-видео недоступно — проверьте OPENROUTER_API_KEY или LOCAL_GPU_VIDEO_URL";
   btnGenerate.addEventListener("click", async () => {
     if (hasVideo && !window.confirm("Перегенерировать story-видео? Текущий клип будет заменён.")) {
@@ -2909,6 +3033,7 @@ const updateStoryAnimationControls = () => {
   storyAnimationRow?.toggleAttribute("hidden", !storyLayout);
   storySceneTransitionRow?.toggleAttribute("hidden", !storyLayout);
   storyColorFilterRow?.toggleAttribute("hidden", !storyLayout);
+  updateEditorMediaModelFields();
 };
 
 const getStorySceneTransition = () => {
@@ -6493,6 +6618,7 @@ for (const input of videoLayoutInputs) {
     applyStorySceneTransitionToJson();
   applyStoryColorFilterToJson();
     syncDialogueGenDurationControls();
+    updateEditorMediaModelFields();
     scheduleRefreshDialogue();
   });
 }
@@ -6507,6 +6633,7 @@ for (const input of videoTextModeInputs) {
 for (const input of storyAnimationInputs) {
   input.addEventListener("change", () => {
     applyStoryAnimationToJson();
+    updateEditorMediaModelFields();
     scheduleRefreshDialogue();
     updateGenerateAnimationsControls();
   });
@@ -7226,6 +7353,7 @@ const updateGenerateAnimationsControls = (conversation = null, storyItems = last
   if (!show) {
     btnGenerateAnimations.disabled = true;
     btnGenerateAnimations.title = "Выберите анимацию Veo или Video parallax в настройках story";
+    updateEditorMediaModelFields();
     return;
   }
 
@@ -7239,8 +7367,11 @@ const updateGenerateAnimationsControls = (conversation = null, storyItems = last
   } else if (pending === 0) {
     btnGenerateAnimations.title = "Все story-кадры с изображениями уже анимированы";
   } else {
-    btnGenerateAnimations.title = `Анимировать ${pending} story-кадр${pending === 1 ? "" : pending < 5 ? "а" : "ов"} (${getStoryVideoProviderLabel()})`;
+    const modelLabel =
+      storyVideoProvider === "local-gpu" ? "Wan I2V" : getStoryVideoModel();
+    btnGenerateAnimations.title = `Анимировать ${pending} story-кадр${pending === 1 ? "" : pending < 5 ? "а" : "ов"} (${modelLabel})`;
   }
+  updateEditorMediaModelFields();
 };
 
 const updatePreviewCoverControls = (conversation = null) => {
@@ -7702,7 +7833,10 @@ const generateMissingAnimations = async () => {
   const res = await fetch("/api/story-videos/generate-missing", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({json}),
+    body: JSON.stringify({
+      json,
+      storyVideoModel: getStoryVideoModel(),
+    }),
   });
   const data = await readApiJson(res);
   if (!res.ok) {
@@ -7986,6 +8120,12 @@ const applyApiStatusToEditor = (data) => {
   updateStoryI2vAnimationOptions(data?.storyVideo);
   storyVideoConfigured = Boolean(data?.storyVideo?.configured);
   storyVideoProvider = data?.storyVideo?.provider === "local-gpu" ? "local-gpu" : "veo";
+  if (data?.storyVideo?.model) {
+    openrouterStoryVideoModel = data.storyVideo.model;
+  } else if (data?.storyVideoVeo?.model) {
+    openrouterStoryVideoModel = data.storyVideoVeo.model;
+  }
+  populateStoryVideoModelSelect();
   updateImageProviderControls();
   updateGenerateImagesControls();
   updateVoiceoverControls();
@@ -8142,6 +8282,7 @@ loadRenderTargets();
 loadStylePrompt();
 loadStoryStylePrompt();
 loadImageModels();
+loadStoryVideoModels();
 populateVoiceSelects();
 const loadOpenRouterStatus = async () => {
   try {

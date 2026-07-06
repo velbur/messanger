@@ -89,8 +89,13 @@ import {
   getOpenRouterVoiceoverStatus,
   formatOpenRouterError,
 } from "./openrouter-client.mjs";
-import {getOpenRouterStoryVideoStatus} from "./openrouter-video.mjs";
-import {getStoryVideoGenerationStatus, isStoryVideoGenerationConfigured, describeStoryVideoProvider} from "./story-video-provider.mjs";
+import {getOpenRouterStoryVideoStatus, getOpenRouterStoryVideoModel} from "./openrouter-video.mjs";
+import {
+  getStoryVideoGenerationStatus,
+  getStoryVideoProvider,
+  isStoryVideoGenerationConfigured,
+  describeStoryVideoProvider,
+} from "./story-video-provider.mjs";
 import {
   describeStoryImageProvider,
   generateStoryImageBuffer,
@@ -153,6 +158,12 @@ import {
   modelsForScope,
   normalizeImageModelId,
 } from "./image-model-catalog.mjs";
+import {
+  STORY_VIDEO_MODEL_CATALOG,
+  modelsForVideoProvider,
+  normalizeStoryVideoModelId,
+} from "./story-video-model-catalog.mjs";
+import {getLocalGpuVideoModel} from "./local-gpu-video.mjs";
 import {
   generateMissingVoiceover,
   countPendingVoiceover,
@@ -1034,6 +1045,15 @@ const resolveRequestStoryImageModel = (body) =>
     fallback: getOpenRouterStoryImageModel(),
   });
 
+const resolveRequestStoryVideoModel = (body) => {
+  if (getStoryVideoProvider() === "local-gpu") {
+    return getLocalGpuVideoModel();
+  }
+  return normalizeStoryVideoModelId(body?.storyVideoModel ?? body?.videoModel, {
+    fallback: getOpenRouterStoryVideoModel(),
+  });
+};
+
 app.get("/api/images/models", async (_req, res) => {
   try {
     await loadOpenRouterEnv();
@@ -1045,6 +1065,41 @@ app.get("/api/images/models", async (_req, res) => {
         chat: getOpenRouterImageModel(),
         story: getOpenRouterStoryImageModel(),
       },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.get("/api/story-videos/models", async (_req, res) => {
+  try {
+    await loadOpenRouterEnv();
+    const provider = getStoryVideoProvider();
+    const status = getStoryVideoGenerationStatus();
+    const localGpuModel = getLocalGpuVideoModel();
+    res.json({
+      provider,
+      catalog: STORY_VIDEO_MODEL_CATALOG,
+      veo: modelsForVideoProvider("veo"),
+      localGpu:
+        provider === "local-gpu"
+          ? [
+              {
+                id: localGpuModel,
+                label: "Wan I2V (local GPU)",
+                provider: "local-gpu",
+                hint: "Модель на GPU-воркере",
+              },
+            ]
+          : [],
+      defaults: {
+        veo: getOpenRouterStoryVideoModel(),
+        localGpu: localGpuModel,
+      },
+      active: status.model,
+      configured: Boolean(status.configured),
     });
   } catch (error) {
     res.status(500).json({
@@ -1786,6 +1841,7 @@ app.post("/api/story-videos/generate", async (req, res) => {
       publicBaseUrl: getPublicBaseUrl(req),
       force: force === true,
       skipHoldParallaxBake: true,
+      storyVideoModel: resolveRequestStoryVideoModel(req.body),
     });
 
     res.json({
@@ -1858,6 +1914,7 @@ app.post("/api/story-videos/generate-missing", async (req, res) => {
     const logs = await generateMissingStoryVideos(conversation, {
       publicBaseUrl: getPublicBaseUrl(req),
       skipHoldParallaxBake: false,
+      storyVideoModel: resolveRequestStoryVideoModel(req.body),
     });
     const pendingAfter = countPendingStoryVideos(conversation);
 

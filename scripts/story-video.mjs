@@ -22,6 +22,7 @@ import {
   isStoryVideoGenerationConfigured,
 } from "./story-video-provider.mjs";
 import {getLocalGpuVideoModel} from "./local-gpu-video.mjs";
+import {normalizeStoryVideoModelId} from "./story-video-model-catalog.mjs";
 import {ensureLocalGpuModel} from "./local-gpu-models.mjs";
 import {probeVideoDurationMs} from "./media-duration.mjs";
 import {normalizeStoryVideoLoopFlags} from "../src/chat/story-video-mode.ts";
@@ -321,7 +322,10 @@ export const deleteStoryVideoForSlot = async (conversation, messageIndex) => {
   return {deleted, missing, messageIndex: messageIndex ?? null};
 };
 
-const prepareStoryVideoGeneration = async (conversation, {logs = []} = {}) => {
+const prepareStoryVideoGeneration = async (
+  conversation,
+  {logs = [], storyVideoModel} = {},
+) => {
   if (!isStoryVisualLayout(conversation)) {
     throw new Error("Story-видео доступно только для storySplit / storyOverlay");
   }
@@ -363,7 +367,9 @@ const prepareStoryVideoGeneration = async (conversation, {logs = []} = {}) => {
     model:
       videoStatus.provider === "local-gpu"
         ? getLocalGpuVideoModel()
-        : getOpenRouterStoryVideoModel(),
+        : normalizeStoryVideoModelId(storyVideoModel, {
+            fallback: getOpenRouterStoryVideoModel(),
+          }),
     resolution:
       videoStatus.provider === "local-gpu"
         ? videoStatus.resolution
@@ -549,7 +555,13 @@ export const suggestStoryVideoMotionPrompt = async (
 export const generateStoryVideoForSlot = async (
   conversation,
   messageIndex,
-  {publicBaseUrl, force = false, skipHoldParallaxBake = true, onProgress} = {},
+  {
+    publicBaseUrl,
+    force = false,
+    skipHoldParallaxBake = true,
+    onProgress,
+    storyVideoModel,
+  } = {},
 ) => {
   const logs = [];
   const target = findStoryVideoTarget(conversation, messageIndex);
@@ -561,7 +573,7 @@ export const generateStoryVideoForSlot = async (
     );
   }
 
-  const ctx = await prepareStoryVideoGeneration(conversation, {logs});
+  const ctx = await prepareStoryVideoGeneration(conversation, {logs, storyVideoModel});
   const generated = await generateOneStoryVideo(conversation, target, {
     publicBaseUrl,
     force,
@@ -676,7 +688,14 @@ export const resolveStoryVideos = async (
 
 export const generateMissingStoryVideos = async (
   conversation,
-  {publicBaseUrl, force = false, skipHoldParallaxBake = false, onProgress, isCancelled} = {},
+  {
+    publicBaseUrl,
+    force = false,
+    skipHoldParallaxBake = false,
+    onProgress,
+    isCancelled,
+    storyVideoModel,
+  } = {},
 ) => {
   const logs = [];
   if (!isStoryVisualLayout(conversation)) {
@@ -696,7 +715,7 @@ export const generateMissingStoryVideos = async (
     return logs;
   }
 
-  const ctx = await prepareStoryVideoGeneration(conversation, {logs});
+  const ctx = await prepareStoryVideoGeneration(conversation, {logs, storyVideoModel});
   let generated = 0;
 
   for (let index = 0; index < targets.length; index += 1) {

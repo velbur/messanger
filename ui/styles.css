@@ -321,6 +321,37 @@ body {
   max-width: 520px;
 }
 
+.editor-media-models {
+  margin-top: 12px;
+}
+
+.editor-media-models__hint {
+  margin: 0 0 10px;
+}
+
+.editor-media-models__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.editor-media-models__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--muted, #8b949e);
+}
+
+.editor-media-models__item .select {
+  width: 100%;
+  max-width: none;
+  color: var(--text, inherit);
+  font-size: 0.9rem;
+}
+
 .music-row__hint {
   margin: 0 0 8px;
   font-size: 0.82rem;

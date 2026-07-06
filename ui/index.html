@@ -560,6 +560,27 @@
                 ></textarea>
               </div>
 
+              <div class="row editor-media-models" id="editorMediaModelsRow">
+                <span class="label">Модели генерации</span>
+                <p class="dialogue-hint editor-media-models__hint">
+                  Выбор сохраняется в браузере и передаётся при генерации изображений и story-анимации.
+                </p>
+                <div class="editor-media-models__grid">
+                  <label class="editor-media-models__item" id="chatImageModelField" hidden>
+                    <span>Изображения чата (4:3)</span>
+                    <select id="chatImageModelSelect" class="select select--compact" title="Модель OpenRouter для картинок в переписке"></select>
+                  </label>
+                  <label class="editor-media-models__item" id="storyImageModelField" hidden>
+                    <span>Story-кадры (9:16)</span>
+                    <select id="storyImageModelSelect" class="select select--compact" title="Модель OpenRouter для сюжетных кадров"></select>
+                  </label>
+                  <label class="editor-media-models__item" id="storyVideoModelField" hidden>
+                    <span>Story-анимация (Veo)</span>
+                    <select id="storyVideoModelSelect" class="select select--compact" title="Модель для image-to-video анимации story-кадров"></select>
+                  </label>
+                </div>
+              </div>
+
               <div class="actions actions--inline" id="imagesGenerateRow">
                 <button type="button" id="btnEnrichStoryScenes" class="btn btn-secondary" disabled hidden>
                   Сгенерировать промпты изображений
@@ -702,20 +723,6 @@
             Сохранить промпт сюжета
           </button>
           <span id="storyStylePromptStatus" class="style-prompt-status" aria-live="polite"></span>
-        </div>
-        <div class="row image-model-row">
-          <label class="label" for="chatImageModelSelect">Модель для чата (4:3)</label>
-          <p class="prompt-tab-hint">
-            Модель OpenRouter для картинок в переписке. Выбор сохраняется в браузере и передаётся при генерации.
-          </p>
-          <select id="chatImageModelSelect" class="select"></select>
-        </div>
-        <div class="row image-model-row">
-          <label class="label" for="storyImageModelSelect">Модель для story (9:16)</label>
-          <p class="prompt-tab-hint">
-            Модель для сюжетных кадров story-split. При STORY_IMAGE_PROVIDER=local-gpu список не влияет на рендер.
-          </p>
-          <select id="storyImageModelSelect" class="select"></select>
         </div>
       </section>
     </main>
