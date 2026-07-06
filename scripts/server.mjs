@@ -38,6 +38,7 @@ import {
   getMusicLicenseInfo,
   PUBLIC_MUSIC_DIR,
   syncAudioToPublic,
+  syncMusicToRemote,
 } from "./music-tracks.mjs";
 import {
   downloadImageToPublic,
@@ -3064,6 +3065,9 @@ const runRenderPreparation = async (
       if (conversation.voiceover?.enabled) {
         jobPushLog(job, "Озвучка: WAV отправляются на воркер");
         await syncVoiceToRemote(conversation, remoteUrl, job.logs);
+      }
+      if (conversation.music?.enabled !== false && conversation.music?.src) {
+        await syncMusicToRemote(conversation, remoteUrl, job.logs);
       }
 
       jobSetPhase(job, "Запуск рендера на воркере…");

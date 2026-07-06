@@ -1,7 +1,8 @@
 import path from "node:path";
-import {copyFile, mkdir, readdir, stat} from "node:fs/promises";
+import {copyFile, mkdir, readdir, readFile, stat} from "node:fs/promises";
 import {existsSync} from "node:fs";
 import {loadMusicLibrary, PUBLIC_MUSIC_DIR as LIB_PUBLIC_DIR} from "./music-library.mjs";
+import {uploadAssetToRemote} from "./remote-upload.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -40,6 +41,7 @@ export const MUSIC_TRACK_MOODS = {
   "Thermal Relay.mp3": ["neutral", "calm", "ambient", "story"],
   "gasoline-heist.mp3": ["comedy", "tension", "story", "dramatic", "neutral"],
   "2007.mp3": ["story", "dramatic", "nostalgic", "neutral", "calm"],
+  "showroom-flow.mp3": ["neutral", "calm", "ambient", "story", "casual"],
 };
 
 export const DEFAULT_MUSIC_ID = "2007.mp3";
@@ -185,4 +187,29 @@ export const getMusicLicenseInfo = async () => {
   } catch {
     return null;
   }
+};
+
+/** Залить выбранный трек на удалённый render-воркер (как озвучку и картинки). */
+export const syncMusicToRemote = async (conversation, remoteBaseUrl, logs = []) => {
+  const music = conversation?.music;
+  if (!music || music.enabled === false) {
+    return;
+  }
+
+  const src = String(music.src ?? "").trim().replace(/^\/+/, "");
+  if (!src || !src.startsWith("music/")) {
+    return;
+  }
+
+  await syncAudioToPublic();
+
+  const file = path.basename(src);
+  const absolute = path.join(PUBLIC_MUSIC_DIR, file);
+  if (!existsSync(absolute)) {
+    throw new Error(`Музыка не найдена локально: ${src}`);
+  }
+
+  const buffer = await readFile(absolute);
+  await uploadAssetToRemote(remoteBaseUrl, src, buffer);
+  logs.push(`Музыка отправлена на воркер: ${src}`);
 };

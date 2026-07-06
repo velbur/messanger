@@ -7347,24 +7347,40 @@ const updateGenerateAnimationsControls = (conversation = null, storyItems = last
   }
 
   const parsed = conversation ?? parseConversationJson();
-  const show = Boolean(parsed && shouldShowStoryVideoUi(parsed));
-  btnGenerateAnimations.hidden = !show;
+  const storyLayout = Boolean(parsed && isStoryVisualLayout(parsed));
+  const videoAnimation = Boolean(parsed && shouldShowStoryVideoUi(parsed));
 
-  if (!show) {
+  btnGenerateAnimations.hidden = !storyLayout;
+
+  if (!storyLayout) {
     btnGenerateAnimations.disabled = true;
-    btnGenerateAnimations.title = "Выберите анимацию Veo или Video parallax в настройках story";
+    btnGenerateAnimations.title =
+      "Анимация Veo доступна только в форматах «Сюжет+чат» и «Сюжет в кадре»";
+    updateEditorMediaModelFields();
+    return;
+  }
+
+  if (!storyVideoConfigured) {
+    btnGenerateAnimations.disabled = true;
+    btnGenerateAnimations.title =
+      "Story-видео недоступно — задайте OPENROUTER_API_KEY (Veo) или LOCAL_GPU_VIDEO_URL";
+    updateEditorMediaModelFields();
+    return;
+  }
+
+  if (!videoAnimation) {
+    btnGenerateAnimations.disabled = true;
+    btnGenerateAnimations.title =
+      'Выберите анимацию «Veo» или «Veo + parallax» в блоке «Анимация сюжета» выше';
     updateEditorMediaModelFields();
     return;
   }
 
   const pending = countPendingStoryVideosFromScan(parsed, storyItems);
-  const canGenerate = storyVideoConfigured && pending > 0;
+  const canGenerate = pending > 0;
 
   btnGenerateAnimations.disabled = !canGenerate;
-  if (!storyVideoConfigured) {
-    btnGenerateAnimations.title =
-      "Story-видео недоступно — задайте OPENROUTER_API_KEY (Veo) или LOCAL_GPU_VIDEO_URL";
-  } else if (pending === 0) {
+  if (pending === 0) {
     btnGenerateAnimations.title = "Все story-кадры с изображениями уже анимированы";
   } else {
     const modelLabel =
