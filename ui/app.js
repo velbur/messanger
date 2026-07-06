@@ -137,6 +137,7 @@ const voiceGenderControls = document.getElementById("voiceGenderControls");
 const btnRegenVoices = document.getElementById("btnRegenVoices");
 const btnPreviewMeVoice = document.getElementById("btnPreviewMeVoice");
 const btnPreviewThemVoice = document.getElementById("btnPreviewThemVoice");
+const btnPreviewDialogue = document.getElementById("btnPreviewDialogue");
 const btnOpenVoiceCatalog = document.getElementById("btnOpenVoiceCatalog");
 const voiceoverTtsPromptInput = document.getElementById("voiceoverTtsPromptInput");
 const voiceoverPromptBlock = document.getElementById("voiceoverPromptBlock");
@@ -3560,7 +3561,12 @@ const syncPreviewPlayButtonIcon = (btn, isPlaying) => {
   if (!btn) {
     return;
   }
-  btn.textContent = isPlaying ? PREVIEW_PAUSE_ICON : PREVIEW_PLAY_ICON;
+  const labeled = btn.getAttribute("data-preview-label");
+  if (labeled) {
+    btn.textContent = isPlaying ? labeled.replace(/^▶/, "⏸") : labeled;
+  } else {
+    btn.textContent = isPlaying ? PREVIEW_PAUSE_ICON : PREVIEW_PLAY_ICON;
+  }
   btn.setAttribute("aria-label", isPlaying ? "Пауза" : "Прослушать");
 };
 
@@ -3576,6 +3582,150 @@ const resetPreviewPlayButtonIcons = () => {
 let activeMessageVoiceAudio = null;
 /** @type {number | null} */
 let activeMessageVoiceIndex = null;
+/** @type {{stopped: boolean, running: boolean, triggerBtn: HTMLElement | null, timeout: number | null, audio: HTMLAudioElement | null} | null} */
+let activeDialogueVoicePreview = null;
+
+const stopDialogueVoicePreview = () => {
+  if (!activeDialogueVoicePreview) {
+    return;
+  }
+  const {triggerBtn, timeout, audio} = activeDialogueVoicePreview;
+  activeDialogueVoicePreview.stopped = true;
+  if (timeout != null) {
+    clearTimeout(timeout);
+  }
+  if (audio) {
+    audio.pause();
+  }
+  activeDialogueVoicePreview = null;
+  triggerBtn?.classList.remove("voice-preview-btn--playing");
+  syncPreviewPlayButtonIcon(triggerBtn, false);
+};
+
+const buildDialogueVoicePreviewSchedule = (conversation, timingPreview) => {
+  if (!conversation?.voiceover?.enabled) {
+    return [];
+  }
+
+  const rate = getVoicePlaybackRate(conversation);
+  const messages = conversation.messages ?? [];
+  const timingRows = timingPreview?.messages ?? [];
+  let cursorMs = 0;
+  const tracks = [];
+
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index];
+    const timing = timingRows[index]?.resolved ?? {};
+    const pauseBeforeMs = index === 0 ? 0 : Number(timing.pauseBeforeMs) || 0;
+    const typingMs = index === 0 ? 0 : Number(timing.typingMs) || 0;
+    const postRevealMs = Number(timing.postRevealMs) || 0;
+    const voicePath = String(message.voiceAudio ?? "").trim();
+
+    cursorMs += pauseBeforeMs + typingMs;
+
+    if (voicePath) {
+      const voiceDurationMs = Number(message.voiceDurationMs) || 0;
+      const playbackDurationMs =
+        voiceDurationMs > 0 ? Math.round(voiceDurationMs / rate) : 0;
+      tracks.push({
+        messageIndex: index,
+        startMs: cursorMs,
+        rate,
+        voiceUrl: voicePath.startsWith("/") ? voicePath : `/${voicePath}`,
+        playbackDurationMs,
+      });
+      cursorMs += playbackDurationMs;
+    }
+
+    cursorMs += postRevealMs;
+  }
+
+  return tracks;
+};
+
+const countDialogueVoiceTracks = (conversation, timingPreview) =>
+  buildDialogueVoicePreviewSchedule(conversation, timingPreview).length;
+
+const playDialogueVoicePreview = async ({triggerBtn = null} = {}) => {
+  if (activeDialogueVoicePreview?.running) {
+    stopDialogueVoicePreview();
+    return;
+  }
+
+  const conversation = parseConversationJson();
+  const tracks = buildDialogueVoicePreviewSchedule(conversation, messageTimingPreview);
+  if (!tracks.length) {
+    alert("Нет озвученных реплик — сначала сгенерируйте озвучку");
+    return;
+  }
+
+  stopAllAudioPreviews();
+
+  const state = {
+    stopped: false,
+    running: true,
+    triggerBtn,
+    timeout: null,
+    audio: null,
+  };
+  activeDialogueVoicePreview = state;
+
+  triggerBtn?.classList.add("voice-preview-btn--playing");
+  syncPreviewPlayButtonIcon(triggerBtn, true);
+
+  const wait = (ms) =>
+    new Promise((resolve) => {
+      if (state.stopped) {
+        resolve();
+        return;
+      }
+      state.timeout = window.setTimeout(() => {
+        state.timeout = null;
+        resolve();
+      }, Math.max(0, ms));
+    });
+
+  const playTrackUntilEnd = (track) =>
+    new Promise((resolve) => {
+      if (state.stopped) {
+        resolve();
+        return;
+      }
+      const audio = new Audio(track.voiceUrl);
+      audio.playbackRate = track.rate;
+      state.audio = audio;
+      const finish = () => {
+        if (state.audio === audio) {
+          state.audio = null;
+        }
+        resolve();
+      };
+      audio.addEventListener("ended", finish, {once: true});
+      audio.addEventListener("error", finish, {once: true});
+      audio.play().catch(finish);
+    });
+
+  const startedAt = performance.now();
+
+  try {
+    for (const track of tracks) {
+      if (state.stopped) {
+        break;
+      }
+      const waitMs = track.startMs - (performance.now() - startedAt);
+      await wait(waitMs);
+      if (state.stopped) {
+        break;
+      }
+      await playTrackUntilEnd(track);
+    }
+  } finally {
+    state.running = false;
+    if (activeDialogueVoicePreview === state) {
+      stopDialogueVoicePreview();
+    }
+  }
+};
 
 const stopMessageVoicePreview = () => {
   if (activeMessageVoiceAudio) {
@@ -4201,6 +4351,14 @@ const updateVoiceoverControls = (conversation = null) => {
       ? "Озвучка готова — при сборке не перегенерируется"
       : "";
   }
+  const voiceTrackCount = countDialogueVoiceTracks(parsed, messageTimingPreview);
+  if (btnPreviewDialogue) {
+    btnPreviewDialogue.disabled = !parsed?.voiceover?.enabled || voiceTrackCount === 0;
+    btnPreviewDialogue.title =
+      voiceTrackCount === 0
+        ? "Сначала сгенерируйте озвучку"
+        : `Прослушать весь диалог (${voiceTrackCount} репл.) с паузами как в ролике`;
+  }
 };
 
 const generateMissingVoiceover = async () => {
@@ -4328,6 +4486,7 @@ const stopMusicPreview = () => {
 };
 
 const stopAllAudioPreviews = () => {
+  stopDialogueVoicePreview();
   stopMessageVoicePreview();
   stopVoicePreview();
   stopMusicPreview();
@@ -8526,6 +8685,9 @@ btnPreviewMeVoice?.addEventListener("click", () => {
 btnPreviewThemVoice?.addEventListener("click", () => {
   playVoicePreview(themVoiceSelect?.value, {triggerBtn: btnPreviewThemVoice});
 });
+btnPreviewDialogue?.addEventListener("click", () => {
+  playDialogueVoicePreview({triggerBtn: btnPreviewDialogue});
+});
 btnOpenVoiceCatalog?.addEventListener("click", () => setVoiceCatalogModalOpen(true));
 
 for (const el of document.querySelectorAll("[data-voice-catalog-dismiss]")) {
@@ -8747,7 +8909,7 @@ btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
 loadMusicTracks();
 musicSelect?.addEventListener("change", onMusicChange);
-for (const btn of [btnPreviewMusic, btnPreviewMeVoice, btnPreviewThemVoice]) {
+for (const btn of [btnPreviewMusic, btnPreviewMeVoice, btnPreviewThemVoice, btnPreviewDialogue]) {
   syncPreviewPlayButtonIcon(btn, false);
 }
 btnPreviewMusic?.addEventListener("click", () => {

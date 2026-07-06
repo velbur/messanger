@@ -529,26 +529,32 @@
                   <input type="checkbox" id="voiceoverEnabled" />
                   <span>Озвучка (OpenRouter)</span>
                 </label>
-                <span class="workflow-actions__voices" id="voiceGenderControls" hidden>
-                  <label class="voice-pick">
-                    <span id="meVoiceLabel">Голос (я)</span>
-                    <select id="meVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик «я»"></select>
-                    <button type="button" id="btnPreviewMeVoice" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный голос">▶</button>
-                  </label>
-                  <label class="voice-pick">
-                    <span id="themVoiceLabel">Голос (собеседник)</span>
-                    <select id="themVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик собеседника"></select>
-                    <button type="button" id="btnPreviewThemVoice" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный голос">▶</button>
-                  </label>
+                <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
+                <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
+
+              <div class="voiceover-controls" id="voiceGenderControls" hidden>
+                <div class="voice-pick">
+                  <span class="voice-pick__label" id="meVoiceLabel">Голос (я)</span>
+                  <select id="meVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик «я»"></select>
+                  <button type="button" id="btnPreviewMeVoice" class="btn btn-secondary btn-small voice-preview-btn voice-pick__play" title="Прослушать выбранный голос">▶</button>
+                </div>
+                <div class="voice-pick">
+                  <span class="voice-pick__label" id="themVoiceLabel">Голос (собеседник)</span>
+                  <select id="themVoiceSelect" class="select select--compact voice-pick__select" title="Голос Gemini TTS для реплик собеседника"></select>
+                  <button type="button" id="btnPreviewThemVoice" class="btn btn-secondary btn-small voice-preview-btn voice-pick__play" title="Прослушать выбранный голос">▶</button>
+                </div>
+                <div class="voiceover-controls__actions">
+                  <button type="button" id="btnPreviewDialogue" class="btn btn-secondary btn-small voice-preview-btn" data-preview-label="▶ Диалог" title="Прослушать весь диалог с паузами как в ролике" disabled>
+                    ▶ Диалог
+                  </button>
                   <button type="button" id="btnOpenVoiceCatalog" class="btn btn-secondary btn-small">
                     Каталог голосов
                   </button>
                   <button type="button" id="btnRegenVoices" class="btn btn-secondary btn-small">
                     Перегенерировать озвучку
                   </button>
-                </span>
-                <span id="dialogueGenerateStatus" class="style-prompt-status" aria-live="polite"></span>
-                <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
+                </div>
               </div>
 
               <div class="row row--voice-playback-rate" id="voicePlaybackRateRow" hidden>
@@ -864,6 +870,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=default-video-kenburns-v1" type="module"></script>
+    <script src="/app.js?v=voiceover-controls-v1" type="module"></script>
   </body>
 </html>

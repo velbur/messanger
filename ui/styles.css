@@ -581,6 +581,24 @@ body {
   display: none;
 }
 
+.voiceover-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.voiceover-controls[hidden] {
+  display: none;
+}
+
+.voiceover-controls__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .voiceover-prompt-block {
   display: flex;
   flex-direction: column;
@@ -602,11 +620,17 @@ body {
 }
 
 .voice-pick {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
   font-size: 13px;
   color: #aebac1;
+}
+
+.voice-pick__label {
+  min-width: 0;
 }
 
 .voice-pick select,
@@ -618,8 +642,13 @@ body {
   padding: 4px 6px;
   font-size: 13px;
   cursor: pointer;
-  min-width: 11rem;
-  max-width: 14rem;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.voice-pick__play {
+  flex-shrink: 0;
 }
 
 .voice-preview-btn {
