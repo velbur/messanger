@@ -3474,6 +3474,164 @@ let activeVoicePreviewAudio = null;
 let activeVoicePreviewId = null;
 const voicePreviewUrlCache = new Map();
 
+const PREVIEW_PLAY_ICON = "▶";
+const PREVIEW_PAUSE_ICON = "⏸";
+
+const MESSAGE_VOICE_RATE = {min: 0.5, max: 4, step: 0.05, default: 1};
+
+const syncPreviewPlayButtonIcon = (btn, isPlaying) => {
+  if (!btn) {
+    return;
+  }
+  btn.textContent = isPlaying ? PREVIEW_PAUSE_ICON : PREVIEW_PLAY_ICON;
+  btn.setAttribute("aria-label", isPlaying ? "Пауза" : "Прослушать");
+};
+
+const resetPreviewPlayButtonIcons = () => {
+  for (const btn of document.querySelectorAll(
+    ".voice-preview-btn, .music-catalog__play, .voice-catalog__play, .dialogue-msg__voice-play",
+  )) {
+    syncPreviewPlayButtonIcon(btn, false);
+  }
+};
+
+/** @type {HTMLAudioElement | null} */
+let activeMessageVoiceAudio = null;
+/** @type {number | null} */
+let activeMessageVoiceIndex = null;
+
+const stopMessageVoicePreview = () => {
+  if (activeMessageVoiceAudio) {
+    activeMessageVoiceAudio.pause();
+    activeMessageVoiceAudio = null;
+  }
+  activeMessageVoiceIndex = null;
+  for (const btn of document.querySelectorAll(".dialogue-msg__voice-play--playing")) {
+    btn.classList.remove("dialogue-msg__voice-play--playing", "voice-preview-btn--playing");
+    syncPreviewPlayButtonIcon(btn, false);
+  }
+};
+
+const getMessageVoicePlaybackRate = (message) => {
+  const raw = Number(message?.voicePlaybackRate);
+  if (!Number.isFinite(raw)) {
+    return MESSAGE_VOICE_RATE.default;
+  }
+  return Math.min(MESSAGE_VOICE_RATE.max, Math.max(MESSAGE_VOICE_RATE.min, raw));
+};
+
+const setMessageVoicePlaybackRateInJson = (messageIndex, rate) => {
+  const parsed = parseConversationJson();
+  const message = parsed?.messages?.[messageIndex];
+  if (!message) {
+    return;
+  }
+  const rounded = Math.round(rate * 100) / 100;
+  if (Math.abs(rounded - 1) < 0.01) {
+    delete message.voicePlaybackRate;
+  } else {
+    message.voicePlaybackRate = rounded;
+  }
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = 1} = {}) => {
+  const parsed = parseConversationJson();
+  const message = parsed?.messages?.[messageIndex];
+  const voicePath = String(message?.voiceAudio ?? "").trim();
+  if (!voicePath) {
+    return;
+  }
+
+  if (
+    activeMessageVoiceIndex === messageIndex &&
+    activeMessageVoiceAudio &&
+    !activeMessageVoiceAudio.paused
+  ) {
+    stopAllAudioPreviews();
+    resetPreviewPlayButtonIcons();
+    return;
+  }
+
+  stopAllAudioPreviews();
+  resetPreviewPlayButtonIcons();
+  triggerBtn?.classList.add("dialogue-msg__voice-play--playing", "voice-preview-btn--playing");
+  syncPreviewPlayButtonIcon(triggerBtn, true);
+
+  const url = voicePath.startsWith("/") ? voicePath : `/${voicePath}`;
+  const audio = new Audio(url);
+  audio.playbackRate = rate;
+  activeMessageVoiceAudio = audio;
+  activeMessageVoiceIndex = messageIndex;
+
+  const onStop = () => {
+    stopMessageVoicePreview();
+    resetPreviewPlayButtonIcons();
+  };
+  audio.addEventListener("ended", onStop);
+  audio.addEventListener("error", onStop);
+
+  try {
+    await audio.play();
+  } catch (err) {
+    onStop();
+    alert(err instanceof Error ? err.message : String(err));
+  }
+};
+
+const renderMessageVoiceControls = (message, messageIndex) => {
+  const conversation = parseConversationJson();
+  if (!conversation?.voiceover?.enabled) {
+    return null;
+  }
+
+  const voicePath = String(message.voiceAudio ?? "").trim();
+  const wrap = document.createElement("div");
+  wrap.className = "dialogue-msg__voice-rate";
+
+  const playBtn = document.createElement("button");
+  playBtn.type = "button";
+  playBtn.className = "btn btn-secondary btn-small dialogue-msg__voice-play voice-preview-btn";
+  syncPreviewPlayButtonIcon(playBtn, false);
+  playBtn.title = voicePath ? "Прослушать озвучку реплики" : "Сначала сгенерируйте озвучку";
+  playBtn.disabled = !voicePath;
+
+  const rate = getMessageVoicePlaybackRate(message);
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "dialogue-msg__voice-rate-slider";
+  slider.min = String(MESSAGE_VOICE_RATE.min);
+  slider.max = String(MESSAGE_VOICE_RATE.max);
+  slider.step = String(MESSAGE_VOICE_RATE.step);
+  slider.value = String(rate);
+  slider.disabled = !voicePath;
+  slider.title = "Скорость озвучки при рендере";
+
+  const label = document.createElement("span");
+  label.className = "dialogue-msg__voice-rate-value";
+  label.textContent = `×${rate.toFixed(2)}`;
+
+  slider.addEventListener("input", () => {
+    const value = Number(slider.value);
+    label.textContent = `×${value.toFixed(2)}`;
+    setMessageVoicePlaybackRateInJson(messageIndex, value);
+    if (activeMessageVoiceIndex === messageIndex && activeMessageVoiceAudio) {
+      activeMessageVoiceAudio.playbackRate = value;
+    }
+  });
+
+  playBtn.addEventListener("click", () => {
+    playMessageVoicePreview(messageIndex, {
+      triggerBtn: playBtn,
+      rate: Number(slider.value),
+    });
+  });
+
+  wrap.append(playBtn, slider, label);
+  return wrap;
+};
+
 const stopVoicePreview = () => {
   if (activeVoicePreviewAudio) {
     activeVoicePreviewAudio.pause();
@@ -3486,6 +3644,7 @@ const stopVoicePreview = () => {
   for (const row of document.querySelectorAll(".voice-catalog__row--playing")) {
     row.classList.remove("voice-catalog__row--playing");
   }
+  resetPreviewPlayButtonIcons();
 };
 
 const fetchVoicePreviewUrl = async (voiceId) => {
@@ -3521,13 +3680,16 @@ const playVoicePreview = async (voiceId, {triggerBtn = null, rowEl = null} = {})
   }
 
   if (activeVoicePreviewId === id && activeVoicePreviewAudio && !activeVoicePreviewAudio.paused) {
-    stopVoicePreview();
+    stopAllAudioPreviews();
+    resetPreviewPlayButtonIcons();
     return;
   }
 
-  stopVoicePreview();
+  stopAllAudioPreviews();
+  resetPreviewPlayButtonIcons();
   triggerBtn?.classList.add("voice-preview-btn--playing", "voice-catalog__play--playing");
   rowEl?.classList.add("voice-catalog__row--playing");
+  syncPreviewPlayButtonIcon(triggerBtn, true);
   if (triggerBtn) {
     triggerBtn.classList.add("voice-preview-btn--loading");
   }
@@ -3614,8 +3776,8 @@ const renderVoiceCatalog = () => {
 
       const btnPlay = document.createElement("button");
       btnPlay.type = "button";
-      btnPlay.className = "btn btn-secondary btn-small voice-catalog__play";
-      btnPlay.textContent = "▶";
+      btnPlay.className = "btn btn-secondary btn-small voice-catalog__play voice-preview-btn";
+      syncPreviewPlayButtonIcon(btnPlay, false);
       btnPlay.title = `Прослушать ${voice.id}`;
       btnPlay.addEventListener("click", () => {
         playVoicePreview(voice.id, {triggerBtn: btnPlay, rowEl: row});
@@ -3936,6 +4098,13 @@ const stopMusicPreview = () => {
   for (const row of document.querySelectorAll(".music-catalog__row--playing")) {
     row.classList.remove("music-catalog__row--playing");
   }
+  resetPreviewPlayButtonIcons();
+};
+
+const stopAllAudioPreviews = () => {
+  stopMessageVoicePreview();
+  stopVoicePreview();
+  stopMusicPreview();
 };
 
 const resolveMusicPreviewUrl = (musicId) => {
@@ -3955,13 +4124,16 @@ const playMusicPreview = async (musicId, {triggerBtn = null, rowEl = null} = {})
   }
 
   if (activeMusicPreviewId === id && activeMusicPreviewAudio && !activeMusicPreviewAudio.paused) {
-    stopMusicPreview();
+    stopAllAudioPreviews();
+    resetPreviewPlayButtonIcons();
     return;
   }
 
-  stopMusicPreview();
+  stopAllAudioPreviews();
+  resetPreviewPlayButtonIcons();
   triggerBtn?.classList.add("music-preview-btn--playing", "music-catalog__play--playing");
   rowEl?.classList.add("music-catalog__row--playing");
+  syncPreviewPlayButtonIcon(triggerBtn, true);
 
   try {
     const audio = new Audio(url);
@@ -4046,8 +4218,8 @@ const renderMusicCatalog = () => {
 
       const btnPlay = document.createElement("button");
       btnPlay.type = "button";
-      btnPlay.className = "btn btn-secondary btn-small music-catalog__play";
-      btnPlay.textContent = "▶";
+      btnPlay.className = "btn btn-secondary btn-small music-catalog__play voice-preview-btn";
+      syncPreviewPlayButtonIcon(btnPlay, false);
       btnPlay.title = "Прослушать";
       btnPlay.addEventListener("click", () => {
         playMusicPreview(track.id, {triggerBtn: btnPlay, rowEl: row});
@@ -6234,6 +6406,12 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   }
 
   messageCol.append(body);
+
+  const voiceRateControls = renderMessageVoiceControls(message, messageIndex);
+  if (voiceRateControls) {
+    messageCol.append(voiceRateControls);
+  }
+
   row.append(messageCol);
   return row;
 };
@@ -8287,6 +8465,9 @@ btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
 loadMusicTracks();
 musicSelect?.addEventListener("change", onMusicChange);
+for (const btn of [btnPreviewMusic, btnPreviewMeVoice, btnPreviewThemVoice]) {
+  syncPreviewPlayButtonIcon(btn, false);
+}
 btnPreviewMusic?.addEventListener("click", () => {
   playMusicPreview(getMusicId(), {triggerBtn: btnPreviewMusic});
 });

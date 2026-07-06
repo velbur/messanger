@@ -100,6 +100,8 @@ export const messageSchema = z
       .optional(),
     /** Длительность voiceAudio, мс (заполняется при генерации) */
     voiceDurationMs: z.number().min(50).max(120000).optional(),
+    /** Скорость WAV при рендере: 1 = как записано; 0.5–4 — ручная подстройка в UI */
+    voicePlaybackRate: z.number().min(0.5).max(4).optional(),
     /** Движок озвучки; openrouter — Gemini TTS через OpenRouter */
     voiceTtsProvider: z.literal("openrouter").optional(),
     /** Профиль голоса/промпта; при смене WAV перегенерируется */

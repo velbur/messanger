@@ -5,6 +5,20 @@ export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
 export const STORY_VOICE_SYNC_BUNDLE_MARKER = "story-voice-sync-v1";
 /** Максимальное ускорение WAV при подгонке под длительность story-сцены (1 = без ускорения) */
 export const STORY_VOICE_SYNC_MAX_PLAYBACK_RATE = 4;
+
+export const MESSAGE_VOICE_PLAYBACK_RATE_MIN = 0.5;
+export const MESSAGE_VOICE_PLAYBACK_RATE_MAX = 4;
+
+/** Множитель скорости реплики из JSON (ручная подстройка в UI). */
+export const resolveMessageVoicePlaybackRate = (
+  message: ConversationInput["messages"][number] | undefined,
+): number => {
+  const raw = message?.voicePlaybackRate;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return 1;
+  }
+  return Math.min(MESSAGE_VOICE_PLAYBACK_RATE_MAX, Math.max(MESSAGE_VOICE_PLAYBACK_RATE_MIN, raw));
+};
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
 export const OPENROUTER_TTS_PROFILE = "young-emotional-v4";
 /** Скорость речи Gemini TTS (1 = норма). Меняется → voiceTtsProfile → перегенерация WAV. */

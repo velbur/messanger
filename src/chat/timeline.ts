@@ -30,7 +30,7 @@ import {
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
-import {mergeConversationVoiceover, messageHasVoiceover, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, resolveMessageVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
 import {assignStorySceneTimeSlots, computeStoryVoicePlaybackRates, getStoryScenes, type StoryVoiceSyncSceneEvent} from "./story-scene-timing";
@@ -273,7 +273,8 @@ const buildVideoOnlyStoryMessageEvents = (
     let cursor = scene.startFrame;
     indices.forEach((index, order) => {
       const message = conversation.messages[index];
-      const voiceRate = sceneRate;
+      const userRate = resolveMessageVoicePlaybackRate(message);
+      const voiceRate = sceneRate * userRate;
       const revealFrame = cursor;
       const typingFrames = order === 0 ? 0 : gapFrames;
       const typingStartFrame = revealFrame - typingFrames;
@@ -324,7 +325,7 @@ const buildVideoOnlyStoryMessageEvents = (
           voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
         voiceDurationMs,
         voiceDurationFrames,
-        voicePlaybackRate: voiceRate > 1.001 ? voiceRate : undefined,
+      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : userRate < 0.999 ? userRate : undefined,
       };
       covered.add(index);
       cursor = revealFrame + voiceDurationFrames + (order < indices.length - 1 ? gapFrames : 0);
@@ -420,7 +421,9 @@ const buildMessageTimelineEvents = (
 
   conversation.messages.forEach((message, index) => {
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
-    const voiceRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
+    const autoRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
+    const userRate = resolveMessageVoicePlaybackRate(message);
+    const voiceRate = autoRate * userRate;
     if (voiceRate > 1.001) {
       resolved = {
         ...resolved,
@@ -482,7 +485,7 @@ const buildMessageTimelineEvents = (
         voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
       voiceDurationMs,
       voiceDurationFrames,
-      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : undefined,
+      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : userRate < 0.999 ? userRate : undefined,
     });
 
     cursor = endFrame;
