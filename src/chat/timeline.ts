@@ -30,7 +30,7 @@ import {
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
-import {mergeConversationVoiceover, messageHasVoiceover, resolveVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, resolveVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER, VOICE_PLAYBACK_RATE_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
 import {assignStorySceneTimeSlots, computeStoryVoicePlaybackRates, getStoryScenes, type StoryVoiceSyncSceneEvent} from "./story-scene-timing";
@@ -159,6 +159,21 @@ export const getStatusBarTime = (
   return fallback;
 };
 
+const resolveVoiceClipTiming = (
+  voiceDurationMs: number | undefined,
+  voiceRate: number,
+): {voiceDurationFrames: number; voicePlaybackRate?: number} => {
+  if (!voiceDurationMs) {
+    return {voiceDurationFrames: 0, voicePlaybackRate: undefined};
+  }
+  const normalizedRate =
+    Number.isFinite(voiceRate) && voiceRate > 0 ? voiceRate : 1;
+  const voiceDurationFrames = msToFrames(voiceDurationMs / normalizedRate);
+  const voicePlaybackRate =
+    Math.abs(normalizedRate - 1) > 0.001 ? normalizedRate : undefined;
+  return {voiceDurationFrames, voicePlaybackRate};
+};
+
 const voicePlaybackRatesEqual = (
   a: Map<number, number>,
   b: Map<number, number>,
@@ -281,12 +296,10 @@ const buildVideoOnlyStoryMessageEvents = (
       const typingEndFrame = revealFrame;
       const voiceDurationMs =
         voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
-      const voiceDurationFrames =
-        voiceDurationMs && voiceRate > 1
-          ? msToFrames(voiceDurationMs / voiceRate)
-          : voiceDurationMs
-            ? msToFrames(voiceDurationMs)
-            : 0;
+      const {voiceDurationFrames, voicePlaybackRate} = resolveVoiceClipTiming(
+        voiceDurationMs,
+        voiceRate,
+      );
       const postRevealFrames = Math.max(
         voiceDurationFrames,
         voiceDurationMs ? msToFrames(voiceDurationMs / voiceRate + voicePaddingMs) : 0,
@@ -325,7 +338,7 @@ const buildVideoOnlyStoryMessageEvents = (
           voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
         voiceDurationMs,
         voiceDurationFrames,
-      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : userRate < 0.999 ? userRate : undefined,
+        voicePlaybackRate,
       };
       covered.add(index);
       cursor = revealFrame + voiceDurationFrames + (order < indices.length - 1 ? gapFrames : 0);
@@ -345,8 +358,9 @@ const buildVideoOnlyStoryMessageEvents = (
     }
 
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
+    const userRate = resolveVoicePlaybackRate(conversation);
     if (voiceover.enabled && messageHasVoiceover(message)) {
-      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) + voicePaddingMs;
+      const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) / userRate + voicePaddingMs;
       if (voiceMinPostRevealMs > resolved.postRevealMs) {
         resolved = {...resolved, postRevealMs: voiceMinPostRevealMs};
       }
@@ -371,7 +385,10 @@ const buildVideoOnlyStoryMessageEvents = (
     const endFrame = fullscreenEndFrame + postRevealFrames;
     const voiceDurationMs =
       voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
-    const voiceDurationFrames = voiceDurationMs ? msToFrames(voiceDurationMs) : 0;
+    const {voiceDurationFrames, voicePlaybackRate} = resolveVoiceClipTiming(
+      voiceDurationMs,
+      userRate,
+    );
 
     events.push({
       index,
@@ -394,6 +411,7 @@ const buildVideoOnlyStoryMessageEvents = (
         voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
       voiceDurationMs,
       voiceDurationFrames,
+      voicePlaybackRate,
     });
     cursor = endFrame;
   });
@@ -457,12 +475,10 @@ const buildMessageTimelineEvents = (
     const endFrame = fullscreenEndFrame + postRevealFrames;
     const voiceDurationMs =
       voiceover.enabled && message.voiceAudio?.trim() ? message.voiceDurationMs : undefined;
-    const voiceDurationFrames =
-      voiceDurationMs && voiceRate > 1
-        ? msToFrames(voiceDurationMs / voiceRate)
-        : voiceDurationMs
-          ? msToFrames(voiceDurationMs)
-          : 0;
+    const {voiceDurationFrames, voicePlaybackRate} = resolveVoiceClipTiming(
+      voiceDurationMs,
+      voiceRate,
+    );
 
     events.push({
       index,
@@ -485,7 +501,7 @@ const buildMessageTimelineEvents = (
         voiceover.enabled && message.voiceAudio?.trim() ? message.voiceAudio.trim() : undefined,
       voiceDurationMs,
       voiceDurationFrames,
-      voicePlaybackRate: voiceRate > 1.001 ? voiceRate : userRate < 0.999 ? userRate : undefined,
+      voicePlaybackRate,
     });
 
     cursor = endFrame;
@@ -498,6 +514,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
   void TIMING_SPEED_TIMELINE_MARKER;
   void TIMELINE_TAIL_MARKER;
   void VOICEOVER_BUNDLE_MARKER;
+  void VOICE_PLAYBACK_RATE_BUNDLE_MARKER;
   void STORY_VOICE_SYNC_BUNDLE_MARKER;
   void STORY_VIDEO_BUNDLE_MARKER;
   void SFX_BUNDLE_MARKER;

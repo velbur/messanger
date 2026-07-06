@@ -14,7 +14,7 @@ import {
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs, buildStoryVoicePreviewSchedule, buildTimeline} from "../src/chat/timeline.ts";
-import {STORY_VOICE_SYNC_BUNDLE_MARKER} from "../src/chat/voiceover.ts";
+import {STORY_VOICE_SYNC_BUNDLE_MARKER, resolveVoicePlaybackRate} from "../src/chat/voiceover.ts";
 import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
@@ -700,6 +700,11 @@ const processQueue = async () => {
     const boosted = timeline.events.filter((event) => (event.voicePlaybackRate ?? 1) > 1.001).length;
     job.logs.push(
       `Озвучка↔Veo (${STORY_VOICE_SYNC_BUNDLE_MARKER}): ~${(timeline.durationInFrames / 30).toFixed(0)} с, ускорено реплик: ${boosted}`,
+    );
+  }
+  if (job.conversation.voiceover?.enabled) {
+    job.logs.push(
+      `Скорость озвучки в ролике: ×${resolveVoicePlaybackRate(job.conversation).toFixed(2)}`,
     );
   }
   if (episodes.length > 1) {

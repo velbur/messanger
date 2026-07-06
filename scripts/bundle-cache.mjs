@@ -165,6 +165,7 @@ const bundleHasRequiredMarkers = async (bundleLocation) => {
       bundleJs.includes("timing-scale-050-v1") &&
       bundleJs.includes("timing-speed-v1") &&
       bundleJs.includes("voiceover-openrouter-v2") &&
+      bundleJs.includes("voice-playback-rate-v1") &&
       bundleJs.includes("chat-overlay-2msg-v1") &&
       bundleJs.includes("hook-overlay-2s-v1") &&
       bundleJs.includes("tail-8000-story-split-v1") &&

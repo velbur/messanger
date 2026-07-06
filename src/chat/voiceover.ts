@@ -1,6 +1,8 @@
 import type {ConversationInput} from "./schema";
 
 export const VOICEOVER_BUNDLE_MARKER = "voiceover-openrouter-v2";
+/** Маркер глобального voiceover.playbackRate в таймлайне и Remotion Audio */
+export const VOICE_PLAYBACK_RATE_BUNDLE_MARKER = "voice-playback-rate-v1";
 /** Маркер авто-ускорения озвучки под Veo-клипы в story */
 export const STORY_VOICE_SYNC_BUNDLE_MARKER = "story-voice-sync-v1";
 /** Максимальное ускорение WAV при подгонке под длительность story-сцены (1 = без ускорения) */

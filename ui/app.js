@@ -3747,6 +3747,17 @@ const getVoicePlaybackRate = (conversation = parseConversationJson()) => {
   return clampVoicePlaybackRate(raw);
 };
 
+/** Скорость из ползунка (приоритет) или JSON/localStorage — для рендера. */
+const readVoicePlaybackRateForExport = (conversation = parseConversationJson()) => {
+  if (voicePlaybackRateInput) {
+    const fromSlider = Number(voicePlaybackRateInput.value);
+    if (Number.isFinite(fromSlider)) {
+      return clampVoicePlaybackRate(fromSlider);
+    }
+  }
+  return getVoicePlaybackRate(conversation);
+};
+
 const setVoicePlaybackRateInJson = (rate) => {
   const parsed = parseConversationJson();
   if (!parsed) {
@@ -4232,8 +4243,10 @@ const applyVoiceoverToJson = () => {
           : resolveVoiceSelectValue(parsed.voiceover?.meVoice, "male"),
       ttsPrompt: voiceoverTtsPromptInput?.value.trim() ?? "",
     };
-    const rate = getVoicePlaybackRate(parsed);
-    if (Math.abs(rate - 1) >= 0.01) {
+    const rate = readVoicePlaybackRateForExport(parsed);
+    if (Math.abs(rate - 1) < 0.01) {
+      delete parsed.voiceover.playbackRate;
+    } else {
       parsed.voiceover.playbackRate = rate;
     }
   }
@@ -7777,7 +7790,8 @@ btnRender.addEventListener("click", async () => {
       }
     }
 
-    json = jsonInput.value.trim();
+    applyVoiceoverToJson();
+    json = jsonInput.value.trim() || json;
     statusText.textContent = "Запуск рендера…";
 
     const renderPayload = {
