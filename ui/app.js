@@ -3040,6 +3040,9 @@ const STORY_COLOR_FILTER_VALUES = new Set([
 
 const isStoryVideoAnimationAvailable = (storyVideo) => Boolean(storyVideo?.configured);
 
+const getDefaultStoryAnimation = () =>
+  storyVideoConfigured ? "video-kenburns" : "depthParallax";
+
 const updateStoryI2vAnimationOptions = (storyVideo) => {
   const showVideoAnimation = isStoryVideoAnimationAvailable(storyVideo);
   const provider = storyVideo?.provider === "local-gpu" ? "local-gpu" : "veo";
@@ -3076,13 +3079,13 @@ const normalizeStoryAnimationForUi = (animation) => {
   if (animation === "parallax") {
     return "depthParallax";
   }
-  return "depthParallax";
+  return getDefaultStoryAnimation();
 };
 
 const getStoryAnimation = () => {
   const checked = [...storyAnimationInputs].find((input) => input.checked);
   const value = checked?.value;
-  return STORY_ANIMATION_UI_VALUES.has(value) ? value : "depthParallax";
+  return STORY_ANIMATION_UI_VALUES.has(value) ? value : getDefaultStoryAnimation();
 };
 
 const setStoryAnimation = (animation) => {
@@ -3202,7 +3205,7 @@ const syncStoryAnimationFromJson = () => {
     return;
   }
   const raw = parsed.story?.opening?.animation;
-  const uiValue = normalizeStoryAnimationForUi(raw ?? "depthParallax");
+  const uiValue = normalizeStoryAnimationForUi(raw ?? getDefaultStoryAnimation());
   setStoryAnimation(uiValue);
   // legacy LLM/схема: animation "parallax" → в UI depthParallax
   if (raw === "parallax") {
@@ -3222,7 +3225,7 @@ const isStoryVisualLayout = (conversation) =>
   conversation?.layout === "storySplit" || conversation?.layout === "storyOverlay";
 
 const shouldShowStoryVideoUi = (conversation) => {
-  const animation = conversation?.story?.opening?.animation ?? "depthParallax";
+  const animation = conversation?.story?.opening?.animation ?? getDefaultStoryAnimation();
   return (
     isStoryVisualLayout(conversation) &&
     (animation === "video" || animation === "video-parallax" || animation === "video-kenburns")
@@ -3329,7 +3332,7 @@ const applyVideoLayoutToJson = (layout = getVideoLayout()) => {
       parsed.story.opening = {};
     }
     if (!parsed.story.opening.animation) {
-      parsed.story.opening.animation = "depthParallax";
+      parsed.story.opening.animation = getDefaultStoryAnimation();
     }
     if (Array.isArray(parsed.messages)) {
       for (const message of parsed.messages) {
@@ -8589,9 +8592,10 @@ const applyApiStatusToEditor = (data) => {
   if (Array.isArray(data?.voiceover?.catalog) && data.voiceover.catalog.length > 0) {
     populateVoiceSelects(data.voiceover.catalog);
   }
-  updateStoryI2vAnimationOptions(data?.storyVideo);
   storyVideoConfigured = Boolean(data?.storyVideo?.configured);
   storyVideoProvider = data?.storyVideo?.provider === "local-gpu" ? "local-gpu" : "veo";
+  updateStoryI2vAnimationOptions(data?.storyVideo);
+  syncStoryAnimationFromJson();
   if (data?.storyVideo?.model) {
     openrouterStoryVideoModel = data.storyVideo.model;
   } else if (data?.storyVideoVeo?.model) {

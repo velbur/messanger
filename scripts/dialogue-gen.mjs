@@ -132,7 +132,7 @@ const buildJsonFormatBlock = ({
       lines.push("    ],");
       lines.push(`    "targetDurationSec": ${targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC},`);
       lines.push('    "opening": {');
-      lines.push('      "animation": "depthParallax"');
+      lines.push('      "animation": "video-kenburns"');
       lines.push("    }");
       lines.push("  },");
     }
@@ -207,7 +207,7 @@ const buildJsonFormatBlock = ({
     lines.push("    ],");
     lines.push(`    "targetDurationSec": ${targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC},`);
     lines.push('    "opening": {');
-    lines.push('      "animation": "depthParallax"');
+    lines.push('      "animation": "video-kenburns"');
     lines.push("    }");
     lines.push("  },");
   }
@@ -348,7 +348,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
       "- story.characters: 1–4 heroes with stable appearance (2–3 sentences each). id me/them for chat leads; extra people by name.",
       "- appearance must stay identical across the whole story — age, hair, face, clothes, distinctive marks.",
       "- Do not add storyImagePrompt to messages — scene prompts are generated separately via Gemini.",
-      "- story.opening.animation: depthParallax (default).",
+      "- story.opening.animation: video-kenburns (default).",
       noBubbleRule,
       "- Never put frame descriptions in square brackets in text.",
     ];
@@ -359,7 +359,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
     "- story.characters: 1–4 героя со стабильным appearance (по 2–3 предложения). id me/them для главных; доп. персонажи — id по имени.",
     "- appearance одинаковое во всей истории: возраст, волосы, лицо, одежда, отличительные детали.",
     "- Не добавляй storyImagePrompt в messages — промпты кадров сгенерирует отдельный шаг (Gemini).",
-    "- story.opening.animation: depthParallax (по умолчанию).",
+    "- story.opening.animation: video-kenburns (по умолчанию).",
     noBubbleRule,
     "- В text не пиши описание кадра в квадратных скобках.",
   ];
@@ -1126,7 +1126,7 @@ const applyStoryVisualDefaults = (conversation, videoLayout = "storyOverlay", ta
     conversation.story.opening = {};
   }
   if (!conversation.story.opening.animation) {
-    conversation.story.opening.animation = "depthParallax";
+    conversation.story.opening.animation = "video-kenburns";
   }
   if (Array.isArray(conversation.messages)) {
     for (const message of conversation.messages) {

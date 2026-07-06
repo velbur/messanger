@@ -23,6 +23,9 @@ export type StorySceneAnimation =
   | "parallax"
   | "depthParallax";
 
+/** Анимация story по умолчанию при Veo/I2V */
+export const DEFAULT_STORY_VIDEO_ANIMATION: StorySceneAnimation = "video-kenburns";
+
 export type StoryOpeningConfig = {
   image?: string;
   imagePrompt?: string;
@@ -47,7 +50,7 @@ export type StoryConfig = {
 
 const DEFAULT_OPENING: StoryOpeningConfig = {
   durationMs: 2500,
-  animation: "depthParallax",
+  animation: DEFAULT_STORY_VIDEO_ANIMATION,
 };
 
 const DEFAULT_STORY: StoryConfig = {
@@ -72,7 +75,7 @@ const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   ) {
     return value;
   }
-  return "depthParallax";
+  return DEFAULT_STORY_VIDEO_ANIMATION;
 };
 
 export const isStoryVideoOnlyAnimation = (conversation: ConversationInput): boolean =>
