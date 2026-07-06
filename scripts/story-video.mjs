@@ -8,6 +8,7 @@ import {
   storyVideoPathForImage,
 } from "../src/chat/story-video-paths.ts";
 import {deletePublicImage, invalidateVideoHoldParallaxForVideo, isStoryVisualLayout} from "./image-assets.mjs";
+import {isParallaxBakeStale} from "./story-depth.mjs";
 import {mergeStoryConfig, shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {
   getOpenRouterStoryVideoModel,
@@ -189,6 +190,10 @@ const bakeHoldParallaxAfterVideo = async (conversation, target, videoRef, logs, 
     ? Math.max(45, Math.round(sceneSec * FPS))
     : storyVideoForwardDurationFrames(videoMs, FPS) + VIDEO_PARALLAX_EXTRA_SEC * FPS;
   const frames = videoParallaxPhaseFrames(videoMs, sceneDurationFrames, FPS);
+  const holdRel = storyVideoHoldFramePathForVideo(videoRef);
+  if (!force && isParallaxBakeStale(holdRel)) {
+    logs.push(`Parallax (hold): hold-кадр новее кэша → локальная пересборка`);
+  }
   const result = await ensureVideoParallaxHoldDepth(target.image, {videoRef, force, frames});
   if (result.skipped) {
     logs.push(`Parallax (hold): кэш OK → ${result.relative}`);

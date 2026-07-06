@@ -5,7 +5,7 @@ import {pipeline, RawImage, env} from "@xenova/transformers";
 import {STORY_DEPTH_MODEL} from "./story-depth-spec.mjs";
 import {isStoryVisualLayout} from "./image-assets.mjs";
 import {mergeStoryConfig} from "../src/chat/story.ts";
-import {existsSync} from "node:fs";
+import {existsSync, statSync} from "node:fs";
 import {storyLayerPaths} from "../src/chat/story-depth-paths.ts";
 import {
   storyVideoHoldFramePathForVideo,
@@ -100,6 +100,47 @@ const readDepthMeta = async (paths) => {
   } catch {
     return null;
   }
+};
+
+const getPublicMtimeMs = (relativePath) => {
+  const rel = String(relativePath ?? "")
+    .replace(/^\/+/, "")
+    .trim();
+  if (!rel) {
+    return null;
+  }
+  try {
+    const {absolute} = safePublicAbs(rel);
+    if (!existsSync(absolute)) {
+      return null;
+    }
+    return statSync(absolute).mtimeMs;
+  } catch {
+    return null;
+  }
+};
+
+/** Исходник (story-PNG или hold-кадр Veo) новее parallax-кэша — нужна только локальная пересборка */
+export const isParallaxBakeStale = (sourceRel, paths = storyLayerPaths(sourceRel)) => {
+  const sourceMtime = getPublicMtimeMs(sourceRel);
+  if (sourceMtime == null) {
+    return false;
+  }
+
+  const derivedRefs = [paths.parallaxVideo, paths.depth, metaRelFor(paths)];
+  let newestDerived = 0;
+  let hasDerived = false;
+  for (const ref of derivedRefs) {
+    const mtime = getPublicMtimeMs(ref);
+    if (mtime != null) {
+      hasDerived = true;
+      newestDerived = Math.max(newestDerived, mtime);
+    }
+  }
+  if (!hasDerived) {
+    return false;
+  }
+  return sourceMtime > newestDerived;
 };
 
 /** xenova | depth-v2 */
@@ -337,6 +378,9 @@ export const isStoryDepthAvailable = async (
   {requiredFrames, requiredPanX, requiredSweep, requiredHoldHandoff} = {},
 ) => {
   const paths = storyLayerPaths(imagePublicPath);
+  if (isParallaxBakeStale(imagePublicPath, paths)) {
+    return false;
+  }
   try {
     const meta = await readDepthMeta(paths);
     if (!meta || Number(meta.version) < DEPTH_LAYER_VERSION || meta.mode !== "video") {
@@ -527,6 +571,9 @@ export const ensureStoryDepthForConversation = async (conversation, {force = fal
     if (!force && (await isStoryDepthAvailable(imagePath, {requiredFrames: plan.frames, requiredPanX: panX}))) {
       logs.push(`Parallax: ассеты уже есть → ${imagePath}`);
     } else {
+      if (!force && isParallaxBakeStale(imagePath, storyLayerPaths(imagePath))) {
+        logs.push(`Parallax: исходник новее кэша → локальная пересборка ${imagePath}`);
+      }
       pending.push({imagePath, frames: plan.frames, sceneIndex: plan.sceneIndex, panX, panY});
     }
   }
