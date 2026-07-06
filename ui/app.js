@@ -3768,6 +3768,9 @@ const setVoicePlaybackRateInJson = (rate) => {
   jsonInput.value = JSON.stringify(parsed, null, 2);
 };
 
+/** @type {{video: HTMLVideoElement, audios: Map<number, HTMLAudioElement>, anchorIndex: number} | null} */
+let activeStoryVideoVoiceSync = null;
+
 const stopStoryVideoVoiceSync = () => {
   if (activeStoryVideoVoiceSync?.audios) {
     for (const audio of activeStoryVideoVoiceSync.audios.values()) {
