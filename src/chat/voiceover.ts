@@ -9,16 +9,20 @@ export const STORY_VOICE_SYNC_MAX_PLAYBACK_RATE = 4;
 export const MESSAGE_VOICE_PLAYBACK_RATE_MIN = 0.5;
 export const MESSAGE_VOICE_PLAYBACK_RATE_MAX = 4;
 
-/** Множитель скорости реплики из JSON (ручная подстройка в UI). */
-export const resolveMessageVoicePlaybackRate = (
-  message: ConversationInput["messages"][number] | undefined,
-): number => {
-  const raw = message?.voicePlaybackRate;
+/** Множитель скорости реплики из JSON (глобальная подстройка в UI). */
+export const resolveVoicePlaybackRate = (conversation: ConversationInput): number => {
+  const raw = conversation.voiceover?.playbackRate;
   if (typeof raw !== "number" || !Number.isFinite(raw)) {
     return 1;
   }
   return Math.min(MESSAGE_VOICE_PLAYBACK_RATE_MAX, Math.max(MESSAGE_VOICE_PLAYBACK_RATE_MIN, raw));
 };
+
+/** @deprecated Используйте resolveVoicePlaybackRate(conversation) */
+export const resolveMessageVoicePlaybackRate = (
+  _message: ConversationInput["messages"][number] | undefined,
+  conversation?: ConversationInput,
+): number => (conversation ? resolveVoicePlaybackRate(conversation) : 1);
 /** Меняется при смене голосов/промпта TTS — старые WAV перегенерируются */
 export const OPENROUTER_TTS_PROFILE = "young-emotional-v4";
 /** Скорость речи Gemini TTS (1 = норма). Меняется → voiceTtsProfile → перегенерация WAV. */
@@ -81,6 +85,8 @@ export type ConversationVoiceover = {
   volume: number;
   /** Множитель громкости музыки, пока идёт озвучка (0.2 = тише в 5 раз) */
   musicDuck: number;
+  /** Множитель скорости WAV при рендере (0.5–4) */
+  playbackRate?: number;
 };
 
 export const DEFAULT_VOICEOVER: ConversationVoiceover = {

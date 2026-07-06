@@ -633,38 +633,19 @@ body {
   pointer-events: none;
 }
 
-.dialogue-msg__voice-rate {
+.dialogue-msg__voice-preview {
   grid-column: 1 / -1;
   grid-row: 3;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  box-sizing: border-box;
   margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 4px 0;
 }
 
-.dialogue-block:not(:has(.dialogue-block__scene-controls)) .dialogue-msg__voice-rate {
+.dialogue-block:not(:has(.dialogue-block__scene-controls)) .dialogue-msg__voice-preview {
   grid-row: 2;
-}
-
-.dialogue-msg__voice-rate-slider {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  accent-color: #00a884;
-}
-
-.dialogue-msg__voice-rate-value {
-  min-width: 3.2rem;
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-  color: #8696a0;
-  text-align: right;
 }
 
 .dialogue-msg__voice-play--playing,
@@ -2803,7 +2784,13 @@ body.workflow-modal-open {
   color: #e9edef;
 }
 
-.dialogue-editor__story-subtitle {
+.row--voice-playback-rate {
+  margin-top: 4px;
+}
+
+.row--voice-playback-rate[hidden] {
+  display: none !important;
+}
   margin: 14px 0 8px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -2872,7 +2859,7 @@ body.workflow-modal-open {
   }
 
   .dialogue-block__scene-controls,
-  .dialogue-msg__voice-rate {
+  .dialogue-msg__voice-preview {
     grid-column: 1;
     grid-row: auto;
   }

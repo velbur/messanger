@@ -140,6 +140,9 @@ const btnPreviewThemVoice = document.getElementById("btnPreviewThemVoice");
 const btnOpenVoiceCatalog = document.getElementById("btnOpenVoiceCatalog");
 const voiceoverTtsPromptInput = document.getElementById("voiceoverTtsPromptInput");
 const voiceoverPromptBlock = document.getElementById("voiceoverPromptBlock");
+const voicePlaybackRateRow = document.getElementById("voicePlaybackRateRow");
+const voicePlaybackRateInput = document.getElementById("voicePlaybackRateInput");
+const voicePlaybackRateValue = document.getElementById("voicePlaybackRateValue");
 const voiceCatalogModal = document.getElementById("voiceCatalogModal");
 const voiceCatalogList = document.getElementById("voiceCatalogList");
 const voiceCatalogStatus = document.getElementById("voiceCatalogStatus");
@@ -448,8 +451,10 @@ const saveLastShortsPrompt = (prompt) => {
 };
 
 const TIMING_SPEED_STORAGE_KEY = "messanger.timingSpeed";
+const VOICE_PLAYBACK_RATE_STORAGE_KEY = "messanger.voicePlaybackRate";
 const MESSAGE_FONT_SIZE_STORAGE_KEY = "messanger.messageFontSize";
 const DEFAULT_TIMING_SPEED = 1;
+const DEFAULT_VOICE_PLAYBACK_RATE = 1;
 const TIMING_SPEED_UI_MIN = 0.5;
 const TIMING_SPEED_UI_MAX = 2;
 
@@ -472,6 +477,28 @@ const readLastTimingSpeed = () => {
 const saveLastTimingSpeed = (speed) => {
   localStorage.setItem(TIMING_SPEED_STORAGE_KEY, String(clampTimingSpeed(speed)));
 };
+
+const clampVoicePlaybackRate = (value) => {
+  const normalized = Math.round(Number(value) * 100) / 100;
+  if (!Number.isFinite(normalized)) {
+    return DEFAULT_VOICE_PLAYBACK_RATE;
+  }
+  return Math.min(4, Math.max(0.5, normalized));
+};
+
+const readLastVoicePlaybackRate = () => {
+  const raw = localStorage.getItem(VOICE_PLAYBACK_RATE_STORAGE_KEY);
+  if (raw == null || raw === "") {
+    return DEFAULT_VOICE_PLAYBACK_RATE;
+  }
+  return clampVoicePlaybackRate(raw);
+};
+
+const saveLastVoicePlaybackRate = (rate) => {
+  localStorage.setItem(VOICE_PLAYBACK_RATE_STORAGE_KEY, String(clampVoicePlaybackRate(rate)));
+};
+
+const formatVoicePlaybackRateLabel = (rate) => `×${clampVoicePlaybackRate(rate).toFixed(2)}`;
 
 const readLastMessageFontSize = () => {
   const raw = localStorage.getItem(MESSAGE_FONT_SIZE_STORAGE_KEY);
@@ -503,6 +530,9 @@ const syncEditorPreferencesStorageFromConversation = (parsed) => {
   if (parsed.timingSpeed !== undefined) {
     saveLastTimingSpeed(parsed.timingSpeed);
   }
+  if (parsed.voiceover?.playbackRate !== undefined) {
+    saveLastVoicePlaybackRate(parsed.voiceover.playbackRate);
+  }
   if (parsed.messageFontSize !== undefined) {
     saveLastMessageFontSize(parsed.messageFontSize);
   }
@@ -519,6 +549,15 @@ const prepareConversationForEditor = (parsed) => {
     if (storedSpeed !== DEFAULT_TIMING_SPEED) {
       result.timingSpeed = storedSpeed;
     }
+  }
+  if (result.voiceover?.playbackRate === undefined && result.voiceover?.enabled) {
+    const storedRate = readLastVoicePlaybackRate();
+    if (storedRate !== DEFAULT_VOICE_PLAYBACK_RATE) {
+      result.voiceover = {...result.voiceover, playbackRate: storedRate};
+    }
+  }
+  for (const message of result.messages ?? []) {
+    delete message.voicePlaybackRate;
   }
   if (result.messageFontSize === undefined) {
     result.messageFontSize = readLastMessageFontSize();
@@ -538,6 +577,13 @@ const initEditorPreferenceControls = () => {
   }
   if (messageFontSizeInput) {
     messageFontSizeInput.value = String(readLastMessageFontSize());
+  }
+  const voiceRate = readLastVoicePlaybackRate();
+  if (voicePlaybackRateInput) {
+    voicePlaybackRateInput.value = String(voiceRate);
+  }
+  if (voicePlaybackRateValue) {
+    voicePlaybackRateValue.textContent = formatVoicePlaybackRateLabel(voiceRate);
   }
 };
 
@@ -3407,6 +3453,16 @@ const syncVoiceoverFromJson = () => {
   if (voiceoverPromptBlock) {
     voiceoverPromptBlock.hidden = !voiceover.enabled;
   }
+  if (voicePlaybackRateRow) {
+    voicePlaybackRateRow.hidden = !voiceover.enabled;
+  }
+  const playbackRate = voiceover.playbackRate ?? readLastVoicePlaybackRate();
+  if (voicePlaybackRateInput && document.activeElement !== voicePlaybackRateInput) {
+    voicePlaybackRateInput.value = String(clampVoicePlaybackRate(playbackRate));
+  }
+  if (voicePlaybackRateValue && document.activeElement !== voicePlaybackRateInput) {
+    voicePlaybackRateValue.textContent = formatVoicePlaybackRateLabel(playbackRate);
+  }
   if (voiceoverTtsPromptInput && document.activeElement !== voiceoverTtsPromptInput) {
     voiceoverTtsPromptInput.value = String(voiceover.ttsPrompt ?? "");
   }
@@ -3530,16 +3586,34 @@ const stopMessageVoicePreview = () => {
   }
 };
 
-const getMessageVoicePlaybackRate = (message) => {
-  const raw = Number(message?.voicePlaybackRate);
+const getVoicePlaybackRate = (conversation = parseConversationJson()) => {
+  const raw = Number(conversation?.voiceover?.playbackRate);
   if (!Number.isFinite(raw)) {
-    return MESSAGE_VOICE_RATE.default;
+    return readLastVoicePlaybackRate();
   }
-  return Math.min(MESSAGE_VOICE_RATE.max, Math.max(MESSAGE_VOICE_RATE.min, raw));
+  return clampVoicePlaybackRate(raw);
 };
 
-/** @type {{video: HTMLVideoElement, audios: Map<number, HTMLAudioElement>, anchorIndex: number} | null} */
-let activeStoryVideoVoiceSync = null;
+const setVoicePlaybackRateInJson = (rate) => {
+  const parsed = parseConversationJson();
+  if (!parsed) {
+    return;
+  }
+  if (!parsed.voiceover) {
+    parsed.voiceover = {};
+  }
+  const rounded = clampVoicePlaybackRate(rate);
+  if (Math.abs(rounded - 1) < 0.01) {
+    delete parsed.voiceover.playbackRate;
+  } else {
+    parsed.voiceover.playbackRate = rounded;
+  }
+  for (const message of parsed.messages ?? []) {
+    delete message.voicePlaybackRate;
+  }
+  saveLastVoicePlaybackRate(rounded);
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
 
 const stopStoryVideoVoiceSync = () => {
   if (activeStoryVideoVoiceSync?.audios) {
@@ -3550,8 +3624,8 @@ const stopStoryVideoVoiceSync = () => {
   activeStoryVideoVoiceSync = null;
 };
 
-const resolveStoryVideoVoicePreviewRate = (message, videoDurationMs) => {
-  const userRate = getMessageVoicePlaybackRate(message);
+const resolveStoryVideoVoicePreviewRate = (conversation, videoDurationMs, message) => {
+  const userRate = getVoicePlaybackRate(conversation);
   const voiceDurationMs = Number(message?.voiceDurationMs);
   const videoMs = Number(videoDurationMs);
   if (!Number.isFinite(voiceDurationMs) || voiceDurationMs <= 0 || !Number.isFinite(videoMs) || videoMs <= 0) {
@@ -3592,7 +3666,7 @@ const resolveStoryVoicePreviewTracks = (anchorIndex, videoDurationMs = 0) => {
   }
 
   const voiceDurationMs = Number(message?.voiceDurationMs) || 0;
-  const rate = resolveStoryVideoVoicePreviewRate(message, videoDurationMs);
+  const rate = resolveStoryVideoVoicePreviewRate(conversation, videoDurationMs, message);
   return [
     {
       messageIndex: anchorIndex,
@@ -3700,28 +3774,15 @@ const bindStoryVideoVoicePreview = (video, {messageIndex, videoDurationMs = 0} =
   });
 };
 
-const setMessageVoicePlaybackRateInJson = (messageIndex, rate) => {
-  const parsed = parseConversationJson();
-  const message = parsed?.messages?.[messageIndex];
-  if (!message) {
-    return;
-  }
-  const rounded = Math.round(rate * 100) / 100;
-  if (Math.abs(rounded - 1) < 0.01) {
-    delete message.voicePlaybackRate;
-  } else {
-    message.voicePlaybackRate = rounded;
-  }
-  jsonInput.value = JSON.stringify(parsed, null, 2);
-};
-
-const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = 1} = {}) => {
+const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = null} = {}) => {
   const parsed = parseConversationJson();
   const message = parsed?.messages?.[messageIndex];
   const voicePath = String(message?.voiceAudio ?? "").trim();
   if (!voicePath) {
     return;
   }
+
+  const playbackRate = rate ?? getVoicePlaybackRate(parsed);
 
   if (
     activeMessageVoiceIndex === messageIndex &&
@@ -3740,7 +3801,7 @@ const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = 
 
   const url = voicePath.startsWith("/") ? voicePath : `/${voicePath}`;
   const audio = new Audio(url);
-  audio.playbackRate = rate;
+  audio.playbackRate = playbackRate;
   activeMessageVoiceAudio = audio;
   activeMessageVoiceIndex = messageIndex;
 
@@ -3767,7 +3828,7 @@ const renderMessageVoiceControls = (message, messageIndex) => {
 
   const voicePath = String(message.voiceAudio ?? "").trim();
   const wrap = document.createElement("div");
-  wrap.className = "dialogue-msg__voice-rate";
+  wrap.className = "dialogue-msg__voice-preview";
 
   const playBtn = document.createElement("button");
   playBtn.type = "button";
@@ -3776,39 +3837,14 @@ const renderMessageVoiceControls = (message, messageIndex) => {
   playBtn.title = voicePath ? "Прослушать озвучку реплики" : "Сначала сгенерируйте озвучку";
   playBtn.disabled = !voicePath;
 
-  const rate = getMessageVoicePlaybackRate(message);
-
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.className = "dialogue-msg__voice-rate-slider";
-  slider.min = String(MESSAGE_VOICE_RATE.min);
-  slider.max = String(MESSAGE_VOICE_RATE.max);
-  slider.step = String(MESSAGE_VOICE_RATE.step);
-  slider.value = String(rate);
-  slider.disabled = !voicePath;
-  slider.title = "Скорость озвучки при рендере";
-
-  const label = document.createElement("span");
-  label.className = "dialogue-msg__voice-rate-value";
-  label.textContent = `×${rate.toFixed(2)}`;
-
-  slider.addEventListener("input", () => {
-    const value = Number(slider.value);
-    label.textContent = `×${value.toFixed(2)}`;
-    setMessageVoicePlaybackRateInJson(messageIndex, value);
-    if (activeMessageVoiceIndex === messageIndex && activeMessageVoiceAudio) {
-      activeMessageVoiceAudio.playbackRate = value;
-    }
-  });
-
   playBtn.addEventListener("click", () => {
     playMessageVoicePreview(messageIndex, {
       triggerBtn: playBtn,
-      rate: Number(slider.value),
+      rate: getVoicePlaybackRate(conversation),
     });
   });
 
-  wrap.append(playBtn, slider, label);
+  wrap.append(playBtn);
   return wrap;
 };
 
@@ -4040,6 +4076,10 @@ const applyVoiceoverToJson = () => {
           : resolveVoiceSelectValue(parsed.voiceover?.meVoice, "male"),
       ttsPrompt: voiceoverTtsPromptInput?.value.trim() ?? "",
     };
+    const rate = getVoicePlaybackRate(parsed);
+    if (Math.abs(rate - 1) >= 0.01) {
+      parsed.voiceover.playbackRate = rate;
+    }
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
   if (voiceGenderControls) {
@@ -4047,6 +4087,9 @@ const applyVoiceoverToJson = () => {
   }
   if (voiceoverPromptBlock) {
     voiceoverPromptBlock.hidden = !enabled;
+  }
+  if (voicePlaybackRateRow) {
+    voicePlaybackRateRow.hidden = !enabled;
   }
   updateVoiceoverControls(parsed);
 };
@@ -4830,6 +4873,21 @@ timingSpeedInput?.addEventListener("input", () => {
     timingSpeedValue.textContent = formatTimingSpeedLabel(speed);
   }
   setTimingSpeedInJson(speed);
+});
+
+voicePlaybackRateInput?.addEventListener("input", () => {
+  const rate = Number(voicePlaybackRateInput.value);
+  if (voicePlaybackRateValue) {
+    voicePlaybackRateValue.textContent = formatVoicePlaybackRateLabel(rate);
+  }
+  setVoicePlaybackRateInJson(rate);
+  if (activeMessageVoiceAudio) {
+    activeMessageVoiceAudio.playbackRate = clampVoicePlaybackRate(rate);
+  }
+  for (const audio of activeStoryVideoVoiceSync?.audios?.values() ?? []) {
+    audio.playbackRate = clampVoicePlaybackRate(rate);
+  }
+  scheduleRefreshDialogue();
 });
 
 const renderConversationTimingPanel = (conversation, timingPreview) => {
@@ -8422,6 +8480,9 @@ voiceoverEnabled?.addEventListener("change", () => {
   }
   if (voiceoverPromptBlock) {
     voiceoverPromptBlock.hidden = !voiceoverEnabled.checked;
+  }
+  if (voicePlaybackRateRow) {
+    voicePlaybackRateRow.hidden = !voiceoverEnabled.checked;
   }
 });
 

@@ -551,6 +551,27 @@
                 <span id="dialogueLogicStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
 
+              <div class="row row--voice-playback-rate" id="voicePlaybackRateRow" hidden>
+                <label class="label" for="voicePlaybackRateInput">Скорость озвучки в ролике</label>
+                <p class="dialogue-hint">
+                  Одно значение на все реплики при рендере и превью. Меньше — медленнее, больше — быстрее.
+                </p>
+                <div class="timing-speed">
+                  <span class="timing-speed__edge" aria-hidden="true">Медленнее</span>
+                  <input
+                    type="range"
+                    id="voicePlaybackRateInput"
+                    class="timing-speed__range"
+                    min="0.5"
+                    max="4"
+                    step="0.05"
+                    value="1"
+                  />
+                  <span class="timing-speed__edge" aria-hidden="true">Быстрее</span>
+                </div>
+                <p id="voicePlaybackRateValue" class="timing-speed__value" aria-live="polite">×1.00</p>
+              </div>
+
               <div class="voiceover-prompt-block" id="voiceoverPromptBlock" hidden>
                 <label class="label" for="voiceoverTtsPromptInput">Доп. промпт для озвучки</label>
                 <p class="dialogue-hint voiceover-prompt-block__hint">
@@ -843,6 +864,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=dialogue-layout-v5" type="module"></script>
+    <script src="/app.js?v=dialogue-layout-v6" type="module"></script>
   </body>
 </html>

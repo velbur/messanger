@@ -215,6 +215,8 @@ export const conversationSchema = z.object({
       ttsPrompt: z.string().optional(),
       volume: z.number().min(0).max(1).optional(),
       musicDuck: z.number().min(0).max(1).optional(),
+      /** Множитель скорости WAV при рендере и превью (0.5–4, по умолчанию 1) */
+      playbackRate: z.number().min(0.5).max(4).optional(),
     })
     .optional(),
   /**

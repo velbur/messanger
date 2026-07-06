@@ -30,7 +30,7 @@ import {
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
-import {mergeConversationVoiceover, messageHasVoiceover, resolveMessageVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, resolveVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
 import {assignStorySceneTimeSlots, computeStoryVoicePlaybackRates, getStoryScenes, type StoryVoiceSyncSceneEvent} from "./story-scene-timing";
@@ -273,7 +273,7 @@ const buildVideoOnlyStoryMessageEvents = (
     let cursor = scene.startFrame;
     indices.forEach((index, order) => {
       const message = conversation.messages[index];
-      const userRate = resolveMessageVoicePlaybackRate(message);
+      const userRate = resolveVoicePlaybackRate(conversation);
       const voiceRate = sceneRate * userRate;
       const revealFrame = cursor;
       const typingFrames = order === 0 ? 0 : gapFrames;
@@ -422,7 +422,7 @@ const buildMessageTimelineEvents = (
   conversation.messages.forEach((message, index) => {
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     const autoRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
-    const userRate = resolveMessageVoicePlaybackRate(message);
+    const userRate = resolveVoicePlaybackRate(conversation);
     const voiceRate = autoRate * userRate;
     if (voiceRate > 1.001) {
       resolved = {
