@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=dialogue-layout-v2" />
   </head>
   <body>
     <main class="page">
@@ -396,6 +396,10 @@
                 <label class="theme-option">
                   <input type="radio" name="storyAnimation" value="kenburns" />
                   <span>Ken Burns</span>
+                </label>
+                <label class="theme-option" data-story-i2v-option hidden>
+                  <input type="radio" name="storyAnimation" value="video-kenburns" />
+                  <span data-story-i2v-label="video-kenburns">Veo (4s) + Ken Burns</span>
                 </label>
                 <label class="theme-option" data-story-i2v-option hidden>
                   <input type="radio" name="storyAnimation" value="video-parallax" />
@@ -839,6 +843,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=refine-controls-fix" type="module"></script>
+    <script src="/app.js?v=dialogue-layout-v5" type="module"></script>
   </body>
 </html>

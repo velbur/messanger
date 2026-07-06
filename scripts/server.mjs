@@ -13,7 +13,7 @@ import {
   resolveMessageTiming,
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
-import {estimateVideoDurationMs, buildTimeline} from "../src/chat/timeline.ts";
+import {estimateVideoDurationMs, buildStoryVoicePreviewSchedule, buildTimeline} from "../src/chat/timeline.ts";
 import {STORY_VOICE_SYNC_BUNDLE_MARKER} from "../src/chat/voiceover.ts";
 import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
@@ -997,6 +997,7 @@ app.post("/api/conversation/timing-preview", (req, res) => {
       timingSpeed,
       totalMessagesMs: estimateMessagesDurationMs(conversation),
       totalVideoMs: estimateVideoDurationMs(conversation),
+      storyVoicePreview: buildStoryVoicePreviewSchedule(conversation),
       messages,
     });
   } catch (error) {

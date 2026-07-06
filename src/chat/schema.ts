@@ -317,7 +317,7 @@ export const conversationSchema = z.object({
           storyVideoLoop: z.boolean().optional(),
           durationMs: z.number().min(800).max(8000).optional().default(2500),
           animation: z
-            .enum(["video", "video-parallax", "none", "kenburns", "parallax", "depthParallax"])
+            .enum(["video", "video-parallax", "video-kenburns", "none", "kenburns", "parallax", "depthParallax"])
             .optional()
             .default("depthParallax"),
           storySfx: z.array(storySfxCueSchema).max(4).optional(),

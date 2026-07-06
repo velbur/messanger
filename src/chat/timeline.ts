@@ -1246,6 +1246,72 @@ export const estimateVideoDurationMs = (conversation: ConversationInput): number
   return (timeline.durationInFrames / FPS) * 1000;
 };
 
+export type StoryVoicePreviewTrack = {
+  messageIndex: number;
+  startMs: number;
+  rate: number;
+  voiceAudio: string;
+  voiceDurationMs: number;
+  playbackDurationMs: number;
+};
+
+/** Расписание озвучки для превью Veo: все реплики messageFrom..messageTo внутри клипа. */
+export const buildStoryVoicePreviewSchedule = (
+  conversation: ConversationInput,
+): Record<number, StoryVoicePreviewTrack[]> => {
+  const voiceover = mergeConversationVoiceover(conversation);
+  if (!voiceover.enabled) {
+    return {};
+  }
+
+  const scenes = getStoryScenes(conversation);
+  if (scenes.length === 0) {
+    return {};
+  }
+
+  const timeline = buildTimeline(conversation);
+  const eventsByIndex = new Map(timeline.events.map((event) => [event.index, event]));
+  const schedule: Record<number, StoryVoicePreviewTrack[]> = {};
+
+  for (const scene of scenes) {
+    const anchor = scene.anchorMessageIndex;
+    const sceneEvent = timeline.story.sceneEvents.find((event) => event.messageIndex === anchor);
+    if (!sceneEvent) {
+      continue;
+    }
+
+    const from = Math.max(0, scene.messageFrom ?? anchor);
+    const to = Math.min(
+      conversation.messages.length - 1,
+      Math.max(from, scene.messageTo ?? anchor),
+    );
+    const tracks: StoryVoicePreviewTrack[] = [];
+
+    for (let index = from; index <= to; index++) {
+      const event = eventsByIndex.get(index);
+      if (!event?.voiceAudio?.trim() || !event.voiceDurationMs) {
+        continue;
+      }
+      const rate = event.voicePlaybackRate ?? 1;
+      const startMs = Math.max(0, ((event.revealFrame - sceneEvent.startFrame) / FPS) * 1000);
+      tracks.push({
+        messageIndex: index,
+        startMs: Math.round(startMs),
+        rate,
+        voiceAudio: event.voiceAudio.trim(),
+        voiceDurationMs: event.voiceDurationMs,
+        playbackDurationMs: Math.round(event.voiceDurationMs / rate),
+      });
+    }
+
+    if (tracks.length > 0) {
+      schedule[anchor] = tracks;
+    }
+  }
+
+  return schedule;
+};
+
 export const pickThumbnailFrame = (
   timeline: ConversationTimeline,
   durationInFrames: number,

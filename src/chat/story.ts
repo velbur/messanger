@@ -14,7 +14,14 @@ export const STORY_VIDEO_BUNDLE_MARKER = "story-parallax-video-v32";
 /** Ревизия StorySceneVideo: Veo-only без Ken Burns / parallax на хвосте */
 export const STORY_SCENE_VIDEO_LOCAL_FRAME_REV = "story-scene-video-localframe-v4";
 
-export type StorySceneAnimation = "video" | "video-parallax" | "none" | "kenburns" | "parallax" | "depthParallax";
+export type StorySceneAnimation =
+  | "video"
+  | "video-parallax"
+  | "video-kenburns"
+  | "none"
+  | "kenburns"
+  | "parallax"
+  | "depthParallax";
 
 export type StoryOpeningConfig = {
   image?: string;
@@ -57,6 +64,7 @@ const coerceStoryAnimation = (value: unknown): StorySceneAnimation => {
   if (
     value === "video" ||
     value === "video-parallax" ||
+    value === "video-kenburns" ||
     value === "none" ||
     value === "kenburns" ||
     value === "parallax" ||
@@ -72,7 +80,7 @@ export const isStoryVideoOnlyAnimation = (conversation: ConversationInput): bool
 
 export const shouldGenerateStoryVideos = (conversation: ConversationInput): boolean => {
   const animation = mergeStoryConfig(conversation).opening.animation;
-  return isStoryVisualLayout(conversation) && (animation === "video" || animation === "video-parallax");
+  return isStoryVisualLayout(conversation) && (animation === "video" || animation === "video-parallax" || animation === "video-kenburns");
 };
 
 export const needsStoryDepthLayers = (conversation: ConversationInput): boolean => {

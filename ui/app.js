@@ -2225,11 +2225,13 @@ previewCoverPreview?.addEventListener("click", (event) => {
   openLightbox(href);
 });
 
-const openVideoLightbox = (src) => {
+const openVideoLightbox = (src, {messageIndex = null, videoDurationMs = 0} = {}) => {
   if (!src || !videoLightbox || !lightboxVideo) {
     return;
   }
+  stopStoryVideoVoiceSync();
   lightboxVideo.src = src;
+  bindStoryVideoVoicePreview(lightboxVideo, {messageIndex, videoDurationMs});
   videoLightbox.hidden = false;
   videoLightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("lightbox-open");
@@ -2240,6 +2242,7 @@ const closeVideoLightbox = () => {
   if (!videoLightbox || !lightboxVideo) {
     return;
   }
+  stopStoryVideoVoiceSync();
   lightboxVideo.pause();
   lightboxVideo.removeAttribute("src");
   lightboxVideo.load();
@@ -2374,6 +2377,10 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
     video.controls = true;
     const durationLabel = formatVideoDurationLabel(slotScan.videoDurationMs);
     video.title = durationLabel ? `Story-видео · ${durationLabel}` : "Story-видео";
+    bindStoryVideoVoicePreview(video, {
+      messageIndex,
+      videoDurationMs: slotScan.videoDurationMs ?? 0,
+    });
     previewWrap.append(video);
     if (durationLabel) {
       const meta = document.createElement("span");
@@ -2443,7 +2450,10 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
     btnWatch.className = "btn btn-secondary btn-small";
     btnWatch.textContent = "Смотреть";
     btnWatch.addEventListener("click", () => {
-      openVideoLightbox(slotScan.videoPreviewUrl);
+      openVideoLightbox(slotScan.videoPreviewUrl, {
+        messageIndex,
+        videoDurationMs: slotScan.videoDurationMs ?? 0,
+      });
     });
     actions.append(btnWatch);
   }
@@ -2947,14 +2957,22 @@ const stripWallpaperForStoryOverlay = (parsed) => {
 const resolveWallpaperPayload = () =>
   isWallpaperRelevantForLayout() ? getWallpaper() : undefined;
 
-const STORY_ANIMATION_UI_VALUES = new Set(["kenburns", "depthParallax", "video", "video-parallax"]);
+const STORY_ANIMATION_UI_VALUES = new Set([
+  "kenburns",
+  "depthParallax",
+  "video",
+  "video-parallax",
+  "video-kenburns",
+]);
 
 const STORY_VIDEO_ANIMATION_LABELS = {
   veo: {
+    "video-kenburns": "Veo (4s) + Ken Burns",
     "video-parallax": "Veo (4s) + Parallax",
     video: "Veo",
   },
   "local-gpu": {
+    "video-kenburns": "Wan (4s) + Ken Burns",
     "video-parallax": "Wan (4s) + Parallax",
     video: "Wan (Full)",
   },
@@ -2998,7 +3016,7 @@ const updateStoryI2vAnimationOptions = (storyVideo) => {
   }
   if (!showVideoAnimation) {
     const current = getStoryAnimation();
-    if (current === "video" || current === "video-parallax") {
+    if (current === "video" || current === "video-parallax" || current === "video-kenburns") {
       setStoryAnimation("depthParallax");
       applyStoryAnimationToJson();
     }
@@ -3161,7 +3179,7 @@ const shouldShowStoryVideoUi = (conversation) => {
   const animation = conversation?.story?.opening?.animation ?? "depthParallax";
   return (
     isStoryVisualLayout(conversation) &&
-    (animation === "video" || animation === "video-parallax")
+    (animation === "video" || animation === "video-parallax" || animation === "video-kenburns")
   );
 };
 
@@ -3518,6 +3536,168 @@ const getMessageVoicePlaybackRate = (message) => {
     return MESSAGE_VOICE_RATE.default;
   }
   return Math.min(MESSAGE_VOICE_RATE.max, Math.max(MESSAGE_VOICE_RATE.min, raw));
+};
+
+/** @type {{video: HTMLVideoElement, audios: Map<number, HTMLAudioElement>, anchorIndex: number} | null} */
+let activeStoryVideoVoiceSync = null;
+
+const stopStoryVideoVoiceSync = () => {
+  if (activeStoryVideoVoiceSync?.audios) {
+    for (const audio of activeStoryVideoVoiceSync.audios.values()) {
+      audio.pause();
+    }
+  }
+  activeStoryVideoVoiceSync = null;
+};
+
+const resolveStoryVideoVoicePreviewRate = (message, videoDurationMs) => {
+  const userRate = getMessageVoicePlaybackRate(message);
+  const voiceDurationMs = Number(message?.voiceDurationMs);
+  const videoMs = Number(videoDurationMs);
+  if (!Number.isFinite(voiceDurationMs) || voiceDurationMs <= 0 || !Number.isFinite(videoMs) || videoMs <= 0) {
+    return userRate;
+  }
+  const autoRate = Math.min(MESSAGE_VOICE_RATE.max, Math.max(1, voiceDurationMs / videoMs));
+  return Math.min(MESSAGE_VOICE_RATE.max, autoRate * userRate);
+};
+
+const resolveStoryVoicePreviewTracks = (anchorIndex, videoDurationMs = 0) => {
+  const conversation = parseConversationJson();
+  if (!conversation?.voiceover?.enabled) {
+    return null;
+  }
+
+  const scheduled =
+    messageTimingPreview?.storyVoicePreview?.[anchorIndex] ??
+    messageTimingPreview?.storyVoicePreview?.[String(anchorIndex)];
+
+  if (Array.isArray(scheduled) && scheduled.length > 0) {
+    return scheduled.map((track) => ({
+      messageIndex: track.messageIndex,
+      startMs: Number(track.startMs) || 0,
+      rate: Number(track.rate) || 1,
+      voiceUrl: String(track.voiceAudio ?? "").startsWith("/")
+        ? track.voiceAudio
+        : `/${String(track.voiceAudio ?? "").replace(/^\/+/, "")}`,
+      playbackDurationMs:
+        Number(track.playbackDurationMs) ||
+        Math.round(Number(track.voiceDurationMs || 0) / (Number(track.rate) || 1)),
+    }));
+  }
+
+  const message = conversation?.messages?.[anchorIndex];
+  const voicePath = String(message?.voiceAudio ?? "").trim();
+  if (!voicePath) {
+    return null;
+  }
+
+  const voiceDurationMs = Number(message?.voiceDurationMs) || 0;
+  const rate = resolveStoryVideoVoicePreviewRate(message, videoDurationMs);
+  return [
+    {
+      messageIndex: anchorIndex,
+      startMs: 0,
+      rate,
+      voiceUrl: voicePath.startsWith("/") ? voicePath : `/${voicePath}`,
+      playbackDurationMs: voiceDurationMs > 0 ? Math.round(voiceDurationMs / rate) : 0,
+    },
+  ];
+};
+
+const bindStoryVideoVoicePreview = (video, {messageIndex, videoDurationMs = 0} = {}) => {
+  if (messageIndex == null || messageIndex < 0) {
+    return;
+  }
+
+  const ensureSyncState = () => {
+    if (activeStoryVideoVoiceSync?.video === video) {
+      return activeStoryVideoVoiceSync;
+    }
+    stopStoryVideoVoiceSync();
+    activeStoryVideoVoiceSync = {
+      video,
+      audios: new Map(),
+      anchorIndex: messageIndex,
+    };
+    return activeStoryVideoVoiceSync;
+  };
+
+  const ensureTrackAudio = (sync, track) => {
+    let audio = sync.audios.get(track.messageIndex);
+    if (!audio) {
+      audio = new Audio(track.voiceUrl);
+      sync.audios.set(track.messageIndex, audio);
+    }
+    return audio;
+  };
+
+  const syncTracksToVideo = ({allowPlay = true} = {}) => {
+    const tracks = resolveStoryVoicePreviewTracks(messageIndex, videoDurationMs);
+    if (!tracks?.length) {
+      return;
+    }
+
+    const sync = ensureSyncState();
+    const videoMs = video.currentTime * 1000;
+
+    for (const track of tracks) {
+      const audio = ensureTrackAudio(sync, track);
+      const localMs = videoMs - track.startMs;
+      const inWindow =
+        localMs >= 0 &&
+        (track.playbackDurationMs <= 0 || localMs < track.playbackDurationMs);
+
+      if (!inWindow) {
+        audio.pause();
+        continue;
+      }
+
+      audio.playbackRate = track.rate;
+      audio.currentTime = Math.max(0, (localMs * track.rate) / 1000);
+
+      if (video.paused || !allowPlay) {
+        audio.pause();
+      } else if (audio.paused) {
+        audio.play().catch(() => {});
+      }
+    }
+  };
+
+  const onVideoPlay = () => {
+    if (!resolveStoryVoicePreviewTracks(messageIndex, videoDurationMs)?.length) {
+      return;
+    }
+    stopMessageVoicePreview();
+    stopVoicePreview();
+    stopMusicPreview();
+    if (activeStoryVideoVoiceSync?.video && activeStoryVideoVoiceSync.video !== video) {
+      stopStoryVideoVoiceSync();
+    }
+    syncTracksToVideo({allowPlay: true});
+  };
+
+  video.addEventListener("play", onVideoPlay);
+  video.addEventListener("pause", () => {
+    if (activeStoryVideoVoiceSync?.video === video) {
+      for (const audio of activeStoryVideoVoiceSync.audios.values()) {
+        audio.pause();
+      }
+    }
+  });
+  video.addEventListener("timeupdate", () => {
+    if (video.paused) {
+      return;
+    }
+    syncTracksToVideo({allowPlay: true});
+  });
+  video.addEventListener("seeked", () => {
+    syncTracksToVideo({allowPlay: !video.paused});
+  });
+  video.addEventListener("ended", () => {
+    if (activeStoryVideoVoiceSync?.video === video) {
+      stopStoryVideoVoiceSync();
+    }
+  });
 };
 
 const setMessageVoicePlaybackRateInJson = (messageIndex, rate) => {
@@ -4105,6 +4285,7 @@ const stopAllAudioPreviews = () => {
   stopMessageVoicePreview();
   stopVoicePreview();
   stopMusicPreview();
+  stopStoryVideoVoiceSync();
 };
 
 const resolveMusicPreviewUrl = (musicId) => {
@@ -5451,9 +5632,18 @@ const enrichImageItem = (message, messageIndex, item) => {
   return {...base, ...state};
 };
 
-const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null, slotScan = null}) => {
+const renderStoryImageSlot = ({
+  messageIndex,
+  message,
+  title,
+  previewUrl = null,
+  slotScan = null,
+  dialogueLayout = false,
+}) => {
   const slot = document.createElement("div");
-  slot.className = "image-slot image-slot--story";
+  slot.className = `image-slot image-slot--story${
+    dialogueLayout ? " image-slot--dialogue" : ""
+  }`;
   slot.dataset.storySlotIndex = String(messageIndex ?? "opening");
   slot.tabIndex = 0;
   slot.title = "Ctrl+V — вставить изображение из буфера";
@@ -5504,40 +5694,10 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null, 
       ? String(message?.story?.opening?.image ?? "").trim()
       : String(message?.storyImage ?? "").trim();
 
-  if (imagePath) {
-    const media = document.createElement("div");
-    media.className = "image-slot__media";
+  const conversation = parseConversationJson();
+  const showVideoUi = shouldShowStoryVideoUi(conversation);
 
-    const imageCol = document.createElement("div");
-    imageCol.className = "image-slot__media-col";
-    const imageLabel = document.createElement("span");
-    imageLabel.className = "image-slot__media-label";
-    imageLabel.textContent = "Кадр";
-
-    const preview = document.createElement("img");
-    preview.className = "image-slot__preview";
-    preview.alt = title;
-    preview.loading = "lazy";
-    preview.src =
-      previewUrl ||
-      (isImageUrl(imagePath) ? imagePath : `/${imagePath.replace(/^\/+/, "")}`);
-    preview.title = "Открыть в полном размере";
-
-    imageCol.append(imageLabel, preview);
-    media.append(imageCol);
-
-    const conversation = parseConversationJson();
-    if (shouldShowStoryVideoUi(conversation)) {
-      media.append(
-        renderStoryVideoColumn({
-          messageIndex,
-          slotScan: slotScan ?? null,
-        }),
-      );
-    }
-
-    slot.append(media);
-
+  const appendStoryCorrectionBlock = () => {
     const correctionBlock = document.createElement("div");
     correctionBlock.className = "image-slot__correction-edit image-card__correction-edit";
 
@@ -5591,6 +5751,60 @@ const renderStoryImageSlot = ({messageIndex, message, title, previewUrl = null, 
     editActions.append(btnCorrect);
     correctionBlock.append(editLabel, editInput, editActions);
     slot.append(correctionBlock);
+  };
+
+  if (imagePath) {
+    if (dialogueLayout) {
+      if (showVideoUi) {
+        slot.append(
+          renderStoryVideoColumn({
+            messageIndex,
+            slotScan: slotScan ?? null,
+          }),
+        );
+      }
+      appendStoryCorrectionBlock();
+    } else {
+      const media = document.createElement("div");
+      media.className = "image-slot__media";
+
+      const imageCol = document.createElement("div");
+      imageCol.className = "image-slot__media-col";
+      const imageLabel = document.createElement("span");
+      imageLabel.className = "image-slot__media-label";
+      imageLabel.textContent = "Кадр";
+
+      const preview = document.createElement("img");
+      preview.className = "image-slot__preview";
+      preview.alt = title;
+      preview.loading = "lazy";
+      preview.src =
+        previewUrl ||
+        (isImageUrl(imagePath) ? imagePath : `/${imagePath.replace(/^\/+/, "")}`);
+      preview.title = "Открыть в полном размере";
+
+      imageCol.append(imageLabel, preview);
+      media.append(imageCol);
+
+      if (showVideoUi) {
+        media.append(
+          renderStoryVideoColumn({
+            messageIndex,
+            slotScan: slotScan ?? null,
+          }),
+        );
+      }
+
+      slot.append(media);
+      appendStoryCorrectionBlock();
+    }
+  } else if (dialogueLayout && showVideoUi) {
+    slot.append(
+      renderStoryVideoColumn({
+        messageIndex,
+        slotScan: slotScan ?? null,
+      }),
+    );
   }
 
   const actions = document.createElement("div");
@@ -5764,19 +5978,6 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup, storySlotLook
 
   appendCenterSceneCaption(frame, openingText);
   scene.append(frame);
-
-  const controls = document.createElement("div");
-  controls.className = "dialogue-scene__controls";
-  controls.append(
-    renderStoryImageSlot({
-      messageIndex: null,
-      message: conversation,
-      title: "story.opening",
-      previewUrl: storyPreviewLookup?.get("opening") ?? null,
-      slotScan: storySlotLookup?.get("opening") ?? null,
-    }),
-  );
-  scene.append(controls);
   sceneCol.append(scene);
   panel.append(sceneCol);
 
@@ -5821,6 +6022,20 @@ const renderStoryOpeningPanel = (conversation, storyPreviewLookup, storySlotLook
   }
 
   panel.append(messageCol);
+
+  const controls = document.createElement("div");
+  controls.className = "dialogue-scene__controls dialogue-block__scene-controls";
+  controls.append(
+    renderStoryImageSlot({
+      messageIndex: null,
+      message: conversation,
+      title: "story.opening",
+      previewUrl: storyPreviewLookup?.get("opening") ?? null,
+      slotScan: storySlotLookup?.get("opening") ?? null,
+      dialogueLayout: true,
+    }),
+  );
+  panel.append(controls);
 
   return panel;
 };
@@ -6188,7 +6403,7 @@ const renderDialogueSceneBlock = ({
   scene.append(frame);
 
   const controls = document.createElement("div");
-  controls.className = "dialogue-scene__controls";
+  controls.className = "dialogue-scene__controls dialogue-block__scene-controls";
 
   const hasStoryPromptField = Object.hasOwn(message, "storyImagePrompt");
   const hasStoryFrame =
@@ -6204,6 +6419,7 @@ const renderDialogueSceneBlock = ({
         title: `Кадр · №${messageIndex + 1}`,
         previewUrl: storyPreviewLookup?.get(messageIndex) ?? null,
         slotScan: storySlotLookup?.get(messageIndex) ?? null,
+        dialogueLayout: true,
       }),
     );
   } else if (message.image?.trim() || message.imagePrompt?.trim()) {
@@ -6226,8 +6442,7 @@ const renderDialogueSceneBlock = ({
     controls.append(addRow);
   }
 
-  scene.append(controls);
-  return scene;
+  return {scene, controls};
 };
 
 const renderMessageDisplayToggle = (messageIndex, currentDisplay) => {
@@ -6280,19 +6495,21 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   if (!isStoryVisual || hasStoryFrame) {
     const sceneCol = document.createElement("div");
     sceneCol.className = "dialogue-block__scene";
-    sceneCol.append(
-      renderDialogueSceneBlock({
-        message,
-        messageIndex,
-        item,
-        storyPreviewLookup,
-        storySlotLookup,
-        messageText,
-        isStoryVisual,
-        display,
-      }),
-    );
+    const {scene, controls} = renderDialogueSceneBlock({
+      message,
+      messageIndex,
+      item,
+      storyPreviewLookup,
+      storySlotLookup,
+      messageText,
+      isStoryVisual,
+      display,
+    });
+    sceneCol.append(scene);
     row.append(sceneCol);
+    if (controls.childElementCount > 0) {
+      row.append(controls);
+    }
   }
 
   const messageCol = document.createElement("div");
@@ -6406,13 +6623,13 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   }
 
   messageCol.append(body);
+  row.append(messageCol);
 
   const voiceRateControls = renderMessageVoiceControls(message, messageIndex);
   if (voiceRateControls) {
-    messageCol.append(voiceRateControls);
+    row.append(voiceRateControls);
   }
 
-  row.append(messageCol);
   return row;
 };
 

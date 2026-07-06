@@ -24,6 +24,21 @@ type Props = {
 const usesDepthParallax = (animation: StorySceneAnimation): boolean =>
   animation === "parallax" || animation === "depthParallax" || animation === "video-parallax";
 
+const isHybridVideoAnimation = (animation: StorySceneAnimation): boolean =>
+  animation === "video" || animation === "video-parallax" || animation === "video-kenburns";
+
+const hybridVideoFallbackAnimation = (
+  animation: StorySceneAnimation,
+): "static" | "kenburns" | "depthParallax" => {
+  if (animation === "video-parallax") {
+    return "depthParallax";
+  }
+  if (animation === "video-kenburns") {
+    return "kenburns";
+  }
+  return "static";
+};
+
 const MotionScene: React.FC<{
   image: string;
   animation: StorySceneAnimation;
@@ -109,11 +124,11 @@ export const StorySceneImage: React.FC<Props> = ({
   const trimmedVideo = video?.trim();
   const hybridVideo =
     trimmedVideo ||
-    (animation === "video-parallax" && trimmedImage
+    ((animation === "video-parallax" || animation === "video-kenburns") && trimmedImage
       ? storyVideoPathForImage(trimmedImage)
       : undefined);
 
-  if ((animation === "video" || animation === "video-parallax") && hybridVideo) {
+  if (isHybridVideoAnimation(animation) && hybridVideo) {
     return (
       <StorySceneVideo
         video={hybridVideo}
@@ -122,7 +137,7 @@ export const StorySceneImage: React.FC<Props> = ({
         sceneStartFrame={sceneStartFrame}
         sceneDurationFrames={durationFrames}
         localFrame={localFrame}
-        fallbackAnimation={animation === "video-parallax" ? "depthParallax" : "static"}
+        fallbackAnimation={hybridVideoFallbackAnimation(animation)}
       />
     );
   }
@@ -134,7 +149,7 @@ export const StorySceneImage: React.FC<Props> = ({
         animation={
           animation === "video"
             ? "none"
-            : animation === "video-parallax"
+            : animation === "video-parallax" || animation === "video-kenburns"
               ? "kenburns"
               : animation
         }

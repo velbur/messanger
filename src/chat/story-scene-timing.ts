@@ -432,7 +432,7 @@ export const storyReadableWordBudget = (clipSec: number): number =>
 
 export const storyAnimationClipSec = (conversation: ConversationInput): number => {
   const animation = mergeStoryConfig(conversation).opening.animation;
-  if (animation === "video" || animation === "video-parallax") {
+  if (animation === "video" || animation === "video-parallax" || animation === "video-kenburns") {
     return STORY_VEO_CLIP_SEC;
   }
   const {min, max} = getStorySceneDurationSec(conversation);
@@ -481,7 +481,7 @@ export const buildScenePlanAnimationSyncRules = (
   const {min, max} = getStorySceneDurationSec(conversation);
   const animation = mergeStoryConfig(conversation).opening.animation;
   const veo =
-    animation === "video" || animation === "video-parallax"
+    animation === "video" || animation === "video-parallax" || animation === "video-kenburns"
       ? language === "en"
         ? "Veo/I2V clip"
         : "клип Veo/I2V"
@@ -491,7 +491,7 @@ export const buildScenePlanAnimationSyncRules = (
 
   if (language === "en") {
     return [
-      `Each scene matches one ${veo} (~${clipSec}s on screen${animation === "video" || animation === "video-parallax" ? "" : `, guide ${min}–${max}s`}).`,
+      `Each scene matches one ${veo} (~${clipSec}s on screen${animation === "video" || animation === "video-parallax" || animation === "video-kenburns" ? "" : `, guide ${min}–${max}s`}).`,
       `messageFrom..messageTo must be readable within that window: usually 1–3 short lines, ≤~${words} words total.`,
       "Split into the next scene if the transcript block would exceed the clip — don't assign long dialogue chunks to one frame.",
       "anchorMessageIndex = the key line for the illustration; beat = what happens visually in that clip.",
@@ -499,7 +499,7 @@ export const buildScenePlanAnimationSyncRules = (
   }
 
   return [
-    `Каждая сцена = один ${veo} (~${clipSec} с на экране${animation === "video" || animation === "video-parallax" ? "" : `, ориентир ${min}–${max} с`}).`,
+    `Каждая сцена = один ${veo} (~${clipSec} с на экране${animation === "video" || animation === "video-parallax" || animation === "video-kenburns" ? "" : `, ориентир ${min}–${max} с`}).`,
     `messageFrom..messageTo должны укладываться в это окно: обычно 1–3 короткие реплики, суммарно до ~${words} слов.`,
     "Если блок переписки по времени не помещается — вынеси хвост в следующую сцену, не привязывай длинный диалог к одному кадру.",
     "anchorMessageIndex — ключевая реплика для иллюстрации; beat — что визуально происходит за время клипа.",

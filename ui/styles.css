@@ -634,19 +634,28 @@ body {
 }
 
 .dialogue-msg__voice-rate {
+  grid-column: 1 / -1;
+  grid-row: 3;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 6px 8px;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+  padding: 8px 10px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.dialogue-block:not(:has(.dialogue-block__scene-controls)) .dialogue-msg__voice-rate {
+  grid-row: 2;
+}
+
 .dialogue-msg__voice-rate-slider {
-  flex: 1;
-  min-width: 80px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   accent-color: #00a884;
 }
 
@@ -1727,16 +1736,17 @@ body.workflow-modal-open {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 920px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
-/* —— Блок сообщения: кадр слева + реплика справа —— */
+/* —— Блок сообщения: кадр слева + реплика справа, контролы на всю ширину —— */
 
 .dialogue-block {
   display: grid;
-  grid-template-columns: minmax(160px, 220px) 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(200px, 30%) minmax(0, 1fr);
+  gap: 16px 24px;
   align-items: start;
   padding: 16px;
   border-radius: 12px;
@@ -1750,6 +1760,28 @@ body.workflow-modal-open {
 }
 
 .dialogue-block__scene {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.dialogue-block__message {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dialogue-block:not(:has(.dialogue-block__scene)) .dialogue-block__message {
+  grid-column: 1 / -1;
+}
+
+.dialogue-block__scene-controls {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
   min-width: 0;
 }
 
@@ -1893,21 +1925,102 @@ body.workflow-modal-open {
 .dialogue-scene__controls {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.dialogue-block__scene-controls .image-slot {
+  margin-top: 0;
+  padding: 12px;
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.image-slot--dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-slot--dialogue .image-slot__media-col--video {
+  width: 100%;
+  min-width: 0;
+}
+
+.image-slot--dialogue .image-slot__video-prompt,
+.image-slot--dialogue .image-card__prompt-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.image-slot--dialogue .image-slot__video-preview {
+  width: 100%;
+}
+
+.image-slot--dialogue .image-slot__video {
+  width: 100%;
+  max-width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.image-slot--dialogue .image-slot__video-actions,
+.image-slot--dialogue .image-card__prompt-edit-actions,
+.image-slot--dialogue .image-slot__actions {
+  width: 100%;
+}
+
+.dialogue-block__scene-controls .image-slot__preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+}
+
+.dialogue-block__scene-controls .image-slot__head {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.dialogue-block__scene-controls .image-slot__prompt,
+.dialogue-block__scene-controls .image-slot__video-prompt,
+.dialogue-block__scene-controls .image-card__prompt-input {
+  width: 100%;
+  min-height: 56px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.dialogue-block__scene-controls .image-slot__media {
+  grid-template-columns: 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.dialogue-block__scene-controls .image-slot__media-col,
+.dialogue-block__scene-controls .image-slot__media-col--video {
+  min-width: 0;
+  width: 100%;
+}
+
+.dialogue-block__scene-controls .image-slot__video {
+  width: 100%;
+  max-width: none;
+  max-height: min(52vh, 420px);
+}
+
+.dialogue-block__scene-controls .image-slot__actions,
+.dialogue-block__scene-controls .image-slot__video-actions,
+.dialogue-block__scene-controls .image-card__prompt-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
 }
 
 .dialogue-scene__controls .image-slot {
   margin-top: 0;
   padding: 8px;
   font-size: 0.85rem;
-}
-
-.dialogue-scene__controls .image-slot__preview {
-  display: none;
-}
-
-.dialogue-scene__controls .image-slot__head {
-  display: none;
 }
 
 .dialogue-scene__controls .image-slot__prompt {
@@ -1923,13 +2036,6 @@ body.workflow-modal-open {
 .dialogue-scene__controls .btn-small {
   padding: 4px 8px;
   font-size: 0.75rem;
-}
-
-.dialogue-block__message {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .dialogue-block__toolbar {
@@ -1978,6 +2084,7 @@ body.workflow-modal-open {
 
 .dialogue-block__body {
   position: relative;
+  width: 100%;
 }
 
 .dialogue-block__body--center {
@@ -1985,15 +2092,17 @@ body.workflow-modal-open {
   align-items: center;
   justify-content: center;
   min-height: 140px;
+  width: 100%;
   padding: 24px 20px;
   border-radius: 12px;
   background: radial-gradient(ellipse at center, rgba(30, 45, 58, 0.9) 0%, rgba(11, 20, 26, 0.6) 100%);
   border: 1px solid rgba(42, 57, 66, 0.8);
+  box-sizing: border-box;
 }
 
 .dialogue-block__body--center .dialogue-block__text {
   width: 100%;
-  max-width: 520px;
+  max-width: none;
   min-height: 3em;
   padding: 0;
   border: none;
@@ -2016,18 +2125,24 @@ body.workflow-modal-open {
   font-style: italic;
 }
 
+.dialogue-block__body--bubble {
+  width: 100%;
+}
+
 .dialogue-block__body--bubble .dialogue-msg__bubble {
+  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 .dialogue-block__body--bubble.dialogue-block__body--me .dialogue-msg__bubble {
   margin-left: auto;
-  max-width: min(100%, 420px);
+  max-width: 100%;
 }
 
 .dialogue-block__body--bubble.dialogue-block__body--them .dialogue-msg__bubble {
   margin-right: auto;
-  max-width: min(100%, 420px);
+  max-width: 100%;
 }
 
 .dialogue-msg {
@@ -2748,6 +2863,22 @@ body.workflow-modal-open {
   .dialogue-block {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+
+  .dialogue-block__scene,
+  .dialogue-block__message {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .dialogue-block__scene-controls,
+  .dialogue-msg__voice-rate {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .dialogue-block__scene-controls .image-slot__media {
+    grid-template-columns: 1fr;
   }
 
   .dialogue-scene__frame {
