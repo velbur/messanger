@@ -30,7 +30,7 @@ import {
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
-import {mergeConversationVoiceover, messageHasVoiceover, resolveVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER, VOICE_PLAYBACK_RATE_BUNDLE_MARKER} from "./voiceover";
+import {mergeConversationVoiceover, messageHasVoiceover, normalizeVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, STORY_VOICE_SYNC_MAX_PLAYBACK_RATE, VOICEOVER_BUNDLE_MARKER, VOICE_PLAYBACK_RATE_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
 import {assignStorySceneTimeSlots, computeStoryVoicePlaybackRates, getStoryScenes, type StoryVoiceSyncSceneEvent} from "./story-scene-timing";
@@ -243,6 +243,7 @@ const buildVideoOnlyStoryMessageEvents = (
   conversation: ConversationInput,
   introFrames: number,
   sceneBounds: readonly StoryVoiceSyncSceneEvent[],
+  userVoiceRate: number,
 ): MessageTimelineEvent[] => {
   const storyVisual = isStoryVisualLayout(conversation);
   const videoLayout = isVideoLayout(conversation);
@@ -288,7 +289,7 @@ const buildVideoOnlyStoryMessageEvents = (
     let cursor = scene.startFrame;
     indices.forEach((index, order) => {
       const message = conversation.messages[index];
-      const userRate = resolveVoicePlaybackRate(conversation);
+      const userRate = userVoiceRate;
       const voiceRate = sceneRate * userRate;
       const revealFrame = cursor;
       const typingFrames = order === 0 ? 0 : gapFrames;
@@ -358,7 +359,7 @@ const buildVideoOnlyStoryMessageEvents = (
     }
 
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
-    const userRate = resolveVoicePlaybackRate(conversation);
+    const userRate = userVoiceRate;
     if (voiceover.enabled && messageHasVoiceover(message)) {
       const voiceMinPostRevealMs = (message.voiceDurationMs ?? 0) / userRate + voicePaddingMs;
       if (voiceMinPostRevealMs > resolved.postRevealMs) {
@@ -423,6 +424,7 @@ const buildMessageTimelineEvents = (
   conversation: ConversationInput,
   introFrames: number,
   voicePlaybackRates: Map<number, number>,
+  userVoiceRate: number,
 ): MessageTimelineEvent[] => {
   const storyVisual = isStoryVisualLayout(conversation);
   const videoLayout = isVideoLayout(conversation);
@@ -440,7 +442,7 @@ const buildMessageTimelineEvents = (
   conversation.messages.forEach((message, index) => {
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     const autoRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
-    const userRate = resolveVoicePlaybackRate(conversation);
+    const userRate = userVoiceRate;
     const voiceRate = autoRate * userRate;
     if (voiceRate > 1.001) {
       resolved = {
@@ -510,7 +512,16 @@ const buildMessageTimelineEvents = (
   return events;
 };
 
-export const buildTimeline = (conversation: ConversationInput): ConversationTimeline => {
+export type TimelineBuildOptions = {
+  /** Скорость озвучки из ползунка UI (не из JSON). По умолчанию 1. */
+  voicePlaybackRate?: number;
+};
+
+export const buildTimeline = (
+  conversation: ConversationInput,
+  options?: TimelineBuildOptions,
+): ConversationTimeline => {
+  const userVoiceRate = normalizeVoicePlaybackRate(options?.voicePlaybackRate ?? 1);
   void TIMING_SPEED_TIMELINE_MARKER;
   void TIMELINE_TAIL_MARKER;
   void VOICEOVER_BUNDLE_MARKER;
@@ -541,12 +552,12 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
 
   if (videoOnlyVoiceSync) {
     const sceneBounds = buildVideoOnlyStorySceneBounds(conversation, introFrames);
-    events = buildVideoOnlyStoryMessageEvents(conversation, introFrames, sceneBounds);
+    events = buildVideoOnlyStoryMessageEvents(conversation, introFrames, sceneBounds, userVoiceRate);
     chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
     story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
   } else {
     let voicePlaybackRates = new Map<number, number>();
-    events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates);
+    events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates, userVoiceRate);
     chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
     story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
 
@@ -568,7 +579,7 @@ export const buildTimeline = (conversation: ConversationInput): ConversationTime
         break;
       }
       voicePlaybackRates = nextRates;
-      events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates);
+      events = buildMessageTimelineEvents(conversation, introFrames, voicePlaybackRates, userVoiceRate);
       chatEndFrame = events.length > 0 ? events[events.length - 1].endFrame : introFrames;
       story = buildStoryTimeline(conversation, events, introFrames, chatEndFrame);
     }
@@ -1258,8 +1269,11 @@ export const visibleMessageCountAtFrame = (
 };
 
 /** Кадр для JPG-превью без фото: финальная реплика в чате */
-export const estimateVideoDurationMs = (conversation: ConversationInput): number => {
-  const timeline = buildTimeline(conversation);
+export const estimateVideoDurationMs = (
+  conversation: ConversationInput,
+  options?: TimelineBuildOptions,
+): number => {
+  const timeline = buildTimeline(conversation, options);
   return (timeline.durationInFrames / FPS) * 1000;
 };
 
@@ -1275,6 +1289,7 @@ export type StoryVoicePreviewTrack = {
 /** Расписание озвучки для превью Veo: все реплики messageFrom..messageTo внутри клипа. */
 export const buildStoryVoicePreviewSchedule = (
   conversation: ConversationInput,
+  options?: TimelineBuildOptions,
 ): Record<number, StoryVoicePreviewTrack[]> => {
   const voiceover = mergeConversationVoiceover(conversation);
   if (!voiceover.enabled) {
@@ -1286,7 +1301,7 @@ export const buildStoryVoicePreviewSchedule = (
     return {};
   }
 
-  const timeline = buildTimeline(conversation);
+  const timeline = buildTimeline(conversation, options);
   const eventsByIndex = new Map(timeline.events.map((event) => [event.index, event]));
   const schedule: Record<number, StoryVoicePreviewTrack[]> = {};
 

@@ -100,8 +100,6 @@ export const messageSchema = z
       .optional(),
     /** Длительность voiceAudio, мс (заполняется при генерации) */
     voiceDurationMs: z.number().min(50).max(120000).optional(),
-    /** Скорость WAV при рендере: 1 = как записано; 0.5–4 — ручная подстройка в UI */
-    voicePlaybackRate: z.number().min(0.5).max(4).optional(),
     /** Движок озвучки; openrouter — Gemini TTS через OpenRouter */
     voiceTtsProvider: z.literal("openrouter").optional(),
     /** Профиль голоса/промпта; при смене WAV перегенерируется */
@@ -215,8 +213,6 @@ export const conversationSchema = z.object({
       ttsPrompt: z.string().optional(),
       volume: z.number().min(0).max(1).optional(),
       musicDuck: z.number().min(0).max(1).optional(),
-      /** Множитель скорости WAV при рендере и превью (0.5–4, по умолчанию 1) */
-      playbackRate: z.number().min(0.5).max(4).optional(),
     })
     .optional(),
   /**
@@ -411,6 +407,19 @@ export const formatConversationValidationError = (error: unknown): string | null
   return null;
 };
 
+/** Удаляет legacy-поля скорости озвучки — в JSON они больше не хранятся. */
+export const stripVoicePlaybackRateFields = (
+  conversation: ConversationInput,
+): ConversationInput => {
+  if (conversation.voiceover) {
+    delete (conversation.voiceover as {playbackRate?: number}).playbackRate;
+  }
+  for (const message of conversation.messages ?? []) {
+    delete (message as {voicePlaybackRate?: number}).voicePlaybackRate;
+  }
+  return conversation;
+};
+
 export const parseConversation = (input: unknown): ConversationInput => {
   const prepared = pruneEmptyConversationMessages(input);
   const parsed = conversationSchema.parse(prepared);
@@ -426,5 +435,5 @@ export const parseConversation = (input: unknown): ConversationInput => {
     }),
   );
 
-  return stripVideoLayoutAssets(stripped);
+  return stripVoicePlaybackRateFields(stripVideoLayoutAssets(stripped));
 };

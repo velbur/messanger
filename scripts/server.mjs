@@ -14,7 +14,8 @@ import {
   TIMING_SCALE,
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs, buildStoryVoicePreviewSchedule, buildTimeline} from "../src/chat/timeline.ts";
-import {STORY_VOICE_SYNC_BUNDLE_MARKER, resolveVoicePlaybackRate} from "../src/chat/voiceover.ts";
+import {STORY_VOICE_SYNC_BUNDLE_MARKER, normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
+import {bakeVoicePlaybackRateForConversation} from "./voice-playback-bake.mjs";
 import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
@@ -702,9 +703,9 @@ const processQueue = async () => {
       `Озвучка↔Veo (${STORY_VOICE_SYNC_BUNDLE_MARKER}): ~${(timeline.durationInFrames / 30).toFixed(0)} с, ускорено реплик: ${boosted}`,
     );
   }
-  if (job.conversation.voiceover?.enabled) {
+  if (job.voicePlaybackRate && job.conversation?.voiceover?.enabled) {
     job.logs.push(
-      `Скорость озвучки в ролике: ×${resolveVoicePlaybackRate(job.conversation).toFixed(2)}`,
+      `Скорость озвучки в ролике: ×${normalizeVoicePlaybackRate(job.voicePlaybackRate).toFixed(2)}`,
     );
   }
   if (episodes.length > 1) {
@@ -951,7 +952,7 @@ app.get("/api/shorts/styles", async (_req, res) => {
 
 app.post("/api/conversation/timing-preview", (req, res) => {
   try {
-    const {json: jsonText} = req.body ?? {};
+    const {json: jsonText, voicePlaybackRate: rawVoicePlaybackRate} = req.body ?? {};
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
       return;
@@ -966,6 +967,7 @@ app.post("/api/conversation/timing-preview", (req, res) => {
     }
 
     const conversation = parseConversation(parsed);
+    const voicePlaybackRate = normalizeVoicePlaybackRate(rawVoicePlaybackRate);
     const timing = mergeConversationTiming(conversation);
     const timingSpeed = getTimingSpeed(conversation);
     const messages = conversation.messages.map((message, index) => {
@@ -1001,8 +1003,8 @@ app.post("/api/conversation/timing-preview", (req, res) => {
       timingScale: TIMING_SCALE,
       timingSpeed,
       totalMessagesMs: estimateMessagesDurationMs(conversation),
-      totalVideoMs: estimateVideoDurationMs(conversation),
-      storyVoicePreview: buildStoryVoicePreviewSchedule(conversation),
+      totalVideoMs: estimateVideoDurationMs(conversation, {voicePlaybackRate}),
+      storyVoicePreview: buildStoryVoicePreviewSchedule(conversation, {voicePlaybackRate}),
       messages,
     });
   } catch (error) {
@@ -2827,6 +2829,7 @@ const runRenderPreparation = async (
     rawMusic,
     dialogueId,
     target,
+    voicePlaybackRate: rawVoicePlaybackRate,
   },
 ) => {
   const fail = (message, logs = []) => {
@@ -3023,6 +3026,21 @@ const runRenderPreparation = async (
 
     jobPushLogs(job, [...imageLogs, ...storyVideoResolveLogs, ...voiceLogs]);
 
+    const editorConversation = conversation;
+    let renderConversation = conversation;
+    const voicePlaybackRate = normalizeVoicePlaybackRate(rawVoicePlaybackRate);
+    job.voicePlaybackRate = voicePlaybackRate;
+    if (voiceoverEnabled && Math.abs(voicePlaybackRate - 1) >= 0.01) {
+      renderConversation = parseConversation(JSON.parse(JSON.stringify(conversation)));
+      const bakeLogs = [];
+      await bakeVoicePlaybackRateForConversation(renderConversation, {
+        logs: bakeLogs,
+        rate: voicePlaybackRate,
+      });
+      jobPushLogs(job, bakeLogs);
+      job.episodeConversations = buildEpisodeConversations(renderConversation);
+    }
+
     if (conversation.layout === "storyOverlay") {
       delete conversation.wallpaper;
     } else if (rawWallpaper === "default" || rawWallpaper === "dark") {
@@ -3031,12 +3049,12 @@ const runRenderPreparation = async (
 
     await mkdir(JSON_DIR, {recursive: true});
     await mkdir(OUT_DIR, {recursive: true});
-    await writeFile(job.inputPath, JSON.stringify(conversation, null, 2), "utf8");
+    await writeFile(job.inputPath, JSON.stringify(renderConversation, null, 2), "utf8");
     jobPushLog(job, `JSON сохранён: ${job.inputRel}`);
 
     if (dialogueId && typeof dialogueId === "string") {
       updateDialogue(dialogueId, {
-        conversation,
+        conversation: editorConversation,
         wallpaper: conversation.wallpaper,
         music: rawMusic ?? "",
         outputFile: job.outputFile,
@@ -3073,21 +3091,21 @@ const runRenderPreparation = async (
       const episodeConversations =
         job.episodeConversations?.length > 0
           ? job.episodeConversations
-          : buildEpisodeConversations(conversation);
+          : buildEpisodeConversations(renderConversation);
       job.outputFiles = episodeOutputFiles(job.fileName, episodeConversations.length);
       if (episodeConversations.length > 1) {
         jobPushLog(job, `Эпизодов на воркере: ${episodeConversations.length}`);
       }
-      await syncImagesToRemote(conversation, remoteUrl, job.logs, {
+      await syncImagesToRemote(renderConversation, remoteUrl, job.logs, {
         fileName: job.fileName,
         episodeConversations,
       });
-      if (conversation.voiceover?.enabled) {
+      if (renderConversation.voiceover?.enabled) {
         jobPushLog(job, "Озвучка: WAV отправляются на воркер");
-        await syncVoiceToRemote(conversation, remoteUrl, job.logs);
+        await syncVoiceToRemote(renderConversation, remoteUrl, job.logs);
       }
-      if (conversation.music?.enabled !== false && conversation.music?.src) {
-        await syncMusicToRemote(conversation, remoteUrl, job.logs);
+      if (renderConversation.music?.enabled !== false && renderConversation.music?.src) {
+        await syncMusicToRemote(renderConversation, remoteUrl, job.logs);
       }
 
       jobSetPhase(job, "Запуск рендера на воркере…");
@@ -3098,7 +3116,7 @@ const runRenderPreparation = async (
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({
-            json: JSON.stringify(conversation),
+            json: JSON.stringify(renderConversation),
             name: job.fileName,
             displayTitle: job.displayTitle || job.fileName,
             music: rawMusic ?? "auto",
@@ -3128,9 +3146,9 @@ const runRenderPreparation = async (
       return;
     }
 
-    job.conversation = conversation;
+    job.conversation = renderConversation;
     if (!job.episodeConversations?.length) {
-      job.episodeConversations = buildEpisodeConversations(conversation);
+      job.episodeConversations = buildEpisodeConversations(renderConversation);
     }
     if (job.episodeConversations.length > 1) {
       jobPushLog(job, `Будет собрано эпизодов: ${job.episodeConversations.length}`);
@@ -3274,9 +3292,11 @@ app.post("/api/render", async (req, res) => {
       music: rawMusic,
       dialogueId,
       target: rawTarget,
+      voicePlaybackRate: rawVoicePlaybackRate,
     } = req.body ?? {};
 
     const target = normalizeRenderTarget(rawTarget);
+    const voicePlaybackRate = normalizeVoicePlaybackRate(rawVoicePlaybackRate);
 
     if (!jsonText || typeof jsonText !== "string") {
       res.status(400).json({error: "Поле json обязательно"});
@@ -3363,6 +3383,7 @@ app.post("/api/render", async (req, res) => {
       rawMusic,
       dialogueId,
       target,
+      voicePlaybackRate,
     });
 
     res.json({
