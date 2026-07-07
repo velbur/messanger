@@ -9,7 +9,9 @@ export const STORY_MOTION_LOOP_SEC = 3;
 
 /** Кадров композиции: parallax стартует раньше, без «зависания» на хвосте Veo */
 export const STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES = 20;
-/** Premount parallax до handoff — декодер готов, без opacity-fade */
+/** Длина crossfade Veo → parallax (совпадает с окном handoff) */
+export const STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES = STORY_VIDEO_PARALLAX_HANDOFF_TRIM_FRAMES;
+/** Premount parallax до handoff — декодер готов к crossfade */
 export const STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES = 15;
 
 /** Длина одного цикла Ken Burns / parallax для бесшовного повтора, кадры */

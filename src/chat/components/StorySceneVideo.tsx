@@ -14,6 +14,7 @@ import {
   storyVideoForwardDurationFrames,
   storyVideoParallaxOverlayStartFrame,
   storyVideoParallaxPhaseFrames,
+  STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES,
   STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES,
   storyVideoSceneMotion,
 } from "../story-motion";
@@ -56,6 +57,26 @@ const withMotionStyle = (
   transform: `scale(${motion.scale}) translate(${motion.translateX}%, ${motion.translateY}%)`,
 });
 
+const crossfadeOpacity = (
+  localFrame: number,
+  startFrame: number,
+  endFrame: number,
+  direction: "in" | "out",
+): number => {
+  if (localFrame < startFrame) {
+    return direction === "in" ? 0 : 1;
+  }
+  if (localFrame >= endFrame) {
+    return direction === "in" ? 1 : 0;
+  }
+  const t = interpolate(localFrame, [startFrame, endFrame], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
+  return direction === "in" ? t : 1 - t;
+};
+
 export const StorySceneVideo: React.FC<Props> = ({
   video,
   videoDurationMs,
@@ -74,18 +95,25 @@ export const StorySceneVideo: React.FC<Props> = ({
   const parallaxOverlayStart = isDepthParallax
     ? storyVideoParallaxOverlayStartFrame(videoDurationMs, fps)
     : Math.max(0, playFrames - HOLD_CROSSFADE_FRAMES);
+  const parallaxCrossfadeEnd = isDepthParallax
+    ? Math.min(playFrames, parallaxOverlayStart + STORY_VIDEO_PARALLAX_CROSSFADE_FRAMES)
+    : playFrames;
   const holdFrame = storyVideoHoldFramePathForVideo(video);
-  // Veo проигрывается 1:1 по wall-clock: Sequence from={sceneStartFrame} задаёт
-  // старт, дальше OffthreadVideo идёт естественно (Remotion сам сводит 24→30 fps).
-  // Никакого динамического trimBefore/startFrom — иначе кадр складывается с
-  // естественным ходом и видео ускоряется.
+  const videoOpacity = isDepthParallax
+    ? crossfadeOpacity(localFrame, parallaxOverlayStart, parallaxCrossfadeEnd, "out")
+    : 1;
+  const parallaxOpacity = isDepthParallax
+    ? crossfadeOpacity(localFrame, parallaxOverlayStart, parallaxCrossfadeEnd, "in")
+    : 0;
   const showVideo = isDepthParallax
-    ? localFrame < parallaxOverlayStart
+    ? localFrame < parallaxCrossfadeEnd && videoOpacity > 0.001
     : localFrame < playFrames;
 
   const motion = storyVideoSceneMotion(video, localFrame);
-  const videoStyle =
-    isDepthParallax || isStatic ? baseCoverStyle : withMotionStyle(motion, 1);
+  const videoStyle: React.CSSProperties =
+    isDepthParallax || isStatic
+      ? {...baseCoverStyle, opacity: videoOpacity}
+      : withMotionStyle(motion, 1);
 
   /** depthParallax: hold под parallax. Ken Burns: crossfade + zoom на hold-кадре */
   const holdOpacity = isDepthParallax
@@ -109,9 +137,12 @@ export const StorySceneVideo: React.FC<Props> = ({
   const particleIntensity = isStatic
     ? 0.35
     : isDepthParallax
-      ? localFrame < parallaxOverlayStart
-        ? 0
-        : interpolate(localFrame, [parallaxOverlayStart, parallaxOverlayStart + 10], [0.5, 1], {
+      ? parallaxOpacity < 0.05
+        ? interpolate(videoOpacity, [0.2, 1], [0, 0.5], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : interpolate(parallaxOpacity, [0, 1], [0.5, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           })
@@ -128,9 +159,6 @@ export const StorySceneVideo: React.FC<Props> = ({
       layout="none"
     >
       <AbsoluteFill style={{overflow: "hidden", backgroundColor: "#000000"}}>
-        {showVideo ? (
-          <OffthreadVideo src={staticFile(video)} muted style={videoStyle} />
-        ) : null}
         {isDepthParallax ? (
           <>
             {localFrame >= parallaxOverlayStart ? (
@@ -139,15 +167,17 @@ export const StorySceneVideo: React.FC<Props> = ({
                 style={{...baseCoverStyle, position: "absolute", inset: 0, zIndex: 0}}
               />
             ) : null}
-            <AbsoluteFill style={{zIndex: 1}}>
-              <DepthDisplacementImage
-                image={holdFrame}
-                parallaxVideo={storyParallaxVideoPathForVideo(video)}
-                sceneStartFrame={parallaxOverlayStart}
-                durationFrames={parallaxPhaseFrames}
-                premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
-              />
-            </AbsoluteFill>
+            {localFrame >= parallaxOverlayStart - STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES ? (
+              <AbsoluteFill style={{zIndex: 1, opacity: parallaxOpacity}}>
+                <DepthDisplacementImage
+                  image={holdFrame}
+                  parallaxVideo={storyParallaxVideoPathForVideo(video)}
+                  sceneStartFrame={parallaxOverlayStart}
+                  durationFrames={parallaxPhaseFrames}
+                  premountFor={STORY_VIDEO_PARALLAX_PREMOUNT_FRAMES}
+                />
+              </AbsoluteFill>
+            ) : null}
           </>
         ) : isStatic ? (
           localFrame >= playFrames ? (
@@ -162,6 +192,13 @@ export const StorySceneVideo: React.FC<Props> = ({
             style={withMotionStyle(motion, holdOpacity)}
           />
         )}
+        {showVideo ? (
+          <OffthreadVideo
+            src={staticFile(video)}
+            muted
+            style={{...videoStyle, position: "absolute", inset: 0, zIndex: 2}}
+          />
+        ) : null}
         <StoryAtmosphereParticles seed={video} intensity={particleIntensity} />
       </AbsoluteFill>
     </Sequence>
