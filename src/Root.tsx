@@ -11,11 +11,13 @@ import {
 import {parseConversation, type ConversationInput} from "./chat/schema";
 import {FPS} from "./chat/fps";
 import {buildTimeline} from "./chat/timeline";
+import {normalizeVoicePlaybackRate} from "./chat/voiceover";
 import {getCompositionDimensions} from "./chat/video";
 import sample from "./default-conversation.json";
 
 type ChatVideoProps = {
   conversation: ConversationInput;
+  voicePlaybackRate?: number;
 };
 
 type PhotoThumbnailProps = {
@@ -43,10 +45,12 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         defaultProps={{
           conversation: parseConversation(sample),
+          voicePlaybackRate: 1,
         }}
         calculateMetadata={({props}) => {
           const conversation = parseConversation(props.conversation);
-          const timeline = buildTimeline(conversation);
+          const voicePlaybackRate = normalizeVoicePlaybackRate(props.voicePlaybackRate);
+          const timeline = buildTimeline(conversation, {voicePlaybackRate});
           const {width, height} = getCompositionDimensions(conversation);
           return {
             durationInFrames: timeline.durationInFrames,
@@ -55,6 +59,7 @@ export const RemotionRoot: React.FC = () => {
             props: {
               ...props,
               conversation,
+              voicePlaybackRate,
             },
           };
         }}

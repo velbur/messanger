@@ -4,6 +4,7 @@ import {mkdir} from "node:fs/promises";
 import {renderMedia, renderStill, selectComposition} from "@remotion/renderer";
 import {getBundleLocation} from "./bundle-cache.mjs";
 import {buildTimeline, pickThumbnailFrame} from "../src/chat/timeline.ts";
+import {normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
 import {pickThumbnailImageRef} from "../src/chat/message.ts";
 
 const DEFAULT_CONCURRENCY = 5;
@@ -85,6 +86,7 @@ const getHardwareAccelerationOptions = () => {
 export async function renderChatVideo({
   conversation,
   outputPath,
+  voicePlaybackRate = 1,
   concurrency,
   onProgress,
   cancelSignal,
@@ -95,11 +97,12 @@ export async function renderChatVideo({
   await mkdir(path.dirname(outputAbs), {recursive: true});
 
   const bundleLocation = await getBundleLocation({onStatus: onBundleStatus});
+  const inputProps = {conversation, voicePlaybackRate};
 
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: "ChatVideo",
-    inputProps: {conversation},
+    inputProps,
   });
 
   onCompositionReady?.(composition.durationInFrames);
@@ -112,7 +115,7 @@ export async function renderChatVideo({
     codec: "h264",
     audioCodec: "aac",
     outputLocation: outputAbs,
-    inputProps: {conversation},
+    inputProps,
     concurrency: concurrency ?? getRenderConcurrency(),
     onProgress,
     cancelSignal,
@@ -193,10 +196,12 @@ export async function renderChatThumbnail({conversation, outputPath, onBundleSta
   const composition = await selectComposition({
     serveUrl: bundleLocation,
     id: "ChatVideo",
-    inputProps: {conversation},
+    inputProps: {conversation, voicePlaybackRate: 1},
   });
 
-  const timeline = buildTimeline(conversation);
+  const timeline = buildTimeline(conversation, {
+    voicePlaybackRate: normalizeVoicePlaybackRate(1),
+  });
   const frame = pickThumbnailFrame(timeline, composition.durationInFrames);
 
   await renderStill({

@@ -15,7 +15,7 @@ import {
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs, buildStoryVoicePreviewSchedule, buildTimeline} from "../src/chat/timeline.ts";
 import {STORY_VOICE_SYNC_BUNDLE_MARKER, normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
-import {bakeVoicePlaybackRateForConversation, prepareVoiceAudioForRender} from "./voice-playback-bake.mjs";
+import {prepareVoiceAudioForRender} from "./voice-playback-bake.mjs";
 import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
@@ -723,6 +723,7 @@ const processQueue = async () => {
     return renderChatVideo({
       conversation,
       outputPath,
+      voicePlaybackRate: job.voicePlaybackRate ?? 1,
       onBundleStatus: (message) => {
         jobPushLog(job, message);
       },
@@ -3142,6 +3143,7 @@ const runRenderPreparation = async (
             music: rawMusic ?? "auto",
             target: "local",
             autoGenerateVoiceover: false,
+            voicePlaybackRate: job.voicePlaybackRate ?? 1,
           }),
         },
         {timeoutMs: 120_000, retries: 3},

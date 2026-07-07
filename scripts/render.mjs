@@ -89,6 +89,7 @@ const run = async () => {
     const outputAbs = await renderChatVideo({
       conversation: ep,
       outputPath: epOut,
+      voicePlaybackRate: voiceRate,
       concurrency,
       onBundleStatus: (message) => console.log(message),
     });

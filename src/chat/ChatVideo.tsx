@@ -11,7 +11,7 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceover} from "./voiceover";
+import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceover, normalizeVoicePlaybackRate} from "./voiceover";
 import {
   buildTimeline,
   resolveStorySceneLayers,
@@ -40,6 +40,7 @@ import {isVideoLayout} from "./video";
 
 type Props = {
   conversation: ConversationInput;
+  voicePlaybackRate?: number;
 };
 
 void VIDEO_FEATURE_BUNDLE_MARKER;
@@ -193,16 +194,19 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   );
 };
 
-export const ChatVideo: React.FC<Props> = ({conversation}) => {
+export const ChatVideo: React.FC<Props> = ({conversation, voicePlaybackRate}) => {
   if (isVideoLayout(conversation)) {
-    return <VideoComposition conversation={conversation} />;
+    return <VideoComposition conversation={conversation} voicePlaybackRate={voicePlaybackRate} />;
   }
-  return <VerticalChatVideo conversation={conversation} />;
+  return <VerticalChatVideo conversation={conversation} voicePlaybackRate={voicePlaybackRate} />;
 };
 
-const VerticalChatVideo: React.FC<Props> = ({conversation}) => {
+const VerticalChatVideo: React.FC<Props> = ({conversation, voicePlaybackRate}) => {
   const frame = useCurrentFrame();
-  const timeline = useMemo(() => buildTimeline(conversation), [conversation]);
+  const timeline = useMemo(
+    () => buildTimeline(conversation, {voicePlaybackRate: normalizeVoicePlaybackRate(voicePlaybackRate)}),
+    [conversation, voicePlaybackRate],
+  );
   const sounds = useMemo(() => mergeConversationSounds(conversation), [conversation]);
   const music = useMemo(() => mergeConversationMusic(conversation), [conversation]);
   const voiceover = useMemo(() => mergeConversationVoiceover(conversation), [conversation]);

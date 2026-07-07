@@ -6,7 +6,6 @@ import {promisify} from "node:util";
 import {PUBLIC_DIR} from "./image-assets.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
-import {buildTimeline} from "../src/chat/timeline.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -196,22 +195,9 @@ export const restoreOriginalVoiceAudioForConversation = async (conversation, {lo
   return {restored};
 };
 
-const collectTimelineVoiceRates = (conversation, userVoiceRate) => {
-  const timeline = buildTimeline(conversation, {voicePlaybackRate: userVoiceRate});
-  const rates = new Map();
-  for (const event of timeline.events) {
-    if (!event.voiceAudio?.trim() || !event.voiceDurationMs) {
-      continue;
-    }
-    const rate = normalizeVoicePlaybackRate(event.voicePlaybackRate ?? userVoiceRate);
-    rates.set(event.index, rate);
-  }
-  return rates;
-};
-
 /**
- * Запекает итоговую скорость (ползунок + story-sync) в WAV.
- * Remotion после этого играет всё на ×1.
+ * Перед рендером: вернуть voiceAudio к исходным WAV (без .pr*).
+ * Скорость задаётся только ползунком через Remotion playbackRate — без ffmpeg bake.
  */
 export const prepareVoiceAudioForRender = async (
   conversation,
@@ -222,87 +208,13 @@ export const prepareVoiceAudioForRender = async (
     return {baked: 0, restored: 0, rate: 1};
   }
 
-  await restoreOriginalVoiceAudioForConversation(conversation, {logs});
+  const {restored} = await restoreOriginalVoiceAudioForConversation(conversation, {logs});
 
-  const rateByIndex = collectTimelineVoiceRates(conversation, userVoiceRate);
-  let baked = 0;
-  let cached = 0;
-  let restored = 0;
-  let maxRate = 1;
-  let boostedClips = 0;
-
-  for (let index = 0; index < (conversation.messages ?? []).length; index += 1) {
-    const message = conversation.messages[index];
-    const rawRef = String(message.voiceAudio ?? "").trim();
-    if (!rawRef || !message.voiceDurationMs) {
-      continue;
-    }
-
-    const rate = normalizeVoicePlaybackRate(rateByIndex.get(index) ?? userVoiceRate);
-    if (rate > maxRate + 0.001) {
-      maxRate = rate;
-    }
-    if (rate > 1.001) {
-      boostedClips += 1;
-    }
-
-    if (Math.abs(rate - 1) < 0.01) {
-      try {
-        const {relative, absolute} = resolveVoiceFileForBake(rawRef);
-        const originalRel = originalVoicePublicPath(relative);
-        if (Math.abs(parseBakedRateFromPath(relative) - 1) < 0.01 && relative === originalRel) {
-          message.voiceAudio = originalRel;
-          message.voiceDurationMs = await probeAudioDurationMs(absolute);
-          if (rawRef !== originalRel) {
-            restored += 1;
-          }
-        } else {
-          const result = await bakeOneVoiceFile(rawRef, 1);
-          message.voiceAudio = result.relative;
-          message.voiceDurationMs = await probeAudioDurationMs(result.absolute);
-          if (result.cached) {
-            cached += 1;
-          } else {
-            baked += 1;
-          }
-        }
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`${reason} (реплика #${index + 1})`);
-      }
-      continue;
-    }
-
-    try {
-      const result = await bakeOneVoiceFile(rawRef, rate);
-      message.voiceAudio = result.relative;
-      message.voiceDurationMs = await probeAudioDurationMs(result.absolute);
-      if (result.cached) {
-        cached += 1;
-      } else {
-        baked += 1;
-      }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`${reason} (реплика #${index + 1})`);
-    }
-  }
-
-  void boostedClips;
-  void maxRate;
   if (Math.abs(userVoiceRate - 1) >= 0.01) {
-    logs.push(`Озвучка: скорость ползунка ×${userVoiceRate.toFixed(2)}`);
+    logs.push(`Озвучка: скорость ползунка ×${userVoiceRate.toFixed(2)} (Remotion playbackRate)`);
   }
 
-  if (baked > 0) {
-    logs.push(`Озвучка: запечена в WAV (${baked} новых, ${cached} из кэша)`);
-  } else if (cached > 0) {
-    logs.push(`Озвучка: WAV из кэша (${cached} реплик)`);
-  } else if (restored > 0) {
-    logs.push(`Озвучка: исходные WAV без ускорения (${restored} реплик)`);
-  }
-
-  return {baked, cached, restored, rate: maxRate, boostedClips};
+  return {baked: 0, cached: 0, restored, rate: userVoiceRate, boostedClips: 0};
 };
 
 /**

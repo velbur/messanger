@@ -13,7 +13,7 @@ import {getMessengerLocale} from "./locale";
 import {mergeEndCard, mergeIntro} from "./title-card";
 import {mergeConversationMusic} from "./music";
 import {mergeConversationSounds} from "./sounds";
-import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceover} from "./voiceover";
+import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceover, normalizeVoicePlaybackRate} from "./voiceover";
 import {
   buildTimeline,
   getStatusBarTime,
@@ -26,6 +26,7 @@ import {isVideoChatMode, isVideoNarrationMode, mergeVideoConfig, VIDEO_LAYOUT_BU
 
 type Props = {
   conversation: ConversationInput;
+  voicePlaybackRate?: number;
 };
 
 void VIDEO_LAYOUT_BUNDLE_MARKER;
@@ -33,9 +34,12 @@ void VIDEO_LAYOUT_BUNDLE_MARKER;
 const NARRATION_BG =
   "radial-gradient(ellipse 120% 90% at 50% 42%, #1a2433 0%, #0c1018 55%, #06080c 100%)";
 
-export const VideoComposition: React.FC<Props> = ({conversation}) => {
+export const VideoComposition: React.FC<Props> = ({conversation, voicePlaybackRate}) => {
   const frame = useCurrentFrame();
-  const timeline = useMemo(() => buildTimeline(conversation), [conversation]);
+  const timeline = useMemo(
+    () => buildTimeline(conversation, {voicePlaybackRate: normalizeVoicePlaybackRate(voicePlaybackRate)}),
+    [conversation, voicePlaybackRate],
+  );
   const sounds = useMemo(() => mergeConversationSounds(conversation), [conversation]);
   const music = useMemo(() => mergeConversationMusic(conversation), [conversation]);
   const voiceover = useMemo(() => mergeConversationVoiceover(conversation), [conversation]);
