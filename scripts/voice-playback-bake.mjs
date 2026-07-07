@@ -54,6 +54,53 @@ export const originalVoicePublicPath = (sourceRel) => {
   return normalized;
 };
 
+/** Скорость, уже запечённая в имени файла (.pr400 → ×4). */
+export const parseBakedRateFromPath = (sourceRel) => {
+  const match = String(sourceRel).match(/\.pr(\d+)\.[^.]+$/i);
+  if (!match) {
+    return 1;
+  }
+  const scaled = Number(match[1]);
+  if (!Number.isFinite(scaled) || scaled <= 0) {
+    return 1;
+  }
+  return scaled / 100;
+};
+
+/** Найти существующий WAV: сначала оригинал, иначе путь из JSON (.pr*). */
+export const resolveVoiceFileForBake = (rawRef) => {
+  const normalized = String(rawRef ?? "").trim().replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Пустой путь к озвучке");
+  }
+
+  const originalRel = originalVoicePublicPath(normalized);
+  const candidates = [];
+  const seen = new Set();
+  const add = (rel) => {
+    if (!rel || seen.has(rel)) {
+      return;
+    }
+    seen.add(rel);
+    candidates.push(rel);
+  };
+  add(originalRel);
+  add(normalized);
+
+  for (const rel of candidates) {
+    try {
+      const {absolute} = safePublicPath(rel);
+      if (existsSync(absolute)) {
+        return {relative: rel, absolute, originalRel};
+      }
+    } catch {
+      /* try next */
+    }
+  }
+
+  throw new Error(`Озвучка не найдена: ${originalRel}`);
+};
+
 /** Цепочка atempo как в Remotion (поддержка 0.5–4). */
 export const buildAtempoFilter = (playbackRate) => {
   const rate = Number(playbackRate);
@@ -77,24 +124,28 @@ const shouldRebake = async (sourceAbs, targetAbs) => {
   return srcStat.mtimeMs > dstStat.mtimeMs + 1;
 };
 
-const bakeOneVoiceFile = async (sourceRel, rate) => {
-  const targetRel = bakedVoicePublicPath(sourceRel, rate);
-  const {absolute: sourceAbs} = safePublicPath(sourceRel);
+const bakeOneVoiceFile = async (rawRef, targetRate) => {
+  const {relative: sourceRel, absolute: sourceAbs, originalRel} = resolveVoiceFileForBake(rawRef);
+  const sourceRate = parseBakedRateFromPath(sourceRel);
+  const targetRel = bakedVoicePublicPath(originalRel, targetRate);
   const {absolute: targetAbs} = safePublicPath(targetRel);
 
-  if (!existsSync(sourceAbs)) {
-    throw new Error(`Озвучка не найдена: ${sourceRel}`);
+  if (sourceRel === targetRel) {
+    return {relative: sourceRel, absolute: sourceAbs, cached: true};
   }
 
-  if (Math.abs(rate - 1) < 0.01) {
-    return {relative: originalVoicePublicPath(sourceRel), absolute: sourceAbs, cached: true};
+  const effectiveAtempo = targetRate / sourceRate;
+  if (Math.abs(effectiveAtempo - 1) < 0.0001) {
+    if (existsSync(targetAbs)) {
+      return {relative: targetRel, absolute: targetAbs, cached: true};
+    }
   }
 
-  if (!(await shouldRebake(sourceAbs, targetAbs))) {
+  if (!(await shouldRebake(sourceAbs, targetAbs)) && existsSync(targetAbs)) {
     return {relative: targetRel, absolute: targetAbs, cached: true};
   }
 
-  const filter = buildAtempoFilter(rate);
+  const filter = buildAtempoFilter(effectiveAtempo);
   if (!filter) {
     return {relative: sourceRel, absolute: sourceAbs, cached: true};
   }
@@ -109,7 +160,7 @@ const bakeOneVoiceFile = async (sourceRel, rate) => {
   return {relative: targetRel, absolute: targetAbs, cached: false};
 };
 
-/** Вернуть voiceAudio к исходным WAV (без .prNNN) и пересчитать длительность. */
+/** Вернуть voiceAudio к исходным WAV (без .prNNN), если файл есть на диске. */
 export const restoreOriginalVoiceAudioForConversation = async (conversation, {logs = []} = {}) => {
   if (!conversation?.voiceover?.enabled) {
     return {restored: 0};
@@ -195,30 +246,45 @@ export const prepareVoiceAudioForRender = async (
       boostedClips += 1;
     }
 
-    const sourceRel = originalVoicePublicPath(rawRef);
     if (Math.abs(rate - 1) < 0.01) {
-      if (rawRef !== sourceRel || isBakedVoicePath(rawRef)) {
-        try {
-          const {absolute} = safePublicPath(sourceRel);
-          if (existsSync(absolute)) {
-            message.voiceAudio = sourceRel;
-            message.voiceDurationMs = await probeAudioDurationMs(absolute);
+      try {
+        const {relative, absolute} = resolveVoiceFileForBake(rawRef);
+        const originalRel = originalVoicePublicPath(relative);
+        if (Math.abs(parseBakedRateFromPath(relative) - 1) < 0.01 && relative === originalRel) {
+          message.voiceAudio = originalRel;
+          message.voiceDurationMs = await probeAudioDurationMs(absolute);
+          if (rawRef !== originalRel) {
             restored += 1;
           }
-        } catch {
-          /* skip */
+        } else {
+          const result = await bakeOneVoiceFile(rawRef, 1);
+          message.voiceAudio = result.relative;
+          message.voiceDurationMs = await probeAudioDurationMs(result.absolute);
+          if (result.cached) {
+            cached += 1;
+          } else {
+            baked += 1;
+          }
         }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`${reason} (реплика #${index + 1})`);
       }
       continue;
     }
 
-    const result = await bakeOneVoiceFile(sourceRel, rate);
-    message.voiceAudio = result.relative;
-    message.voiceDurationMs = await probeAudioDurationMs(result.absolute);
-    if (result.cached) {
-      cached += 1;
-    } else {
-      baked += 1;
+    try {
+      const result = await bakeOneVoiceFile(rawRef, rate);
+      message.voiceAudio = result.relative;
+      message.voiceDurationMs = await probeAudioDurationMs(result.absolute);
+      if (result.cached) {
+        cached += 1;
+      } else {
+        baked += 1;
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`${reason} (реплика #${index + 1})`);
     }
   }
 

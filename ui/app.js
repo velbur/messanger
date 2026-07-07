@@ -556,31 +556,6 @@ const stripVoicePlaybackRateFields = (parsed) => {
   return parsed;
 };
 
-/** Исходный WAV без .pr150 от прошлого bake (для превью и редактора). */
-const originalVoicePublicPath = (ref) => {
-  const normalized = String(ref ?? "").replace(/^\/+/, "");
-  const match = normalized.match(/^(.+)\.pr\d+(\.[^.]+)$/i);
-  return match ? `${match[1]}${match[2]}` : normalized;
-};
-
-/** В JSON редактора не храним запечённые пути — только исходные WAV. */
-const restoreBakedVoiceAudioPaths = (parsed) => {
-  if (!parsed?.messages) {
-    return parsed;
-  }
-  for (const message of parsed.messages) {
-    const ref = String(message.voiceAudio ?? "").trim();
-    if (!ref) {
-      continue;
-    }
-    const original = originalVoicePublicPath(ref);
-    if (original !== ref) {
-      message.voiceAudio = original;
-    }
-  }
-  return parsed;
-};
-
 const prepareConversationForEditor = (parsed) => {
   if (!parsed || typeof parsed !== "object") {
     return parsed;
@@ -588,7 +563,6 @@ const prepareConversationForEditor = (parsed) => {
   const result = {...parsed};
   syncEditorPreferencesStorageFromConversation(result);
   stripVoicePlaybackRateFields(result);
-  restoreBakedVoiceAudioPaths(result);
   if (result.timingSpeed === undefined) {
     const storedSpeed = readLastTimingSpeed();
     if (storedSpeed !== DEFAULT_TIMING_SPEED) {
@@ -3962,7 +3936,7 @@ const bindStoryVideoVoicePreview = (video, {messageIndex, videoDurationMs = 0} =
 const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = null} = {}) => {
   const parsed = parseConversationJson();
   const message = parsed?.messages?.[messageIndex];
-  const voicePath = originalVoicePublicPath(String(message?.voiceAudio ?? "").trim());
+  const voicePath = String(message?.voiceAudio ?? "").trim();
   if (!voicePath) {
     return;
   }
