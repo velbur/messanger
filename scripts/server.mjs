@@ -15,7 +15,7 @@ import {
 } from "../src/chat/timing.ts";
 import {estimateVideoDurationMs, buildStoryVoicePreviewSchedule, buildTimeline} from "../src/chat/timeline.ts";
 import {STORY_VOICE_SYNC_BUNDLE_MARKER, normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
-import {bakeVoicePlaybackRateForConversation} from "./voice-playback-bake.mjs";
+import {bakeVoicePlaybackRateForConversation, prepareVoiceAudioForRender} from "./voice-playback-bake.mjs";
 import {shouldGenerateStoryVideos} from "../src/chat/story.ts";
 import {buildEpisodeConversations, validateEpisodeSplits} from "../src/chat/episodes.ts";
 import {
@@ -3048,15 +3048,14 @@ const runRenderPreparation = async (
     jobPushLogs(job, [...imageLogs, ...storyVideoResolveLogs, ...voiceLogs]);
 
     const editorConversation = conversation;
-    let renderConversation = conversation;
+    let renderConversation = parseConversation(JSON.parse(JSON.stringify(conversation)));
     const voicePlaybackRate = normalizeVoicePlaybackRate(rawVoicePlaybackRate);
     job.voicePlaybackRate = voicePlaybackRate;
-    if (voiceoverEnabled && Math.abs(voicePlaybackRate - 1) >= 0.01) {
-      renderConversation = parseConversation(JSON.parse(JSON.stringify(conversation)));
+    if (voiceoverEnabled) {
       const bakeLogs = [];
-      await bakeVoicePlaybackRateForConversation(renderConversation, {
+      await prepareVoiceAudioForRender(renderConversation, {
         logs: bakeLogs,
-        rate: voicePlaybackRate,
+        userVoiceRate: voicePlaybackRate,
       });
       jobPushLogs(job, bakeLogs);
       job.episodeConversations = buildEpisodeConversations(renderConversation);

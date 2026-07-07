@@ -5,7 +5,7 @@ import {mergeStoryConfig, needsStoryDepthLayers, shouldGenerateStoryVideos} from
 import {resolveConversationImages, isStoryVisualLayout} from "./image-assets.mjs";
 import {assertVoiceoverReadyForRender, resolveConversationVoiceover} from "./voice-assets.mjs";
 import {normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
-import {bakeVoicePlaybackRateForConversation} from "./voice-playback-bake.mjs";
+import {prepareVoiceAudioForRender} from "./voice-playback-bake.mjs";
 import {generateMissingStoryVideos, resolveStoryVideos, ensureVideoParallaxHoldsForConversation} from "./story-video.mjs";
 import {ensureStoryDepthForConversation} from "./story-depth.mjs";
 import {stripStorySfxFromConversation} from "./story-sfx.mjs";
@@ -63,7 +63,7 @@ const run = async () => {
   await resolveConversationVoiceover(conversation, {failOnMissingVoice: true});
   const bakeLogs = [];
   const voiceRate = normalizeVoicePlaybackRate(process.env.VOICE_PLAYBACK_RATE);
-  await bakeVoicePlaybackRateForConversation(conversation, {logs: bakeLogs, rate: voiceRate});
+  await prepareVoiceAudioForRender(conversation, {logs: bakeLogs, userVoiceRate: voiceRate});
   for (const line of bakeLogs) {
     console.log(line);
   }

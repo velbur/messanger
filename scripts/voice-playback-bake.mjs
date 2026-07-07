@@ -6,6 +6,7 @@ import {promisify} from "node:util";
 import {PUBLIC_DIR} from "./image-assets.mjs";
 import {probeAudioDurationMs} from "./tts/audio-duration.mjs";
 import {normalizeVoicePlaybackRate} from "../src/chat/voiceover.ts";
+import {buildTimeline} from "../src/chat/timeline.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,6 +21,8 @@ const safePublicPath = (relativePath) => {
   }
   return {relative: normalized, absolute};
 };
+
+const isBakedVoicePath = (relativePath) => /\.pr\d+\.[^.]+$/i.test(String(relativePath ?? ""));
 
 /** Тег в имени файла: msg-1.pr150.wav для playbackRate 1.5 */
 export const voicePlaybackRatePathTag = (rate) => {
@@ -83,6 +86,10 @@ const bakeOneVoiceFile = async (sourceRel, rate) => {
     throw new Error(`Озвучка не найдена: ${sourceRel}`);
   }
 
+  if (Math.abs(rate - 1) < 0.01) {
+    return {relative: originalVoicePublicPath(sourceRel), absolute: sourceAbs, cached: true};
+  }
+
   if (!(await shouldRebake(sourceAbs, targetAbs))) {
     return {relative: targetRel, absolute: targetAbs, cached: true};
   }
@@ -102,27 +109,108 @@ const bakeOneVoiceFile = async (sourceRel, rate) => {
   return {relative: targetRel, absolute: targetAbs, cached: false};
 };
 
-/**
- * Запекает скорость озвучки в WAV (ffmpeg atempo). rate — из ползунка UI, не из JSON.
- */
-export const bakeVoicePlaybackRateForConversation = async (
-  conversation,
-  {logs = [], rate: explicitRate} = {},
-) => {
-  const rate = normalizeVoicePlaybackRate(explicitRate);
-  if (!conversation.voiceover?.enabled || Math.abs(rate - 1) < 0.01) {
-    return {baked: 0, rate: 1};
+/** Вернуть voiceAudio к исходным WAV (без .prNNN) и пересчитать длительность. */
+export const restoreOriginalVoiceAudioForConversation = async (conversation, {logs = []} = {}) => {
+  if (!conversation?.voiceover?.enabled) {
+    return {restored: 0};
   }
 
-  let baked = 0;
-  let cached = 0;
-
+  let restored = 0;
   for (const message of conversation.messages ?? []) {
     const rawRef = String(message.voiceAudio ?? "").trim();
     if (!rawRef || !message.voiceDurationMs) {
       continue;
     }
     const sourceRel = originalVoicePublicPath(rawRef);
+    if (sourceRel === rawRef && !isBakedVoicePath(rawRef)) {
+      continue;
+    }
+    try {
+      const {absolute} = safePublicPath(sourceRel);
+      if (!existsSync(absolute)) {
+        continue;
+      }
+      message.voiceAudio = sourceRel;
+      message.voiceDurationMs = await probeAudioDurationMs(absolute);
+      restored += 1;
+    } catch {
+      /* skip */
+    }
+  }
+
+  if (restored > 0) {
+    logs.push(`Озвучка: восстановлены исходные WAV (${restored} реплик, без .pr*)`);
+  }
+
+  return {restored};
+};
+
+const collectTimelineVoiceRates = (conversation, userVoiceRate) => {
+  const timeline = buildTimeline(conversation, {voicePlaybackRate: userVoiceRate});
+  const rates = new Map();
+  for (const event of timeline.events) {
+    if (!event.voiceAudio?.trim() || !event.voiceDurationMs) {
+      continue;
+    }
+    const rate = normalizeVoicePlaybackRate(event.voicePlaybackRate ?? userVoiceRate);
+    rates.set(event.index, rate);
+  }
+  return rates;
+};
+
+/**
+ * Запекает итоговую скорость (ползунок + story-sync) в WAV.
+ * Remotion после этого играет всё на ×1.
+ */
+export const prepareVoiceAudioForRender = async (
+  conversation,
+  {logs = [], userVoiceRate: rawUserVoiceRate} = {},
+) => {
+  const userVoiceRate = normalizeVoicePlaybackRate(rawUserVoiceRate);
+  if (!conversation?.voiceover?.enabled) {
+    return {baked: 0, restored: 0, rate: 1};
+  }
+
+  await restoreOriginalVoiceAudioForConversation(conversation, {logs});
+
+  const rateByIndex = collectTimelineVoiceRates(conversation, userVoiceRate);
+  let baked = 0;
+  let cached = 0;
+  let restored = 0;
+  let maxRate = 1;
+  let boostedClips = 0;
+
+  for (let index = 0; index < (conversation.messages ?? []).length; index += 1) {
+    const message = conversation.messages[index];
+    const rawRef = String(message.voiceAudio ?? "").trim();
+    if (!rawRef || !message.voiceDurationMs) {
+      continue;
+    }
+
+    const rate = normalizeVoicePlaybackRate(rateByIndex.get(index) ?? userVoiceRate);
+    if (rate > maxRate + 0.001) {
+      maxRate = rate;
+    }
+    if (rate > 1.001) {
+      boostedClips += 1;
+    }
+
+    const sourceRel = originalVoicePublicPath(rawRef);
+    if (Math.abs(rate - 1) < 0.01) {
+      if (rawRef !== sourceRel || isBakedVoicePath(rawRef)) {
+        try {
+          const {absolute} = safePublicPath(sourceRel);
+          if (existsSync(absolute)) {
+            message.voiceAudio = sourceRel;
+            message.voiceDurationMs = await probeAudioDurationMs(absolute);
+            restored += 1;
+          }
+        } catch {
+          /* skip */
+        }
+      }
+      continue;
+    }
 
     const result = await bakeOneVoiceFile(sourceRel, rate);
     message.voiceAudio = result.relative;
@@ -134,11 +222,29 @@ export const bakeVoicePlaybackRateForConversation = async (
     }
   }
 
-  const summary =
-    baked > 0
-      ? `Озвучка: скорость ×${rate.toFixed(2)} запечена в WAV (${baked} новых, ${cached} из кэша)`
-      : `Озвучка: скорость ×${rate.toFixed(2)} — WAV из кэша (${cached} реплик)`;
-  logs.push(summary);
+  if (boostedClips > 0) {
+    logs.push(
+      `Озвучка: итоговая скорость до ×${maxRate.toFixed(2)} (${boostedClips} реплик: ползунок ×${userVoiceRate.toFixed(2)} + подгонка под Veo)`,
+    );
+  } else if (Math.abs(userVoiceRate - 1) >= 0.01) {
+    logs.push(`Озвучка: скорость ползунка ×${userVoiceRate.toFixed(2)}`);
+  }
 
-  return {baked, cached, rate};
+  if (baked > 0) {
+    logs.push(`Озвучка: запечена в WAV (${baked} новых, ${cached} из кэша)`);
+  } else if (cached > 0) {
+    logs.push(`Озвучка: WAV из кэша (${cached} реплик)`);
+  } else if (restored > 0) {
+    logs.push(`Озвучка: исходные WAV без ускорения (${restored} реплик)`);
+  }
+
+  return {baked, cached, restored, rate: maxRate, boostedClips};
 };
+
+/**
+ * @deprecated Используйте prepareVoiceAudioForRender
+ */
+export const bakeVoicePlaybackRateForConversation = async (
+  conversation,
+  {logs = [], rate: explicitRate} = {},
+) => prepareVoiceAudioForRender(conversation, {logs, userVoiceRate: explicitRate});
