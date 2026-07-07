@@ -43,6 +43,9 @@ const storyColorFilterSelect = document.getElementById("storyColorFilterSelect")
 const musicSelect = document.getElementById("musicSelect");
 const btnPreviewMusic = document.getElementById("btnPreviewMusic");
 const btnOpenMusicCatalog = document.getElementById("btnOpenMusicCatalog");
+const btnAddMusicTrack = document.getElementById("btnAddMusicTrack");
+const btnAddMusicTrackCatalog = document.getElementById("btnAddMusicTrackCatalog");
+const musicUploadInput = document.getElementById("musicUploadInput");
 const musicCatalogModal = document.getElementById("musicCatalogModal");
 const musicCatalogList = document.getElementById("musicCatalogList");
 const musicCatalogLicense = document.getElementById("musicCatalogLicense");
@@ -4581,6 +4584,7 @@ const renderMusicCatalog = () => {
     mystery: "Мистика",
     calm: "Спокойная",
     ambient: "Фон",
+    uploads: "Загруженные",
     other: "Другие",
   };
 
@@ -4652,6 +4656,46 @@ const onMusicChange = () => {
   applyMusicToJson();
   updateMusicPreviewControls();
   stopMusicPreview();
+};
+
+const uploadMusicTrackFile = async (file) => {
+  if (!file) {
+    return null;
+  }
+  const name = String(file.name ?? "").trim();
+  if (!name.toLowerCase().endsWith(".mp3")) {
+    throw new Error("Нужен файл MP3");
+  }
+  const contentBase64 = await readFileAsDataUrl(file);
+  const res = await fetch("/api/music/upload", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({fileName: name, contentBase64}),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ?? "Ошибка загрузки трека");
+  }
+  await loadMusicTracks();
+  if (data.id) {
+    setMusicId(data.id);
+    onMusicChange();
+    renderMusicCatalog();
+  }
+  return data;
+};
+
+const openMusicUploadPicker = () => {
+  musicUploadInput?.click();
+};
+
+const setMusicUploadBusy = (busy) => {
+  if (btnAddMusicTrack) {
+    btnAddMusicTrack.disabled = busy;
+  }
+  if (btnAddMusicTrackCatalog) {
+    btnAddMusicTrackCatalog.disabled = busy;
+  }
 };
 
 const getRenderTarget = () =>
@@ -8911,6 +8955,23 @@ btnRefreshApiStatus?.addEventListener("click", () => loadApiStatus());
 
 loadMusicTracks();
 musicSelect?.addEventListener("change", onMusicChange);
+btnAddMusicTrack?.addEventListener("click", openMusicUploadPicker);
+btnAddMusicTrackCatalog?.addEventListener("click", openMusicUploadPicker);
+musicUploadInput?.addEventListener("change", async () => {
+  const file = musicUploadInput.files?.[0];
+  musicUploadInput.value = "";
+  if (!file) {
+    return;
+  }
+  setMusicUploadBusy(true);
+  try {
+    await uploadMusicTrackFile(file);
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err));
+  } finally {
+    setMusicUploadBusy(false);
+  }
+});
 for (const btn of [btnPreviewMusic, btnPreviewMeVoice, btnPreviewThemVoice, btnPreviewDialogue]) {
   syncPreviewPlayButtonIcon(btn, false);
 }

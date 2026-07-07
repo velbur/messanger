@@ -471,14 +471,16 @@
             <div class="row row--music">
               <label class="label" for="musicSelect">Фоновая музыка</label>
               <p class="dialogue-hint music-row__hint">
-                Треки Mixkit — бесплатная лицензия для YouTube и TikTok. Нажмите ▶ или откройте каталог, чтобы прослушать.
+                Выберите трек из каталога или загрузите свой MP3. При рендере на GPU-воркер трек отправляется вместе с озвучкой.
               </p>
               <div class="music-row__controls">
                 <select id="musicSelect" class="select music-row__select">
                   <option value="">Загрузка…</option>
                 </select>
                 <button type="button" id="btnPreviewMusic" class="btn btn-secondary btn-small voice-preview-btn" title="Прослушать выбранный трек" disabled>▶</button>
+                <button type="button" id="btnAddMusicTrack" class="btn btn-secondary btn-small music-row__add" title="Загрузить свой MP3">+</button>
                 <button type="button" id="btnOpenMusicCatalog" class="btn btn-secondary btn-small">Каталог</button>
+                <input type="file" id="musicUploadInput" accept=".mp3,audio/mpeg,audio/mp3" hidden />
               </div>
             </div>
 
@@ -831,6 +833,7 @@
         <p id="musicCatalogLicense" class="music-catalog-modal__license dialogue-hint"></p>
         <div id="musicCatalogList" class="music-catalog" aria-live="polite"></div>
         <footer class="workflow-modal__actions">
+          <button type="button" id="btnAddMusicTrackCatalog" class="btn btn-secondary">+ Загрузить MP3</button>
           <button type="button" class="btn btn-secondary" data-music-catalog-dismiss>Закрыть</button>
         </footer>
       </div>

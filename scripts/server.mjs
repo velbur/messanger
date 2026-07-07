@@ -43,6 +43,7 @@ import {
   syncAudioToPublic,
   syncMusicToRemote,
 } from "./music-tracks.mjs";
+import {uploadUserMusicTrack} from "./music-upload.mjs";
 import {
   downloadImageToPublic,
   IMAGES_DIR,
@@ -881,6 +882,26 @@ app.get("/api/audio", async (_req, res) => {
     res.json({tracks, defaultId: DEFAULT_MUSIC_ID, license});
   } catch (error) {
     res.status(500).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/music/upload", async (req, res) => {
+  try {
+    const {fileName, contentBase64, dataBase64} = req.body ?? {};
+    const payload = contentBase64 ?? dataBase64;
+    if (!payload) {
+      res.status(400).json({error: "contentBase64 обязателен"});
+      return;
+    }
+    const match = String(payload).match(/^data:[^;]+;base64,(.+)$/);
+    const base64 = match ? match[1] : String(payload);
+    const buffer = Buffer.from(base64, "base64");
+    const result = await uploadUserMusicTrack(buffer, {fileName});
+    res.json({ok: true, ...result});
+  } catch (error) {
+    res.status(400).json({
       error: error instanceof Error ? error.message : String(error),
     });
   }
