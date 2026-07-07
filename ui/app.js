@@ -2282,13 +2282,11 @@ previewCoverPreview?.addEventListener("click", (event) => {
   openLightbox(href);
 });
 
-const openVideoLightbox = (src, {messageIndex = null, videoDurationMs = 0} = {}) => {
+const openVideoLightbox = (src) => {
   if (!src || !videoLightbox || !lightboxVideo) {
     return;
   }
-  stopStoryVideoVoiceSync();
   lightboxVideo.src = src;
-  bindStoryVideoVoicePreview(lightboxVideo, {messageIndex, videoDurationMs});
   videoLightbox.hidden = false;
   videoLightbox.setAttribute("aria-hidden", "false");
   document.body.classList.add("lightbox-open");
@@ -2299,7 +2297,6 @@ const closeVideoLightbox = () => {
   if (!videoLightbox || !lightboxVideo) {
     return;
   }
-  stopStoryVideoVoiceSync();
   lightboxVideo.pause();
   lightboxVideo.removeAttribute("src");
   lightboxVideo.load();
@@ -2434,10 +2431,6 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
     video.controls = true;
     const durationLabel = formatVideoDurationLabel(slotScan.videoDurationMs);
     video.title = durationLabel ? `Story-видео · ${durationLabel}` : "Story-видео";
-    bindStoryVideoVoicePreview(video, {
-      messageIndex,
-      videoDurationMs: slotScan.videoDurationMs ?? 0,
-    });
     previewWrap.append(video);
     if (durationLabel) {
       const meta = document.createElement("span");
@@ -2507,10 +2500,7 @@ const renderStoryVideoColumn = ({messageIndex, slotScan}) => {
     btnWatch.className = "btn btn-secondary btn-small";
     btnWatch.textContent = "Смотреть";
     btnWatch.addEventListener("click", () => {
-      openVideoLightbox(slotScan.videoPreviewUrl, {
-        messageIndex,
-        videoDurationMs: slotScan.videoDurationMs ?? 0,
-      });
+      openVideoLightbox(slotScan.videoPreviewUrl);
     });
     actions.append(btnWatch);
   }
@@ -3566,8 +3556,6 @@ const voicePreviewUrlCache = new Map();
 const PREVIEW_PLAY_ICON = "▶";
 const PREVIEW_PAUSE_ICON = "⏸";
 
-const MESSAGE_VOICE_RATE = {min: 0.5, max: 4, step: 0.05, default: 1};
-
 const syncPreviewPlayButtonIcon = (btn, isPlaying) => {
   if (!btn) {
     return;
@@ -3769,168 +3757,6 @@ const setVoicePlaybackRatePreference = (rate) => {
   if (voicePlaybackRateValue) {
     voicePlaybackRateValue.textContent = formatVoicePlaybackRateLabel(rounded);
   }
-};
-
-/** @type {{video: HTMLVideoElement, audios: Map<number, HTMLAudioElement>, anchorIndex: number} | null} */
-let activeStoryVideoVoiceSync = null;
-
-const stopStoryVideoVoiceSync = () => {
-  if (activeStoryVideoVoiceSync?.audios) {
-    for (const audio of activeStoryVideoVoiceSync.audios.values()) {
-      audio.pause();
-    }
-  }
-  activeStoryVideoVoiceSync = null;
-};
-
-const resolveStoryVideoVoicePreviewRate = (conversation, videoDurationMs, message) => {
-  const userRate = getVoicePlaybackRate();
-  const voiceDurationMs = Number(message?.voiceDurationMs);
-  const videoMs = Number(videoDurationMs);
-  if (!Number.isFinite(voiceDurationMs) || voiceDurationMs <= 0 || !Number.isFinite(videoMs) || videoMs <= 0) {
-    return userRate;
-  }
-  const autoRate = Math.min(MESSAGE_VOICE_RATE.max, Math.max(1, voiceDurationMs / videoMs));
-  return Math.min(MESSAGE_VOICE_RATE.max, autoRate * userRate);
-};
-
-const resolveStoryVoicePreviewTracks = (anchorIndex, videoDurationMs = 0) => {
-  const conversation = parseConversationJson();
-  if (!conversation?.voiceover?.enabled) {
-    return null;
-  }
-
-  const scheduled =
-    messageTimingPreview?.storyVoicePreview?.[anchorIndex] ??
-    messageTimingPreview?.storyVoicePreview?.[String(anchorIndex)];
-
-  if (Array.isArray(scheduled) && scheduled.length > 0) {
-    return scheduled.map((track) => ({
-      messageIndex: track.messageIndex,
-      startMs: Number(track.startMs) || 0,
-      rate: Number(track.rate) || 1,
-      voiceUrl: String(track.voiceAudio ?? "").startsWith("/")
-        ? track.voiceAudio
-        : `/${String(track.voiceAudio ?? "").replace(/^\/+/, "")}`,
-      playbackDurationMs:
-        Number(track.playbackDurationMs) ||
-        Math.round(Number(track.voiceDurationMs || 0) / (Number(track.rate) || 1)),
-    }));
-  }
-
-  const message = conversation?.messages?.[anchorIndex];
-  const voicePath = String(message?.voiceAudio ?? "").trim();
-  if (!voicePath) {
-    return null;
-  }
-
-  const voiceDurationMs = Number(message?.voiceDurationMs) || 0;
-  const rate = resolveStoryVideoVoicePreviewRate(conversation, videoDurationMs, message);
-  return [
-    {
-      messageIndex: anchorIndex,
-      startMs: 0,
-      rate,
-      voiceUrl: voicePath.startsWith("/") ? voicePath : `/${voicePath}`,
-      playbackDurationMs: voiceDurationMs > 0 ? Math.round(voiceDurationMs / rate) : 0,
-    },
-  ];
-};
-
-const bindStoryVideoVoicePreview = (video, {messageIndex, videoDurationMs = 0} = {}) => {
-  if (messageIndex == null || messageIndex < 0) {
-    return;
-  }
-
-  const ensureSyncState = () => {
-    if (activeStoryVideoVoiceSync?.video === video) {
-      return activeStoryVideoVoiceSync;
-    }
-    stopStoryVideoVoiceSync();
-    activeStoryVideoVoiceSync = {
-      video,
-      audios: new Map(),
-      anchorIndex: messageIndex,
-    };
-    return activeStoryVideoVoiceSync;
-  };
-
-  const ensureTrackAudio = (sync, track) => {
-    let audio = sync.audios.get(track.messageIndex);
-    if (!audio) {
-      audio = new Audio(track.voiceUrl);
-      sync.audios.set(track.messageIndex, audio);
-    }
-    return audio;
-  };
-
-  const syncTracksToVideo = ({allowPlay = true} = {}) => {
-    const tracks = resolveStoryVoicePreviewTracks(messageIndex, videoDurationMs);
-    if (!tracks?.length) {
-      return;
-    }
-
-    const sync = ensureSyncState();
-    const videoMs = video.currentTime * 1000;
-
-    for (const track of tracks) {
-      const audio = ensureTrackAudio(sync, track);
-      const localMs = videoMs - track.startMs;
-      const inWindow =
-        localMs >= 0 &&
-        (track.playbackDurationMs <= 0 || localMs < track.playbackDurationMs);
-
-      if (!inWindow) {
-        audio.pause();
-        continue;
-      }
-
-      audio.playbackRate = track.rate;
-      audio.currentTime = Math.max(0, (localMs * track.rate) / 1000);
-
-      if (video.paused || !allowPlay) {
-        audio.pause();
-      } else if (audio.paused) {
-        audio.play().catch(() => {});
-      }
-    }
-  };
-
-  const onVideoPlay = () => {
-    if (!resolveStoryVoicePreviewTracks(messageIndex, videoDurationMs)?.length) {
-      return;
-    }
-    stopMessageVoicePreview();
-    stopVoicePreview();
-    stopMusicPreview();
-    if (activeStoryVideoVoiceSync?.video && activeStoryVideoVoiceSync.video !== video) {
-      stopStoryVideoVoiceSync();
-    }
-    syncTracksToVideo({allowPlay: true});
-  };
-
-  video.addEventListener("play", onVideoPlay);
-  video.addEventListener("pause", () => {
-    if (activeStoryVideoVoiceSync?.video === video) {
-      for (const audio of activeStoryVideoVoiceSync.audios.values()) {
-        audio.pause();
-      }
-    }
-  });
-  video.addEventListener("timeupdate", () => {
-    if (video.paused) {
-      return;
-    }
-    syncTracksToVideo({allowPlay: true});
-  });
-  video.addEventListener("seeked", () => {
-    syncTracksToVideo({allowPlay: !video.paused});
-  });
-  video.addEventListener("ended", () => {
-    if (activeStoryVideoVoiceSync?.video === video) {
-      stopStoryVideoVoiceSync();
-    }
-  });
 };
 
 const playMessageVoicePreview = async (messageIndex, {triggerBtn = null, rate = null} = {}) => {
@@ -4493,7 +4319,6 @@ const stopAllAudioPreviews = () => {
   stopMessageVoicePreview();
   stopVoicePreview();
   stopMusicPreview();
-  stopStoryVideoVoiceSync();
 };
 
 const resolveMusicPreviewUrl = (musicId) => {
@@ -5089,9 +4914,6 @@ voicePlaybackRateInput?.addEventListener("input", () => {
   setVoicePlaybackRatePreference(rate);
   if (activeMessageVoiceAudio) {
     activeMessageVoiceAudio.playbackRate = clampVoicePlaybackRate(rate);
-  }
-  for (const audio of activeStoryVideoVoiceSync?.audios?.values() ?? []) {
-    audio.playbackRate = clampVoicePlaybackRate(rate);
   }
   scheduleRefreshDialogue();
 });

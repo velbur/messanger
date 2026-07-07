@@ -288,11 +288,9 @@ export const prepareVoiceAudioForRender = async (
     }
   }
 
-  if (boostedClips > 0) {
-    logs.push(
-      `Озвучка: итоговая скорость до ×${maxRate.toFixed(2)} (${boostedClips} реплик: ползунок ×${userVoiceRate.toFixed(2)} + подгонка под Veo)`,
-    );
-  } else if (Math.abs(userVoiceRate - 1) >= 0.01) {
+  void boostedClips;
+  void maxRate;
+  if (Math.abs(userVoiceRate - 1) >= 0.01) {
     logs.push(`Озвучка: скорость ползунка ×${userVoiceRate.toFixed(2)}`);
   }
 
