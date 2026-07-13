@@ -454,6 +454,20 @@ const buildStoryTimeline = (
 
   const sceneEvents: StorySceneTimelineEvent[] = [];
   const plannedScenes = getStoryScenes(conversation);
+  const messageStoryImageIndices = conversation.messages
+    .map((message, index) => (message.storyImage?.trim() ? index : -1))
+    .filter((index) => index >= 0);
+  const plannedAnchorSet = new Set(plannedScenes.map((scene) => scene.anchorMessageIndex));
+  // План story.scenes используем только когда он согласован с message-level кадрами (то, что видно в UI):
+  //  — у каждой сцены anchor-сообщение имеет storyImage (иначе в видео попадёт «сиротский» кадр из плана, которого нет в интерфейсе);
+  //  — план покрывает все сообщения со storyImage (иначе кадр из интерфейса пропадёт из видео).
+  // При рассинхроне строим сцены напрямую из сообщений — ровно как показывает интерфейс.
+  const planMatchesMessages =
+    plannedScenes.length > 0 &&
+    plannedScenes.every((scene) =>
+      Boolean(conversation.messages[scene.anchorMessageIndex]?.storyImage?.trim()),
+    ) &&
+    messageStoryImageIndices.every((index) => plannedAnchorSet.has(index));
   const videoOnlyStory = isStoryVideoOnlyAnimation(conversation);
   const sceneOriginFrame =
     videoOnlyStory && immediateFirstScene
@@ -463,11 +477,11 @@ const buildStoryTimeline = (
         : splitCompleteFrame;
   let videoChainFrame = sceneOriginFrame;
 
-  if (plannedScenes.length > 0) {
+  if (planMatchesMessages) {
     const timedScenes = assignStorySceneTimeSlots(conversation, plannedScenes);
     timedScenes.forEach((scene, sceneOrder) => {
       const message = conversation.messages[scene.anchorMessageIndex];
-      const image = message?.storyImage?.trim() || scene.image?.trim();
+      const image = message?.storyImage?.trim();
       if (!image) {
         return;
       }

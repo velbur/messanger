@@ -146,9 +146,11 @@ export const StorySceneImage: React.FC<Props> = ({
         animation={
           animation === "video"
             ? "none"
-            : animation === "video-parallax" || animation === "video-kenburns"
-              ? "kenburns"
-              : animation
+            : animation === "video-parallax"
+              ? "depthParallax"
+              : animation === "video-kenburns"
+                ? "kenburns"
+                : animation
         }
         localFrame={localFrame}
         durationFrames={durationFrames}
