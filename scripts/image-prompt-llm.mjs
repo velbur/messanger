@@ -281,6 +281,8 @@ const buildStoryFramePromptContext = async ({
   const refs = await resolveStoryImageReferences(conversation, {messageIndex, kind});
   const priorText = formatPriorStoryFramesText(refs.priorFrames, refs.referenceImages);
 
+  const message = messageIndex == null ? undefined : messages[messageIndex];
+  const isSilentScene = message?.display === "scene";
   const dialogueIndex =
     kind === "opening"
       ? Math.min(2, Math.max(0, messages.length - 1))
@@ -291,14 +293,21 @@ const buildStoryFramePromptContext = async ({
     `Контакт: ${contactName}`,
     kind === "opening"
       ? "Цель: establishing shot до начала переписки"
-      : `Целевое сообщение №${(messageIndex ?? 0) + 1}`,
+      : isSilentScene
+        ? `Немая сцена №${(messageIndex ?? 0) + 1} (текст не показывается и не озвучивается)`
+        : `Целевое сообщение №${(messageIndex ?? 0) + 1}`,
+    isSilentScene
+      ? `Описание происходящего (beat): ${normalizeSpace(message?.text) || "—"}`
+      : "",
     characterBible ? `Справочник героев (внешность фиксирована):\n${characterBible}` : "",
     visualBible ? `Visual bible (объекты, цвета, локации — фиксированы):\n${visualBible}` : "",
     priorText,
-    dialogue.text ? `Контекст переписки:\n${dialogue.text}` : "",
+    !isSilentScene && dialogue.text ? `Контекст переписки:\n${dialogue.text}` : "",
     kind === "opening"
       ? "Опиши рисованный establishing shot для верхней панели 9:16."
-      : "Опиши рисованный кадр сцены для верхней панели в момент этого сообщения.",
+      : isSilentScene
+        ? "Опиши рисованный кадр 9:16 по описанию beat. Это отдельная немая сцена между репликами — не пузырь чата."
+        : "Опиши рисованный кадр сцены для верхней панели в момент этого сообщения.",
     hasCharacters && kind !== "opening"
       ? "Включай описание внешности только для героев, которые реально видны в кадре."
       : hasCharacters && kind === "opening"

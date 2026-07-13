@@ -1,3 +1,4 @@
+import {isSceneMessage} from "./message";
 import type {ConversationInput} from "./schema";
 import {FPS, msToFrames} from "./fps";
 import {mergeIntro, mergeEndCard} from "./title-card";
@@ -171,6 +172,18 @@ export const buildMessageTimelineMs = (
 
   const rows: MessageTimelineMs[] = [];
   conversation.messages.forEach((message, index) => {
+    if (isSceneMessage(message)) {
+      const sceneDurationMs =
+        typeof message.storyVideoDurationMs === "number" && message.storyVideoDurationMs > 0
+          ? message.storyVideoDurationMs
+          : getStorySceneDurationSec(conversation).min * 1000;
+      const revealMs = cursorMs;
+      const endMs = revealMs + sceneDurationMs;
+      rows.push({index, startMs: cursorMs, endMs, revealMs});
+      cursorMs = endMs;
+      return;
+    }
+
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     if (voiceover.enabled && messageHasVoiceover(message)) {
       const rate = Math.max(1, rateFor(index));
@@ -253,7 +266,11 @@ export const sceneAnchorMessageIndices = (conversation: ConversationInput): numb
   }
   return conversation.messages
     .map((message, index) =>
-      message.storyImage?.trim() || message.storyImagePrompt?.trim() ? index : -1,
+      isSceneMessage(message) ||
+      message.storyImage?.trim() ||
+      message.storyImagePrompt?.trim()
+        ? index
+        : -1,
     )
     .filter((index) => index >= 0);
 };

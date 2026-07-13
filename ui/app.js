@@ -4970,21 +4970,77 @@ const setMessageTextInJson = (messageIndex, newText) => {
   updateGenerateImagesControls(parsed);
 };
 
-const getMessageDisplay = (message) =>
-  message?.display === "bubble" ? "bubble" : "center";
+const getMessageDisplay = (message) => {
+  if (message?.display === "bubble") {
+    return "bubble";
+  }
+  if (message?.display === "scene") {
+    return "scene";
+  }
+  return "center";
+};
 
 const setMessageDisplayInJson = (messageIndex, display) => {
   const parsed = parseConversationJson();
   if (!parsed?.messages?.[messageIndex]) {
     return;
   }
-  const value = display === "bubble" ? "bubble" : "center";
-  if (value === "center") {
+  if (display === "center") {
     delete parsed.messages[messageIndex].display;
   } else {
-    parsed.messages[messageIndex].display = value;
+    parsed.messages[messageIndex].display = display;
+  }
+  if (display === "scene") {
+    const message = parsed.messages[messageIndex];
+    delete message.voiceAudio;
+    delete message.voiceDurationMs;
+    delete message.voiceTtsProvider;
+    delete message.voiceTtsProfile;
+    delete message.voiceTtsVoice;
+    delete message.voiceEmotion;
   }
   jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const insertMessageInJson = (insertAt, message) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages) {
+    return;
+  }
+  const index = Math.max(0, Math.min(insertAt, parsed.messages.length));
+  parsed.messages.splice(index, 0, message);
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const insertSceneMessageAfter = (messageIndex) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.[messageIndex]) {
+    return;
+  }
+  const anchor = parsed.messages[messageIndex];
+  insertMessageInJson(messageIndex + 1, {
+    author: anchor.author === "me" ? "them" : "me",
+    text: "",
+    display: "scene",
+    sentAt: anchor.sentAt ?? "12:34",
+  });
+  refreshDialogue();
+};
+
+const insertReplyMessageAfter = (messageIndex) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.[messageIndex]) {
+    return;
+  }
+  const anchor = parsed.messages[messageIndex];
+  const next = parsed.messages[messageIndex + 1];
+  const author = next?.author ?? (anchor.author === "me" ? "them" : "me");
+  insertMessageInJson(messageIndex + 1, {
+    author,
+    text: "",
+    sentAt: next?.sentAt ?? anchor.sentAt ?? "12:34",
+  });
+  refreshDialogue();
 };
 
 const setAllMessagesDisplayInJson = (display) => {
@@ -5010,7 +5066,8 @@ const getConversationDisplayMode = (conversation) => {
   }
   const hasCenter = messages.some((message) => getMessageDisplay(message) === "center");
   const hasBubble = messages.some((message) => getMessageDisplay(message) === "bubble");
-  if (hasCenter && hasBubble) {
+  const hasScene = messages.some((message) => getMessageDisplay(message) === "scene");
+  if ((hasCenter && hasBubble) || hasScene) {
     return "mixed";
   }
   return hasBubble ? "bubble" : "center";
@@ -6454,7 +6511,7 @@ const renderDialogueSceneBlock = ({
 
   const frame = document.createElement("div");
   const preview = resolveScenePreview(message, messageIndex, item, storyPreviewLookup);
-  const captionCentered = display !== "bubble";
+  const captionCentered = display === "center";
   frame.className = `dialogue-scene__frame${preview ? "" : " dialogue-scene__frame--empty"}${
     captionCentered ? " dialogue-scene__frame--caption-center" : ""
   }`;
@@ -6497,7 +6554,7 @@ const renderDialogueSceneBlock = ({
     Boolean(message.storyImagePrompt?.trim()) ||
     hasStoryPromptField;
 
-  if (hasStoryFrame) {
+  if (hasStoryFrame || display === "scene") {
     controls.append(
       renderStoryImageSlot({
         messageIndex,
@@ -6540,6 +6597,7 @@ const renderMessageDisplayToggle = (messageIndex, currentDisplay) => {
   for (const {value, label} of [
     {value: "center", label: "По центру"},
     {value: "bubble", label: "Пузырь"},
+    {value: "scene", label: "Сцена"},
   ]) {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -6578,7 +6636,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
     Boolean(message.storyImagePrompt?.trim()) ||
     Object.hasOwn(message, "storyImagePrompt");
 
-  if (!isStoryVisual || hasStoryFrame) {
+  if (!isStoryVisual || hasStoryFrame || display === "scene") {
     const sceneCol = document.createElement("div");
     sceneCol.className = "dialogue-block__scene";
     const {scene, controls} = renderDialogueSceneBlock({
@@ -6680,6 +6738,31 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
     });
     body.append(textarea);
     requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
+  } else if (display === "scene") {
+    const sceneHint = document.createElement("p");
+    sceneHint.className = "dialogue-block__scene-hint";
+    sceneHint.textContent = "Описание сцены (не видно в ролике и не озвучивается)";
+    body.append(sceneHint);
+    const textarea = document.createElement("textarea");
+    textarea.className = "dialogue-block__text dialogue-block__text--scene";
+    textarea.rows = 3;
+    textarea.value = messageText;
+    textarea.placeholder = "Что происходит на экране…";
+    textarea.dataset.messageTextIndex = String(messageIndex);
+    textarea.addEventListener("input", () => {
+      autoResizeMessageTextarea(textarea);
+      setMessageTextInJson(messageIndex, textarea.value);
+    });
+    textarea.addEventListener("blur", () => {
+      const cleaned = sanitizeMessageText(textarea.value);
+      if (cleaned !== textarea.value) {
+        textarea.value = cleaned;
+        setMessageTextInJson(messageIndex, cleaned);
+      }
+      autoResizeMessageTextarea(textarea);
+    });
+    body.append(textarea);
+    requestAnimationFrame(() => autoResizeMessageTextarea(textarea));
   } else {
     const bubble = document.createElement("div");
     bubble.className = "dialogue-msg__bubble dialogue-msg__bubble--edit";
@@ -6711,11 +6794,30 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   messageCol.append(body);
   row.append(messageCol);
 
-  const voiceRateControls = renderMessageVoiceControls(message, messageIndex);
+  const voiceRateControls = display === "scene" ? null : renderMessageVoiceControls(message, messageIndex);
   if (voiceRateControls) {
     row.append(voiceRateControls);
   }
 
+  return row;
+};
+
+const renderDialogueInsertRow = (afterIndex) => {
+  const row = document.createElement("div");
+  row.className = "dialogue-editor__insert-row";
+  const btnScene = document.createElement("button");
+  btnScene.type = "button";
+  btnScene.className = "btn btn-secondary btn-small";
+  btnScene.textContent = "+ Сцена";
+  btnScene.title = "Вставить немую сцену-описание";
+  btnScene.addEventListener("click", () => insertSceneMessageAfter(afterIndex));
+  const btnReply = document.createElement("button");
+  btnReply.type = "button";
+  btnReply.className = "btn btn-secondary btn-small";
+  btnReply.textContent = "+ Реплика";
+  btnReply.title = "Вставить реплику после этого сообщения";
+  btnReply.addEventListener("click", () => insertReplyMessageAfter(afterIndex));
+  row.append(btnScene, btnReply);
   return row;
 };
 
@@ -6831,6 +6933,7 @@ const renderDialogueEditor = (conversation, items, timingPreview, storyItems = [
         storySlotLookup,
       ),
     );
+    thread.append(renderDialogueInsertRow(i));
   }
 
   dialogueEditor.append(thread);

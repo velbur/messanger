@@ -351,6 +351,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
       "- story.opening.animation: video-kenburns (default).",
       noBubbleRule,
       "- Never put frame descriptions in square brackets in text.",
+      "- Silent beats: optional messages with display: \"scene\", text = short description of on-screen action (not shown in chat, not voiced). Use between dialogue lines for visual transitions.",
     ];
   }
 
@@ -362,6 +363,7 @@ const buildStoryImageRules = ({language = "ru", videoLayout = "storyOverlay"} = 
     "- story.opening.animation: video-kenburns (по умолчанию).",
     noBubbleRule,
     "- В text не пиши описание кадра в квадратных скобках.",
+    "- Немые сцены: при необходимости вставляй сообщения с display: \"scene\" и text = короткое описание происходящего (не показывается в чате, не озвучивается). Между репликами — для визуального перехода.",
   ];
 };
 

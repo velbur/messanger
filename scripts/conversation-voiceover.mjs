@@ -25,7 +25,7 @@ export const describeVoiceoverPlan = (conversation, audioNamespace) => {
   const namespace = normalizeAudioNamespace(audioNamespace);
   return (conversation.messages ?? [])
     .map((message, index) => {
-      if (!isSpeechableText(message.text)) {
+      if (message?.display === "scene" || !isSpeechableText(message.text)) {
         return null;
       }
       return {

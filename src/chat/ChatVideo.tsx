@@ -19,7 +19,6 @@ import {
   getStatusBarTime,
   STORY_SPLIT_TIMELINE_REV,
   TIMELINE_TAIL_MARKER,
-  visibleMessageCountAtFrame,
 } from "./timeline";
 import {VIDEO_FEATURE_BUNDLE_MARKER} from "./timing";
 import {getTheme, LAYOUT, SPLIT_LAYOUT, splitChatScale, CHAT_OVERLAY, CHAT_OVERLAY_BUNDLE_MARKER, STORY_OVERLAY_THEME_MODE, CENTER_SCREEN, CENTER_SCREEN_BUNDLE_MARKER} from "./theme";
@@ -278,16 +277,13 @@ const VerticalChatVideo: React.FC<Props> = ({conversation, voicePlaybackRate}) =
     (event) => frame >= event.typingStartFrame && frame < event.revealFrame,
   );
 
-  const visibleCount = visibleMessageCountAtFrame(
-    timeline.events,
-    frame,
-    timeline.introDurationFrames,
-    story,
+  const visibleEvents = timeline.events.filter(
+    (event) => frame >= event.revealFrame && event.display !== "scene",
   );
-  const visibleEvents = timeline.events.slice(0, visibleCount);
+  const visibleCount = visibleEvents.length;
   const lastEventIndex = timeline.events.length - 1;
   const centerScreenEvent = storyVisualActive
-    ? [...visibleEvents].reverse().find((event) => event.display !== "bubble" && event.text.trim())
+    ? [...visibleEvents].reverse().find((event) => event.display === "center" && event.text.trim())
     : undefined;
   const bubbleEventsOnly = storyVisualActive;
 

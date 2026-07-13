@@ -131,7 +131,9 @@ const collectStoryVideoTargets = (conversation) => {
       kind: "message",
       messageIndex: index,
       image: storyImage,
-      imagePrompt: message.storyImagePrompt,
+      imagePrompt:
+        message.storyImagePrompt ||
+        (message?.display === "scene" ? String(message?.text ?? "").trim() : undefined),
       holder: message,
     });
   }

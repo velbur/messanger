@@ -5,6 +5,50 @@ import {
 
 const normalizeSpace = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
+const isSceneMessage = (message) => message?.display === "scene";
+
+/** Индексы немых scene-реплик — обязательные якоря story-слотов. */
+export const sceneMessageAnchorIndices = (conversation) => {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  return messages.map((message, index) => (isSceneMessage(message) ? index : -1)).filter((index) => index >= 0);
+};
+
+/** Добавляет scene-реплики в план сцен (messageFrom = messageTo = index). */
+export const mergeSceneMessageAnchors = (conversation, scenes = []) => {
+  const silentAnchors = sceneMessageAnchorIndices(conversation);
+  if (!silentAnchors.length) {
+    return scenes;
+  }
+
+  const messages = conversation?.messages ?? [];
+  const merged = [...scenes];
+  const existing = new Set(merged.map((scene) => scene.anchorMessageIndex));
+
+  for (const anchorIndex of silentAnchors) {
+    if (existing.has(anchorIndex)) {
+      continue;
+    }
+    const message = messages[anchorIndex];
+    const beat =
+      normalizeSpace(message?.text) ||
+      normalizeSpace(message?.storyImagePrompt) ||
+      `Немая сцена ${anchorIndex + 1}`;
+    merged.push({
+      id: `scene-msg-${anchorIndex + 1}`,
+      beat,
+      anchorMessageIndex: anchorIndex,
+      messageFrom: anchorIndex,
+      messageTo: anchorIndex,
+      imagePrompt: normalizeSpace(message?.storyImagePrompt) || undefined,
+      image: normalizeSpace(message?.storyImage) || undefined,
+      storySceneCharacters: message?.storySceneCharacters,
+    });
+    existing.add(anchorIndex);
+  }
+
+  return merged.sort((a, b) => a.anchorMessageIndex - b.anchorMessageIndex);
+};
+
 const clearStoryFrameSlot = (message) => {
   delete message.storyImage;
   delete message.storyImagePrompt;
@@ -23,9 +67,10 @@ export const syncScenesToMessageAnchors = (conversation) => {
 
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   const anchorSet = new Set(scenes.map((s) => s.anchorMessageIndex));
+  const sceneAnchors = new Set(sceneMessageAnchorIndices(conversation));
 
   for (let index = 0; index < messages.length; index += 1) {
-    if (!anchorSet.has(index)) {
+    if (!anchorSet.has(index) && !sceneAnchors.has(index)) {
       clearStoryFrameSlot(messages[index]);
     }
   }
@@ -55,9 +100,10 @@ export const applyStoryScenesPlan = (conversation, {includeOpening, scenes}) => 
   if (!conversation.story) {
     conversation.story = {};
   }
-  conversation.story.scenes = scenes;
+  const mergedScenes = mergeSceneMessageAnchors(conversation, scenes);
+  conversation.story.scenes = mergedScenes;
 
-  const anchorIndices = scenes.map((s) => s.anchorMessageIndex);
+  const anchorIndices = mergedScenes.map((s) => s.anchorMessageIndex);
   applyLegacyMessageIndices(conversation, {includeOpening, messageIndices: anchorIndices});
   syncScenesToMessageAnchors(conversation);
   return conversation;
@@ -67,9 +113,10 @@ export const applyStoryScenesPlan = (conversation, {includeOpening, scenes}) => 
 export const applyLegacyMessageIndices = (conversation, {includeOpening, messageIndices}) => {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   const planned = new Set(messageIndices);
+  const sceneAnchors = new Set(sceneMessageAnchorIndices(conversation));
 
   for (let index = 0; index < messages.length; index += 1) {
-    if (!planned.has(index)) {
+    if (!planned.has(index) && !sceneAnchors.has(index)) {
       clearStoryFrameSlot(messages[index]);
     }
   }
@@ -103,12 +150,16 @@ export const scenesFromLegacyMessageIndices = (conversation, {includeOpening, me
     const messageTo = anchorIndex;
     const anchorMessage = messages[anchorIndex];
     const beat =
-      normalizeSpace(anchorMessage?.text).slice(0, 200) ||
-      `Сцена ${order + 1}: реплика ${anchorIndex + 1}`;
+      isSceneMessage(anchorMessage)
+        ? normalizeSpace(anchorMessage?.text).slice(0, 200) ||
+          normalizeSpace(anchorMessage?.storyImagePrompt).slice(0, 200)
+        : normalizeSpace(anchorMessage?.text).slice(0, 200);
+    const resolvedBeat =
+      beat || `Сцена ${order + 1}: реплика ${anchorIndex + 1}`;
 
     return {
       id: `scene-${order + 1}`,
-      beat,
+      beat: resolvedBeat,
       anchorMessageIndex: anchorIndex,
       messageFrom,
       messageTo,

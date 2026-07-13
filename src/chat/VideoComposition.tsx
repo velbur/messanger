@@ -17,7 +17,6 @@ import {buildVoiceFrameRanges, createMusicVolumeAtFrame, mergeConversationVoiceo
 import {
   buildTimeline,
   getStatusBarTime,
-  visibleMessageCountAtFrame,
 } from "./timeline";
 import {getTheme, videoChatTypographyScale} from "./theme";
 import {ChatThemeProvider} from "./ThemeContext";
@@ -86,13 +85,10 @@ export const VideoComposition: React.FC<Props> = ({conversation, voicePlaybackRa
     (event) => frame >= event.typingStartFrame && frame < event.revealFrame,
   );
 
-  const visibleCount = visibleMessageCountAtFrame(
-    timeline.events,
-    frame,
-    timeline.introDurationFrames,
-    timeline.story,
+  const visibleEvents = timeline.events.filter(
+    (event) => frame >= event.revealFrame && event.display !== "scene",
   );
-  const visibleEvents = timeline.events.slice(0, visibleCount);
+  const visibleCount = visibleEvents.length;
   const lastEventIndex = timeline.events.length - 1;
   const latestEvent = visibleEvents[visibleEvents.length - 1];
 
@@ -187,6 +183,7 @@ export const VideoComposition: React.FC<Props> = ({conversation, voicePlaybackRa
           ) : null}
 
           {timeline.events.map((event) => (
+            event.display === "scene" ? null : (
             <React.Fragment key={`sound-${event.index}`}>
               <Sequence from={event.revealFrame}>
                 <Audio
@@ -212,6 +209,7 @@ export const VideoComposition: React.FC<Props> = ({conversation, voicePlaybackRa
                 </Sequence>
               ) : null}
             </React.Fragment>
+            )
           ))}
         </AbsoluteFill>
       </ChatTypographyProvider>

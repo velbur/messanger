@@ -11,6 +11,8 @@ import {
 import {
   applyStoryScenesPlan,
   enrichScenesWithTimelineMs,
+  mergeSceneMessageAnchors,
+  sceneMessageAnchorIndices,
   scenesFromLegacyMessageIndices,
 } from "./story-scene-sync.mjs";
 import {chatCompletionJson as openRouterChatJson, isOpenRouterConfigured} from "./openrouter-client.mjs";
@@ -54,9 +56,9 @@ const fallbackStoryScenesByTime = (conversation) => {
 
   return {
     includeOpening: true,
-    scenes: enrichScenesWithTimelineMs(conversation, scenes),
+    scenes: enrichScenesWithTimelineMs(conversation, mergeSceneMessageAnchors(conversation, scenes)),
     rationale: "равномерная сетка по времени (fallback)",
-    messageIndices: anchors,
+    messageIndices: [...new Set([...anchors, ...sceneMessageAnchorIndices(conversation)])].sort((a, b) => a - b),
   };
 };
 
@@ -109,9 +111,11 @@ const normalizeLlmScenes = (data, conversation) => {
 
   return {
     includeOpening,
-    scenes: enrichScenesWithTimelineMs(conversation, deduped),
+    scenes: enrichScenesWithTimelineMs(conversation, mergeSceneMessageAnchors(conversation, deduped)),
     rationale: normalizeSpace(data?.rationale) || `сцены ~${min}–${max} с`,
-    messageIndices: deduped.map((s) => s.anchorMessageIndex),
+    messageIndices: [
+      ...new Set([...deduped.map((s) => s.anchorMessageIndex), ...sceneMessageAnchorIndices(conversation)]),
+    ].sort((a, b) => a - b),
   };
 };
 

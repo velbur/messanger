@@ -2069,8 +2069,32 @@ body.workflow-modal-open {
   color: #aebac1;
 }
 
+.dialogue-block__body--scene {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialogue-block__scene-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8696a0;
+}
+
+.dialogue-block__text--scene {
+  border-color: #3d4f5c;
+}
+
+.dialogue-editor__insert-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0 12px;
+}
+
 .dialogue-block__display-toggle {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 2px;
   border-radius: 8px;

@@ -1,6 +1,23 @@
 import type {MessageInput} from "./schema";
 
-type MessageLike = Pick<MessageInput, "text" | "image">;
+export type MessageDisplay = "center" | "bubble" | "scene";
+
+type MessageLike = Pick<MessageInput, "text" | "image" | "display">;
+
+export const isSceneMessage = (message: Pick<MessageInput, "display"> | undefined): boolean =>
+  message?.display === "scene";
+
+export const resolveMessageDisplay = (
+  message: Pick<MessageInput, "display"> | undefined,
+): MessageDisplay => {
+  if (message?.display === "bubble") {
+    return "bubble";
+  }
+  if (message?.display === "scene") {
+    return "scene";
+  }
+  return "center";
+};
 
 export const hasMessageImage = (message: MessageLike): boolean =>
   Boolean(message.image?.trim());

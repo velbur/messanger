@@ -71,7 +71,7 @@ export const assertVoiceoverReadyForRender = (conversation) => {
 
   for (let index = 0; index < (conversation.messages ?? []).length; index += 1) {
     const message = conversation.messages[index];
-    if (!isSpeechableText(message.text)) {
+    if (message?.display === "scene" || !isSpeechableText(message.text)) {
       continue;
     }
     const ref = String(message.voiceAudio ?? "").trim();
@@ -99,6 +99,9 @@ export const saveVoiceBuffer = async (buffer, relativePath) => {
 const isOpenRouterVoiceMessage = (message) => message?.voiceTtsProvider === "openrouter";
 
 export const messageNeedsOpenRouterVoice = (message, voiceover, voices) => {
+  if (message?.display === "scene") {
+    return false;
+  }
   const text = String(message?.text ?? "").trim();
   if (!isSpeechableText(text)) {
     return false;
@@ -143,6 +146,9 @@ export const resolveConversationVoiceover = async (
 
   for (let index = 0; index < conversation.messages.length; index += 1) {
     const message = conversation.messages[index];
+    if (message?.display === "scene") {
+      continue;
+    }
     if (isSpeechableText(message.text) && !String(message.voiceAudio ?? "").trim()) {
       const errorText = `Озвучка #${index + 1}: нет voiceAudio. Соберите видео с включённой озвучкой на Mac.`;
       if (failOnMissingVoice) {

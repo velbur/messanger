@@ -28,6 +28,8 @@ import {
 } from "./story-scene-transition";
 import {isVideoLayout} from "./video";
 import {resolveStoryVideoLoop} from "./story-video-mode";
+import {isSceneMessage, resolveMessageDisplay} from "./message";
+import {getStorySceneDurationSec} from "./story-scene-timing";
 import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUNDLE_MARKER, type ResolvedStorySfxCue} from "./sfx";
 import {mergeConversationVoiceover, messageHasVoiceover, normalizeVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, VOICEOVER_BUNDLE_MARKER, VOICE_PLAYBACK_RATE_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
@@ -67,8 +69,8 @@ export type MessageTimelineEvent = {
   text: string;
   image?: string;
   sentAt: string;
-  /** center — текст по центру экрана; bubble — пузырь мессенджера */
-  display: "center" | "bubble";
+  /** center — текст по центру экрана; bubble — пузырь мессенджера; scene — немая сцена */
+  display: "center" | "bubble" | "scene";
   startFrame: number;
   typingStartFrame: number;
   typingEndFrame: number;
@@ -193,6 +195,44 @@ const buildMessageTimelineEvents = (
   const voicePaddingMs = scaleTimingMs(200);
 
   conversation.messages.forEach((message, index) => {
+    const display = resolveMessageDisplay(message);
+    const sceneMessage = display === "scene";
+
+    if (sceneMessage) {
+      const sceneDurationMs =
+        typeof message.storyVideoDurationMs === "number" && message.storyVideoDurationMs > 0
+          ? message.storyVideoDurationMs
+          : getStorySceneDurationSec(conversation).min * 1000;
+      const pauseFrames = 0;
+      const typingFrames = 0;
+      const revealFrame = cursor;
+      const postRevealFrames = msToFrames(sceneDurationMs);
+      const endFrame = revealFrame + postRevealFrames;
+
+      events.push({
+        index,
+        author: message.author,
+        text: message.text ?? "",
+        image: message.image,
+        sentAt: message.sentAt,
+        display: "scene",
+        startFrame: cursor,
+        typingStartFrame: cursor,
+        typingEndFrame: cursor,
+        revealFrame,
+        fullscreenStartFrame: revealFrame,
+        fullscreenEndFrame: revealFrame,
+        fullscreenFrames: 0,
+        endFrame,
+        pauseFrames,
+        typingFrames,
+        voiceDurationFrames: 0,
+      });
+
+      cursor = endFrame;
+      return;
+    }
+
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
     const autoRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
     const userRate = userVoiceRate;
@@ -241,7 +281,7 @@ const buildMessageTimelineEvents = (
       text: message.text ?? "",
       image: message.image,
       sentAt: message.sentAt,
-      display: message.display === "bubble" ? "bubble" : "center",
+      display: resolveMessageDisplay(message),
       startFrame: cursor,
       typingStartFrame,
       typingEndFrame,
@@ -984,7 +1024,7 @@ export const visibleMessageCountAtFrame = (
   if (frame < storyGate) {
     return 0;
   }
-  return events.filter((event) => frame >= event.revealFrame).length;
+  return events.filter((event) => event.display !== "scene" && frame >= event.revealFrame).length;
 };
 
 /** Кадр для JPG-превью без фото: финальная реплика в чате */
