@@ -866,13 +866,13 @@ const buildUserPrompt = async ({
       ? language === "en"
         ? [
             "Single-speaker mode is mandatory.",
-            "- All messages are authored by one person only (author: 'me').",
+            "- All messages are authored by one person only (author: 'me' or 'them' — pick one and keep it).",
             "- Write as first-person narration/updates, not as a back-and-forth chat.",
             "- No direct replies from another person, no Q/A exchange, no imitation of someone else's lines.",
           ].join("\n")
         : [
             "Режим одного рассказчика обязателен.",
-            "- Все сообщения только от одного автора (author: 'me').",
+            "- Все сообщения только от одного автора (author: 'me' или 'them' — выбери один и держи его).",
             "- Пиши как повествование/заметки от первого лица, а не обмен репликами.",
             "- Нельзя имитировать ответы собеседника, формат вопрос-ответ и диалог «я — он/она».",
           ].join("\n")
@@ -941,7 +941,7 @@ const buildShortsExpandUserPrompt = ({
       singleSpeaker
         ? [
             "Single-speaker mode is mandatory.",
-            "- Keep only one speaker (author: 'me') across all messages.",
+            "- Keep only one speaker (author: 'me' or 'them') across all messages.",
             "- Rewrite any back-and-forth into first-person narration updates.",
             "- Remove implied second-person responses/Q&A structure.",
           ].join("\n")
@@ -970,7 +970,7 @@ const buildShortsExpandUserPrompt = ({
     singleSpeaker
       ? [
           "Режим одного рассказчика обязателен.",
-          "- Во всех сообщениях оставь только одного автора (author: 'me').",
+          "- Во всех сообщениях оставь только одного автора (author: 'me' или 'them').",
           "- Любой обмен репликами перепиши в повествование от первого лица.",
           "- Убери структуру «мне ответили тут же», вопросы-ответы и диалоговый пинг-понг.",
         ].join("\n")
@@ -1203,8 +1203,38 @@ const wantsSingleSpeakerNarration = (prompt) => {
   ].some((pattern) => pattern.test(text));
 };
 
-const forceSingleSpeakerConversation = (conversation, author = "me") => {
-  const normalizedAuthor = author === "them" ? "them" : "me";
+const pickSingleSpeakerAuthor = (conversation, prompt) => {
+  const messages = (conversation?.messages ?? []).filter((message) => message?.display !== "scene");
+  let meCount = 0;
+  let themCount = 0;
+  for (const message of messages) {
+    if (message?.author === "them") {
+      themCount += 1;
+    } else {
+      meCount += 1;
+    }
+  }
+  if (themCount > meCount) {
+    return "them";
+  }
+  if (meCount > themCount) {
+    return "me";
+  }
+
+  const text = String(prompt ?? "").toLowerCase();
+  if (
+    /от\s+(лица\s+)?собеседник|голос\s+собеседник|contact\s+narrat|third[\s-]person|она\s+рассказ|он\s+рассказ|без\s+(участия\s+)?я\b|only\s+contact|them\s+only|author:\s*['"]?them/i.test(
+      text,
+    )
+  ) {
+    return "them";
+  }
+  return "me";
+};
+
+const forceSingleSpeakerConversation = (conversation, {author, prompt} = {}) => {
+  const normalizedAuthor =
+    author === "them" || author === "me" ? author : pickSingleSpeakerAuthor(conversation, prompt);
   if (!Array.isArray(conversation?.messages)) {
     return conversation;
   }
@@ -1543,7 +1573,7 @@ export const generateDialogue = async ({
   if (enforceSingleSpeaker) {
     finalResult = {
       ...finalResult,
-      conversation: forceSingleSpeakerConversation(finalResult.conversation, "me"),
+      conversation: forceSingleSpeakerConversation(finalResult.conversation, {prompt: fullPrompt}),
     };
   }
 
@@ -1575,7 +1605,7 @@ export const generateDialogue = async ({
         if (enforceSingleSpeaker) {
           finalResult = {
             ...finalResult,
-            conversation: forceSingleSpeakerConversation(finalResult.conversation, "me"),
+            conversation: forceSingleSpeakerConversation(finalResult.conversation, {prompt: fullPrompt}),
           };
         }
       }

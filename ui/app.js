@@ -5019,7 +5019,7 @@ const insertSceneMessageAfter = (messageIndex) => {
   }
   const anchor = parsed.messages[messageIndex];
   insertMessageInJson(messageIndex + 1, {
-    author: anchor.author === "me" ? "them" : "me",
+    author: anchor.author ?? "them",
     text: "",
     display: "scene",
     sentAt: anchor.sentAt ?? "12:34",
@@ -5033,12 +5033,10 @@ const insertReplyMessageAfter = (messageIndex) => {
     return;
   }
   const anchor = parsed.messages[messageIndex];
-  const next = parsed.messages[messageIndex + 1];
-  const author = next?.author ?? (anchor.author === "me" ? "them" : "me");
   insertMessageInJson(messageIndex + 1, {
-    author,
+    author: anchor.author ?? "them",
     text: "",
-    sentAt: next?.sentAt ?? anchor.sentAt ?? "12:34",
+    sentAt: anchor.sentAt ?? "12:34",
   });
   refreshDialogue();
 };
