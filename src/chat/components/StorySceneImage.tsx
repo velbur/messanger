@@ -2,7 +2,6 @@ import React from "react";
 import {AbsoluteFill} from "remotion";
 import type {StorySceneAnimation} from "../story";
 import {storyMotionLoopFrames} from "../story-motion";
-import {storyVideoPathForImage} from "../story-video-paths";
 import {DepthDisplacementImage} from "./DepthDisplacementImage";
 import {KenBurnsImage} from "./KenBurnsImage";
 import {PerspectiveParallaxImage} from "./PerspectiveParallaxImage";
@@ -122,11 +121,9 @@ export const StorySceneImage: React.FC<Props> = ({
   const motionLoopFrameCount = storyMotionLoopFrames(motionLoopSec);
   const trimmedImage = image?.trim();
   const trimmedVideo = video?.trim();
+  // Только явный storyVideo из JSON/таймлайна — иначе Remotion падает 404 на несуществующий .video.mp4
   const hybridVideo =
-    trimmedVideo ||
-    ((animation === "video-parallax" || animation === "video-kenburns") && trimmedImage
-      ? storyVideoPathForImage(trimmedImage)
-      : undefined);
+    isHybridVideoAnimation(animation) && trimmedVideo ? trimmedVideo : undefined;
 
   if (isHybridVideoAnimation(animation) && hybridVideo) {
     return (
