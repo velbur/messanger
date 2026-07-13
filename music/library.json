@@ -56,6 +56,22 @@
       "licenseUrl": null,
       "licenseNote": "Suno — убедитесь в правах перед публикацией",
       "sourceUrl": null
+    },
+    {
+      "id": "весь-мир-смотрит.mp3",
+      "label": "Кино — Весь мир смотрит",
+      "title": "Весь мир смотрит",
+      "category": "cinematic",
+      "moods": [
+        "dramatic",
+        "story",
+        "tension",
+        "neutral"
+      ],
+      "license": "Custom",
+      "licenseUrl": null,
+      "licenseNote": "mishellbox — убедитесь в правах перед публикацией",
+      "sourceUrl": null
     }
   ]
 }

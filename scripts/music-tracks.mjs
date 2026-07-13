@@ -42,6 +42,7 @@ export const MUSIC_TRACK_MOODS = {
   "gasoline-heist.mp3": ["comedy", "tension", "story", "dramatic", "neutral"],
   "2007.mp3": ["story", "dramatic", "nostalgic", "neutral", "calm"],
   "showroom-flow.mp3": ["neutral", "calm", "ambient", "story", "casual"],
+  "весь-мир-смотрит.mp3": ["dramatic", "story", "tension", "neutral"],
 };
 
 export const DEFAULT_MUSIC_ID = "2007.mp3";
