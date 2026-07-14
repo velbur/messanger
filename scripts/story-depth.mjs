@@ -507,26 +507,20 @@ const storyImagesWithVideoHybrid = (conversation) => {
     return set;
   }
 
+  // Кадр — видео-гибрид (Veo + hold-parallax) только если в JSON реально указан storyVideo
+  // и файл на месте. Без ссылки в JSON кадр анимируется PNG depth-параллаксом, поэтому его
+  // нельзя пропускать при запекании из-за случайного старого .video.mp4 на диске (напр. на воркере).
   const addIfVideo = (image, holder) => {
     const imagePath = String(image ?? "").trim().replace(/^\/+/, "");
     if (!imagePath) {
       return;
     }
     const videoRef = String(holder?.storyVideo ?? "").trim();
-    if (videoRef) {
-      try {
-        const {absolute} = safePublicAbs(videoRef);
-        if (existsSync(absolute)) {
-          set.add(imagePath);
-          return;
-        }
-      } catch {
-        /* try default path */
-      }
+    if (!videoRef) {
+      return;
     }
     try {
-      const candidate = storyVideoPathForImage(imagePath);
-      const {absolute} = safePublicAbs(candidate);
+      const {absolute} = safePublicAbs(videoRef);
       if (existsSync(absolute)) {
         set.add(imagePath);
       }
