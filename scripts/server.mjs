@@ -194,6 +194,19 @@ import {slugifyProjectName} from "./project-slug.mjs";
 import {isYoutubeConfigured, uploadVideoToYoutube} from "./youtube-client.mjs";
 import {pingRemoteWorker, uploadAssetToRemote} from "./remote-upload.mjs";
 import {
+  createStudioClip,
+  correctStudioClipImage,
+  deleteStudioClip,
+  deleteStudioClipImage,
+  deleteStudioClipVideo,
+  generateStudioClipImage,
+  generateStudioClipVideo,
+  getStudioClip,
+  listStudioClips,
+  updateStudioClip,
+  uploadStudioClipImage,
+} from "./studio.mjs";
+import {
   hybridDurationFrames,
   renderVideoParallaxPreview,
   VIDEO_PARALLAX_EXTRA_SEC,
@@ -2002,6 +2015,131 @@ app.post("/api/images/upload", async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.get("/api/studio", async (_req, res) => {
+  try {
+    res.json({clips: await listStudioClips()});
+  } catch (error) {
+    res.status(500).json({error: error instanceof Error ? error.message : String(error)});
+  }
+});
+
+app.post("/api/studio", async (req, res) => {
+  try {
+    const clip = await createStudioClip(req.body ?? {});
+    res.status(201).json({clip});
+  } catch (error) {
+    res.status(400).json({error: error instanceof Error ? error.message : String(error)});
+  }
+});
+
+app.get("/api/studio/:id", async (req, res) => {
+  try {
+    const clip = await getStudioClip(req.params.id);
+    res.json({clip});
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.put("/api/studio/:id", async (req, res) => {
+  try {
+    const clip = await updateStudioClip(req.params.id, req.body ?? {});
+    res.json({clip});
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.delete("/api/studio/:id", async (req, res) => {
+  try {
+    res.json(await deleteStudioClip(req.params.id));
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/upload", async (req, res) => {
+  try {
+    const clip = await uploadStudioClipImage(req.params.id, req.body ?? {});
+    res.json({clip});
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/generate-image", async (req, res) => {
+  try {
+    const result = await generateStudioClipImage(req.params.id, {
+      storyImageModel: resolveRequestStoryImageModel(req.body ?? {}),
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: formatOpenRouterError(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/correct", async (req, res) => {
+  try {
+    const result = await correctStudioClipImage(req.params.id, {
+      editPrompt: req.body?.editPrompt ?? req.body?.imageEditPrompt,
+      storyImageModel: resolveRequestStoryImageModel(req.body ?? {}),
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: formatOpenRouterError(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/generate-video", async (req, res) => {
+  try {
+    const result = await generateStudioClipVideo(req.params.id, {
+      storyVideoModel:
+        req.body?.storyVideoModel ||
+        req.body?.videoModel ||
+        resolveRequestStoryVideoModel(req.body ?? {}),
+      videoDurationSec: req.body?.videoDurationSec ?? req.body?.duration,
+      publicBaseUrl: getPublicBaseUrl(req),
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: formatOpenRouterError(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/delete-image", async (req, res) => {
+  try {
+    res.json(await deleteStudioClipImage(req.params.id));
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/studio/:id/delete-video", async (req, res) => {
+  try {
+    res.json(await deleteStudioClipVideo(req.params.id));
+  } catch (error) {
+    res.status(error?.statusCode === 404 ? 404 : 400).json({
       error: error instanceof Error ? error.message : String(error),
     });
   }

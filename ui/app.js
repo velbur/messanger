@@ -1,3 +1,5 @@
+import {initStudioTab} from "./studio.js?v=4";
+
 const jsonInput = document.getElementById("jsonInput");
 const btnExample = document.getElementById("btnExample");
 const btnRender = document.getElementById("btnRender");
@@ -75,6 +77,7 @@ const btnRefreshDialogue = document.getElementById("btnRefreshDialogue");
 const tabBtnSeries = document.getElementById("tabBtnSeries");
 const tabBtnShorts = document.getElementById("tabBtnShorts");
 const tabBtnVideo = document.getElementById("tabBtnVideo");
+const tabBtnStudio = document.getElementById("tabBtnStudio");
 const tabBtnPrompt = document.getElementById("tabBtnPrompt");
 const tabBtnApi = document.getElementById("tabBtnApi");
 const tabPanelSeries = document.getElementById("tabPanelSeries");
@@ -83,6 +86,8 @@ const tabPanelVideo = document.getElementById("tabPanelVideo");
 const tabPanelEditor = document.getElementById("tabPanelEditor");
 const tabPanelPrompt = document.getElementById("tabPanelPrompt");
 const tabPanelApi = document.getElementById("tabPanelApi");
+/** @type {ReturnType<typeof initStudioTab> | null} */
+let studioTab = null;
 const seriesFieldsRow = document.getElementById("seriesFieldsRow");
 const seriesIdInput = document.getElementById("seriesIdInput");
 const seriesUseContext = document.getElementById("seriesUseContext");
@@ -1247,6 +1252,7 @@ const updateContentViewVisibility = () => {
     tabPanelApi.hidden = activeMainTab !== "api";
     tabPanelApi.classList.toggle("tab-panel--active", activeMainTab === "api");
   }
+  studioTab?.updateVisibility(activeMainTab);
 };
 
 const showEditorView = async () => {
@@ -1318,6 +1324,7 @@ const updateTabButtonStates = (tabId, isContentTab) => {
     series: tabBtnSeries,
     shorts: tabBtnShorts,
     video: tabBtnVideo,
+    studio: tabBtnStudio,
     prompt: tabBtnPrompt,
     api: tabBtnApi,
   };
@@ -1387,6 +1394,9 @@ const setActiveTab = async (tabId, {skipEditorSwitch = false} = {}) => {
     loadStylePrompt();
     loadStoryStylePrompt();
   }
+  if (tabId === "studio") {
+    void studioTab?.onActivate();
+  }
 };
 
 tabBtnSeries?.addEventListener("click", () => {
@@ -1401,6 +1411,9 @@ tabBtnShorts?.addEventListener("click", () => {
 });
 tabBtnVideo?.addEventListener("click", () => {
   void setActiveTab("video");
+});
+tabBtnStudio?.addEventListener("click", () => {
+  void setActiveTab("studio");
 });
 tabBtnPrompt.addEventListener("click", () => setActiveTab("prompt"));
 tabBtnApi.addEventListener("click", () => setActiveTab("api"));
@@ -8911,6 +8924,91 @@ loadStoryStylePrompt();
 loadImageModels();
 loadStoryVideoModels();
 populateVoiceSelects();
+
+studioTab = initStudioTab({
+  getStoryImageModel: () =>
+    localStorage.getItem("messanger.studioImageModel") ||
+    "openai/gpt-5.4-image-2",
+  getStoryVideoModel: () =>
+    localStorage.getItem("messanger.studioVideoModel") || "google/veo-3.1",
+  populateImageModels: (selectEl) => {
+    if (!selectEl) {
+      return;
+    }
+    const preferred =
+      localStorage.getItem("messanger.studioImageModel") || "openai/gpt-5.4-image-2";
+    const models = imageModelCatalog.story ?? [];
+    selectEl.replaceChildren();
+    for (const item of models) {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = item.label || item.id;
+      if (item.hint) {
+        opt.title = item.hint;
+      }
+      selectEl.append(opt);
+    }
+    const resolved =
+      (preferred && models.some((item) => item.id === preferred) ? preferred : null) ||
+      (models.some((item) => item.id === "openai/gpt-5.4-image-2")
+        ? "openai/gpt-5.4-image-2"
+        : null) ||
+      models[0]?.id ||
+      "";
+    if (resolved && [...selectEl.options].some((opt) => opt.value === resolved)) {
+      selectEl.value = resolved;
+    }
+    selectEl.disabled = !openrouterImageAvailable || models.length === 0;
+    selectEl.onchange = () => {
+      if (selectEl.value) {
+        localStorage.setItem("messanger.studioImageModel", selectEl.value);
+      }
+    };
+  },
+  populateVideoModels: (selectEl) => {
+    if (!selectEl) {
+      return;
+    }
+    const models =
+      storyVideoProvider === "local-gpu"
+        ? storyVideoModelCatalog.localGpu ?? []
+        : storyVideoModelCatalog.veo ?? [];
+    const preferredDefault =
+      storyVideoProvider === "local-gpu"
+        ? storyVideoModelCatalog.defaults?.localGpu
+        : "google/veo-3.1";
+    const stored = localStorage.getItem("messanger.studioVideoModel");
+    const current = selectEl.value;
+    selectEl.replaceChildren();
+    for (const item of models) {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = item.label || item.id;
+      selectEl.append(opt);
+    }
+    const resolved =
+      (current && models.some((item) => item.id === current) ? current : null) ||
+      (stored && models.some((item) => item.id === stored) ? stored : null) ||
+      (preferredDefault && models.some((item) => item.id === preferredDefault)
+        ? preferredDefault
+        : null) ||
+      models[0]?.id ||
+      "";
+    if (resolved && [...selectEl.options].some((opt) => opt.value === resolved)) {
+      selectEl.value = resolved;
+    }
+    selectEl.disabled = !storyVideoConfigured || models.length === 0;
+    selectEl.onchange = () => {
+      if (selectEl.value) {
+        localStorage.setItem("messanger.studioVideoModel", selectEl.value);
+      }
+    };
+  },
+  pickClipboardImageFile,
+  openImageLightbox: openLightbox,
+  openVideoLightbox,
+});
+
 const loadOpenRouterStatus = async () => {
   try {
     const res = await fetch("/api/status");

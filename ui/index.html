@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=dialogue-layout-v2" />
+    <link rel="stylesheet" href="/styles.css?v=studio-tab-v4" />
   </head>
   <body>
     <main class="page">
@@ -54,6 +54,16 @@
           id="tabBtnVideo"
         >
           Video
+        </button>
+        <button
+          type="button"
+          class="tabs__btn"
+          role="tab"
+          aria-selected="false"
+          data-tab="studio"
+          id="tabBtnStudio"
+        >
+          Студия
         </button>
         <button
           type="button"
@@ -152,6 +162,138 @@
           Горизонтальные ролики 16:9 — переписка или повествование текстом на экране, без картинок.
         </p>
         <div id="videoDialoguesList" class="dialogues-list"></div>
+      </section>
+
+      <section class="panel tab-panel" id="tabPanelStudio" role="tabpanel" hidden>
+        <div class="browse-panel__head">
+          <span class="label" id="studioBrowseTitle">Студия</span>
+          <div class="browse-panel__actions">
+            <button type="button" id="btnStudioShowList" class="btn btn-secondary btn-small" hidden>
+              ← Все кадры
+            </button>
+            <button type="button" id="btnRefreshStudioList" class="btn btn-secondary btn-small">
+              Обновить
+            </button>
+            <button type="button" id="btnNewStudioClip" class="btn btn-primary btn-small">
+              Новый кадр
+            </button>
+          </div>
+        </div>
+        <p class="dialogue-hint" id="studioBrowseHint">
+          Отдельный режим: фото по промпту и анимация (Veo / Wan). Вставка из буфера, правка и удаление.
+        </p>
+        <div class="studio-layout">
+          <div id="studioListView">
+            <div class="studio-list-head">
+              <span class="label">Сохранённые кадры</span>
+              <span id="studioClipsCount" class="studio-list-count"></span>
+            </div>
+            <div id="studioClipsList" class="studio-clips" aria-live="polite"></div>
+          </div>
+          <div id="studioEditor" class="studio-editor" hidden>
+            <div class="studio-editor__head">
+              <button type="button" id="btnStudioBack" class="btn btn-secondary btn-small">
+                ← К списку
+              </button>
+              <span id="studioEditorTitle" class="label"></span>
+              <button type="button" id="btnStudioDeleteClip" class="btn btn-secondary btn-small">
+                Удалить кадр
+              </button>
+            </div>
+
+            <div class="studio-editor__grid">
+              <div class="studio-editor__fields">
+                <label class="label" for="studioTitleInput">Название</label>
+                <input id="studioTitleInput" class="input" type="text" autocomplete="off" />
+
+                <label class="label" for="studioAspectSelect">Формат</label>
+                <select id="studioAspectSelect" class="input">
+                  <option value="9:16">9:16 (вертикаль)</option>
+                  <option value="16:9">16:9 (горизонталь)</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                </select>
+
+                <label class="label" for="studioVideoDurationSelect">Длительность видео</label>
+                <select id="studioVideoDurationSelect" class="input" title="Veo поддерживает 4, 6 или 8 секунд">
+                  <option value="4" selected>4 секунды</option>
+                  <option value="6">6 секунд</option>
+                  <option value="8">8 секунд</option>
+                </select>
+
+                <label class="label" for="studioImageModelSelect">Модель фото</label>
+                <select id="studioImageModelSelect" class="input"></select>
+
+                <label class="label" for="studioVideoModelSelect">Модель анимации</label>
+                <select id="studioVideoModelSelect" class="input"></select>
+
+                <label class="label" for="studioPromptInput">Промпт фото</label>
+                <textarea
+                  id="studioPromptInput"
+                  class="input studio-editor__textarea"
+                  rows="6"
+                  placeholder="Опишите кадр…"
+                ></textarea>
+
+                <label class="label" for="studioMotionPromptInput">Промпт анимации</label>
+                <textarea
+                  id="studioMotionPromptInput"
+                  class="input studio-editor__textarea"
+                  rows="4"
+                  placeholder="Движение камеры и объекты… (пусто = авто из промпта фото)"
+                ></textarea>
+
+                <label class="label" for="studioEditPromptInput">Правка кадра</label>
+                <textarea
+                  id="studioEditPromptInput"
+                  class="input studio-editor__textarea"
+                  rows="3"
+                  placeholder="Что изменить на уже сгенерированном фото…"
+                ></textarea>
+
+                <div class="studio-editor__actions">
+                  <button type="button" id="btnStudioSave" class="btn btn-secondary btn-small">
+                    Сохранить
+                  </button>
+                  <button type="button" id="btnStudioPaste" class="btn btn-primary btn-small">
+                    Из буфера
+                  </button>
+                  <button type="button" id="btnStudioGenerateImage" class="btn btn-primary btn-small">
+                    Сгенерировать фото
+                  </button>
+                  <button type="button" id="btnStudioCorrect" class="btn btn-secondary btn-small">
+                    Применить правку
+                  </button>
+                  <button type="button" id="btnStudioGenerateVideo" class="btn btn-primary btn-small">
+                    Анимировать
+                  </button>
+                  <button type="button" id="btnStudioDeleteImage" class="btn btn-secondary btn-small">
+                    Удалить фото
+                  </button>
+                  <button type="button" id="btnStudioDeleteVideo" class="btn btn-secondary btn-small">
+                    Удалить анимацию
+                  </button>
+                </div>
+                <p id="studioStatus" class="status-text" aria-live="polite"></p>
+              </div>
+
+              <div class="studio-editor__preview">
+                <div class="studio-preview-card" id="studioImageCard" tabindex="0" title="Ctrl+V — вставить из буфера">
+                  <span class="studio-preview-card__label">Фото</span>
+                  <div id="studioImagePreview" class="studio-preview-card__media">
+                    <span class="studio-preview-card__empty">Нет фото</span>
+                  </div>
+                </div>
+                <div class="studio-preview-card">
+                  <span class="studio-preview-card__label">Анимация</span>
+                  <div id="studioVideoPreview" class="studio-preview-card__media">
+                    <span class="studio-preview-card__empty">Нет анимации</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="panel tab-panel tab-panel--editor" id="tabPanelEditor" role="tabpanel" hidden>
@@ -873,6 +1015,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=voiceover-controls-v2" type="module"></script>
+    <script src="/app.js?v=studio-tab-v4" type="module"></script>
   </body>
 </html>
