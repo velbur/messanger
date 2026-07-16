@@ -1,0 +1,134 @@
+{
+  "contactName": "Любимая ❤️",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "female",
+    "meVoice": "male",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 1.5,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/muzh-vernulsya-s-raboty-ranshe/preview-cover.png",
+    "title": "Муж вернулся с работы раньше",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/muzh-vernulsya-s-raboty-ranshe/story-opening.png",
+      "imagePrompt": "Рисованный кадр: уютная современная квартира, солнечный свет льется из окна. На спинке стула небрежно брошен пиджак.",
+      "durationMs": 2500,
+      "animation": "depthParallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Солнце, сюрприз! Встречу отменили, буду дома через 15 минут.",
+      "storyImage": "images/muzh-vernulsya-s-raboty-ranshe/story-msg-1.png",
+      "storyImagePrompt": "Рисованный кадр: рука мужчины держит смартфон с открытым чатом, за окном машины размытая городская улица.",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-1.wav",
+      "voiceDurationMs": 6120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "радостно, бодро, чуть быстрее",
+      "sentAt": "18:30"
+    },
+    {
+      "author": "them",
+      "text": "Ой! Уже???",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-2.wav",
+      "voiceDurationMs": 2160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуганно, резко, повышенным тоном",
+      "sentAt": "18:31"
+    },
+    {
+      "author": "them",
+      "text": "Я думала, ты поздно будешь...",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-3.wav",
+      "voiceDurationMs": 2400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревожно, сбивчиво, тише обычного",
+      "sentAt": "18:31"
+    },
+    {
+      "author": "me",
+      "text": "Я уже зашел. Слушай, а ты где? И почему у нас в шкафу голый мужик?",
+      "storyImage": "images/muzh-vernulsya-s-raboty-ranshe/story-msg-4.png",
+      "storyImagePrompt": "Рисованный кадр: вид изнутри темного шкафа, в проеме видно удивленное лицо заглядывающего мужчины.",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-4.wav",
+      "voiceDurationMs": 6800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ошарашенно, напряженно, с нарастающим акцентом",
+      "sentAt": "18:46"
+    },
+    {
+      "author": "them",
+      "text": "Ой, да я в гостиной. Эммм, в шкафу? 🤔",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-5.wav",
+      "voiceDurationMs": 4640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервно-невинно, с паузой, неуверенно",
+      "sentAt": "18:47"
+    },
+    {
+      "author": "them",
+      "text": "А, это! Это из службы по борьбе с молью, я вызывала.",
+      "storyImage": "images/muzh-vernulsya-s-raboty-ranshe/story-msg-6.png",
+      "storyImagePrompt": "Рисованный кадр: женщина с паническим, но старательно-невинным выражением лица смотрит в телефон на фоне интерьера квартиры.",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-6.wav",
+      "voiceDurationMs": 4720,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "поспешно оправдываясь, быстрее, натянуто",
+      "sentAt": "18:47"
+    },
+    {
+      "author": "me",
+      "text": "Допустим. А почему он ГОЛЫЙ?",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-7.wav",
+      "voiceDurationMs": 3800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "возмущенно, громче, с жестким нажимом",
+      "sentAt": "18:48"
+    },
+    {
+      "author": "them",
+      "text": "Так моль совсем озверела!",
+      "storyImage": "images/muzh-vernulsya-s-raboty-ranshe/story-msg-8.png",
+      "storyImagePrompt": "Рисованный кадр: нагой мужчина неловко стоит в шкафу среди одежды, пытаясь прикрыться. Вокруг него комично летают бабочки моли.",
+      "voiceAudio": "audio/muzh-vernulsya-s-raboty-ranshe/msg-8.wav",
+      "voiceDurationMs": 2360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "абсурдно-оправдательно, нервно, с натянутой живостью",
+      "sentAt": "18:49"
+    }
+  ]
+}

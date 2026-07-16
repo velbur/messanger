@@ -1,0 +1,333 @@
+{
+  "contactName": "Лев",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/mystery-nield-grohm-hanging-1.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "Sadaltager",
+    "meVoice": "Enceladus",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/sekretnyy-arhiv/preview-cover.png",
+    "title": "Секретный архив",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/kniga-kotoraya-pishet-sama-sebya/story-opening.png",
+      "imagePrompt": "Бесконечные ряды пыльных книжных полок в тускло освещенной тайной библиотеке, лучи света пробиваются сквозь щели в потолке, подсвечивая частицы пыли в воздухе. Фотореализм, кинематографичный свет, снято на 35мм, высокая детализация.",
+      "durationMs": 2500,
+      "animation": "depthParallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Лев, тут какая-то дичь. Сектор 2029. Стеллажи не по номерам, а по датам.",
+      "storyImage": "images/kniga-kotoraya-pishet-sama-sebya/story-msg-1.png",
+      "storyImagePrompt": "Фотореализм, кинематографичный вертикальный кадр 9:16, снято на 35мм: огромный архивный сектор с табличкой «2029», уходящие вглубь высокие металлические стеллажи, на полках коробки и папки с наклейками по датам, а не по номерам, создавая странное ощущение беспорядка. В переднем плане человек в простой тёмной куртке стоит вполоборота между рядами, слегка приподняв брови и напряжённо всматриваясь в маркировку, в руке телефон, будто он только что пишет сообщение. Холодный верхний свет смешивается с тёплыми боковыми лампами, подчёркивая пыль в воздухе, фактуру металла и бумаги, высокая детализация, естественное лицо и атмосферная глубина сцены.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-1.wav",
+      "voiceDurationMs": 7800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревожно, быстро, вполголоса, сбивчиво",
+      "sentAt": "11:01"
+    },
+    {
+      "author": "them",
+      "text": "Что? Ты где? Я же сказал не ходить в старые архивы.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-2.wav",
+      "voiceDurationMs": 5120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуганно, резко, повышая голос",
+      "sentAt": "11:02"
+    },
+    {
+      "author": "me",
+      "text": "Я заблудился. Тут стеллаж с сегодняшним числом. И на нем книга... с нашими именами.",
+      "storyImage": "images/kniga-kotoraya-pishet-sama-sebya/story-msg-3.png",
+      "storyImagePrompt": "Крупный план древней книги в кожаном переплете на пыльной полке. Имена 'Лев' и 'Макар' вытеснены свежим, блестящим золотом на обложке, резко контрастируя с возрастом книги. Фотореализм, кинематографичный свет, снято на 35мм.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-3.wav",
+      "voiceDurationMs": 8520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "растерянно, быстро, с нарастающим страхом",
+      "sentAt": "11:03"
+    },
+    {
+      "author": "them",
+      "text": "Не трогай ее.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-4.wav",
+      "voiceDurationMs": 1920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "жестко, коротко, тихо, напряженно",
+      "sentAt": "11:03"
+    },
+    {
+      "author": "them",
+      "text": "Слышишь? НЕ ТРОГАЙ. Уходи оттуда немедленно.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-5.wav",
+      "voiceDurationMs": 4920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "панически, громко, отрывисто, приказом",
+      "sentAt": "11:04"
+    },
+    {
+      "author": "me",
+      "text": "Поздно. Я уже открыл.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-6.wav",
+      "voiceDurationMs": 2520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "мрачно, тихо, с обреченной паузой",
+      "sentAt": "11:05"
+    },
+    {
+      "author": "me",
+      "text": "Она описывает наш сегодняшний день. Слово в слово.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-7.wav",
+      "voiceDurationMs": 4920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "потрясенно, медленно, сдавленным голосом",
+      "sentAt": "11:05"
+    },
+    {
+      "author": "me",
+      "text": "Как я пришел в библиотеку, как заблудился... как нашел эту книгу.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-8.wav",
+      "voiceDurationMs": 4760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуганно, сбивчиво, на одном дыхании",
+      "sentAt": "11:06"
+    },
+    {
+      "author": "them",
+      "text": "Я знаю.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-9.wav",
+      "voiceDurationMs": 1280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тяжело, тихо, с мрачным признанием",
+      "sentAt": "11:07"
+    },
+    {
+      "author": "me",
+      "text": "Откуда?!",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-10.wav",
+      "voiceDurationMs": 1280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "шокированно, резко, почти вскриком",
+      "sentAt": "11:07"
+    },
+    {
+      "author": "them",
+      "text": "Я нашел ее неделю назад.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-11.wav",
+      "voiceDurationMs": 2880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "глухо, медленно, виновато",
+      "sentAt": "11:08"
+    },
+    {
+      "author": "them",
+      "text": "Она была пустая.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-12.wav",
+      "voiceDurationMs": 2360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "напряженно, тихо, с холодной паузой",
+      "sentAt": "11:08"
+    },
+    {
+      "author": "me",
+      "text": "Что значит пустая? Кто ее пишет?",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-13.wav",
+      "voiceDurationMs": 3400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "непонимающе, быстро, с тревожным нажимом",
+      "sentAt": "11:09"
+    },
+    {
+      "author": "them",
+      "text": "Она сама себя пишет. Записывает все, что я делаю. Каждое слово, каждый шаг.",
+      "storyImage": "images/kniga-kotoraya-pishet-sama-sebya/story-msg-14.png",
+      "storyImagePrompt": "Лицо Льва, наполовину в тени, освещено только экраном телефона в темной комнате. В его глазах ужас и крайнее истощение. Высокая детализация, фотореализм, кинематографичный свет.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-14.wav",
+      "voiceDurationMs": 6680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "мрачно, ровно, почти безэмоционально",
+      "sentAt": "11:10"
+    },
+    {
+      "author": "me",
+      "text": "Погоди... тут написано: \"Он недоверчиво смотрит на строки, а затем пишет Льву...\"",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-15.wav",
+      "voiceDurationMs": 7120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "настороженно, медленно, читая с ужасом",
+      "sentAt": "11:11"
+    },
+    {
+      "author": "me",
+      "text": "Это же... про сейчас.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-16.wav",
+      "voiceDurationMs": 2360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "потрясенно, тихо, с дрожащей интонацией",
+      "sentAt": "11:11"
+    },
+    {
+      "author": "them",
+      "text": "Да.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-17.wav",
+      "voiceDurationMs": 920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тяжело, коротко, обреченно",
+      "sentAt": "11:12"
+    },
+    {
+      "author": "me",
+      "text": "Ты пытался что-то изменить? Обмануть ее?",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-18.wav",
+      "voiceDurationMs": 3400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "напряженно, быстро, с отчаянной надеждой",
+      "sentAt": "11:13"
+    },
+    {
+      "author": "them",
+      "text": "Каждый день. Но она просто записывала мои попытки. Это не пророчество, это протокол.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-19.wav",
+      "voiceDurationMs": 7320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "устало, глухо, с горьким смирением",
+      "sentAt": "11:14"
+    },
+    {
+      "author": "me",
+      "text": "И что... что в ней написано про финал? Пролистай до конца.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-20.wav",
+      "voiceDurationMs": 4040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревожно, торопливо, с дрожью",
+      "sentAt": "11:15"
+    },
+    {
+      "author": "them",
+      "text": "Я боюсь. Я не открывал ее с того дня.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-21.wav",
+      "voiceDurationMs": 3920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуганно, тихо, с признательной слабостью",
+      "sentAt": "11:16"
+    },
+    {
+      "author": "me",
+      "text": "Лев, я заперт в этом секторе с этой книгой! Посмотри!",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-22.wav",
+      "voiceDurationMs": 4920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "в панике, громко, требовательно, срываясь",
+      "sentAt": "11:17"
+    },
+    {
+      "author": "them",
+      "text": "...",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-23.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тягостная пауза, беззвучно, с оцепенением",
+      "sentAt": "11:18"
+    },
+    {
+      "author": "them",
+      "text": "Пожар.",
+      "storyImage": "images/kniga-kotoraya-pishet-sama-sebya/story-msg-24.png",
+      "storyImagePrompt": "Широкий кадр бесконечного библиотечного прохода. Небольшая, зловещая струйка дыма начинает подниматься с верхушки дальнего книжного стеллажа, едва заметная в тусклом свете. Напряженная атмосфера. Фотореализм, снято на 35мм.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-24.wav",
+      "voiceDurationMs": 1160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ошеломленно, тихо, почти шепотом",
+      "sentAt": "11:19"
+    },
+    {
+      "author": "me",
+      "text": "Что? Где?",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-25.wav",
+      "voiceDurationMs": 2280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуганно, резко, с недоверием",
+      "sentAt": "11:19"
+    },
+    {
+      "author": "them",
+      "text": "Начинается через минуту с моего стеллажа. Прости, что втянул тебя в это.",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-26.wav",
+      "voiceDurationMs": 5960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "обреченно, тихо, виновато, с паузами",
+      "sentAt": "11:20"
+    },
+    {
+      "author": "me",
+      "text": "Твоего? Но я же...",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-27.wav",
+      "voiceDurationMs": 2960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "растерянно, сбито, с нарастающим ужасом",
+      "sentAt": "11:21"
+    },
+    {
+      "author": "them",
+      "text": "Последняя строчка: \"Огонь перекидывается на сектор 2029\".",
+      "voiceAudio": "audio/sekretnyy-arhiv/msg-28.wav",
+      "voiceDurationMs": 4400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ледяно, медленно, с фатальной ясностью",
+      "sentAt": "11:22"
+    }
+  ]
+}

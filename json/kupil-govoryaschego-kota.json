@@ -1,0 +1,153 @@
+{
+  "contactName": "Гриша",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/romantic.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "male",
+    "meVoice": "male",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 0.7,
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/kupil-govoryaschego-kota/story-opening.png",
+      "imagePrompt": "Уютная гостиная в сумерках, на журнальном столике расставлена шахматная доска, людей и животных пока не видно. Рисованная иллюстрация.",
+      "durationMs": 2500,
+      "animation": "video",
+      "storyVideo": "images/kupil-govoryaschego-kota/story-opening.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2"
+    },
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Гриш, я купил говорящего кота!",
+      "storyImage": "images/kupil-govoryaschego-kota/story-msg-1.png",
+      "storyImagePrompt": "Мужчина с восторгом смотрит в телефон, рядом на диване сидит рыжий кот со скучающим видом. Рисованная иллюстрация.",
+      "sentAt": "19:30",
+      "storyVideo": "images/kupil-govoryaschego-kota/story-msg-1.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceEmotion": "восторг, быстро, громко, с улыбкой",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-1.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 3880
+    },
+    {
+      "author": "them",
+      "text": "ЧТО?! Серьёзно?",
+      "sentAt": "19:30",
+      "voiceEmotion": "шок, резко, громко, на подъёме",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-2.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 3440
+    },
+    {
+      "author": "them",
+      "text": "Ты меня разыгрываешь?",
+      "sentAt": "19:31",
+      "voiceEmotion": "недоверие, чуть медленнее, с подозрением",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-3.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 1840
+    },
+    {
+      "author": "me",
+      "text": "Нет! Мы с ним сейчас в шахматы рубимся.",
+      "storyImage": "images/kupil-govoryaschego-kota/story-msg-4.png",
+      "storyImagePrompt": "Крупный план шахматной доски между человеком и рыжим котом. Кот держит лапу на фигуре, внимательно глядя на доску. Рисованная иллюстрация.",
+      "sentAt": "19:31",
+      "storyVideo": "images/kupil-govoryaschego-kota/story-msg-4.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceEmotion": "азарт, живо, уверенно, чуть громче",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-4.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 3280
+    },
+    {
+      "author": "them",
+      "text": "В ШАХМАТЫ С КОТОМ?! 🤯",
+      "sentAt": "19:32",
+      "voiceEmotion": "крайнее удивление, очень громко, отрывисто",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-5.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 2240
+    },
+    {
+      "author": "them",
+      "text": "Ничего себе, какой умный!",
+      "sentAt": "19:32",
+      "voiceEmotion": "восхищение, тепло, чуть медленнее",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-6.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 3280
+    },
+    {
+      "author": "me",
+      "text": "Да не особо он и умный.",
+      "sentAt": "19:33",
+      "voiceEmotion": "спокойный скепсис, ровно, с лёгкой усмешкой",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-7.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 2480
+    },
+    {
+      "author": "them",
+      "text": "В смысле? Он же в шахматы играет!",
+      "sentAt": "19:33",
+      "voiceEmotion": "непонимание, быстрее, громче, с нажимом",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-8.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 2960
+    },
+    {
+      "author": "me",
+      "text": "Ну да, но счёт пока 3:2 в мою пользу.",
+      "storyImage": "images/kupil-govoryaschego-kota/story-msg-9.png",
+      "storyImagePrompt": "Мужчина ухмыляется в телефон, рыжий кот рядом с ним широко зевает, выглядя совершенно невпечатленным. Рисованная иллюстрация.",
+      "sentAt": "19:34",
+      "voiceEmotion": "самодовольная ирония, спокойно, с паузой",
+      "voiceAudio": "audio/kupil-govoryaschego-kota/msg-9.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceDurationMs": 3720,
+      "storyVideo": "images/kupil-govoryaschego-kota/story-msg-9.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 6000
+    }
+  ],
+  "previewCover": {
+    "enabled": true,
+    "image": "images/kupil-govoryaschego-kota/preview-cover.png",
+    "title": "Купил говорящего кота",
+    "durationMs": 3000
+  }
+}

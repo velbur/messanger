@@ -7,11 +7,11 @@
   "messageFontSize": 48,
   "myName": "Я",
   "music": {
-    "enabled": false,
+    "enabled": true,
     "src": "music/romantic.mp3"
   },
   "voiceover": {
-    "enabled": false,
+    "enabled": true,
     "provider": "openrouter",
     "themVoice": "female",
     "meVoice": "male",
@@ -30,6 +30,9 @@
     "opening": {
       "image": "images/ya-tebe-chto-konditer/story-opening.png",
       "imagePrompt": "Шумный спорт-бар, полный болельщиков. Мужчина сидит за столиком, его взгляд прикован к большому экрану с футболом.",
+      "storyVideo": "images/ya-tebe-chto-konditer/story-opening.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "durationMs": 2500,
       "animation": "depthParallax"
     },
@@ -67,6 +70,9 @@
       "text": "Ладно, неважно. Уже всё в порядке.",
       "storyImage": "images/ya-tebe-chto-konditer/story-msg-3.png",
       "storyImagePrompt": "Женщина на чистой, убранной кухне вытирает руки о полотенце, на лице довольная улыбка.",
+      "storyVideo": "images/ya-tebe-chto-konditer/story-msg-3.video.mp4",
+      "storyVideoDurationMs": 6000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-3.wav",
       "voiceDurationMs": 3120,
       "voiceTtsProvider": "openrouter",
@@ -89,6 +95,9 @@
       "text": "Сосед помог, Игорь из 34-й.",
       "storyImage": "images/ya-tebe-chto-konditer/story-msg-5.png",
       "storyImagePrompt": "Симпатичный мужчина лет 30-ти с ящиком инструментов улыбается, стоя в дверях кухни.",
+      "storyVideo": "images/ya-tebe-chto-konditer/story-msg-5.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "voiceAudio": "audio/vecher-futbola-s-neozhidannym-finalom/msg-5.wav",
       "voiceDurationMs": 3720,
       "voiceTtsProvider": "openrouter",

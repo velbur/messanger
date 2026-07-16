@@ -1,0 +1,439 @@
+{
+  "contactName": "Илай",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/mystery-slow-rain.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "Sadachbia",
+    "meVoice": "Zubenelgenubi",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "layout": "storyOverlay",
+  "story": {
+    "characters": [
+      {
+        "id": "me",
+        "name": "Лев",
+        "role": "me",
+        "appearance": "Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами."
+      },
+      {
+        "id": "them",
+        "name": "Илай",
+        "role": "them",
+        "appearance": "Илай, мужчина за 50, с коротко стриженными седыми волосами и пронзительным взглядом. У него строгое лицо с глубокими морщинами. Одет в идеально скроенный тёмный костюм, который выглядит неуместно в пыльном архиве."
+      }
+    ],
+    "opening": {
+      "image": "images/katalog-buduschih-knig/story-opening.png",
+      "imagePrompt": "Высокий узкий зал старого архива, уходящий вверх в темноту: бесконечные металлические стеллажи, деревянные ящики каталогов, толстый слой пыли на полу и полках, в воздухе висят серебристые пылинки. В глубине композиции выделяется закрытая секция с тяжёлой табличкой без читаемых символов, вокруг неё — едва уловимое холодное сияние и тревожный оттенок озона, контрастирующий с тёплыми охристыми тонами старой бумаги и потемневшего дерева. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра. Кадр как иллюстрация художника-сториборда: глубина и объём сцены, продуманная композиция, без текста и надписей на картинке.",
+      "durationMs": 2500,
+      "animation": "depthParallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Илай, я нашёл. Секция «Неизбежность».",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-1.png",
+      "storyImagePrompt": "Высокие стеллажи старого архива уходят вверх в полумрак, воздух густой от пыли, а узкий проход упирается в тёмный участок с особенно тяжёлой, тревожной атмосферой — ощущение, что найдена запретная секция. На переднем плане Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами. Он замер у стеллажа, слегка выдвинув старую архивную коробку или папку, в луче холодного света, который выхватывает пыль, потёртые корешки и глубину проходов; единый стиль проекта: детализированная рисованная иллюстрация, чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный свет и насыщенная гармоничная палитра.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-1.wav",
+      "voiceDurationMs": 5880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "взволнованно, быстро, приглушённо",
+      "sentAt": "17:01"
+    },
+    {
+      "author": "them",
+      "text": "Уверен, что та? Её не трогали десятилетиями.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-2.wav",
+      "voiceDurationMs": 4280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "тревожно, сдержанно, низким тоном",
+      "sentAt": "17:02"
+    },
+    {
+      "author": "me",
+      "text": "Пыль в палец толщиной. И запах... озона и старой бумаги.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-3.wav",
+      "voiceDurationMs": 5840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "настороженно, медленнее, с омерзением",
+      "sentAt": "17:03"
+    },
+    {
+      "author": "me",
+      "text": "Здесь корешки без единой буквы. Как ты и говорил.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-4.wav",
+      "voiceDurationMs": 3800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "любопытно, тихо, с нарастающим напряжением",
+      "sentAt": "17:03"
+    },
+    {
+      "author": "them",
+      "text": "Не отвлекайся. Ищи том 734. Подраздел «Коллективная амнезия».",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-5.png",
+      "storyImagePrompt": "Глубоко внутри старого архива тянутся ввысь бесконечные стеллажи, утопающие в пыли и полумраке; на переднем плане — узкий проход, где среди безымянных потемневших корешков едва заметно выделяется один выдвинутый том, намекая на поиски нужного номера. Воздух кажется тяжёлым от старой бумаги и сухой пыли, но в холодных отблесках где-то в глубине чувствуется странковатый озоновый оттенок света. Детализированная рисованная иллюстрация с выразительной глубиной пространства, мягкой живописной заливкой, чёткими контурами, насыщенной, но сдержанной палитрой и тревожной атмосферой забытого раздела архива.",
+      "storySceneCharacters": [],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-5.wav",
+      "voiceDurationMs": 7280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "собранно, жёстко, короткими фразами",
+      "sentAt": "17:04"
+    },
+    {
+      "author": "me",
+      "text": "Есть. Он... холодный. Ледяной, даже сквозь перчатки.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-6.png",
+      "storyImagePrompt": "В глубине пыльного архива между высокими стеллажами Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами. Он стоит у раскрытой секции с безымянными потёртыми корешками и осторожно держит вынутый том, от которого исходит тревожный ледяной холод; вокруг пальцев и обложки ощущается почти зримая стылая атмосфера, резко контрастирующая с тёплой пылью и тусклым светом архива. Детализированная рисованная иллюстрация, вертикальная композиция 9:16, выразительная глубина стеллажей, мягкая живописная заливка, чёткие контуры, насыщенная приглушённая палитра и напряжённое атмосферное освещение.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-6.wav",
+      "voiceDurationMs": 7400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "испуганно, тише, с дрожью в голосе",
+      "sentAt": "17:05"
+    },
+    {
+      "author": "them",
+      "text": "Открывай. Что видишь на пустых страницах?",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-7.wav",
+      "voiceDurationMs": 3760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "напряжённо, ровно, требовательно",
+      "sentAt": "17:06"
+    },
+    {
+      "author": "me",
+      "text": "Секунду, дай сфокусироваться.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-8.wav",
+      "voiceDurationMs": 2520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "сосредоточенно, тихо, прерывисто",
+      "sentAt": "17:07"
+    },
+    {
+      "author": "me",
+      "text": "Вижу... падение интереса к истории. Переписывание фактов в реальном времени.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-9.png",
+      "storyImagePrompt": "В глубине пыльного архивного прохода среди бесконечных стеллажей стоит Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами. Он держит раскрытый бессловесный том у груди, а перед ним в воздухе и на страницах проступают тревожные, почти призрачные визуальные намёки на распад исторической памяти: осыпающиеся карточки каталога, смазанные силуэты документов, слои переписывающихся записей, будто реальность стирает и заменяет факты на глазах; холодный бледно-синий свет книги сталкивается с тёплой пылью архива, создавая густую напряжённую атмосферу.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-9.wav",
+      "voiceDurationMs": 6080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "ошарашенно, медленно, всматриваясь в слова",
+      "sentAt": "17:09"
+    },
+    {
+      "author": "me",
+      "text": "Люди добровольно забудут то, что произошло всего пять лет назад.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-10.wav",
+      "voiceDurationMs": 4920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "тревожно, глуше, с нарастающим ужасом",
+      "sentAt": "17:10"
+    },
+    {
+      "author": "them",
+      "text": "Это главный бестселлер 2029-го. Называется «Право на забвение».",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-11.wav",
+      "voiceDurationMs": 6440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "мрачно, спокойно, с тяжёлой уверенностью",
+      "sentAt": "17:11"
+    },
+    {
+      "author": "them",
+      "text": "Мы не читаем книги. Мы читаем будущие тревоги человечества.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-12.wav",
+      "voiceDurationMs": 6320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "зловеще спокойно, медленно, с нажимом",
+      "sentAt": "17:11"
+    },
+    {
+      "author": "me",
+      "text": "Погоди. Тут есть ещё одна книга. Без номера. Стоит особняком.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-13.png",
+      "storyImagePrompt": "Вертикальный establishing shot глубокого архивного прохода в секции «Неизбежность»: бесконечные высокие стеллажи тонут в полумраке, воздух густой от пыли, в узком холодном свете заметны вихри пылинок и старые корешки без названий. Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами, стоит у раскрытого шкафа и застыл, вытянув руку к странной книге без номера, которая стоит отдельно от остальных на пустом участке полки. Книга должна сразу притягивать взгляд: тёмный, почти безликий переплёт, вокруг неё едва ощутимое тревожное свечение и ощущение ледяной аномалии среди тёплых пыльных оттенков архива; композиция подчёркивает момент внезапного открытия и опасной находки.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-13.wav",
+      "voiceDurationMs": 8160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "настороженно, тише, с новым любопытством",
+      "sentAt": "17:13"
+    },
+    {
+      "author": "me",
+      "text": "И она... тёплая на ощупь. Словно живая.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-14.wav",
+      "voiceDurationMs": 4960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "удивлённо, шёпотом, с внутренней тревогой",
+      "sentAt": "17:13"
+    },
+    {
+      "author": "them",
+      "text": "Не трогай её, Лев. Это не из каталога.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-15.wav",
+      "voiceDurationMs": 3800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "резко тревожно, быстро, почти шёпотом",
+      "sentAt": "17:14"
+    },
+    {
+      "author": "them",
+      "text": "Положи на место и отойди. НЕМЕДЛЕННО.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-16.png",
+      "storyImagePrompt": "В глубине пыльного архива между towering стеллажами застыл напряжённый момент: Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами. Он стоит в пол-оборота у открытой секции, резко отдёргивая руку от одинокой тёпло мерцающей книги без номера, стоящей особняком среди безымянных корешков; вокруг клубится пыль, а холодный архивный сумрак прорезан тревожным золотистым свечением от книги и слабым электрическим светом сверху. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра; глубина сцены, объёмные стеллажи и нарастающее чувство немедленной опасности.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-16.wav",
+      "voiceDurationMs": 3920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "жёстко, громче, приказным тоном",
+      "sentAt": "17:14"
+    },
+    {
+      "author": "me",
+      "text": "Слишком поздно. Я уже открыл.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-17.wav",
+      "voiceDurationMs": 3400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "виновато-напряжённо, тихо, с обречённостью",
+      "sentAt": "17:15"
+    },
+    {
+      "author": "me",
+      "text": "Тут нет сюжета про общество. Это... биография.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-18.wav",
+      "voiceDurationMs": 4760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "растерянно, медленно, сбиваясь",
+      "sentAt": "17:16"
+    },
+    {
+      "author": "me",
+      "text": "Называется «Последний хранитель тишины».",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-19.png",
+      "storyImagePrompt": "В глубине пыльного архива между бесконечными стеллажами Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами, стоит у раскрытой безымянной книги на узком читальном столе; от её страниц исходит мягкое тёплое свечение, резко отличающееся от холодного сумрака секции «Неизбежность». Вокруг клубится пыль в лучах редкого света, корешки без названий уходят в темноту, а композиция подчёркивает тревожный момент узнавания: книга ощущается как личная и запретная, будто архив сам затаил дыхание.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-19.wav",
+      "voiceDurationMs": 3960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "мрачно удивлённо, тихо, с холодком",
+      "sentAt": "17:17"
+    },
+    {
+      "author": "them",
+      "text": "Лев, закрой книгу. Это приказ.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-20.wav",
+      "voiceDurationMs": 3280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "жёстко, отрывисто, подавляя панику",
+      "sentAt": "17:18"
+    },
+    {
+      "author": "me",
+      "text": "Илай, эта книга... она обо мне. Тут моё имя.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-21.png",
+      "storyImagePrompt": "В глубине пыльного архива среди бесконечных стеллажей стоит Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами. Он застыл у открытой безымянной книги, лежащей на узкой архивной подставке: от тёплых страниц исходит странное мягкое свечение, подсвечивающее его напряжённое лицо и руки, вокруг в воздухе висит пыль, а тёмные ряды книг уходят вверх и вглубь, создавая тревожную, почти сакральную атмосферу открытия личной тайны.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-21.wav",
+      "voiceDurationMs": 5520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "шокированно, громче, с дрожью",
+      "sentAt": "17:19"
+    },
+    {
+      "author": "me",
+      "text": "Здесь написано: «Он умер там же, где и работал — среди призраков книг, которые ещё предстояло написать».",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-22.wav",
+      "voiceDurationMs": 7120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "с ужасом, медленно, почти шёпотом",
+      "sentAt": "17:20"
+    },
+    {
+      "author": "them",
+      "text": "Черт. Ты заглянул в свою.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-23.wav",
+      "voiceDurationMs": 3040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "мрачно потрясённо, тихо, сквозь ругательство",
+      "sentAt": "17:21"
+    },
+    {
+      "author": "them",
+      "text": "Эта книга не предсказывает, Лев. Она фиксирует.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-24.wav",
+      "voiceDurationMs": 4600,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "холодно, медленно, безнадёжно",
+      "sentAt": "17:22"
+    },
+    {
+      "author": "me",
+      "text": "Фиксирует? Что это значит?",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-25.wav",
+      "voiceDurationMs": 2960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "непонимающе, быстро, с паникой",
+      "sentAt": "17:23"
+    },
+    {
+      "author": "them",
+      "text": "Пока ты не знал содержания, у будущего были варианты. Теперь, когда ты прочел, остался только один.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-26.png",
+      "storyImagePrompt": "В глубине пыльного архива среди бесконечных высоких стеллажей Лев, около 25 лет, худощавый молодой человек с растрёпанными тёмными волосами и пытливыми карими глазами. Одет в простую серую толстовку и джинсы, на руках — тонкие тканевые перчатки для работы с архивами, застыл у узкого прохода с раскрытой книгой в руках; от страниц исходит тревожное тёплое свечение, а вокруг в холодном полумраке клубится пыль, подчёркивая ощущение необратимости. На дальнем плане, между рядами стеллажей, виден Илай, мужчина за 50, с коротко стриженными седыми волосами и пронзительным взглядом. У него строгое лицо с глубокими морщинами. Одет в идеально скроенный тёмный костюм, который выглядит неуместно в пыльном архиве — он стоит неподвижно, напряжённо наблюдая, пока композиция кадра и контраст тёплого и ледяного света передают, что выборов больше не осталось.",
+      "storySceneCharacters": [
+        "me",
+        "them"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-26.wav",
+      "voiceDurationMs": 8400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "тяжело, ровно, с фатальной ясностью",
+      "sentAt": "17:24"
+    },
+    {
+      "author": "me",
+      "text": "Но я могу уйти! Просто выйти отсюда!",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-27.wav",
+      "voiceDurationMs": 4240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "отчаянно, громче, сбивчиво",
+      "sentAt": "17:25"
+    },
+    {
+      "author": "them",
+      "text": "Книга уже знает об этом.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-28.wav",
+      "voiceDurationMs": 2360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "ледяно спокойно, тихо, без эмоций",
+      "sentAt": "17:26"
+    },
+    {
+      "author": "me",
+      "text": "Подожди... текст... он меняется.",
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-29.wav",
+      "voiceDurationMs": 3800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "voiceEmotion": "испуганно, прерывисто, на выдохе",
+      "sentAt": "17:27"
+    },
+    {
+      "author": "them",
+      "text": "Я знаю. Я её дописываю.",
+      "storyImage": "images/katalog-buduschih-knig/story-msg-30.png",
+      "storyImagePrompt": "Мрачный архивный зал уходит в высоту бесконечными стеллажами, между которыми в пыльном полумраке возникает напряжённая сцена: Илай, мужчина за 50, с коротко стриженными седыми волосами и пронзительным взглядом. У него строгое лицо с глубокими морщинами. Одет в идеально скроенный тёмный костюм, который выглядит неуместно в пыльном архиве. Он стоит у массивного стола с раскрытой книгой, и его рука с пером или тёмными чернилами зависла над страницами, будто он действительно вписывает новую строку в живой текст.",
+      "storySceneCharacters": [
+        "them"
+      ],
+      "voiceAudio": "audio/pravo-na-zabvenie/msg-30.wav",
+      "voiceDurationMs": 3000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v3|Zubenelgenubi|Sadachbia",
+      "voiceTtsVoice": "Sadachbia",
+      "voiceEmotion": "зловеще спокойно, медленно, с тихой угрозой",
+      "sentAt": "17:28"
+    }
+  ],
+  "previewCover": {
+    "enabled": true,
+    "image": "images/pravo-na-zabvenie/preview-cover.png",
+    "title": "Право на забвение",
+    "durationMs": 3000
+  }
+}

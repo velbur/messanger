@@ -40,7 +40,7 @@ export type MessageTimelineMs = {
 
 export const getStoryTargetDurationSec = (conversation: ConversationInput): number => {
   const raw = conversation.story?.targetDurationSec;
-  if (typeof raw === "number" && raw >= 30 && raw <= 120) {
+  if (typeof raw === "number" && raw >= 25 && raw <= 120) {
     return raw;
   }
   return DEFAULT_STORY_TARGET_DURATION_SEC;
@@ -147,8 +147,8 @@ export const deriveMessageCountLimitFromTarget = (conversation: ConversationInpu
 
 /** Без полного conversation — для генерации диалога до JSON */
 export const computeSceneCountFromTargetSec = (targetDurationSec: number): number => {
-  const sec = Math.max(30, Math.min(120, targetDurationSec));
-  const contentMs = Math.max(20_000, sec * 1000 - 15_000);
+  const sec = Math.max(25, Math.min(120, targetDurationSec));
+  const contentMs = Math.max(10_000, sec * 1000 - 15_000);
   const count = Math.floor(contentMs / SCENE_SLOT_TARGET_MS);
   return Math.max(3, Math.min(24, count));
 };

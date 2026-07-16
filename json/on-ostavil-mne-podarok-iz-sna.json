@@ -1,0 +1,424 @@
+{
+  "contactName": "Игнат",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/romantic-skyline.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "Charon",
+    "meVoice": "Leda",
+    "ttsPrompt": "Речь должна быть тихой, почти шепот, спокойной и дружелюбной, даже немного интимной.",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/on-ostavil-mne-podarok-iz-sna/preview-cover.png",
+    "title": "Он оставил мне подарок из сна",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "characters": [
+      {
+        "id": "me",
+        "name": "Аня",
+        "role": "me",
+        "appearance": "Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность."
+      },
+      {
+        "id": "them",
+        "name": "Игнат",
+        "role": "them",
+        "appearance": "Парень 23 лет, высокий и худощавый, с растрепанными темными волосами. У него уставший вид и темные круги под глазами, будто он давно не высыпался. Одет в простую черную толстовку."
+      }
+    ],
+    "opening": {
+      "image": "images/on-ostavil-mne-podarok-iz-sna/story-opening.png",
+      "imagePrompt": "Ночной establishing shot тесной спальни в полумраке: смятая постель, приоткрытое окно с колышущейся занавеской, на полу разбросаны книги и блокнот, а лунный свет ложится холодными пятнами на комнату. В глубине сцены у стены и на подоконнике — тревожные намеки на странный сон: силуэт лисы с множеством хвостов в узоре света и тени, будто видение на грани яви. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра. Кадр как иллюстрация художника-сториборда: глубина и объём сцены, продуманная композиция, без текста и надписей.",
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-opening.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "durationMs": 2500,
+      "animation": "video-parallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Перестань приходить в мои сны",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-1.png",
+      "storyImagePrompt": "Ночная спальня, наполненная тревожной полутьмой и холодным лунным светом из окна; пространство будто зыбко колеблется между реальностью и сном, с мягкими тенями, смятыми простынями и едва уловимыми сюрреалистичными деталями в воздухе. На переднем плане у края кровати сидит Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. В глубине комнаты, почти растворяясь в темноте дверного проема или у окна, смутно виден Парень 23 лет, высокий и худощавый, с растрепанными темными волосами. У него уставший вид и темные круги под глазами, будто он давно не высыпался. Одет в простую черную толстовку. Внешность героев в кадре (строго): Аня: Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. Игнат: Парень 23 лет, высокий и худощавый, с растрепанными темными волосами. У него уставший вид и темные круги под глазами, будто он давно не высыпался. Одет в простую черную толстовку.",
+      "storySceneCharacters": [
+        "me",
+        "them"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-1.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-1.wav",
+      "voiceDurationMs": 2480,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "раздражение, резко, чуть повышая голос",
+      "display": "bubble",
+      "sentAt": "08:15"
+    },
+    {
+      "author": "them",
+      "text": "Я не нарочно",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-2.wav",
+      "voiceDurationMs": 1800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "виновато, тихо, с короткой паузой",
+      "display": "bubble",
+      "sentAt": "08:15"
+    },
+    {
+      "author": "me",
+      "text": "Тогда откуда ты знаешь про лису с девятью хвостами",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-3.png",
+      "storyImagePrompt": "Ночная спальня, наполненная тревожной полутьмой и холодным лунным светом из окна; на переднем плане Аня резко приподнялась на кровати, сжимая одеяло, а в воздухе над комнатой как наваждение проступает призрачный силуэт девятихвостой лисы с мерцающими хвостами. Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. Детализированная рисованная иллюстрация с выразительными контурами, мягкой живописной заливкой, глубиной пространства и мистической атмосферой сна, без текста.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-3.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-3.wav",
+      "voiceDurationMs": 3920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "тревога, быстро, с нажимом в конце",
+      "display": "bubble",
+      "sentAt": "08:16"
+    },
+    {
+      "author": "them",
+      "text": "Она еще говорила на латыни, да?",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-4.wav",
+      "voiceDurationMs": 2880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "удивление, негромко, с вопросительной интонацией",
+      "display": "bubble",
+      "sentAt": "08:16"
+    },
+    {
+      "author": "me",
+      "text": "😳",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-5.wav",
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "шок, коротко, на выдохе",
+      "display": "bubble",
+      "sentAt": "08:17"
+    },
+    {
+      "author": "me",
+      "text": "Игнат, мне жутко",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-6.png",
+      "storyImagePrompt": "Тревожный ночной интерьер спальни, где холодный лунный свет полосами ложится на смятую постель, стену и пол, а в полумраке обычная комната кажется чужой и настораживающей. Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. Она сидит на краю кровати, напряженно вглядываясь в темный угол комнаты, будто только что осознала нечто пугающее; в воздухе — вязкая тишина, тонкая мистическая тревога, глубокие тени и насыщенный сине-серый свет. Внешность героев в кадре (строго): Аня: Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-6.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-6.wav",
+      "voiceDurationMs": 2760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "страх, тихо, дрожащей интонацией",
+      "display": "bubble",
+      "sentAt": "08:17"
+    },
+    {
+      "author": "them",
+      "text": "Не бойся",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-7.wav",
+      "voiceDurationMs": 1680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "спокойствие, мягко, медленно, успокаивающе",
+      "display": "bubble",
+      "sentAt": "08:18"
+    },
+    {
+      "author": "them",
+      "text": "Я просто иногда засыпаю и оказываюсь не у себя",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-8.wav",
+      "voiceDurationMs": 4240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "неловкость, тихо, размеренно, с заминкой",
+      "display": "bubble",
+      "sentAt": "08:18"
+    },
+    {
+      "author": "me",
+      "text": "А у меня в голове?",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-9.wav",
+      "voiceDurationMs": 1920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "напряжение, тихо, с недоверчивым акцентом",
+      "display": "bubble",
+      "sentAt": "08:19"
+    },
+    {
+      "author": "them",
+      "text": "Твои сны самые… уютные",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-10.png",
+      "storyImagePrompt": "Тёплый полумрак спальни, словно пространство сна мягко растворяет углы комнаты: смятая постель, приглушённый свет ночника, лёгкие золотистые отблески на стенах и в воздухе. Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. Она сидит на краю кровати, обхватив колени, а вокруг — едва уловимые фантазийные детали сна: тёплая дымка, намёк на лисьи хвосты в тенях и ощущение странного, но неожиданно безопасного уюта. Внешность героев в кадре (строго): Аня: Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-10.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-10.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "нежность, мягко, медленно, чуть теплее",
+      "display": "bubble",
+      "sentAt": "08:20"
+    },
+    {
+      "author": "them",
+      "text": "Даже с лисами на латыни",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-11.wav",
+      "voiceDurationMs": 2360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "легкая усмешка, непринужденно, чуть быстрее",
+      "display": "bubble",
+      "sentAt": "08:20"
+    },
+    {
+      "author": "me",
+      "text": "Это не смешно",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-12.wav",
+      "voiceDurationMs": 1520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "раздражение, сухо, отрывисто",
+      "display": "bubble",
+      "sentAt": "08:21"
+    },
+    {
+      "author": "me",
+      "text": "Это как будто ты подглядываешь",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-13.png",
+      "storyImagePrompt": "Полутемная спальня ночью, напряженный атмосферный establishing shot: в центре у окна стоит Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность. Она настороженно оборачивается через плечо в пустую комнату, будто чувствует чужой взгляд; лунный свет рисует холодные блики на полу, смятых простынях и приоткрытой двери, а глубокие тени в углах усиливают тревогу и ощущение, что за ней наблюдают. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра. Внешность героев в кадре (строго): Аня: Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-13.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-13.wav",
+      "voiceDurationMs": 3080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "тревога, тише, с нарастающим напряжением",
+      "display": "bubble",
+      "sentAt": "08:21"
+    },
+    {
+      "author": "them",
+      "text": "Я не подглядываю, я просто гость",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-14.wav",
+      "voiceDurationMs": 3360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "оправдание, спокойно, ровно, мягко",
+      "display": "bubble",
+      "sentAt": "08:22"
+    },
+    {
+      "author": "them",
+      "text": "Кстати, в этот раз я кое-что оставил",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-15.png",
+      "storyImagePrompt": "Полутемная спальня на рассвете, вертикальный кадр выстроен так, чтобы в центре внимания была смятая постель и подушка, рядом на простыне лежит странный маленький предмет из сна — белый цветок. Холодный утренний свет из окна мягко прорезает комнату, выхватывая детали: чашку на тумбочке, приоткрытую штору, тени на стене и тревожно-уютную атмосферу на грани сна и яви. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра. Кадр как иллюстрация художника-сториборда: глубина и объём сцены, продуманная композиция. Не фотореализм, не 3D-рендер, не аниме, не вектор. Без текста и надписей на картинке.",
+      "storySceneCharacters": [],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-15.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-15.wav",
+      "voiceDurationMs": 3440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "загадочность, тише, с интригующей паузой",
+      "display": "bubble",
+      "sentAt": "08:22"
+    },
+    {
+      "author": "me",
+      "text": "Что оставил?",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-16.wav",
+      "voiceDurationMs": 1560,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "настороженность, быстро, с коротким вдохом",
+      "display": "bubble",
+      "sentAt": "08:23"
+    },
+    {
+      "author": "them",
+      "text": "Посмотри под подушкой",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-17.wav",
+      "voiceDurationMs": 1920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "спокойная настойчивость, негромко, медленно",
+      "display": "bubble",
+      "sentAt": "08:23"
+    },
+    {
+      "author": "me",
+      "text": "Ты издеваешься?",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-18.wav",
+      "voiceDurationMs": 1800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "недоверие, резко, чуть громче",
+      "display": "bubble",
+      "sentAt": "08:24"
+    },
+    {
+      "author": "them",
+      "text": "Просто посмотри, Ань",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-19.wav",
+      "voiceDurationMs": 2240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "серьезность, тихо, медленно, с нажимом",
+      "display": "bubble",
+      "sentAt": "08:25"
+    },
+    {
+      "author": "me",
+      "text": "Игнат",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-20.wav",
+      "voiceDurationMs": 1120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "растерянность, тихо, на выдохе",
+      "display": "bubble",
+      "sentAt": "08:27"
+    },
+    {
+      "author": "me",
+      "text": "Откуда под моей подушкой этот белый цветок, он тёплый",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-21.png",
+      "storyImagePrompt": "Тихая спальня в предрассветном полумраке, вертикальный кадр построен вокруг смятой кровати и приподнятой подушки, под которой обнаружился свежий белый цветок с мягко светящимися, будто еще хранящими тепло, лепестками. На переднем плане видна рука Девушка 22 лет, стройная, с длинными каштановыми волосами и задумчивыми зелеными глазами. Одета в уютный серый свитер оверсайз. На лице легкое удивление и растерянность., она замерла в нерешительности, едва коснувшись находки. В комнате густая атмосферная тишина, складки одеяла, дерево тумбочки и холодный рассеянный свет из окна подробно проработаны, а белый цветок становится тревожным центром всей композиции.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-21.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-21.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "шок, быстро, сбивчиво, повышая интонацию",
+      "display": "bubble",
+      "sentAt": "08:28"
+    },
+    {
+      "author": "them",
+      "text": "Я же говорю, подарок",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-22.wav",
+      "voiceDurationMs": 2880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "спокойная уверенность, ровно, чуть мягче",
+      "display": "bubble",
+      "sentAt": "08:29"
+    },
+    {
+      "author": "them",
+      "text": "Из твоего сна",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-23.wav",
+      "voiceDurationMs": 1640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "таинственность, тихо, с многозначительной паузой",
+      "display": "bubble",
+      "sentAt": "08:29"
+    },
+    {
+      "author": "me",
+      "text": "Но как ты это сделал?",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-24.wav",
+      "voiceDurationMs": 2280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Leda",
+      "voiceEmotion": "изумление, тихо, медленно, с недоверием",
+      "display": "bubble",
+      "sentAt": "08:30"
+    },
+    {
+      "author": "them",
+      "text": "Иногда получается прихватить что-то с собой 😉",
+      "storyImage": "images/on-ostavil-mne-podarok-iz-sna/story-msg-25.png",
+      "storyImagePrompt": "Тихая спальня в предрассветном синеватом свете, крупным планом смятая кровать и подушка, из-под которой на ладони поднят странный белый цветок, будто сохранивший внутреннее тепло и мягкое призрачное сияние. Рядом на постели лежит смартфон с погасшим экраном, а вокруг — уютный беспорядок комнаты, но атмосфера тревожно-сказочная: в углах комнаты растворяются едва уловимые намеки на сон, дымчатые тени и лисьи силуэты. Единый стиль проекта: детализированная рисованная иллюстрация, чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра, глубокая продуманная композиция без текста.",
+      "storySceneCharacters": [],
+      "storyVideo": "images/on-ostavil-mne-podarok-iz-sna/story-msg-25.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/on-ostavil-mne-podarok-iz-sna/msg-25.wav",
+      "voiceDurationMs": 3160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Leda|Charon|Речь должна быть тихой, почти ше#1h6wrod",
+      "voiceTtsVoice": "Charon",
+      "voiceEmotion": "лукавство, спокойно, с легкой улыбкой",
+      "display": "bubble",
+      "sentAt": "08:31"
+    }
+  ]
+}

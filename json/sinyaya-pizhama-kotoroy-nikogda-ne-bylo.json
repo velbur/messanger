@@ -1,0 +1,363 @@
+{
+  "contactName": "Денис",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "wallpaper": "dark",
+  "myName": "Аня",
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "female",
+    "meVoice": "male",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-opening.png",
+      "imagePrompt": "Мрачный коридор квартиры ночью. Длинные тени от мебели, в конце коридора виден слабый свет из кухни.",
+      "durationMs": 2500,
+      "animation": "video",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-opening.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 8000
+    },
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ты где застрял? Ушел попить 20 минут назад.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-1.wav",
+      "voiceDurationMs": 4080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "раздражение, быстро, чуть громче",
+      "sentAt": "02:45"
+    },
+    {
+      "author": "them",
+      "text": "Ань, я сам не понимаю. Я иду по коридору, но кухни всё нет.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-2.wav",
+      "voiceDurationMs": 5400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "растерянность, тихо, сбивчиво",
+      "sentAt": "02:46"
+    },
+    {
+      "author": "me",
+      "text": "Очень смешно. Включи фонарик, твой топографический кретинизм неизлечим.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-3.wav",
+      "voiceDurationMs": 6840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "сарказм, сухо, с легкой насмешкой",
+      "sentAt": "02:47"
+    },
+    {
+      "author": "them",
+      "text": "Да включил я. Луч просто уходит в темноту.",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-4.png",
+      "storyImagePrompt": "Рисованный, но детальный кадр. Вид из-за плеча мужчины, в синей пижаме, в тёмном узком коридоре. Луч фонарика теряется во тьме, освещая бесконечные полосатые обои.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-4.wav",
+      "voiceDurationMs": 4760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревога, тише, напряженно",
+      "sentAt": "02:48",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-4.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 8000
+    },
+    {
+      "author": "them",
+      "text": "Здесь только стены и обои. Бесконечные обои в полоску.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-5.wav",
+      "voiceDurationMs": 5720,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нарастающий страх, медленно, с замиранием",
+      "sentAt": "02:48"
+    },
+    {
+      "author": "me",
+      "text": "Хватит дурачиться, я спать хочу.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-6.wav",
+      "voiceDurationMs": 3080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "раздражение, резко, устало",
+      "sentAt": "02:49"
+    },
+    {
+      "author": "them",
+      "text": "Я не дурачусь! Я иду быстрым шагом уже минут десять. Двери в спальню позади меня тоже больше нет.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-7.wav",
+      "voiceDurationMs": 7400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "паника, быстро, громче, с надрывом",
+      "sentAt": "02:50"
+    },
+    {
+      "author": "me",
+      "text": "Так, ладно. Я выхожу в коридор.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-8.wav",
+      "voiceDurationMs": 3400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "собранность, коротко, решительно",
+      "sentAt": "02:51"
+    },
+    {
+      "author": "me",
+      "text": "Я вышла. Коридор пустой, свет на кухне горит. Тебя тут нет. Где ты спрятался?",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-9.wav",
+      "voiceDurationMs": 7920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревога, внимательно, приглушенно",
+      "sentAt": "02:52"
+    },
+    {
+      "author": "them",
+      "text": "Я услышал твой голос! Ты только что крикнула?",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-10.wav",
+      "voiceDurationMs": 4200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "всплеск надежды, быстро, взволнованно",
+      "sentAt": "02:53"
+    },
+    {
+      "author": "me",
+      "text": "Да, крикнула. И где ты?",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-11.wav",
+      "voiceDurationMs": 3040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "напряжение, резко, требовательно",
+      "sentAt": "02:53"
+    },
+    {
+      "author": "them",
+      "text": "Я обернулся на голос, но тут тупик. Глухая стена.",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-12.png",
+      "storyImagePrompt": "Рисованный, но детальный кадр. Мужчина стоит в в темном коридоре, в синей пижаме, стена с полосатыми обоями. Он оглядывается через плечо, его на его лице непонимание.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-12.wav",
+      "voiceDurationMs": 5320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ужас, тише, с недоверием",
+      "sentAt": "02:54",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-12.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 8000
+    },
+    {
+      "author": "them",
+      "text": "Ань, мы в разных пространствах. Мне страшно.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-13.wav",
+      "voiceDurationMs": 4440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "страх, дрожащим голосом, тихо",
+      "sentAt": "02:54"
+    },
+    {
+      "author": "me",
+      "text": "Перестань, это какой-то бред. Я возвращаюсь в спальню и запираюсь.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-14.wav",
+      "voiceDurationMs": 5480,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуг, быстро, жестко, защищаясь",
+      "sentAt": "02:55"
+    },
+    {
+      "author": "them",
+      "text": "Подожди, не запирайся! Мне тяжело идти, эти длинные штанины путаются...",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-15.wav",
+      "voiceDurationMs": 6760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "отчаяние, громче, умоляюще",
+      "sentAt": "02:56"
+    },
+    {
+      "author": "them",
+      "text": "Синяя пижама вообще не для бега.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-16.wav",
+      "voiceDurationMs": 3200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервное недоумение, сбивчиво, тише",
+      "sentAt": "02:56"
+    },
+    {
+      "author": "me",
+      "text": "Какая синяя пижама? Ты ушел в серой футболке и шортах.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-17.wav",
+      "voiceDurationMs": 4760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ошеломление, медленно, недоверчиво",
+      "sentAt": "02:57"
+    },
+    {
+      "author": "them",
+      "text": "Да футболка на стуле осталась! На мне плотная синяя пижама в клетку. Я еще верхнюю пуговицу сейчас оторвал случайно.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-18.wav",
+      "voiceDurationMs": 9360,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "паника, быстро, сбивчиво, громче",
+      "sentAt": "02:58"
+    },
+    {
+      "author": "me",
+      "text": "Денис, у тебя никогда не было синей пижамы. Ты ненавидишь этот цвет.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-19.wav",
+      "voiceDurationMs": 5680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ледяной страх, тихо, с паузами",
+      "sentAt": "02:59"
+    },
+    {
+      "author": "them",
+      "text": "Да какая разница?! Я вижу свет впереди! Там дверь! Наша дверь!",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-20.wav",
+      "voiceDurationMs": 6280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "надежда с истерикой, громко, быстро",
+      "sentAt": "03:00"
+    },
+    {
+      "author": "them",
+      "text": "Я бегу к ней. Я толкаю её!",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-21.wav",
+      "voiceDurationMs": 3680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "адреналин, резко, на одном дыхании",
+      "sentAt": "03:00"
+    },
+    {
+      "author": "them",
+      "text": "Я открываю!!!",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-22.wav",
+      "voiceDurationMs": 2200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "крик надежды, очень громко, срывисто",
+      "sentAt": "03:01"
+    },
+    {
+      "author": "me",
+      "text": "Господи, Денис, мне такой кошмар приснился.",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-23.png",
+      "storyImagePrompt": "Рисованный кадр. Девушка проснулась ночью в постели, смотрит в телефон, сонная, немного напуганная.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-23.wav",
+      "voiceDurationMs": 4280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "облегчение, выдохом, тихо",
+      "sentAt": "03:15",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-23.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 8000
+    },
+    {
+      "author": "me",
+      "text": "Будто ты пошел на кухню, а сам потерялся в бесконечном коридоре в нашей же квартире.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-24.wav",
+      "voiceDurationMs": 6760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервное удивление, медленно, с неверием",
+      "sentAt": "03:15"
+    },
+    {
+      "author": "me",
+      "text": "Писал мне оттуда всякую жуть, я так испугалась.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-25.wav",
+      "voiceDurationMs": 4080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "остаточный страх, тише, дрожащим голосом",
+      "sentAt": "03:16"
+    },
+    {
+      "author": "me",
+      "text": "Проснулась, а ты рядом спишь, слава богу. Просто сон.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-26.wav",
+      "voiceDurationMs": 5880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "облегчение, мягко, спокойно",
+      "sentAt": "03:16"
+    },
+    {
+      "author": "me",
+      "text": "Там еще была какая-то странная деталь про синюю пижаму... Будто она на тебе.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-27.wav",
+      "voiceDurationMs": 6240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "задумчивость, медленно, настороженно",
+      "sentAt": "03:17"
+    },
+    {
+      "author": "me",
+      "text": "Надо же такому присниться.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-28.wav",
+      "voiceDurationMs": 2440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервная усмешка, тихо, расслабленно",
+      "sentAt": "03:17"
+    },
+    {
+      "author": "me",
+      "text": "Денис.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-29.wav",
+      "voiceDurationMs": 1200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "внезапная тревога, тихо, с паузой",
+      "sentAt": "03:18"
+    },
+    {
+      "author": "me",
+      "text": "Что это висит на стуле?",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-30.png",
+      "storyImagePrompt": "Синяя пижама в клетку небрежно перекинута через спинку стула в тёмной спальне. Лунный свет падает на ткань, и видно, что у рубашки не хватает верхней пуговицы.",
+      "voiceAudio": "audio/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/msg-30.wav",
+      "voiceDurationMs": 2040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ужас, шепотом, медленно",
+      "sentAt": "03:19",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-30.video.mp4",
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "storyVideoDurationMs": 8000
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  }
+}

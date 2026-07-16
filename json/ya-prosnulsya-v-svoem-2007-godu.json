@@ -1,0 +1,450 @@
+{
+  "contactName": "Мой дневник",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/2007.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "Leda",
+    "meVoice": "Orus",
+    "ttsPrompt": "",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 0.5,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/ya-prosnulsya-v-svoem-2007-godu/preview-cover.png",
+    "title": "Я проснулся в своём 2007 году",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "characters": [
+      {
+        "id": "me",
+        "name": "Стас",
+        "role": "me",
+        "appearance": "Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды."
+      },
+      {
+        "id": "them",
+        "name": "Дневник",
+        "role": "them",
+        "appearance": "Этот персонаж не появляется в кадре, так как это повествование от первого лица в формате заметок."
+      }
+    ],
+    "visualBible": "Правила преемственности: История происходит в 2007 году и подается от первого лица через визуальные наблюдения Стаса. Во всех кадрах сохранять одного и того же героя: Стас, 17 лет, худощавый, растрепанные темные волосы, длинная косая челка закрывает часть лица, подростковый образ середины 2000-х. Одежда Стаса должна быть неизменной в рамках истории: широкие джинсы, черная футболка с логотипом рок-группы, старые кеды. Атмосфера комнаты — подростковая спальня 2007 года, с ностальгическим ощущением раннего утра. Ключевые признаки времени должны повторяться последовательно: старая Nokia с полифонией, бумажный настенный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, пузатый монитор, компьютер с Windows XP, значок ICQ, Winamp. Дневник как собеседник в кадре не появляется. Маму напрямую не показывать, только можно обозначать ее присутствие голосом из кухни или через закадровость. Визуальный стиль должен подчеркивать бытовую достоверность 2007 года: простая подростковая комната, домашний свет, слегка теплые приглушенные цвета, техника и предметы без современных элементов. Если показывается зеркало, отражение должно точно совпадать с внешностью Стаса. Никаких изменений внешности, одежды или интерьера не вводить, так как в переписке они не описаны.\n\nПалитра и освещение: Приглушенная теплая палитра раннего утра: бежевый, выцветший кремовый, светло-коричневый, серо-голубой. Акценты: черный в футболке и технике, темно-синий деним джинсов, бело-черные или темные кеды, яркие контрастные цвета плакатов Tokio Hotel и Linkin Park, зеленовато-синий интерфейс Windows XP, желтоватый пластик/подсветка старой техники. Общее настроение — ностальгия 2007 года, немного пыльная, жилая, ламповая атмосфера.\n\nЛокации:\n- Спальня Стаса в родительском доме, подростковая комната образца 2007 года\n- Зона у кровати с будильником/телефоном Nokia\n- Стена с бумажным календарем и музыкальными плакатами\n- Письменный стол с компьютером и пузатым монитором\n- Зеркало в комнате\n- Кухня остается за кадром, обозначена только голосом мамы\n\nКлючевые объекты и детали:\n- Стас: Молодой парень 17 лет, худощавый, с растрепанными темными волосами и длинной косой челкой на пол-лица. Одет в широкие джинсы, черную футболку с логотипом рок-группы и старые кеды. В отражениях и всех кадрах выглядит одинаково. (фиксировано до явного изменения в истории)\n- Старая Nokia: Мобильный телефон начала 2000-х, используется как будильник с полифонической мелодией. Должен выглядеть как кнопочный телефон эпохи 2007 года, без сенсорного экрана. (фиксировано до явного изменения в истории)\n- Настенный календарь: Бумажный календарь на стене с отчетливо читаемым годом 2007. Важный маркер времени, должен быть заметен и однозначен. (фиксировано до явного изменения в истории)\n- Плакаты Tokio Hotel: Музыкальные плакаты на стене подростковой комнаты, визуально подчеркивают эпоху и вкус героя. (фиксировано до явного изменения в истории)\n- Плакаты Linkin Park: Музыкальные плакаты на стене рядом с другими постерами, обязательный элемент интерьера комнаты. (фиксировано до явного изменения в истории)\n- Пузатый монитор: Старый ЭЛТ-монитор на письменном столе, массивный, глубокий корпус, характерный для домашних компьютеров 2000-х. (фиксировано до явного изменения в истории)\n- Компьютер с Windows XP: Домашний компьютер эпохи 2007 года. При включении подразумевается характерный экран и атмосфера загрузки Windows XP. (фиксировано до явного изменения в истории)\n- Значок ICQ: Мигающий значок ICQ в углу экрана, визуальный символ общения до эпохи современных соцсетей. (фиксировано до явного изменения в истории)\n- Winamp: Музыкальный плеер на компьютере, который Стас собирается запустить. Интерфейс должен соответствовать эстетике 2000-х. (фиксировано до явного изменения в истории)\n- Зеркало: Зеркало в комнате, в котором Стас видит себя семнадцатилетним. Используется для подтверждения его внешности, отражение должно быть точным. (фиксировано до явного изменения в истории)\n- Старые кеды: Кеды Стаса, часть его постоянного образа. Должны выглядеть поношенными, подростковыми, соответствующими стилю середины 2000-х. (фиксировано до явного изменения в истории)",
+    "targetDurationSec": 45,
+    "scenes": [
+      {
+        "id": "s1",
+        "beat": "Establishing shot: раннее утро, старая Nokia орёт полифонией, герой спросонья тянется выключить будильник и ещё не понимает, что происходит.",
+        "anchorMessageIndex": 0,
+        "messageFrom": 0,
+        "messageTo": 1,
+        "estimatedStartMs": 0,
+        "estimatedEndMs": 2321,
+        "imagePrompt": "Вертикальный establishing shot подростковой спальни 2007 года ранним утром, в том же интерьере и той же приглушённой тёплой палитре, что и в opening: мягкий свет из окна ложится на неубранную кровать, тумбочку со старой кнопочной Nokia и стену с плакатами Tokio Hotel и Linkin Park. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, спросонья полулежит на кровати и тянется рукой к надрывающемуся телефону, ещё не до конца понимая, что происходит. В кадре заметен бумажный настенный календарь с отчётливо читаемым 2007 годом, а в глубине комнаты повторяются те же предметы из предыдущего кадра: письменный стол с пузатым монитором, компьютер эпохи Windows XP и немного пыльная, жилая атмосфера раннего утра. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-1.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s2",
+        "beat": "Первый шок: взгляд падает на настенный календарь, где чётко видно «2007 год», и появляется мысль, что это розыгрыш.",
+        "anchorMessageIndex": 2,
+        "messageFrom": 2,
+        "messageTo": 3,
+        "estimatedStartMs": 1951,
+        "estimatedEndMs": 5444,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia у кровати, плакаты Tokio Hotel и Linkin Park, бумажный настенный календарь и атмосферу жилой немного пыльной комнаты. На переднем плане или в центре композиции — настенный бумажный календарь, на котором отчётливо и крупно виден 2007 год; ракурс можно сделать чуть снизу и с лёгким напряжением, будто взгляд резко зацепился за эту деталь, а вокруг в расфокусе или на втором плане остаются знакомые предметы комнаты, усиливая ощущение недоверия и первого шока. Стас, молодой парень, лет 17, худощавый, с растрепанными темными волосами и косой челкой, как было модно, одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, может быть частично виден у края кадра или со спины, замерший и уставившийся на календарь. Единый стиль проекта: детализированная рисованная иллюстрация, чёткие уверенные контуры, богатая проработка фактур бумаги, стены и ткани, мягкая живописная заливка, выразительный свет раннего утра, насыщенная, но гармоничная палитра, без текста и надписей кроме читаемого года на календаре.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-3.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s3",
+        "beat": "Осознание через комнату: герой оглядывается и видит свою старую комнату один в один — как 15 лет назад.",
+        "anchorMessageIndex": 5,
+        "messageFrom": 4,
+        "messageTo": 5,
+        "estimatedStartMs": 3921,
+        "estimatedEndMs": 6601,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia на тумбочке, бумажный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол с пузатым монитором и компьютером с Windows XP, значком ICQ и Winamp. Стас, молодой парень, лет 17, худощавый, с растрепанными темными волосами и косой челкой, как было модно, стоит или сидит на краю кровати и медленно оглядывает комнату с ошеломлённым узнаванием; одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды. Композиция должна передавать внезапное осознание через весь интерьер сразу: знакомые вещи выстроены в глубину кадра один в один, будто комната застыла во времени 15 лет назад, в мягком пыльном утреннем свете.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-6.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s4",
+        "beat": "Ностальгические детали добивают: плакаты Tokio Hotel и Linkin Park, пузатый монитор, всё как в подростковом прошлом.",
+        "anchorMessageIndex": 6,
+        "messageFrom": 6,
+        "messageTo": 7,
+        "estimatedStartMs": 5952,
+        "estimatedEndMs": 8646,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia и общую немного пыльную жилую атмосферу. Композиция смещена к стене и письменному столу: на выцветших обоях заметны яркие плакаты Tokio Hotel и Linkin Park, а под ними стоит старый пузатый ЭЛТ-монитор с массивным глубоким корпусом рядом с домашним компьютером эпохи Windows XP. Детали комнаты должны добивать ностальгией по подростковому прошлому — слегка потёртая мебель, провода, бытовой беспорядок, мягкий утренний свет из окна подчёркивает фактуры пластика, бумаги и ткани.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-7.png",
+        "storySceneCharacters": []
+      },
+      {
+        "id": "s5",
+        "beat": "Проверка в зеркале: в отражении он сам, только семнадцатилетний, с той самой дурацкой чёлкой.",
+        "anchorMessageIndex": 8,
+        "messageFrom": 8,
+        "messageTo": 9,
+        "estimatedStartMs": 7985,
+        "estimatedEndMs": 10971,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, те же плакаты Tokio Hotel и Linkin Park, бумажный календарь с 2007 годом, старую Nokia, неубранную кровать и письменный стол с пузатым монитором на заднем плане. На переднем плане у зеркала стоит Стас — молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды. В отражении точно тот же самый Стас, но композиция подчеркивает шок узнавания: длинная дурацкая чёлка закрывает пол-лица, он всматривается в себя почти вплотную, а мягкий утренний свет выделяет зеркало и создает ностальгическую, немного ошарашенную атмосферу.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-9.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s6",
+        "beat": "Технологический триггер эпохи: включается компьютер, звучит загрузка Windows XP, в углу мигает значок ICQ — забытый мир оживает.",
+        "anchorMessageIndex": 10,
+        "messageFrom": 10,
+        "messageTo": 12,
+        "estimatedStartMs": 10160,
+        "estimatedEndMs": 15504,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, бумажный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол и тот же пузатый ЭЛТ-монитор. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, сидит или наклоняется к столу в пол-оборота, а экран только что включенного компьютера заливает его и комнату характерным зеленовато-синим светом Windows XP. В углу экрана заметен мигающий значок ICQ, рядом можно деликатно показать интерфейс Winamp, а желтоватый пластик старой техники, пыльные поверхности и мягкий утренний свет из окна усиливают ощущение, что забытый цифровой мир 2007 года внезапно ожил. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-11.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s7",
+        "beat": "Контраст с настоящим: никаких соцсетей и лент, с кухни зовёт мама — и её голос заметно моложе.",
+        "anchorMessageIndex": 14,
+        "messageFrom": 13,
+        "messageTo": 14,
+        "estimatedStartMs": 13496,
+        "estimatedEndMs": 18809,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia, бумажный календарь с отчётливо видимым 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол с пузатым монитором и компьютером с Windows XP. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, стоит у открытой двери своей комнаты или у порога, замерев и прислушиваясь к голосу из кухни за кадром; перед ним — обычный домашний коридор в мягком утреннем свете, подчёркивающий простую жизнь без современных гаджетов и лент. В композиции важно оставить комнату позади него хорошо читаемой как мир 2007 года, а кухню не показывать напрямую — только ощущение живого дома, тишины утра и внезапной нежности от молодого материнского голоса за пределами кадра. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-15.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      },
+      {
+        "id": "s8",
+        "beat": "Финальное принятие: герой перестаёт разбираться, сон это или нет, хочет просто включить Amatory, надеть старые кеды и остаться здесь навсегда.",
+        "anchorMessageIndex": 17,
+        "messageFrom": 15,
+        "messageTo": 19,
+        "estimatedStartMs": 16004,
+        "estimatedEndMs": 20753,
+        "imagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, те же плакаты Tokio Hotel и Linkin Park, бумажный календарь с 2007 годом, старую Nokia, письменный стол с пузатым монитором и компьютером с Windows XP, где открыт Winamp и в углу заметен значок ICQ. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, сидит на краю неубранной кровати и спокойно наклоняется, затягивая шнурки своих старых поношенных кед, будто окончательно решил остаться в этом утре. Мягкий свет из окна заливает комнату, пыль в воздухе светится, а вся композиция передает тихое принятие, ностальгию и желание навсегда раствориться в знакомом мире 2007 года. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+        "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-18.png",
+        "storySceneCharacters": [
+          "me"
+        ]
+      }
+    ],
+    "opening": {
+      "image": "images/ya-prosnulsya-v-svoem-2007-godu/story-opening.png",
+      "imagePrompt": "Вертикальный establishing shot подростковой спальни 2007 года ранним утром: мягкий тёплый свет из окна ложится на неубранную кровать, рядом на тумбочке лежит старая кнопочная Nokia, а на стене заметно висит бумажный календарь с отчётливо видимым 2007 годом. В комнате должны быть узнаваемые детали эпохи и визуальной библии: плакаты Tokio Hotel и Linkin Park, письменный стол с пузатым монитором и компьютером с Windows XP, в интерфейсе на экране различимы ICQ и Winamp; жилая, немного пыльная, ламповая атмосфера, приглушённая тёплая палитра бежевых, серо-голубых и светло-коричневых тонов. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный свет, глубина сцены и продуманная композиция, без текста и надписей на картинке.",
+      "storyVideoPrompt": "A slow, sleepy handheld push-in from the messy bed toward the wall calendar, with warm early sunlight gently shifting across the room and soft dust drifting in the beam. The old Nokia on the nightstand vibrates subtly as if ringing, a bedsheet edge stirs, and the CRT monitor gives off a faint screen flicker while the posters and hanging calendar remain mostly still in the quiet, nostalgic morning air; end on a calm hold with the 2007 calendar clearly emphasized.",
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-opening.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "durationMs": 2500,
+      "animation": "video"
+    },
+    "sceneTransition": "zoom",
+    "colorFilter": "warm",
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Проснулся от будильника на старой Nokia… полифония",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-1.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущем opening-кадре: раннее утро, тёплый солнечный свет из окна, та же неубранная кровать, тот же бумажный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, пузатый монитор и стол с компьютером Windows XP сохраняются без изменений. На переднем плане у кровати крупно показана старая кнопочная Nokia, лежащая на тумбочке и светящаяся экраном будильника, будто именно её полифония только что разбудила комнату; рядом смятые простыни и лёгкий беспорядок подростковой спальни. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды — сонно приподнимается на кровати или тянется рукой к телефону, лицо частично скрыто челкой. Единый стиль проекта: детализированная рисованная иллюстрация, чёткие уверенные контуры, мягкая живописная заливка, выразительный свет, ностальгическая тёплая атмосфера 2007 года, без текста и надписей на картинке. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+      "storyVideoPrompt": "Мягкое приближение с ручной камеры чуть приближает кадр, пока тёплый ранний утренний свет из окна медленно озаряет пыльную комнату. Мягкие блики скользят по неубранной кровати, постерам и настенному календарю за 2007 год.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-1.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-1.wav",
+      "voiceDurationMs": 5560,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:15"
+    },
+    {
+      "author": "me",
+      "text": "Ничего не понял, потянулся выключить и увидел календарь на стене",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-2.wav",
+      "voiceDurationMs": 5720,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:16"
+    },
+    {
+      "author": "me",
+      "text": "Там написано: 2007 год",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-3.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia у кровати, плакаты Tokio Hotel и Linkin Park, бумажный настенный календарь и атмосферу жилой немного пыльной комнаты. На переднем плане или в центре композиции — настенный бумажный календарь, на котором отчётливо и крупно виден 2007 год; ракурс можно сделать чуть снизу и с лёгким напряжением, будто взгляд резко зацепился за эту деталь, а вокруг в расфокусе или на втором плане остаются знакомые предметы комнаты, усиливая ощущение недоверия и первого шока. Стас, молодой парень, лет 17, худощавый, с растрепанными темными волосами и косой челкой, как было модно, одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, может быть частично виден у края кадра или со спины, замерший и уставившийся на календарь. Единый стиль проекта: детализированная рисованная иллюстрация, чёткие уверенные контуры, богатая проработка фактур бумаги, стены и ткани, мягкая живописная заливка, выразительный свет раннего утра, насыщенная, но гармоничная палитра, без текста и надписей кроме читаемого года на календаре.",
+      "storyVideoPrompt": "A subtle push-in with a slight low-angle drift tightens on the paper wall calendar as warm early-morning light slowly brightens its textured surface, faint dust motes floating in the air while the bedroom behind stays softly out of focus. At the edge of frame, Stas remains nearly frozen, only making a tiny breath shift and a barely perceptible head tilt toward the large 2007 date, as if the realization hits and the room suddenly feels still.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-3.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-3.wav",
+      "voiceDurationMs": 3240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:16"
+    },
+    {
+      "author": "me",
+      "text": "Сначала подумал, что это чей-то дурацкий розыгрыш",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-4.wav",
+      "voiceDurationMs": 3520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:17"
+    },
+    {
+      "author": "me",
+      "text": "Но потом я огляделся…",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-5.wav",
+      "voiceDurationMs": 2920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:18"
+    },
+    {
+      "author": "me",
+      "text": "Моя комната. Точно такая же, как была 15 лет назад",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-6.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia на тумбочке, бумажный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол с пузатым монитором и компьютером с Windows XP, значком ICQ и Winamp. Стас, молодой парень, лет 17, худощавый, с растрепанными темными волосами и косой челкой, как было модно, стоит или сидит на краю кровати и медленно оглядывает комнату с ошеломлённым узнаванием; одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды. Композиция должна передавать внезапное осознание через весь интерьер сразу: знакомые вещи выстроены в глубину кадра один в один, будто комната застыла во времени 15 лет назад, в мягком пыльном утреннем свете.",
+      "storyVideoPrompt": "A slow, subtle push-in with a slight handheld drift as Stas sits or stands at the bed’s edge and slowly scans the room, his eyes widening, lips parting, and his head turning in small, disbelieving movements as recognition settles in. Warm dusty morning light gently brightens across the unmade bed, Nokia, posters, calendar, and CRT monitor, with tiny dust particles floating in the air and a still, suspended atmosphere; the shot comes to rest on his stunned, quiet pause with the whole room frozen around him.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-6.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-6.wav",
+      "voiceDurationMs": 5280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:19"
+    },
+    {
+      "author": "me",
+      "text": "Плакаты с Tokio Hotel и Linkin Park на стенах",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-7.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia и общую немного пыльную жилую атмосферу. Композиция смещена к стене и письменному столу: на выцветших обоях заметны яркие плакаты Tokio Hotel и Linkin Park, а под ними стоит старый пузатый ЭЛТ-монитор с массивным глубоким корпусом рядом с домашним компьютером эпохи Windows XP. Детали комнаты должны добивать ностальгией по подростковому прошлому — слегка потёртая мебель, провода, бытовой беспорядок, мягкий утренний свет из окна подчёркивает фактуры пластика, бумаги и ткани.",
+      "storyVideoPrompt": "A slow handheld drift pans along the wall and desk, gently revealing the faded Tokio Hotel and Linkin Park posters above the bulky CRT monitor and old Windows XP computer, with a subtle breathing sway as if Stas is staring in disbelief. Warm early-morning window light softly shifts through dust in the air, grazing the worn wallpaper, plastic, and paper textures, while loose wires and small desk clutter stay still; the motion settles into a calm hold on the posters and monitor.",
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-7.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-7.wav",
+      "voiceDurationMs": 4120,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:19"
+    },
+    {
+      "author": "me",
+      "text": "Старый пузатый монитор на столе",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-8.wav",
+      "voiceDurationMs": 2920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:20"
+    },
+    {
+      "author": "me",
+      "text": "Подошёл к зеркалу. А там я. Семнадцатилетний",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-9.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, те же плакаты Tokio Hotel и Linkin Park, бумажный календарь с 2007 годом, старую Nokia, неубранную кровать и письменный стол с пузатым монитором на заднем плане. На переднем плане у зеркала стоит Стас — молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды. В отражении точно тот же самый Стас, но композиция подчеркивает шок узнавания: длинная дурацкая чёлка закрывает пол-лица, он всматривается в себя почти вплотную, а мягкий утренний свет выделяет зеркало и создает ностальгическую, немного ошарашенную атмосферу.",
+      "storyVideoPrompt": "A slow, subtle push-in toward Stas at the mirror as he leans a fraction closer, freezes, and stares into his own reflection in stunned recognition; his breathing is visible in a slight rise of the shoulders, and he makes a tiny involuntary head tilt while his long fringe shifts softly across one eye. Warm early-morning light gently brightens the mirror glass and edges of his face, dust motes drift in the still air, and the room behind him stays quiet and unchanged for a calm final hold.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-9.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-9.wav",
+      "voiceDurationMs": 5560,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:21"
+    },
+    {
+      "author": "me",
+      "text": "С этой идиотской чёлкой на пол-лица 😂",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-10.wav",
+      "voiceDurationMs": 3320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:21"
+    },
+    {
+      "author": "me",
+      "text": "Включил компьютер, и этот звук… звук загрузки Windows XP",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-11.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, бумажный календарь с 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол и тот же пузатый ЭЛТ-монитор. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, сидит или наклоняется к столу в пол-оборота, а экран только что включенного компьютера заливает его и комнату характерным зеленовато-синим светом Windows XP. В углу экрана заметен мигающий значок ICQ, рядом можно деликатно показать интерфейс Winamp, а желтоватый пластик старой техники, пыльные поверхности и мягкий утренний свет из окна усиливают ощущение, что забытый цифровой мир 2007 года внезапно ожил. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+      "storyVideoPrompt": "A slow gentle push-in toward Stas at the desk as he leans slightly closer to the CRT, one hand hovering near the keyboard or mouse, his fringe shifting a little while his face softens into focused recognition. The monitor’s Windows XP startup glow blooms from dim to a greenish-blue wash across his face, the yellowed plastic and dusty room surfaces catching the flicker, while the ICQ icon blinks subtly on-screen and the warm morning light from the window stays soft and still; end on a calm hold with the room quietly alive.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-11.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-11.wav",
+      "voiceDurationMs": 6000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:23"
+    },
+    {
+      "author": "me",
+      "text": "В углу экрана замигал значок ICQ",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-12.wav",
+      "voiceDurationMs": 3440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:24"
+    },
+    {
+      "author": "me",
+      "text": "Аська! Боже, я и забыл, как она выглядит",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-13.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:24"
+    },
+    {
+      "author": "me",
+      "text": "Никаких соцсетей, тиктоков, новостных лент",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-14.wav",
+      "voiceDurationMs": 4680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:25"
+    },
+    {
+      "author": "me",
+      "text": "Мама с кухни крикнула, что завтрак готов. Голос у неё моложе",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-15.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, ту же неубранную кровать, старую кнопочную Nokia, бумажный календарь с отчётливо видимым 2007 годом, плакаты Tokio Hotel и Linkin Park, письменный стол с пузатым монитором и компьютером с Windows XP. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, стоит у открытой двери своей комнаты или у порога, замерев и прислушиваясь к голосу из кухни за кадром; перед ним — обычный домашний коридор в мягком утреннем свете, подчёркивающий простую жизнь без современных гаджетов и лент. В композиции важно оставить комнату позади него хорошо читаемой как мир 2007 года, а кухню не показывать напрямую — только ощущение живого дома, тишины утра и внезапной нежности от молодого материнского голоса за пределами кадра. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+      "storyVideoPrompt": "A gentle handheld push-in from inside the bedroom toward Stas at the open doorway, keeping the 2007 room readable behind him as warm early-morning light softly spills from the hall and shifts across the posters, bed, and old monitor. Stas freezes mid-step, then slightly turns his head toward the off-screen kitchen, his shoulders relaxing and his fringe moving subtly as he listens; dust motes drift in the quiet air, and the scene settles into a still, tender hold.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-15.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-15.wav",
+      "voiceDurationMs": 4760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:27"
+    },
+    {
+      "author": "me",
+      "text": "Я не знаю, сон это или нет",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-16.wav",
+      "voiceDurationMs": 3400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:28"
+    },
+    {
+      "author": "me",
+      "text": "И мне всё равно, как долго это продлится",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-17.wav",
+      "voiceDurationMs": 3440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:28"
+    },
+    {
+      "author": "me",
+      "text": "Сейчас я просто запущу Winamp и включу ту самую песню...",
+      "storyImage": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-18.png",
+      "storyImagePrompt": "Вертикальный кадр в той же подростковой спальне 2007 года, что и в предыдущих кадрах: сохранить тот же интерьер, ту же приглушённую тёплую палитру раннего утра, те же плакаты Tokio Hotel и Linkin Park, бумажный календарь с 2007 годом, старую Nokia, письменный стол с пузатым монитором и компьютером с Windows XP, где открыт Winamp и в углу заметен значок ICQ. Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды, сидит на краю неубранной кровати и спокойно наклоняется, затягивая шнурки своих старых поношенных кед, будто окончательно решил остаться в этом утре. Мягкий свет из окна заливает комнату, пыль в воздухе светится, а вся композиция передает тихое принятие, ностальгию и желание навсегда раствориться в знакомом мире 2007 года. Внешность героев в кадре (строго): Стас: Молодой парень, лет 17. Худощавый, с растрепанными темными волосами и косой челкой, как было модно. Одет в широкие джинсы, черную футболку с логотипом рок-группы и кеды.",
+      "storyVideoPrompt": "A gentle handheld push-in drifts toward Stas on the edge of the messy bed as he calmly finishes tightening one worn sneaker, his shoulders settling and his side fringe shifting slightly with the movement. Warm early-morning window light glows through drifting dust, the CRT screen softly flickers with the Winamp window and tiny ICQ icon, while the posters and calendar stay still in the hushed nostalgic room. He pauses with a quiet, resolved expression, hands resting near the laces as the shot comes to a calm hold.",
+      "storySceneCharacters": [
+        "me"
+      ],
+      "storyVideo": "images/ya-prosnulsya-v-svoem-2007-godu/story-msg-18.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-18.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:29"
+    },
+    {
+      "author": "me",
+      "text": "И надену свои старые кеды",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-19.wav",
+      "voiceDurationMs": 3000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:30"
+    },
+    {
+      "author": "me",
+      "text": "Вернуться бы сюда навсегда",
+      "voiceAudio": "audio/ya-prosnulsya-v-svoem-2007-godu/msg-20.wav",
+      "voiceDurationMs": 2680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Orus|Leda",
+      "voiceTtsVoice": "Orus",
+      "sentAt": "08:31"
+    }
+  ]
+}

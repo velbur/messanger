@@ -9,7 +9,7 @@
   "myName": "Я",
   "music": {
     "enabled": true,
-    "src": "music/ves-mir-smotrit.mp3"
+    "src": "music/чеи-это-стул.mp3"
   },
   "voiceover": {
     "enabled": false,
@@ -21,8 +21,8 @@
   "timingSpeed": 0.5,
   "previewCover": {
     "enabled": true,
-    "image": "images/gol-nalivay-za-futbol/preview-cover.png",
-    "title": "Гол! Наливай за футбол!",
+    "image": "images/vseobschiy-sbor-legend/preview-cover.png",
+    "title": "Всеобщий сбор Легенд",
     "durationMs": 3000
   },
   "layout": "storyOverlay",
@@ -247,6 +247,9 @@
         "arshavin",
         "haaland"
       ],
+      "storyVideo": "images/strannyy-uzhin-futbolnyh-legend/story-msg-4.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "sentAt": "21:33"
     },
     {
@@ -309,14 +312,6 @@
         "them",
         "haaland"
       ],
-      "display": "scene",
-      "sentAt": "21:37"
-    },
-    {
-      "author": "them",
-      "text": "Все танцуют",
-      "storyImage": "images/gol-nalivay-za-futbol/story-msg-9.png",
-      "storyVideoPrompt": "Камера мягко покачивается и чуть отъезжает назад, оживляя общий план: все в кадре начинают танцевать прямо на своих местах и рядом со столом — Криштиану уверенно отбивает ритм плечами и руками, Неймар с хитрой ухмылкой пружинит корпусом и делает лёгкие быстрые жесты, Аршавин неожиданно, но всё так же сдержанно и медленно двигает головой и плечами, Холанд неловко, но мощно раскачивается в такт. Тёплый жёлтый свет мягко мерцает на дереве, стеклянные рюмки и бутылка едва дрожат от движений, воздух наполнен весёлой деревенской атмосферой без хаоса, а последний пустой стул остаётся нетронутым; к финалу движение плавно затихает в спокойный общий ритм.",
       "display": "scene",
       "sentAt": "21:37"
     }

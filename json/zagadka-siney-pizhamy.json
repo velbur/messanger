@@ -1,0 +1,373 @@
+{
+  "contactName": "Денис",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Аня",
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "male",
+    "meVoice": "female",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/zagadka-siney-pizhamy/preview-cover.png",
+    "title": "Загадка синей пижамы",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-opening.png",
+      "imagePrompt": "Мрачный коридор квартиры ночью. Длинные тени от мебели, в конце коридора виден слабый свет из кухни.",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-opening.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "durationMs": 2500,
+      "animation": "video"
+    },
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ты где застрял? Ушел попить 20 минут назад.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-1.wav",
+      "voiceDurationMs": 4160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "раздражение, быстро, чуть громче",
+      "sentAt": "02:45"
+    },
+    {
+      "author": "them",
+      "text": "Ань, я сам не понимаю. Я иду по коридору, но кухни всё нет.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-2.wav",
+      "voiceDurationMs": 5760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "растерянность, тихо, сбивчиво",
+      "sentAt": "02:46"
+    },
+    {
+      "author": "me",
+      "text": "Очень смешно. Включи фонарик, твой топографический кретинизм неизлечим.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-3.wav",
+      "voiceDurationMs": 6000,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "сарказм, сухо, с легкой насмешкой",
+      "sentAt": "02:47"
+    },
+    {
+      "author": "them",
+      "text": "Да включил я. Луч просто уходит в темноту.",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-4.png",
+      "storyImagePrompt": "Рисованный, но детальный кадр. Вид из-за плеча мужчины, в синей пижаме, в тёмном узком коридоре. Луч фонарика теряется во тьме, освещая бесконечные полосатые обои.",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-4.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-4.wav",
+      "voiceDurationMs": 3880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревога, тише, напряженно",
+      "sentAt": "02:48"
+    },
+    {
+      "author": "them",
+      "text": "Здесь только стены и обои. Бесконечные обои в полоску.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-5.wav",
+      "voiceDurationMs": 6200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нарастающий страх, медленно, с замиранием",
+      "sentAt": "02:48"
+    },
+    {
+      "author": "me",
+      "text": "Хватит дурачиться, я спать хочу.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-6.wav",
+      "voiceDurationMs": 3200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "раздражение, резко, устало",
+      "sentAt": "02:49"
+    },
+    {
+      "author": "them",
+      "text": "Я не дурачусь! Я иду быстрым шагом уже минут десять. Двери в спальню позади меня тоже больше нет.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-7.wav",
+      "voiceDurationMs": 7840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "паника, быстро, громче, с надрывом",
+      "sentAt": "02:50"
+    },
+    {
+      "author": "me",
+      "text": "Так, ладно. Я выхожу в коридор.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-8.wav",
+      "voiceDurationMs": 3640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "собранность, коротко, решительно",
+      "sentAt": "02:51"
+    },
+    {
+      "author": "me",
+      "text": "Я вышла. Коридор пустой, свет на кухне горит. Тебя тут нет. Где ты спрятался?",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-9.wav",
+      "voiceDurationMs": 8440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "тревога, внимательно, приглушенно",
+      "sentAt": "02:52"
+    },
+    {
+      "author": "them",
+      "text": "Я услышал твой голос! Ты только что крикнула?",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-10.wav",
+      "voiceDurationMs": 3680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "всплеск надежды, быстро, взволнованно",
+      "sentAt": "02:53"
+    },
+    {
+      "author": "me",
+      "text": "Да, крикнула. И где ты?",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-11.wav",
+      "voiceDurationMs": 3240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "напряжение, резко, требовательно",
+      "sentAt": "02:53"
+    },
+    {
+      "author": "them",
+      "text": "Я обернулся на голос, но тут тупик. Глухая стена.",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-12.png",
+      "storyImagePrompt": "Рисованный, но детальный кадр. Мужчина стоит в в темном коридоре, в синей пижаме, стена с полосатыми обоями. Он оглядывается через плечо, его на его лице непонимание.",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-12.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-12.wav",
+      "voiceDurationMs": 5520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ужас, тише, с недоверием",
+      "sentAt": "02:54"
+    },
+    {
+      "author": "them",
+      "text": "Ань, мы в разных пространствах. Мне страшно.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-13.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "страх, дрожащим голосом, тихо",
+      "sentAt": "02:54"
+    },
+    {
+      "author": "me",
+      "text": "Перестань, это какой-то бред. Я возвращаюсь в спальню и запираюсь.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-14.wav",
+      "voiceDurationMs": 5760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "испуг, быстро, жестко, защищаясь",
+      "sentAt": "02:55"
+    },
+    {
+      "author": "them",
+      "text": "Подожди, не запирайся! Мне тяжело идти, эти длинные штанины путаются...",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-15.wav",
+      "voiceDurationMs": 6160,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "отчаяние, громче, умоляюще",
+      "sentAt": "02:56"
+    },
+    {
+      "author": "them",
+      "text": "Синяя пижама вообще не для бега.",
+      "storyImage": "images/zagadka-siney-pizhamy/story-msg-16.png",
+      "storyImagePrompt": "Мужчина стоит в в темном коридоре, в синей пижаме, стена с полосатыми обоями. Вдали виднеется дверь спальни.",
+      "storyVideo": "images/zagadka-siney-pizhamy/story-msg-16.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-16.wav",
+      "voiceDurationMs": 3320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервное недоумение, сбивчиво, тише",
+      "sentAt": "02:56"
+    },
+    {
+      "author": "me",
+      "text": "Какая синяя пижама? Ты ушел в серой футболке и шортах.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-17.wav",
+      "voiceDurationMs": 4800,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ошеломление, медленно, недоверчиво",
+      "sentAt": "02:57"
+    },
+    {
+      "author": "them",
+      "text": "Да футболка на стуле осталась! На мне плотная синяя пижама в клетку.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-18.wav",
+      "voiceDurationMs": 6080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "паника, быстро, сбивчиво, громче",
+      "sentAt": "02:58"
+    },
+    {
+      "author": "me",
+      "text": "Денис, у тебя никогда не было синей пижамы. Ты ненавидишь этот цвет.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-19.wav",
+      "voiceDurationMs": 5880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ледяной страх, тихо, с паузами",
+      "sentAt": "02:59"
+    },
+    {
+      "author": "them",
+      "text": "Да какая разница?! Я вижу свет впереди! Там дверь! Наша дверь!",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-20.wav",
+      "voiceDurationMs": 7640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "надежда с истерикой, громко, быстро",
+      "sentAt": "03:00"
+    },
+    {
+      "author": "them",
+      "text": "Я бегу к ней. Я толкаю её!",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-21.wav",
+      "voiceDurationMs": 3280,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "адреналин, резко, на одном дыхании",
+      "sentAt": "03:00"
+    },
+    {
+      "author": "them",
+      "text": "Я открываю!!!",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-22.wav",
+      "voiceDurationMs": 1720,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "крик надежды, очень громко, срывисто",
+      "sentAt": "03:01"
+    },
+    {
+      "author": "me",
+      "text": "Напишу тебе сообщение на утро. Чтобы не забылось. Мне такой кошмар приснился...",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-23.png",
+      "storyImagePrompt": "Рисованный кадр. Девушка проснулась ночью в постели, смотрит в телефон, сонная, немного напуганная.",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-23.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-23.wav",
+      "voiceDurationMs": 6480,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "облегчение, выдохом, тихо",
+      "sentAt": "03:15"
+    },
+    {
+      "author": "me",
+      "text": "Будто ты пошел на кухню, а сам потерялся в бесконечном коридоре в нашей же квартире.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-24.wav",
+      "voiceDurationMs": 6880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервное удивление, медленно, с неверием",
+      "sentAt": "03:15"
+    },
+    {
+      "author": "me",
+      "text": "Писал мне оттуда всякую жуть, я так испугалась.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-25.wav",
+      "voiceDurationMs": 4560,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "остаточный страх, тише, дрожащим голосом",
+      "sentAt": "03:16"
+    },
+    {
+      "author": "me",
+      "text": "Проснулась, а ты рядом спишь, слава богу. Просто сон.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-26.wav",
+      "voiceDurationMs": 5440,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "облегчение, мягко, спокойно",
+      "sentAt": "03:16"
+    },
+    {
+      "author": "me",
+      "text": "Там еще была какая-то странная деталь про синюю пижаму... Будто она на тебе.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-27.wav",
+      "voiceDurationMs": 6080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "задумчивость, медленно, настороженно",
+      "sentAt": "03:17"
+    },
+    {
+      "author": "me",
+      "text": "Надо же такому присниться.",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-28.wav",
+      "voiceDurationMs": 2680,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "нервная усмешка, тихо, расслабленно",
+      "sentAt": "03:17"
+    },
+    {
+      "author": "me",
+      "text": "Денис...",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-29.wav",
+      "voiceDurationMs": 1320,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "внезапная тревога, тихо, с паузой",
+      "sentAt": "03:18"
+    },
+    {
+      "author": "me",
+      "text": "Что это висит на стуле?",
+      "storyImage": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-30.png",
+      "storyImagePrompt": "Синяя пижама в клетку небрежно перекинута через спинку стула в тёмной спальне. Лунный свет падает на ткань, и видно, что у рубашки не хватает верхней пуговицы.",
+      "storyVideo": "images/sinyaya-pizhama-kotoroy-nikogda-ne-bylo/story-msg-30.video.mp4",
+      "storyVideoDurationMs": 8000,
+      "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
+      "voiceAudio": "audio/zagadka-siney-pizhamy/msg-30.wav",
+      "voiceDurationMs": 2040,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v2",
+      "voiceEmotion": "ужас, шепотом, медленно",
+      "sentAt": "03:19"
+    }
+  ]
+}

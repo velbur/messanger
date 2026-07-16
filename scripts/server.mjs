@@ -2411,17 +2411,31 @@ app.post("/api/dialogues/generate", async (req, res) => {
 
     const normalizedSeriesId =
       mode === "series" && typeof seriesId === "string" ? seriesId.trim() : "";
+
+    // Список уже существующих сюжетов того же типа — чтобы модель не повторяла их.
+    let existingScenarios;
+    if (mode !== "series") {
+      try {
+        existingScenarios = listDialogues({kind: mode})
+          .map((item) => (item.titleDisplay || item.title || "").trim())
+          .filter(Boolean);
+      } catch (err) {
+        console.error("Не удалось собрать список существующих сюжетов", err);
+      }
+    }
+
     const result = await generateDialogue({
       prompt,
       videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, mode}),
       textMode: textMode === "chat" ? "chat" : textMode === "narration" ? "narration" : undefined,
       previousMessages: mode === "series" ? contextMessages : undefined,
+      existingScenarios,
       includeImages,
       imageCount,
       messageCount,
       targetDurationSec:
         targetDurationSec != null && Number.isFinite(Number(targetDurationSec))
-          ? Math.max(30, Math.min(120, Math.round(Number(targetDurationSec))))
+          ? Math.max(25, Math.min(120, Math.round(Number(targetDurationSec))))
           : undefined,
       language,
       mode,

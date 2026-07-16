@@ -1,0 +1,65 @@
+{
+  "contactName": "Илья",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "wallpaper": "default",
+  "myName": "Я",
+  "messages": [
+    {
+      "author": "me",
+      "text": "Илюх, я кажется завалил собес.",
+      "sentAt": "15:20"
+    },
+    {
+      "author": "them",
+      "text": "Да ладно? Где споткнулся?",
+      "sentAt": "15:20"
+    },
+    {
+      "author": "me",
+      "text": "На вопросе про главную слабость...",
+      "sentAt": "15:21"
+    },
+    {
+      "author": "them",
+      "text": "И что ты ляпнул? 😬",
+      "sentAt": "15:21"
+    },
+    {
+      "author": "me",
+      "text": "Сказал «честность».",
+      "sentAt": "15:22"
+    },
+    {
+      "author": "them",
+      "text": "Так это же гениально! Классический ответ, они такое любят.",
+      "sentAt": "15:22"
+    },
+    {
+      "author": "me",
+      "text": "Ну да, эйчар тоже сказал, что не считает это слабостью.",
+      "sentAt": "15:23"
+    },
+    {
+      "author": "them",
+      "text": "Ну вот! Так в чем проблема-то? Ты красавчик.",
+      "sentAt": "15:23"
+    },
+    {
+      "author": "me",
+      "text": "В том, что я ответил: «А мне плевать, что вы там считаете».",
+      "sentAt": "15:24"
+    },
+    {
+      "author": "them",
+      "text": "БОЖЕ 🤦‍♂️😂",
+      "sentAt": "15:25"
+    }
+  ],
+  "music": {
+    "enabled": true,
+    "src": "music/fun.mp3"
+  }
+}

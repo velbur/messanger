@@ -5,6 +5,7 @@
   "contactStatusTyping": "печатает...",
   "contactAvatar": "avatar.svg",
   "messageFontSize": 48,
+  "wallpaper": "default",
   "myName": "Я",
   "music": {
     "enabled": true,
@@ -13,13 +14,19 @@
   "voiceover": {
     "enabled": true,
     "provider": "openrouter",
-    "themVoice": "Leda",
-    "meVoice": "Puck",
+    "themVoice": "Schedar",
+    "meVoice": "Alnilam",
+    "ttsPrompt": "",
     "volume": 0.92,
-    "musicDuck": 0.28,
-    "ttsPrompt": ""
+    "musicDuck": 0.28
   },
   "timingSpeed": 0.5,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/mashina-iz-salona-s-polnym-bakom-benzina/preview-cover.png",
+    "title": "Машина из салона с полным баком бензина",
+    "durationMs": 3000
+  },
   "layout": "storyOverlay",
   "story": {
     "characters": [
@@ -161,7 +168,7 @@
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "durationMs": 2500,
-      "animation": "video"
+      "animation": "video-kenburns"
     },
     "sceneTransition": "zoom",
     "colorFilter": "none",
@@ -176,7 +183,7 @@
   "messages": [
     {
       "author": "me",
-      "text": "УРАААА! Я наконец-то взял тачку из салона! 🚗",
+      "text": "Я наконец-то взял тачку из салона!",
       "storyImage": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-1.png",
       "storyImagePrompt": "Вертикальный establishing shot внутри современного автосалона в холодно-нейтральной серо-синей палитре: повторяется та же новая белая Lada Granta из предыдущего opening-кадра, в том же нейтральном автосалонном оттенке, абсолютно чистая, с заметными прозрачными заводскими плёнками на сиденьях и отдельных элементах салона. Мужчина 30 лет, среднего телосложения, с короткими русыми волосами. У него дружелюбное, воодушевлённое лицо. Одет в серую толстовку с капюшоном и синие джинсы, стоит рядом с машиной и с восторгом выкатывает её из зоны выдачи, свет автосалона мягко сияет на кузове, подчёркивая ощущение новизны и эйфории момента. Композиция делает машину главным героем кадра: просторный зал, чистый блеск пола, глубина сцены, праздничная атмосфера начала истории без логотипов и надписей. Внешность героев в кадре (строго): Павел: Мужчина 30 лет, среднего телосложения, с короткими русыми волосами. У него дружелюбное, воодушевлённое лицо. Одет в серую толстовку с капюшоном и синие джинсы.",
       "storySceneCharacters": [
@@ -185,22 +192,22 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-1.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:20",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-1.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-1.pr135.wav",
+      "voiceDurationMs": 2556,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 4080
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:20"
     },
     {
       "author": "me",
       "text": "Новую! Прям в плёночках вся, запах... ммм!",
-      "sentAt": "14:20",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-2.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-2.pr135.wav",
+      "voiceDurationMs": 4126,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 5160
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:20"
     },
     {
       "author": "them",
@@ -213,16 +220,16 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-3.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:21",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-3.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-3.pr135.wav",
+      "voiceDurationMs": 2940,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 3280
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:21"
     },
     {
       "author": "me",
-      "text": "Лучше! Нашу! Отечественную! 🇷🇺",
+      "text": "Лучше! Нашу! Отечественную!",
       "storyImage": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-4.png",
       "storyImagePrompt": "Вертикальный атмосферный кадр в едином стиле проекта: в центре с гордой, почти торжественной позой стоит Мужчина 30 лет, среднего телосложения, с короткими русыми волосами. У него дружелюбное, воодушевлённое лицо. Одет в серую толстовку с капюшоном и синие джинсы. Он слегка выпячивает грудь и уверенно смотрит вперёд, а позади него в том же светлом автосалонном пространстве во всю ширину кадра стоит та же белая Lada Granta из предыдущих сцен — чистый кузов, заводская новизна, узнаваемый силуэт российского седана, без флагов, без гербов и без политической символики. Фон решён как приподнятое, почти плакатное пространство с холодно-нейтральной серо-синей палитрой, мягкими световыми акцентами и лёгким торжественным контрастом, при этом машина и образ Павла визуально повторяют все ключевые детали из предыдущих кадров. Внешность героев в кадре (строго): Павел: Мужчина 30 лет, среднего телосложения, с короткими русыми волосами. У него дружелюбное, воодушевлённое лицо. Одет в серую толстовку с капюшоном и синие джинсы.",
       "storySceneCharacters": [
@@ -231,32 +238,32 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-4.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:22",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-4.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-4.pr135.wav",
+      "voiceDurationMs": 2726,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 4240
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:22"
     },
     {
       "author": "me",
       "text": "Поддержал производителя, так сказать",
-      "sentAt": "14:22",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-5.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-5.pr135.wav",
+      "voiceDurationMs": 2050,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 2600
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:22"
     },
     {
       "author": "them",
       "text": "Серьёзно? Ну ты смелый",
-      "sentAt": "14:23",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-6.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-6.pr135.wav",
+      "voiceDurationMs": 2311,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 3560
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:23"
     },
     {
       "author": "them",
@@ -269,22 +276,22 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-7.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:23",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-7.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-7.pr135.wav",
+      "voiceDurationMs": 1782,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 2640
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:23"
     },
     {
       "author": "me",
-      "text": "2.5 миллиона",
-      "sentAt": "14:24",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-8.wav",
+      "text": "ну... я отдал 2.5 миллиона",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-8.pr135.wav",
+      "voiceDurationMs": 2587,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 2160
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:24"
     },
     {
       "author": "them",
@@ -297,22 +304,22 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-9.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:25",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-9.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-9.pr135.wav",
+      "voiceDurationMs": 1201,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 2040
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:25"
     },
     {
       "author": "them",
-      "text": "Паш, ты в своём уме?",
-      "sentAt": "14:25",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-10.wav",
+      "text": "Паш, ты ЧТО?",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-10.pr135.wav",
+      "voiceDurationMs": 1693,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 2800
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:25"
     },
     {
       "author": "them",
@@ -326,42 +333,42 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-11.video.mp4",
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:26",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-11.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-11.pr135.wav",
+      "voiceDurationMs": 3835,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 4720
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:26"
     },
     {
       "author": "me",
       "text": "Серёг, ну ты не понял главного",
-      "sentAt": "14:27",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-12.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-12.pr135.wav",
+      "voiceDurationMs": 2468,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 3560
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:27"
     },
     {
       "author": "me",
       "text": "Там был один нюанс, который всё решил",
-      "sentAt": "14:27",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-13.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-13.pr135.wav",
+      "voiceDurationMs": 2253,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 3680
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:27"
     },
     {
       "author": "them",
       "text": "Какой еще нюанс на 2.5 ляма? Коврики в подарок?",
-      "sentAt": "14:28",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-14.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-14.pr135.wav",
+      "voiceDurationMs": 3867,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 4440
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:28"
     },
     {
       "author": "me",
@@ -375,22 +382,22 @@
       "storyVideoDurationMs": 4000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
       "storyImageEditPrompt": "Приборная доска должна быть на правильном месте",
-      "sentAt": "14:29",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-15.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-15.pr135.wav",
+      "voiceDurationMs": 2203,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 2720
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:29"
     },
     {
       "author": "them",
       "text": "А",
-      "sentAt": "14:30",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-16.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-16.pr135.wav",
+      "voiceDurationMs": 711,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 1040
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:30"
     },
     {
       "author": "them",
@@ -404,38 +411,32 @@
       "storyVideo": "images/mashina-iz-salona-s-polnym-bakom-benzina/story-msg-17.video.mp4",
       "storyVideoDurationMs": 6000,
       "storyVideoProfile": "veo-3.1-lite-scene-fit-1080-v2",
-      "sentAt": "14:31",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-17.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-17.pr135.wav",
+      "voiceDurationMs": 1914,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 2040
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:31"
     },
     {
       "author": "them",
-      "text": "Тогда конечно, выгодная сделка 🤦‍♂️",
-      "sentAt": "14:31",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-18.wav",
+      "text": "Тогда конечно, выгодная сделка",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-18.pr135.wav",
+      "voiceDurationMs": 2261,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Leda",
-      "voiceDurationMs": 3360
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Schedar",
+      "sentAt": "14:31"
     },
     {
       "author": "me",
       "text": "Вот и я о том же!",
-      "sentAt": "14:32",
-      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-19.wav",
+      "voiceAudio": "audio/mashina-iz-salona-s-polnym-bakom-benzina/msg-19.pr135.wav",
+      "voiceDurationMs": 1581,
       "voiceTtsProvider": "openrouter",
-      "voiceTtsProfile": "young-emotional-v4|sp1.5|Puck|Leda",
-      "voiceTtsVoice": "Puck",
-      "voiceDurationMs": 2280
+      "voiceTtsProfile": "young-emotional-v4|sp1.5|Alnilam|Schedar",
+      "voiceTtsVoice": "Alnilam",
+      "sentAt": "14:32"
     }
-  ],
-  "previewCover": {
-    "enabled": true,
-    "image": "images/mashina-iz-salona-s-polnym-bakom-benzina/preview-cover.png",
-    "title": "Машина из салона с полным баком бензина",
-    "durationMs": 3000
-  }
+  ]
 }

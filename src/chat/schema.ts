@@ -285,7 +285,7 @@ export const conversationSchema = z.object({
       /** Справочник визуальной преемственности (объекты, цвета, локации) */
       visualBible: z.string().min(1).optional(),
       /** Целевая длительность ролика, сек (Shorts) */
-      targetDurationSec: z.number().min(30).max(120).optional().default(60),
+      targetDurationSec: z.number().min(25).max(120).optional().default(60),
       /** Ориентир длительности одной сцены, сек */
       sceneDurationSec: z
         .object({

@@ -1,0 +1,201 @@
+{
+  "contactName": "Гена",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/gasoline-heist.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "Zubenelgenubi",
+    "meVoice": "Puck",
+    "ttsPrompt": "",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 0.5,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/kogda-reshil-ekonomit-na-benzine/preview-cover.png",
+    "title": "Когда решил экономить на бензине",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "characters": [
+      {
+        "id": "me",
+        "name": "Я",
+        "role": "me",
+        "appearance": "Молодой человек лет 25, в домашней одежде. Наблюдает за происходящим из окна своей квартиры. У него короткие тёмные волосы, он выглядит озадаченным."
+      },
+      {
+        "id": "them",
+        "name": "Гена",
+        "role": "them",
+        "appearance": "Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице."
+      }
+    ],
+    "opening": {
+      "image": "images/kogda-reshil-ekonomit-na-benzine/story-opening.png",
+      "imagePrompt": "Вертикальный establishing shot тихого городского двора и улицы ранним вечером, вид сверху из окна жилого дома: вдоль тротуара тянется старенькая легковая машина, которую медленно толкает мужчина на фоне длинного квартала, подъездов, припаркованных авто и тёплых окон. Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра; акцент на глубине улицы, лёгкой бытовой абсурдности и ощущении наблюдения из окна, без текста и надписей. Внешность героев в кадре (строго): Гена: Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице.",
+      "durationMs": 2500,
+      "animation": "depthParallax"
+    },
+    "motionLoopSec": 3,
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Ген, ты чего машину толкаешь? Бензин кончился?",
+      "storyImage": "images/kogda-reshil-ekonomit-na-benzine/story-msg-1.png",
+      "storyImagePrompt": "Вертикальный establishing shot двора ранним вечером: на переднем плане у раскрытого окна своей квартиры стоит Молодой человек лет 25, в домашней одежде. Наблюдает за происходящим из окна своей квартиры. У него короткие тёмные волосы, он выглядит озадаченным. Внизу на улице, чуть в глубине композиции, Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице. Единый стиль проекта: детализированная рисованная иллюстрация (digital painting), чёткие уверенные контуры, богатая проработка деталей и фактур, мягкая живописная заливка, выразительный кинематографичный свет и атмосфера, насыщенная, но гармоничная палитра; глубина двора, тёплый свет из окна и прохладные уличные тени подчёркивают неловкий и немного комичный момент. Внешность героев в кадре (строго): Я: Молодой человек лет 25, в домашней одежде. Наблюдает за происходящим из окна своей квартиры. У него короткие тёмные волосы, он выглядит озадаченным. Гена: Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице.",
+      "storySceneCharacters": [
+        "me",
+        "them"
+      ],
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-1.wav",
+      "voiceDurationMs": 3960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:20"
+    },
+    {
+      "author": "them",
+      "text": "Привет. Не-а, всё ок.",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-2.wav",
+      "voiceDurationMs": 2840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:21"
+    },
+    {
+      "author": "me",
+      "text": "В смысле ок? Я из окна вижу, ты уже второй квартал её катишь.",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-3.wav",
+      "voiceDurationMs": 4960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:21"
+    },
+    {
+      "author": "them",
+      "text": "Да я так, экономлю просто.",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-4.wav",
+      "voiceDurationMs": 2960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:22"
+    },
+    {
+      "author": "me",
+      "text": "Что экономишь? Силы свои?",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-5.wav",
+      "voiceDurationMs": 2640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:23"
+    },
+    {
+      "author": "them",
+      "text": "Бензин.",
+      "storyImage": "images/kogda-reshil-ekonomit-na-benzine/story-msg-6.png",
+      "storyImagePrompt": "Вертикальный кадр ночной городской улицы у жилых домов: на переднем плане Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице. Атмосфера одновременно абсурдная и бытовая: тёплый свет фонарей ложится на асфальт, на кузове машины видны потёртости и блики, пустая улица уходит в глубину, подчёркивая, что он упорно катит машину уже давно. Детализированная рисованная иллюстрация с чёткими контурами, мягкой живописной заливкой, выразительным светом и насыщенной гармоничной палитрой. Внешность героев в кадре (строго): Гена: Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице.",
+      "storySceneCharacters": [
+        "them"
+      ],
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-6.wav",
+      "voiceDurationMs": 1200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:23"
+    },
+    {
+      "author": "me",
+      "text": "Гениально. Экономить бензин, когда он закончился.",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-7.wav",
+      "voiceDurationMs": 4920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:24"
+    },
+    {
+      "author": "them",
+      "text": "Так он не закончился.",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-8.wav",
+      "voiceDurationMs": 1920,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:25"
+    },
+    {
+      "author": "me",
+      "text": "ЧТО?",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-9.wav",
+      "voiceDurationMs": 1240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:25"
+    },
+    {
+      "author": "them",
+      "text": "У меня полный бак.",
+      "storyImage": "images/kogda-reshil-ekonomit-na-benzine/story-msg-10.png",
+      "storyImagePrompt": "На тихой городской улице старенькая легковая машина медленно катится вдоль тротуара, а рядом с ней с заметным усилием идёт Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице. Композиция подчёркивает абсурдность момента: машина выглядит вполне исправной, вокруг спокойный жилой квартал, мягкий дневной свет ложится на асфальт, фасады домов и потёртый кузов. Детализированная рисованная иллюстрация с выразительными контурами, фактурой улицы и металла, глубиной пространства и лёгкой ироничной атмосферой недоумения. Внешность героев в кадре (строго): Гена: Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице.",
+      "storySceneCharacters": [
+        "them"
+      ],
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-10.wav",
+      "voiceDurationMs": 2080,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:26"
+    },
+    {
+      "author": "me",
+      "text": "Тогда я вообще ничего не понимаю. Зачем толкать машину, если бак ПОЛНЫЙ???",
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-11.wav",
+      "voiceDurationMs": 6400,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Puck",
+      "sentAt": "14:27"
+    },
+    {
+      "author": "them",
+      "text": "Так это на обратную дорогу! 😉",
+      "storyImagePrompt": "На тихой городской улице Гена с абсурдно серьёзным видом продолжает толкать старенькую легковую машину вдоль тротуара, будто бережёт её для какого-то особенно важного момента. Мужчина примерно 25-30 лет, спортивного телосложения. Одет в футболку и спортивные штаны, выглядит уставшим, но решительным. Толкает старенькую легковую машину по улице. В кадре подчёркнут комичный контраст между его решимостью и нелепостью ситуации: тёплый дневной свет, длинная перспектива улицы, жилые дома, припаркованные машины и ощущение странной бытовой драмы посреди обычного района.",
+      "storySceneCharacters": [
+        "them"
+      ],
+      "voiceAudio": "audio/kogda-reshil-ekonomit-na-benzine/msg-12.wav",
+      "voiceDurationMs": 2760,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v4|Puck|Zubenelgenubi",
+      "voiceTtsVoice": "Zubenelgenubi",
+      "sentAt": "14:28"
+    }
+  ]
+}

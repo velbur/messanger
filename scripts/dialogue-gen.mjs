@@ -495,7 +495,7 @@ export const parsePromptGenerationLimits = (prompt) => {
     (/\b(?:полминуты|30\s*сек)\b/i.test(text) ? 30 : null);
   if (durationSec != null) {
     const asSec = text.match(/(\d{1,2})\s*(?:мин)/i) ? durationSec * 60 : durationSec;
-    limits.targetDurationSec = Math.max(30, Math.min(120, asSec));
+    limits.targetDurationSec = Math.max(25, Math.min(120, asSec));
   }
 
   const imageCount =
@@ -583,7 +583,7 @@ export const normalizeGenerationOptions = ({
   if (storyVisual) {
     const td = Number(targetDurationSec);
     resolvedTargetDuration =
-      Number.isFinite(td) && td >= 30
+      Number.isFinite(td) && td >= 25
         ? Math.min(120, Math.round(td))
         : fromPrompt.targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC;
   }
@@ -836,6 +836,7 @@ const buildSystemPrompt = async ({
 const buildUserPrompt = async ({
   prompt,
   previousMessages,
+  existingScenarios = null,
   imageCount = null,
   messageCount = null,
   targetDurationSec = null,
@@ -909,6 +910,27 @@ const buildUserPrompt = async ({
     parts.push(
       "",
       language === "en" ? "Add displayTitle in English." : "Обязательно добавь displayTitle на русском.",
+    );
+  }
+
+  const existingList = Array.isArray(existingScenarios)
+    ? [
+        ...new Set(
+          existingScenarios
+            .map((item) => String(item ?? "").trim().replace(/\s+/g, " "))
+            .filter(Boolean)
+            .map((item) => (item.length > 120 ? `${item.slice(0, 117)}…` : item)),
+        ),
+      ]
+    : [];
+  if (mode !== "series" && existingList.length > 0) {
+    const capped = existingList.slice(0, 80);
+    parts.push(
+      "",
+      language === "en"
+        ? "These stories already exist — do NOT reuse their premise, plot, twist or ending. Invent a fundamentally different scenario:"
+        : "Эти сюжеты уже существуют — НЕ повторяй их завязку, идею, поворот и финал. Придумай принципиально другой сценарий:",
+      capped.map((title) => `- ${title}`).join("\n"),
     );
   }
 
@@ -1482,6 +1504,7 @@ export const generateDialogue = async ({
   videoLayout = "storyOverlay",
   textMode = "narration",
   previousMessages,
+  existingScenarios,
   includeImages,
   imageCount,
   messageCount,
@@ -1540,6 +1563,7 @@ export const generateDialogue = async ({
   const user = await buildUserPrompt({
     prompt: fullPrompt,
     previousMessages: contextMessages,
+    existingScenarios: normalizedMode === "series" ? undefined : existingScenarios,
     imageCount: gen.imageCount,
     messageCount: gen.messageCount,
     targetDurationSec: gen.targetDurationSec,

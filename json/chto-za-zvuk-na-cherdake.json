@@ -1,0 +1,155 @@
+{
+  "contactName": "Игнат",
+  "locale": "ru",
+  "contactStatus": "в сети",
+  "contactStatusTyping": "печатает...",
+  "contactAvatar": "avatar.svg",
+  "messageFontSize": 48,
+  "wallpaper": "dark",
+  "myName": "Я",
+  "music": {
+    "enabled": true,
+    "src": "music/mystic.mp3"
+  },
+  "voiceover": {
+    "enabled": true,
+    "provider": "openrouter",
+    "themVoice": "female",
+    "meVoice": "male",
+    "volume": 0.92,
+    "musicDuck": 0.28
+  },
+  "timingSpeed": 2,
+  "previewCover": {
+    "enabled": true,
+    "image": "images/chto-za-zvuk-na-cherdake/preview-cover.png",
+    "title": "Что за звук на чердаке?",
+    "durationMs": 3000
+  },
+  "layout": "storyOverlay",
+  "story": {
+    "opening": {
+      "image": "images/chto-za-zvuk-na-cherdake/story-opening.png",
+      "imagePrompt": "Тёмная спальня ночью: человек сидит на кровати и прислушивается к ритмичному скрежету с чердака над головой, лунный свет в окне, напряжённая атмосфера.",
+      "storyVideo": "images/chto-za-zvuk-na-cherdake/story-opening.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-loop-v1",
+      "durationMs": 2500,
+      "animation": "parallax"
+    },
+    "splitTransitionMs": 600,
+    "topPanelRatio": 0.45,
+    "disableMessageFullscreen": true,
+    "sfx": {
+      "enabled": false,
+      "profile": "catalog-v2-selective"
+    }
+  },
+  "messages": [
+    {
+      "author": "me",
+      "text": "Тут на чердаке какой-то скрежет, будто кто-то царапает доски.",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-1.wav",
+      "voiceDurationMs": 5200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:45"
+    },
+    {
+      "author": "them",
+      "text": "Да мыши это, сто процентов. Или ветки по крыше.",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-2.wav",
+      "voiceDurationMs": 4840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:46"
+    },
+    {
+      "author": "me",
+      "text": "Нет, звук ритмичный. И он прямо над моей головой.",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-3.wav",
+      "voiceDurationMs": 5240,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:47"
+    },
+    {
+      "author": "them",
+      "text": "Жутковато. Может, просто забить и лечь спать?",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-4.wav",
+      "voiceDurationMs": 3960,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:48"
+    },
+    {
+      "author": "me",
+      "text": "Не могу, пойду посмотрю. Слишком странно.",
+      "storyImage": "images/chto-za-zvuk-na-cherdake/story-msg-5.png",
+      "storyImagePrompt": "Вид от первого лица, луч фонарика от телефона выхватывает из темноты старую деревянную лестницу, ведущую на чердак.",
+      "storyVideo": "images/chto-za-zvuk-na-cherdake/story-msg-5.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-loop-v1",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-5.wav",
+      "voiceDurationMs": 4480,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:52"
+    },
+    {
+      "author": "me",
+      "text": "Тут ничего нет, кроме старого хлама. И... какой-то шкатулки.",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-6.wav",
+      "voiceDurationMs": 7840,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:55"
+    },
+    {
+      "author": "them",
+      "text": "Музыкальной?",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-7.wav",
+      "voiceDurationMs": 1520,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:56"
+    },
+    {
+      "author": "me",
+      "text": "Да. И кажется, скрежет идет из нее.",
+      "storyImage": "images/chto-za-zvuk-na-cherdake/story-msg-8.png",
+      "storyImagePrompt": "Крупный план старинной резной музыкальной шкатулки на пыльном полу. Из щелей крышки пробивается едва заметное, холодное свечение.",
+      "storyVideo": "images/chto-za-zvuk-na-cherdake/story-msg-8.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-loop-v1",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-8.wav",
+      "voiceDurationMs": 3640,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:57"
+    },
+    {
+      "author": "them",
+      "text": "Уходи оттуда! Не трогай ее!",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-9.wav",
+      "voiceDurationMs": 3200,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:58"
+    },
+    {
+      "author": "me",
+      "text": "Она сама открылась.",
+      "storyImage": "images/chto-za-zvuk-na-cherdake/story-msg-10.png",
+      "storyImagePrompt": "Открытая музыкальная шкатулка, из которой льется потусторонний синий свет. Внутри вместо танцующей фигурки — крошечное существо с длинными когтями, оно смотрит прямо на зрителя.",
+      "storyVideo": "images/chto-za-zvuk-na-cherdake/story-msg-10.video.mp4",
+      "storyVideoDurationMs": 4000,
+      "storyVideoProfile": "veo-3.1-lite-loop-v1",
+      "voiceAudio": "audio/chto-za-zvuk-na-cherdake/msg-10.wav",
+      "voiceDurationMs": 1880,
+      "voiceTtsProvider": "openrouter",
+      "voiceTtsProfile": "young-emotional-v1",
+      "sentAt": "22:59"
+    }
+  ]
+}

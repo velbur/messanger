@@ -568,12 +568,8 @@ const prepareConversationForEditor = (parsed) => {
   const result = {...parsed};
   syncEditorPreferencesStorageFromConversation(result);
   stripVoicePlaybackRateFields(result);
-  if (result.timingSpeed === undefined) {
-    const storedSpeed = readLastTimingSpeed();
-    if (storedSpeed !== DEFAULT_TIMING_SPEED) {
-      result.timingSpeed = storedSpeed;
-    }
-  }
+  // Намеренно НЕ подставляем сохранённую в браузере скорость: она молча ускоряла/замедляла
+  // ролики, у которых timingSpeed не задан. Скорость берётся только из самого диалога (иначе ×1).
   if (result.messageFontSize === undefined) {
     result.messageFontSize = readLastMessageFontSize();
   }
@@ -637,7 +633,7 @@ const getDialogueMessageCount = () =>
 
 const getDialogueTargetDuration = () => {
   const value = Number(dialogueTargetDuration?.value ?? 60);
-  return Number.isFinite(value) && value >= 30 ? value : 60;
+  return Number.isFinite(value) && value >= 25 ? value : 60;
 };
 
 const isStoryVideoLayoutSelected = () => {
@@ -663,9 +659,6 @@ const syncDialogueGenDurationControls = () => {
   }
   if (dialogueGenTargetDurationRow) {
     dialogueGenTargetDurationRow.hidden = !storyTimeMode;
-  }
-  if (conversationTimingPanel && storyTimeMode) {
-    conversationTimingPanel.hidden = true;
   }
 };
 
@@ -4936,16 +4929,16 @@ const renderConversationTimingPanel = (conversation, timingPreview) => {
     return;
   }
 
-  const storyTimeMode =
-    editorKind === "shorts" && isStoryVideoLayoutSelected();
-  if (!conversation?.messages?.length || storyTimeMode) {
+  if (!conversation?.messages?.length) {
     conversationTimingPanel.hidden = true;
     return;
   }
 
+  // Ползунок скорости влияет и на story-режим (тайминг появления сообщений и смены кадров),
+  // поэтому показываем его всегда, а не только при обычной переписке/озвучке.
   conversationTimingPanel.hidden = false;
 
-  const speed = conversation.timingSpeed ?? readLastTimingSpeed();
+  const speed = conversation.timingSpeed ?? DEFAULT_TIMING_SPEED;
   if (timingSpeedInput && document.activeElement !== timingSpeedInput) {
     timingSpeedInput.value = String(speed);
   }
@@ -8057,6 +8050,63 @@ const formatDialogueGenSummary = ({messageCount, targetDurationSec, model, tempe
   return parts.join(", ");
 };
 
+const conversationHasMessages = (conversation) =>
+  Array.isArray(conversation?.messages) && conversation.messages.length > 0;
+
+const conversationHasImages = (conversation) => {
+  if (!conversation) {
+    return false;
+  }
+  const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+  const hasMessageImage = messages.some(
+    (message) =>
+      Boolean(String(message?.image ?? "").trim()) ||
+      Boolean(String(message?.storyImage ?? "").trim()),
+  );
+  if (hasMessageImage) {
+    return true;
+  }
+  return Boolean(String(conversation?.story?.opening?.image ?? "").trim());
+};
+
+// Диалог-генерация затирает текущий JSON (clearShortsJsonBeforeGenerate).
+// Если уже что-то сгенерировано — просим подтверждение, чтобы не потерять по ошибке.
+const confirmRegenerateDialogue = () => {
+  const parsed = parseConversationJson();
+  const hasMessages = conversationHasMessages(parsed);
+  const hasImages = conversationHasImages(parsed);
+  if (!hasMessages && !hasImages) {
+    return true;
+  }
+  const parts = [];
+  if (hasMessages) {
+    parts.push("диалог");
+  }
+  if (hasImages) {
+    parts.push("изображения");
+  }
+  const what = parts.join(" и ");
+  return window.confirm(
+    `Здесь уже есть ${what}. Повторная генерация удалит текущий вариант без возможности вернуть его. Продолжить?`,
+  );
+};
+
+// Автосохранение после генерации: новый Shorts сразу попадает в базу, без ручного «Сохранить».
+const autoSaveCurrentDialogue = async () => {
+  if (!jsonInput.value.trim()) {
+    return;
+  }
+  try {
+    await saveCurrentDialogue({skipRefresh: true});
+  } catch (err) {
+    console.error("Автосохранение не удалось", err);
+    setDialogueSaveStatus(
+      `Не удалось сохранить автоматически: ${err instanceof Error ? err.message : String(err)}`,
+      true,
+    );
+  }
+};
+
 const generateDialogueFromPrompt = async () => {
   if (!canGenerateDialogue()) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
@@ -8118,6 +8168,7 @@ const generateDialogueFromPrompt = async () => {
     dialogueGenerateStatus.textContent =
       "Диалог готов. Нажмите «Сгенерировать промпты изображений» для кадров сюжета.";
   }
+  await autoSaveCurrentDialogue();
   return data;
 };
 
@@ -8424,6 +8475,7 @@ const generateMissingImages = async () => {
   jsonInput.value = JSON.stringify(data.conversation, null, 2);
   await refreshDialogue();
   updateGenerateImagesControls(data.conversation);
+  await autoSaveCurrentDialogue();
   return data;
 };
 
@@ -8483,6 +8535,9 @@ const formatGenerateAnimationsResult = (data) => {
 };
 
 btnGenerateDialogue?.addEventListener("click", async () => {
+  if (!confirmRegenerateDialogue()) {
+    return;
+  }
   btnGenerateDialogue.disabled = true;
   if (dialogueGenerateStatus) {
     dialogueGenerateStatus.textContent = "";
