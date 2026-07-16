@@ -34,7 +34,11 @@ import {mergeStorySfxConfig, resolveStorySfxCues, SFX_BUNDLE_MARKER, SFX_MIX_BUN
 import {mergeConversationVoiceover, messageHasVoiceover, normalizeVoicePlaybackRate, STORY_VOICE_SYNC_BUNDLE_MARKER, VOICEOVER_BUNDLE_MARKER, VOICE_PLAYBACK_RATE_BUNDLE_MARKER} from "./voiceover";
 import type {ConversationInput} from "./schema";
 import {msToFrames, FPS} from "./fps";
-import {assignStorySceneTimeSlots, getStoryScenes} from "./story-scene-timing";
+import {
+  assignStorySceneTimeSlots,
+  getStoryScenes,
+  STORY_READABLE_WORDS_PER_SEC,
+} from "./story-scene-timing";
 
 /** Пауза на последнем кадре переписки перед заставками (музыка доигрывает в этот хвост) */
 export const POST_LAST_MESSAGE_TAIL_MS = 8000;
@@ -175,6 +179,23 @@ const resolveVoiceClipTiming = (
   return {voiceDurationFrames, voicePlaybackRate};
 };
 
+/**
+ * Длительность показа story-кадра = время чтения его текста (слова / скорость чтения),
+ * зажатое в диапазон длительности сцены [min, max] секунд. Заменяет привязку к «общему
+ * времени ролика»: кадр держится ровно столько, сколько нужно на его реплику.
+ */
+const storySceneReadHoldMs = (
+  text: string | undefined,
+  range: {min: number; max: number},
+): number => {
+  const words = String(text ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const readMs = (words / STORY_READABLE_WORDS_PER_SEC) * 1000;
+  return Math.max(range.min * 1000, Math.min(range.max * 1000, readMs));
+};
+
 const buildMessageTimelineEvents = (
   conversation: ConversationInput,
   introFrames: number,
@@ -191,6 +212,7 @@ const buildMessageTimelineEvents = (
   let cursor = introFrames;
   const timingConfig = mergeConversationTiming(conversation);
   const timingSpeed = getTimingSpeed(conversation);
+  const storySceneRange = getStorySceneDurationSec(conversation);
   const voiceover = mergeConversationVoiceover(conversation);
   const voicePaddingMs = scaleTimingMs(200);
 
@@ -234,6 +256,13 @@ const buildMessageTimelineEvents = (
     }
 
     let resolved = resolveMessageTiming(message, timingConfig, timingSpeed);
+    // Story-режим: длительность кадра задаётся временем чтения его текста (клэмп min..max),
+    // а не общей целевой длительностью ролика. Так кадр висит ровно столько, сколько нужно,
+    // без «мелькания» коротких и «зависания» последнего кадра.
+    if (storyVisual) {
+      const holdMs = storySceneReadHoldMs(message.text, storySceneRange) * timingSpeed;
+      resolved = {...resolved, postRevealMs: holdMs};
+    }
     const autoRate = Math.max(1, voicePlaybackRates.get(index) ?? 1);
     const userRate = userVoiceRate;
     const voiceRate = autoRate * userRate;
@@ -510,9 +539,24 @@ const buildStoryTimeline = (
         );
       }
 
-      let endFrame = startFrame + msToFrames(durationMs);
-      if (!videoOnlyStory && typeof videoMs === "number" && videoMs > 0) {
-        endFrame = Math.max(endFrame, startFrame + msToFrames(videoMs));
+      let endFrame: number;
+      if (videoOnlyStory) {
+        endFrame = startFrame + msToFrames(durationMs);
+      } else {
+        // Немой кадр/параллакс держится до следующей сцены (или до конца переписки),
+        // как в ветке без плана. Так кадр тянется вместе с растянутым таймингом сообщений
+        // и не «зависает» лишний слот сверх целевой длительности ролика.
+        const nextScene = timedScenes[sceneOrder + 1];
+        const nextRevealFrame = nextScene
+          ? Math.max(
+              events[nextScene.anchorMessageIndex]?.revealFrame ?? chatEndFrame,
+              splitCompleteFrame,
+            )
+          : chatEndFrame;
+        endFrame = Math.max(nextRevealFrame, startFrame + 1);
+        if (typeof videoMs === "number" && videoMs > 0) {
+          endFrame = Math.max(endFrame, startFrame + msToFrames(videoMs));
+        }
       }
 
       videoChainFrame = endFrame;

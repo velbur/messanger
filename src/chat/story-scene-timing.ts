@@ -14,7 +14,7 @@ import {mergeConversationVoiceover, messageHasVoiceover, STORY_VOICE_SYNC_MAX_PL
 import {POST_LAST_MESSAGE_TAIL_MS} from "./timeline";
 
 export const DEFAULT_STORY_TARGET_DURATION_SEC = 60;
-export const DEFAULT_SCENE_DURATION_SEC = {min: 4, max: 6} as const;
+export const DEFAULT_SCENE_DURATION_SEC = {min: 3, max: 8} as const;
 export const SCENE_SLOT_TARGET_MS = 5000;
 
 export type StoryScenePlanEntry = {
