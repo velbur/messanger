@@ -2291,7 +2291,8 @@ body.workflow-modal-open {
   white-space: nowrap;
 }
 
-.dialogue-msg__regen {
+.dialogue-msg__regen,
+.dialogue-msg__delete {
   min-width: 28px;
   padding: 2px 8px;
   font-size: 0.85rem;
@@ -2299,7 +2300,12 @@ body.workflow-modal-open {
   opacity: 0.85;
 }
 
-.dialogue-msg__regen:hover:not(:disabled) {
+.dialogue-msg__regen {
+  margin-left: auto;
+}
+
+.dialogue-msg__regen:hover:not(:disabled),
+.dialogue-msg__delete:hover:not(:disabled) {
   opacity: 1;
 }
 

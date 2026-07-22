@@ -5015,7 +5015,97 @@ const insertMessageInJson = (insertAt, message) => {
   }
   const index = Math.max(0, Math.min(insertAt, parsed.messages.length));
   parsed.messages.splice(index, 0, message);
+  shiftStoryScenesAfterMessageInsert(parsed, index);
   jsonInput.value = JSON.stringify(parsed, null, 2);
+};
+
+const shiftStoryScenesAfterMessageInsert = (conversation, insertAt) => {
+  const scenes = conversation?.story?.scenes;
+  if (!Array.isArray(scenes) || !scenes.length) {
+    return;
+  }
+  for (const scene of scenes) {
+    if (typeof scene.anchorMessageIndex === "number" && scene.anchorMessageIndex >= insertAt) {
+      scene.anchorMessageIndex += 1;
+    }
+    if (typeof scene.messageFrom === "number" && scene.messageFrom >= insertAt) {
+      scene.messageFrom += 1;
+    }
+    if (typeof scene.messageTo === "number" && scene.messageTo >= insertAt) {
+      scene.messageTo += 1;
+    }
+  }
+};
+
+const adjustStoryScenesAfterMessageDelete = (conversation, deletedIndex) => {
+  const scenes = conversation?.story?.scenes;
+  if (!Array.isArray(scenes) || !scenes.length) {
+    return;
+  }
+  const shift = (index) => (typeof index === "number" && index > deletedIndex ? index - 1 : index);
+  conversation.story.scenes = scenes
+    .filter((scene) => scene.anchorMessageIndex !== deletedIndex)
+    .map((scene) => {
+      let messageFrom = scene.messageFrom;
+      let messageTo = scene.messageTo;
+      if (typeof messageFrom === "number") {
+        messageFrom = messageFrom === deletedIndex ? deletedIndex : shift(messageFrom);
+      }
+      if (typeof messageTo === "number") {
+        messageTo = messageTo === deletedIndex ? deletedIndex - 1 : shift(messageTo);
+      }
+      let anchorMessageIndex = shift(scene.anchorMessageIndex);
+      if (
+        typeof messageFrom === "number" &&
+        typeof messageTo === "number" &&
+        typeof anchorMessageIndex === "number"
+      ) {
+        anchorMessageIndex = Math.min(Math.max(anchorMessageIndex, messageFrom), messageTo);
+      }
+      return {...scene, messageFrom, messageTo, anchorMessageIndex};
+    })
+    .filter((scene) => {
+      if (typeof scene.messageFrom !== "number" || typeof scene.messageTo !== "number") {
+        return true;
+      }
+      return scene.messageFrom <= scene.messageTo && scene.messageFrom >= 0;
+    });
+};
+
+const deleteMessageInJson = (messageIndex) => {
+  const parsed = parseConversationJson();
+  if (!parsed?.messages?.[messageIndex]) {
+    return false;
+  }
+  if (parsed.messages.length <= 1) {
+    window.alert("В диалоге должна остаться хотя бы одна реплика.");
+    return false;
+  }
+  parsed.messages.splice(messageIndex, 1);
+  adjustStoryScenesAfterMessageDelete(parsed, messageIndex);
+  jsonInput.value = JSON.stringify(parsed, null, 2);
+  return true;
+};
+
+const deleteMessageAtIndex = (messageIndex) => {
+  const parsed = parseConversationJson();
+  const message = parsed?.messages?.[messageIndex];
+  if (!message) {
+    return;
+  }
+  if (parsed.messages.length <= 1) {
+    window.alert("В диалоге должна остаться хотя бы одна реплика.");
+    return;
+  }
+  const preview = String(message.text ?? "").trim().slice(0, 60);
+  const label = preview ? `«${preview}${preview.length >= 60 ? "…" : ""}»` : `№${messageIndex + 1}`;
+  if (!window.confirm(`Удалить реплику ${label} из диалога?`)) {
+    return;
+  }
+  if (!deleteMessageInJson(messageIndex)) {
+    return;
+  }
+  refreshDialogue();
 };
 
 const insertSceneMessageAfter = (messageIndex) => {
@@ -6629,6 +6719,7 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
   const conversation = parseConversationJson();
   const isStoryVisual = isStoryVisualLayout(conversation);
   const messageText = String(message.text ?? "").trim();
+  const canDeleteMessage = (conversation?.messages?.length ?? 0) > 1;
 
   row.className = `dialogue-block${
     imageState?.needsImageFile ? " dialogue-block--needs-image" : ""
@@ -6712,6 +6803,17 @@ const renderDialogueMessage = (message, messageIndex, item, contactName, storyPr
     }
   });
   toolbar.append(btnRegen);
+
+  const btnDelete = document.createElement("button");
+  btnDelete.type = "button";
+  btnDelete.className = "dialogue-msg__delete btn btn-danger btn-small";
+  btnDelete.textContent = "×";
+  btnDelete.title = canDeleteMessage ? "Удалить реплику" : "Нельзя удалить единственную реплику";
+  btnDelete.setAttribute("aria-label", "Удалить реплику");
+  btnDelete.disabled = !canDeleteMessage;
+  btnDelete.addEventListener("click", () => deleteMessageAtIndex(messageIndex));
+  toolbar.append(btnDelete);
+
   messageCol.append(toolbar);
 
   const body = document.createElement("div");
