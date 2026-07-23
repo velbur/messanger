@@ -528,6 +528,18 @@ body {
   accent-color: #00a884;
 }
 
+.dialogue-gen-option__range {
+  width: 100%;
+  max-width: 260px;
+  margin: 0;
+  accent-color: #00a884;
+}
+
+.dialogue-gen-option__hint {
+  font-size: 0.72rem;
+  color: #8696a0;
+}
+
 .title-cards__input {
   width: 100%;
 }

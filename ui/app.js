@@ -119,6 +119,7 @@ const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
 const dialoguePhotoInput = document.getElementById("dialoguePhotoInput");
 const btnAttachDialoguePhoto = document.getElementById("btnAttachDialoguePhoto");
+const btnPasteDialoguePhoto = document.getElementById("btnPasteDialoguePhoto");
 const btnRemoveDialoguePhoto = document.getElementById("btnRemoveDialoguePhoto");
 const dialoguePhotoPreview = document.getElementById("dialoguePhotoPreview");
 const dialoguePhotoThumb = document.getElementById("dialoguePhotoThumb");
@@ -126,6 +127,8 @@ const dialoguePhotoStatus = document.getElementById("dialoguePhotoStatus");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
 const dialogueMessageCount = document.getElementById("dialogueMessageCount");
+const dialogueMessageCountValue = document.getElementById("dialogueMessageCountValue");
+const dialogueMessageCountHint = document.getElementById("dialogueMessageCountHint");
 const dialogueModel = document.getElementById("dialogueModel");
 const dialogueModelOption = document.getElementById("dialogueModelOption");
 const dialogueTemperature = document.getElementById("dialogueTemperature");
@@ -655,18 +658,31 @@ const syncTargetDurationFromJson = () => {
   dialogueTargetDuration.value = String(parsed.story.targetDurationSec);
 };
 
+// Примерная длина ролика по числу реплик: ~2.5–5 с на реплику + запас на заставку/концовку.
+const updateDialogueMessageCountHint = () => {
+  const n = getDialogueMessageCount();
+  if (dialogueMessageCountValue) {
+    dialogueMessageCountValue.textContent = String(n);
+  }
+  if (dialogueMessageCountHint) {
+    const low = Math.round((n * 2.5 + 5) / 5) * 5;
+    const high = Math.round((n * 5 + 6) / 5) * 5;
+    dialogueMessageCountHint.textContent = `≈ ${low}–${high} с`;
+  }
+};
+
 const syncDialogueGenDurationControls = () => {
-  const storyTimeMode =
-    editorKind === "shorts" && isStoryVideoLayoutSelected();
-  const showMessageCount =
-    editorKind !== "video" && !storyTimeMode;
+  const showMessageCount = editorKind !== "video";
   if (dialogueGenMessageCountRow) {
     dialogueGenMessageCountRow.hidden = !showMessageCount;
   }
   if (dialogueGenTargetDurationRow) {
-    dialogueGenTargetDurationRow.hidden = !storyTimeMode;
+    dialogueGenTargetDurationRow.hidden = true;
   }
+  updateDialogueMessageCountHint();
 };
+
+dialogueMessageCount?.addEventListener("input", updateDialogueMessageCountHint);
 
 const applyTargetDurationToJson = () => {
   if (!isStoryVideoLayoutSelected()) {
@@ -8128,9 +8144,7 @@ const getDialogueGenOptions = () => {
     videoLayout: editorKind === "shorts" ? getVideoLayout() : undefined,
     textMode: editorKind === "video" ? getVideoTextMode() : undefined,
   };
-  if (editorKind === "shorts" && isStoryVideoLayoutSelected()) {
-    options.targetDurationSec = getDialogueTargetDuration();
-  } else if (editorKind === "shorts" || editorKind === "series") {
+  if (editorKind === "shorts" || editorKind === "series") {
     options.messageCount = getDialogueMessageCount();
   }
   return options;
@@ -8289,6 +8303,25 @@ const applyDialoguePhotoFile = async (file) => {
 
 btnAttachDialoguePhoto?.addEventListener("click", () => dialoguePhotoInput?.click());
 btnRemoveDialoguePhoto?.addEventListener("click", clearDialoguePhoto);
+btnPasteDialoguePhoto?.addEventListener("click", async () => {
+  try {
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = "Чтение буфера…";
+    }
+    const file = await pickClipboardImageFile();
+    if (!file) {
+      if (dialoguePhotoStatus) {
+        dialoguePhotoStatus.textContent = "В буфере нет изображения";
+      }
+      return;
+    }
+    await applyDialoguePhotoFile(file);
+  } catch {
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = "Не удалось прочитать буфер (нужно разрешение браузера)";
+    }
+  }
+});
 dialoguePhotoInput?.addEventListener("change", () => {
   const file = dialoguePhotoInput.files?.[0];
   if (file) {

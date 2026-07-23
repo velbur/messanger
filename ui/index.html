@@ -381,7 +381,10 @@
                 <button type="button" id="btnAttachDialoguePhoto" class="btn btn-secondary btn-small" title="Собрать диалог по сюжету на фото">
                   📷 Фото для сюжета
                 </button>
-                <span class="dialogue-hint dialogue-photo__hint">Диалог будет составлен по сцене на фото. Можно вставить из буфера (Ctrl/Cmd+V в поле промпта). Текст-задание выше — необязательное уточнение.</span>
+                <button type="button" id="btnPasteDialoguePhoto" class="btn btn-secondary btn-small" title="Вставить фото из буфера обмена">
+                  📋 Из буфера
+                </button>
+                <span class="dialogue-hint dialogue-photo__hint">Диалог будет составлен по сцене на фото (или вставьте из буфера). Текст-задание выше — необязательное уточнение.</span>
                 <div class="dialogue-photo__preview" id="dialoguePhotoPreview" hidden>
                   <img id="dialoguePhotoThumb" class="dialogue-photo__thumb" alt="Фото для сюжета" />
                   <button type="button" id="btnRemoveDialoguePhoto" class="btn btn-danger btn-small" title="Убрать фото">✕</button>
@@ -396,18 +399,20 @@
                 <span id="dialoguePromptSaveStatus" class="style-prompt-status" aria-live="polite"></span>
               </div>
               <div class="dialogue-gen-options" id="dialogueGenOptions">
-                <label class="dialogue-gen-option" id="dialogueGenMessageCountRow" hidden>
-                  <span class="dialogue-gen-option__label">Сообщений</span>
-                  <select id="dialogueMessageCount" class="select select--compact" title="Не больше N сообщений">
-                    <option value="10" selected>до 10</option>
-                    <option value="15">до 15</option>
-                    <option value="20">до 20</option>
-                    <option value="25">до 25</option>
-                    <option value="30">до 30</option>
-                    <option value="40">до 40</option>
-                    <option value="50">до 50</option>
-                    <option value="60">до 60</option>
-                  </select>
+                <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueGenMessageCountRow" hidden>
+                  <span class="dialogue-gen-option__label">≈ реплик</span>
+                  <input
+                    type="range"
+                    id="dialogueMessageCount"
+                    class="dialogue-gen-option__range"
+                    min="4"
+                    max="40"
+                    step="1"
+                    value="10"
+                    title="Примерное число сообщений в диалоге"
+                  />
+                  <output id="dialogueMessageCountValue" class="dialogue-gen-option__value" for="dialogueMessageCount">10</output>
+                  <span id="dialogueMessageCountHint" class="dialogue-hint dialogue-gen-option__hint" aria-live="polite"></span>
                 </label>
                 <label class="dialogue-gen-option dialogue-gen-option--wide" id="dialogueModelOption">
                   <span class="dialogue-gen-option__label">Модель</span>

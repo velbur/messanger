@@ -579,21 +579,27 @@ export const normalizeGenerationOptions = ({
   const fromPrompt = parsePromptGenerationLimits(prompt);
   const normalizedMode = normalizeContentMode(mode);
 
+  const mc = Number(messageCount);
+  const hasExplicitMc = Number.isFinite(mc) && mc > 0;
+
   let resolvedTargetDuration = null;
   if (storyVisual) {
     const td = Number(targetDurationSec);
-    resolvedTargetDuration =
-      Number.isFinite(td) && td >= 25
-        ? Math.min(120, Math.round(td))
-        : fromPrompt.targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC;
+    if (Number.isFinite(td) && td >= 25) {
+      resolvedTargetDuration = Math.min(120, Math.round(td));
+    } else if (hasExplicitMc) {
+      // Ориентир длительности из числа реплик — чтобы число планируемых сцен было согласовано.
+      resolvedTargetDuration = Math.max(25, Math.min(120, Math.round(mc * 3)));
+    } else {
+      resolvedTargetDuration = fromPrompt.targetDurationSec ?? DEFAULT_STORY_TARGET_DURATION_SEC;
+    }
   }
 
-  const mc = Number(messageCount);
   let resolvedMessageCount;
-  if (storyVisual && resolvedTargetDuration) {
-    resolvedMessageCount = deriveMessageCountLimitFromTargetSec(resolvedTargetDuration);
-  } else if (Number.isFinite(mc) && mc > 0) {
+  if (hasExplicitMc) {
     resolvedMessageCount = Math.min(Math.round(mc), 80);
+  } else if (storyVisual && resolvedTargetDuration) {
+    resolvedMessageCount = deriveMessageCountLimitFromTargetSec(resolvedTargetDuration);
   } else {
     resolvedMessageCount = fromPrompt.messageCount;
   }
