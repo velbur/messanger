@@ -10,8 +10,13 @@ const DEFAULT_CONVERSATION = path.join(PROJECT_ROOT, "src/default-conversation.j
 const BUNDLE_OUT_DIR = path.join(PROJECT_ROOT, ".cache/remotion-bundle");
 const META_FILE = path.join(BUNDLE_OUT_DIR, ".bundle-meta.json");
 
+// По умолчанию дисковый бандл-кэш ВЫКЛЮЧЕН: он протухал между деплоями (рендер собирался
+// из старого .cache/remotion-bundle, игнорируя новый код). Каждый процесс рендера пересобирает
+// бандл из актуальных исходников; внутри процесса он всё равно кэшируется в памяти (собирается
+// один раз на серию). Это НЕ касается кэша картинок/анимации/depth — они хранятся отдельно.
+// Чтобы вернуть дисковый кэш: BUNDLE_CACHE=1.
 const isBundleCacheDisabled = () =>
-  ["0", "false", "no"].includes((process.env.BUNDLE_CACHE ?? "1").trim().toLowerCase());
+  !["1", "true", "yes"].includes((process.env.BUNDLE_CACHE ?? "0").trim().toLowerCase());
 
 /** @param {string} dir */
 const walkFiles = async (dir, files = []) => {

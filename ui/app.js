@@ -117,6 +117,12 @@ const apiStatusContent = document.getElementById("apiStatusContent");
 const btnRefreshApiStatus = document.getElementById("btnRefreshApiStatus");
 const dialogueTitleInput = document.getElementById("dialogueTitleInput");
 const dialoguePromptInput = document.getElementById("dialoguePromptInput");
+const dialoguePhotoInput = document.getElementById("dialoguePhotoInput");
+const btnAttachDialoguePhoto = document.getElementById("btnAttachDialoguePhoto");
+const btnRemoveDialoguePhoto = document.getElementById("btnRemoveDialoguePhoto");
+const dialoguePhotoPreview = document.getElementById("dialoguePhotoPreview");
+const dialoguePhotoThumb = document.getElementById("dialoguePhotoThumb");
+const dialoguePhotoStatus = document.getElementById("dialoguePhotoStatus");
 const dialogueRefinePromptInput = document.getElementById("dialogueRefinePromptInput");
 const dialogueTitleHint = document.getElementById("dialogueTitleHint");
 const dialogueMessageCount = document.getElementById("dialogueMessageCount");
@@ -8209,6 +8215,100 @@ const autoSaveCurrentDialogue = async () => {
   }
 };
 
+// ── Фото для сюжета: генерация диалога по сцене на картинке ──
+let dialoguePhotoDataUrl = "";
+const MAX_DIALOGUE_PHOTO_PX = 1024;
+
+// Ужимаем фото до ~1024px и JPEG, чтобы не гонять мегабайты в vision-модель.
+const downscalePhotoDataUrl = (dataUrl) =>
+  new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_DIALOGUE_PHOTO_PX / Math.max(img.width, img.height));
+      if (scale >= 1) {
+        resolve(dataUrl);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+
+const updateDialoguePhotoUi = () => {
+  const has = Boolean(dialoguePhotoDataUrl);
+  if (dialoguePhotoPreview) {
+    dialoguePhotoPreview.hidden = !has;
+  }
+  if (dialoguePhotoThumb) {
+    dialoguePhotoThumb.src = has ? dialoguePhotoDataUrl : "";
+  }
+  if (btnAttachDialoguePhoto) {
+    btnAttachDialoguePhoto.textContent = has ? "📷 Заменить фото" : "📷 Фото для сюжета";
+  }
+};
+
+const clearDialoguePhoto = () => {
+  dialoguePhotoDataUrl = "";
+  if (dialoguePhotoInput) {
+    dialoguePhotoInput.value = "";
+  }
+  if (dialoguePhotoStatus) {
+    dialoguePhotoStatus.textContent = "";
+  }
+  updateDialoguePhotoUi();
+};
+
+const applyDialoguePhotoFile = async (file) => {
+  if (!file || !file.type.startsWith("image/")) {
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = "Нужен файл изображения";
+    }
+    return;
+  }
+  try {
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = "Обработка фото…";
+    }
+    const raw = String((await readFileAsDataUrl(file)) || "");
+    dialoguePhotoDataUrl = await downscalePhotoDataUrl(raw);
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = "Фото прикреплено — диалог соберётся по нему";
+    }
+    updateDialoguePhotoUi();
+  } catch (err) {
+    if (dialoguePhotoStatus) {
+      dialoguePhotoStatus.textContent = err instanceof Error ? err.message : String(err);
+    }
+  }
+};
+
+btnAttachDialoguePhoto?.addEventListener("click", () => dialoguePhotoInput?.click());
+btnRemoveDialoguePhoto?.addEventListener("click", clearDialoguePhoto);
+dialoguePhotoInput?.addEventListener("change", () => {
+  const file = dialoguePhotoInput.files?.[0];
+  if (file) {
+    applyDialoguePhotoFile(file);
+  }
+});
+
+// Вставка фото из буфера (Ctrl/Cmd+V) в поле промпта → фото для сюжета.
+// Срабатывает раньше глобального обработчика вставки в слоты и гасит его,
+// текстовую вставку не трогаем.
+dialoguePromptInput?.addEventListener("paste", (e) => {
+  const file = getClipboardImageFile(e.clipboardData);
+  if (!file) {
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  applyDialoguePhotoFile(file);
+});
+
 const generateDialogueFromPrompt = async () => {
   if (!canGenerateDialogue()) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — ChatGPT через OpenRouter)");
@@ -8219,12 +8319,13 @@ const generateDialogueFromPrompt = async () => {
   }
 
   const prompt = dialoguePromptInput?.value.trim() ?? "";
-  if (!prompt) {
-    throw new Error("Введите промпт диалога");
+  if (!prompt && !dialoguePhotoDataUrl) {
+    throw new Error("Введите промпт диалога или приложите фото");
   }
 
   const body = {
     prompt,
+    ...(dialoguePhotoDataUrl ? {image: dialoguePhotoDataUrl} : {}),
     ...getDialogueGenOptions(),
     mode: editorKind,
   };

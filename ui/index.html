@@ -374,8 +374,20 @@
                 id="dialoguePromptInput"
                 class="textarea textarea--prompt"
                 spellcheck="false"
-                placeholder="Опишите часть истории, героев и финал сцены…"
+                placeholder="Опишите часть истории, героев и финал сцены… (или приложите фото ниже)"
               ></textarea>
+              <div class="dialogue-photo" id="dialoguePhotoRow">
+                <input type="file" id="dialoguePhotoInput" accept="image/*" hidden />
+                <button type="button" id="btnAttachDialoguePhoto" class="btn btn-secondary btn-small" title="Собрать диалог по сюжету на фото">
+                  📷 Фото для сюжета
+                </button>
+                <span class="dialogue-hint dialogue-photo__hint">Диалог будет составлен по сцене на фото. Можно вставить из буфера (Ctrl/Cmd+V в поле промпта). Текст-задание выше — необязательное уточнение.</span>
+                <div class="dialogue-photo__preview" id="dialoguePhotoPreview" hidden>
+                  <img id="dialoguePhotoThumb" class="dialogue-photo__thumb" alt="Фото для сюжета" />
+                  <button type="button" id="btnRemoveDialoguePhoto" class="btn btn-danger btn-small" title="Убрать фото">✕</button>
+                </div>
+                <span id="dialoguePhotoStatus" class="style-prompt-status" aria-live="polite"></span>
+              </div>
               <div id="preRenderChecklist" class="pre-render-checklist" hidden></div>
               <div class="actions actions--inline">
                 <button type="button" id="btnSaveDialoguePrompt" class="btn btn-secondary btn-small">

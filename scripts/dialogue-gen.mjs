@@ -835,6 +835,7 @@ const buildSystemPrompt = async ({
 
 const buildUserPrompt = async ({
   prompt,
+  hasImage = false,
   previousMessages,
   existingScenarios = null,
   imageCount = null,
@@ -844,6 +845,12 @@ const buildUserPrompt = async ({
   mode = "shorts",
   singleSpeaker = false,
 }) => {
+  const imageBrief = hasImage
+    ? language === "en"
+      ? "The user attached a photo. Study the scene on it (who is there, what happens, mood, setting) and build the story/chat around that scene. Invent fitting characters and a plot the photo implies."
+      : "Пользователь приложил фото. Разбери сцену на нём (кто на фото, что происходит, настроение, обстановка) и построй сюжет/переписку вокруг этой сцены. Придумай подходящих героев и историю, которую подсказывает фото."
+    : "";
+  const briefText = prompt.trim();
   const parts = [
     mode === "series"
       ? language === "en"
@@ -852,7 +859,12 @@ const buildUserPrompt = async ({
       : language === "en"
         ? "Write a standalone chat transcript from this brief:"
         : "Напиши самостоятельную переписку по этому заданию:",
-    prompt.trim(),
+    imageBrief,
+    hasImage && !briefText
+      ? language === "en"
+        ? "(No text brief — rely entirely on the photo.)"
+        : "(Текстового задания нет — опирайся полностью на фото.)"
+      : briefText,
     imageCountUserHint(imageCount, language),
     targetDurationSec != null
       ? targetDurationUserHint(targetDurationSec, language)
@@ -1501,6 +1513,7 @@ export const resolveGenerationVideoLayout = ({videoLayout, conversation, mode = 
 
 export const generateDialogue = async ({
   prompt,
+  image,
   videoLayout = "storyOverlay",
   textMode = "narration",
   previousMessages,
@@ -1520,8 +1533,9 @@ export const generateDialogue = async ({
   if (!llm) {
     throw new Error("Задайте OPENROUTER_API_KEY в docs/.env (диалоги — только ChatGPT через OpenRouter)");
   }
-  if (!prompt?.trim()) {
-    throw new Error("Промпт диалога обязателен");
+  const imageUrl = typeof image === "string" ? image.trim() : "";
+  if (!prompt?.trim() && !imageUrl) {
+    throw new Error("Нужен промпт диалога или картинка");
   }
 
   const resolvedTemperature = normalizeDialogueTemperature(temperature);
@@ -1562,6 +1576,7 @@ export const generateDialogue = async ({
   });
   const user = await buildUserPrompt({
     prompt: fullPrompt,
+    hasImage: Boolean(imageUrl),
     previousMessages: contextMessages,
     existingScenarios: normalizedMode === "series" ? undefined : existingScenarios,
     imageCount: gen.imageCount,
@@ -1572,6 +1587,15 @@ export const generateDialogue = async ({
     singleSpeaker: enforceSingleSpeaker,
   });
 
+  // Если приложена картинка — отправляем её vision-модели в том же user-сообщении,
+  // сюжет диалога строится по сцене на фото.
+  const userContent = imageUrl
+    ? [
+        {type: "text", text: user},
+        {type: "image_url", image_url: {url: imageUrl}},
+      ]
+    : user;
+
   const result = await runChatJsonGeneration({
     maxAttempts,
     completeJson: llm.completeJson,
@@ -1579,7 +1603,7 @@ export const generateDialogue = async ({
     temperature: resolvedTemperature,
     messages: [
       {role: "system", content: system},
-      {role: "user", content: user},
+      {role: "user", content: userContent},
     ],
     parseResult: (data) => {
       const {conversation, displayTitle} = parseGeneratedPayload(data, normalizedMode, {

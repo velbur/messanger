@@ -2364,6 +2364,7 @@ app.post("/api/dialogues/generate", async (req, res) => {
     await loadOpenRouterEnv();
     const {
       prompt,
+      image,
       dialogueStyle,
       videoLayout,
       previousMessages,
@@ -2380,8 +2381,11 @@ app.post("/api/dialogues/generate", async (req, res) => {
       textMode,
       temperature,
     } = req.body ?? {};
-    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
-      res.status(400).json({error: "Поле prompt обязательно"});
+    const promptText = typeof prompt === "string" ? prompt.trim() : "";
+    const imageUrl =
+      typeof image === "string" && image.startsWith("data:image/") ? image : "";
+    if (!promptText && !imageUrl) {
+      res.status(400).json({error: "Укажите промпт или приложите фото"});
       return;
     }
     if (!isDialogueLlmConfigured()) {
@@ -2425,7 +2429,8 @@ app.post("/api/dialogues/generate", async (req, res) => {
     }
 
     const result = await generateDialogue({
-      prompt,
+      prompt: promptText,
+      image: imageUrl || undefined,
       videoLayout: resolveRequestVideoLayout({videoLayout, dialogueStyle, mode}),
       textMode: textMode === "chat" ? "chat" : textMode === "narration" ? "narration" : undefined,
       previousMessages: mode === "series" ? contextMessages : undefined,
